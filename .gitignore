@@ -18,4 +18,5 @@ venv*
 *.pt
 *.pth
 .vscode
+.python-version
 README.rst
