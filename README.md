@@ -31,10 +31,10 @@ Install the Python logger by running
 pip install graphsignal
 ```
 
-Or clone and install the [GitHub repository](https://github.com/graphsignal/graphsignal-python).
+Or clone and install the [GitHub repository](https://github.com/graphsignal/graphsignal).
 
 ```
-git clone https://github.com/graphsignal/graphsignal-python.git
+git clone https://github.com/graphsignal/graphsignal.git
 python setup.py install
 ```
 
@@ -140,7 +140,7 @@ sess.log_prediction(output_data=output)
 sess.log_metric('my_metric', 1.2)
 ```
 
-See more [examples](https://github.com/graphsignal/graphsignal-python/tree/main/examples).
+See more [examples](https://github.com/graphsignal/graphsignal/tree/main/examples).
 
 
 ## Performance
