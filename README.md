@@ -3,7 +3,7 @@
 
 ## Overview
 
-Graphsignal is an observability platform for monitoring and troubleshooting production machine learning applications. It helps ML engineers, MLOps teams and data scientists to quickly address issues with data and models as well as proactively analyse model performance and reliability. Learn more at [graphsignal.ai](https://graphsignal.ai).
+Graphsignal is an observability platform for monitoring and troubleshooting production machine learning applications. It helps ML engineers, MLOps teams and data scientists to quickly address issues with data and models as well as proactively analyze model performance and availability. Learn more at [graphsignal.ai](https://graphsignal.ai).
 
 
 ## AI Observability
