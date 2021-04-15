@@ -33,20 +33,20 @@ class UploaderTest(unittest.TestCase):
 
     @patch.object(Uploader, 'post_json')
     def test_flush(self, mocked_post_json):
-        graphsignal._get_uploader().upload_batch({'m1': 1})
+        graphsignal._get_uploader().upload_window({'m1': 1})
         graphsignal._get_uploader().flush()
 
-        mocked_post_json.assert_called_once_with('batches', [{'m1': 1}])
-        self.assertEqual(len(graphsignal._get_uploader().buffer['batches']), 0)
+        mocked_post_json.assert_called_once_with('windows', [{'m1': 1}])
+        self.assertEqual(len(graphsignal._get_uploader().buffer['windows']), 0)
 
     @patch.object(Uploader, 'post_json')
     def test_flush_in_thread(self, mocked_post_json):
-        graphsignal._get_uploader().upload_batch({'m1': 1})
+        graphsignal._get_uploader().upload_window({'m1': 1})
         graphsignal._get_uploader().flush_in_thread()
         graphsignal.tick()
 
-        mocked_post_json.assert_called_once_with('batches', [{'m1': 1}])
-        self.assertEqual(len(graphsignal._get_uploader().buffer['batches']), 0)
+        mocked_post_json.assert_called_once_with('windows', [{'m1': 1}])
+        self.assertEqual(len(graphsignal._get_uploader().buffer['windows']), 0)
 
     @patch.object(Uploader, 'post_json')
     def test_flush_fail(self, mocked_post_json):
@@ -54,11 +54,11 @@ class UploaderTest(unittest.TestCase):
             raise URLError("Ex1")
         mocked_post_json.side_effect = side_effect
 
-        graphsignal._get_uploader().upload_batch({'m1': 1})
-        graphsignal._get_uploader().upload_batch({'m2': 2})
+        graphsignal._get_uploader().upload_window({'m1': 1})
+        graphsignal._get_uploader().upload_window({'m2': 2})
         graphsignal._get_uploader().flush()
 
-        self.assertEqual(len(graphsignal._get_uploader().buffer['batches']), 2)
+        self.assertEqual(len(graphsignal._get_uploader().buffer['windows']), 2)
 
     def test_post_json(self):
         graphsignal._get_uploader().collector_url = 'http://localhost:5005'

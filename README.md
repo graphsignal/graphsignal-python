@@ -57,19 +57,22 @@ To get an API key, sign up for a free trial account at [graphsignal.ai](https://
 
 ### Logging session
 
-Get logging session for a deployed model identified by model name and optional deployment name.
-
-Multiple sessions can be used in parallel when in case of multi-model scrips or servers.
+Get logging session for a deployed model identified by model name and deployment name. Multiple sessions can be used in parallel in case of multi-model scrips or servers.
 
 ```python
-sess = graphsignal.session(model_name='my_model_name', deployment_name='production')
+sess = graphsignal.session(model_name='my_model', deployment_name='production')
 ```
 
-Optionally set model attributes. Some system attributes, such as Python version and OS are added automatically.
+If a model is versioned you can set the version as a model attribute.
+
+Set model attributes.
 
 ```python
 sess.set_attribute('my attribute', 'value123')
 ```
+
+Some system attributes, such as Python version and OS are added automatically.
+
 
 ### Prediction Logging
 
@@ -145,7 +148,7 @@ See more [examples](https://github.com/graphsignal/graphsignal/tree/main/example
 
 ## Performance
 
-When logging predictions, the data is batched and only when certain time interval or batch size conditions are met, data statistics are computed and and **asynchronously** sent along with a few sample and outlier data instances.
+When logging predictions, the data is windowed and only when certain time interval or window size conditions are met, data statistics are computed and and **asynchronously** sent along with a few sample and outlier data instances.
 
 Since only data statistics are sent to our servers, there is **no limitation** on logged data size and it doesn't have a direct effect on logging performance.
 

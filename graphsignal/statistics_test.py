@@ -8,7 +8,7 @@ import pprint
 
 import graphsignal
 from graphsignal import statistics as ds
-from graphsignal.batches import Metric
+from graphsignal.windows import Metric
 from graphsignal.predictions import Prediction
 
 logger = logging.getLogger('graphsignal')

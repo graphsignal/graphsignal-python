@@ -13,7 +13,7 @@ RESERVOIR_SIZE = 100
 HISTOGRAM_BIN_COUNT = 10
 
 
-class Batch(object):
+class Window(object):
     __slots__ = [
         'model',
         'metrics',
@@ -55,7 +55,7 @@ class Batch(object):
         event_dicts = [event.to_dict()
                        for event in self.events] if self.events else None
 
-        batch_dict = {
+        window_dict = {
             'model': self.model.to_dict(),
             'metrics': metric_dicts,
             'samples': sample_dicts,
@@ -63,11 +63,11 @@ class Batch(object):
             'timestamp': self.timestamp
         }
 
-        for key in list(batch_dict):
-            if batch_dict[key] is None:
-                del batch_dict[key]
+        for key in list(window_dict):
+            if window_dict[key] is None:
+                del window_dict[key]
 
-        return batch_dict
+        return window_dict
 
     def __str__(self):
         report = []

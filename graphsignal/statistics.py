@@ -8,7 +8,7 @@ from scipy.stats import skew, kurtosis
 from sklearn.neighbors import LocalOutlierFactor
 
 import graphsignal
-from graphsignal.batches import Metric, Sample
+from graphsignal.windows import Metric, Sample
 
 logger = logging.getLogger('graphsignal')
 _rand = np.random.RandomState(int(time.time()))
@@ -39,28 +39,28 @@ def estimate_size(data):
     return 0
 
 
-def compute_metrics(prediction_batch):
+def compute_metrics(prediction_window):
     start_ts = time.time()
     metrics = []
     samples = []
 
-    if len(prediction_batch) == 0:
+    if len(prediction_window) == 0:
         return metrics, samples
 
-    last_timestamp = max([p.timestamp for p in prediction_batch if p])
+    last_timestamp = max([p.timestamp for p in prediction_window if p])
 
     # convert data to 2d
-    input_data_batch = [(p.input_data, p.timestamp)
-                        for p in prediction_batch if p.input_data is not None]
-    input_data2d, input_timestamps = _convert_batch_to_2d(input_data_batch)
+    input_data_window = [(p.input_data, p.timestamp)
+                        for p in prediction_window if p.input_data is not None]
+    input_data2d, input_timestamps = _convert_window_to_2d(input_data_window)
 
-    output_data_batch = [(p.output_data, p.timestamp)
-                         for p in prediction_batch if p.output_data is not None]
-    output_data2d, output_timestamps = _convert_batch_to_2d(output_data_batch)
+    output_data_window = [(p.output_data, p.timestamp)
+                         for p in prediction_window if p.output_data is not None]
+    output_data2d, output_timestamps = _convert_window_to_2d(output_data_window)
 
-    context_data_batch = [(p.context_data, p.timestamp)
-                          for p in prediction_batch if p.context_data is not None]
-    context_data2d, _ = _convert_batch_to_2d(context_data_batch)
+    context_data_window = [(p.context_data, p.timestamp)
+                          for p in prediction_window if p.context_data is not None]
+    context_data2d, _ = _convert_window_to_2d(context_data_window)
 
     if input_data2d is None and output_data2d is None:
         logger.warning('Provided empty data, nothing to compute')
@@ -426,22 +426,22 @@ def _create_csv(data, columns):
     return '\n'.join(rows)
 
 
-def _convert_batch_to_2d(data_batch):
-    if data_batch is None:
+def _convert_window_to_2d(data_window):
+    if data_window is None:
         return None
 
-    data2d_batch = []
-    for data, timestamp in data_batch:
+    data2d_window = []
+    for data, timestamp in data_window:
         data2d = _convert_to_2d(data)
         if data2d is None:
             return None
-        data2d_batch.append((data2d, np.full((data2d.shape[0],), timestamp)))
+        data2d_window.append((data2d, np.full((data2d.shape[0],), timestamp)))
 
-    if len(data2d_batch) > 0:
+    if len(data2d_window) > 0:
         data2d = pd.concat(
-            [data2d for d, _ in data2d_batch], ignore_index=True)
+            [data2d for d, _ in data2d_window], ignore_index=True)
         timestamps = np.concatenate(
-            [timestamps for _, timestamps in data2d_batch])
+            [timestamps for _, timestamps in data2d_window])
         if not data2d.empty:
             return data2d, timestamps
 

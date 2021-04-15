@@ -10,7 +10,7 @@ from graphsignal import statistics
 from graphsignal import system
 from graphsignal.uploader import Uploader
 from graphsignal.predictions import Prediction
-from graphsignal.batches import Batch, Model, Metric, Event
+from graphsignal.windows import Window, Model, Metric, Event
 from graphsignal.spans import Span
 
 logger = logging.getLogger('graphsignal')
@@ -19,9 +19,9 @@ MAX_MODEL_ATTRIBUTES = 10
 MAX_METRICS = 50
 MAX_EVENTS = 50
 
-MIN_BATCH_SIZE = 50
-MIN_BATCH_DURATION = 120
-MAX_BATCH_DURATION = 600
+MIN_WINDOW_SIZE = 50
+MIN_WINDOW_DURATION = 120
+MAX_WINDOW_DURATION = 600
 
 _session_index = {}
 _session_index_lock = threading.Lock()
@@ -32,10 +32,10 @@ class Session(object):
         '_model',
         '_model_attributes',
         '_metric_index',
-        '_prediction_batch',
-        '_event_batch',
-        '_batch_start_time',
-        '_batch_size',
+        '_prediction_window',
+        '_event_window',
+        '_window_start_time',
+        '_window_size',
         '_update_lock',
         '_is_updated',
         '_upload_timer'
@@ -45,20 +45,20 @@ class Session(object):
         self._model = Model(name=model_name, deployment=deployment_name)
         self._model_attributes = {}
         self._update_lock = threading.Lock()
-        self._reset_batch()
+        self._reset_window()
         self._add_system_attributes()
 
-    def _reset_batch(self):
+    def _reset_window(self):
         self._metric_index = {}
-        self._prediction_batch = []
-        self._event_batch = []
-        self._batch_start_time = time.time()
-        self._batch_size = 0
+        self._prediction_window = []
+        self._event_window = []
+        self._window_start_time = time.time()
+        self._window_size = 0
         self._is_updated = False
 
     def _set_updated(self):
         self._is_updated = True
-        if self._upload_batch():
+        if self._upload_window():
             graphsignal._get_uploader().flush_in_thread()
 
     def set_attribute(self, name=None, value=None):
@@ -133,12 +133,12 @@ class Session(object):
             logger.error('Data type \'%s\' is not supported', output_type)
             return
 
-        self._batch_size += max(
+        self._window_size += max(
             statistics.estimate_size(input_data),
             statistics.estimate_size(output_type))
 
         with self._update_lock:
-            self._prediction_batch.append(Prediction(
+            self._prediction_window.append(Prediction(
                 input_data=input_data,
                 input_type=Prediction.data_type(input_type),
                 output_data=output_data,
@@ -231,7 +231,7 @@ class Session(object):
                 logger.error('invalid attributes format, expecting dict')
                 return
 
-        if len(self._event_batch) >= MAX_EVENTS:
+        if len(self._event_window) >= MAX_EVENTS:
             logger.error('too many events, max={0}'.format(MAX_EVENTS))
             return
 
@@ -259,7 +259,7 @@ class Session(object):
                 timestamp=actual_timestamp)
             for name, value in attributes.items():
                 event.add_attribute(name, value)
-            self._event_batch.append(event)
+            self._event_window.append(event)
 
         self._set_updated()
 
@@ -278,58 +278,58 @@ class Session(object):
 
         return Span(self)
 
-    def _upload_batch(self, force=False):
+    def _upload_window(self, force=False):
         if not self._is_updated:
             return False
 
-        # check if current batch should be uploaded
+        # check if current window should be uploaded
         if not force:
-            batch_duration = time.time() - self._batch_start_time
-            if batch_duration < MIN_BATCH_DURATION:
+            window_duration = time.time() - self._window_start_time
+            if window_duration < MIN_WINDOW_DURATION:
                 return False
-            if (self._batch_size < MIN_BATCH_SIZE and
-                    batch_duration < MAX_BATCH_DURATION):
+            if (self._window_size < MIN_WINDOW_SIZE and
+                    window_duration < MAX_WINDOW_DURATION):
                 return False
 
         # reset
         with self._update_lock:
             metric_index = self._metric_index
-            prediction_batch = self._prediction_batch
-            events_batch = self._event_batch
-            self._reset_batch()
+            prediction_window = self._prediction_window
+            events_window = self._event_window
+            self._reset_window()
 
-        # initialize batch object
-        batch = Batch()
+        # initialize window object
+        window = Window()
 
-        batch.model = self._model
+        window.model = self._model
         if self._model_attributes is not None:
             for name, value in self._model_attributes.items():
-                batch.model.add_attribute(name, value)
+                window.model.add_attribute(name, value)
 
         # add user defined metrics
         user_metrics = metric_index.values()
         for metric in user_metrics:
-            batch.add_metric(metric)
+            window.add_metric(metric)
 
         # add prediction count metric
-        last_timestamp = max([p.timestamp for p in prediction_batch if p]) if len(prediction_batch) > 0 else None
+        last_timestamp = max([p.timestamp for p in prediction_window if p]) if len(prediction_window) > 0 else None
         prediction_count_metric = Metric(
             dataset=Metric.DATASET_SYSTEM,
             name='prediction_count',
             timestamp=last_timestamp)
-        prediction_count_metric.set_gauge(len(prediction_batch))
-        batch.add_metric(prediction_count_metric)
+        prediction_count_metric.set_gauge(len(prediction_window))
+        window.add_metric(prediction_count_metric)
 
         # add computed data metrics
         try:
             data_metrics, data_samples = statistics.compute_metrics(
-                prediction_batch)
+                prediction_window)
             if data_metrics is not None and len(data_metrics) > 0:
                 for metric in data_metrics:
-                    batch.add_metric(metric)
+                    window.add_metric(metric)
             if data_samples is not None and len(data_samples) > 0:
                 for sample in data_samples:
-                    batch.add_sample(sample)
+                    window.add_sample(sample)
         except Exception:
             logger.error(
                 'Unable to compute data statistics', exc_info=True)
@@ -342,7 +342,7 @@ class Session(object):
                     dataset=Metric.DATASET_SYSTEM,
                     name='process_memory_usage')
                 vm_rss_metric.set_gauge(vm_rss, unit=Metric.UNIT_KILOBYTE)
-                batch.add_metric(vm_rss_metric)
+                window.add_metric(vm_rss_metric)
 
             vm_size = system.vm_size()
             if vm_size is not None:
@@ -350,21 +350,21 @@ class Session(object):
                     dataset=Metric.DATASET_SYSTEM,
                     name='process_virtual_memory')
                 vm_size_metric.set_gauge(vm_size, unit=Metric.UNIT_KILOBYTE)
-                batch.add_metric(vm_size_metric)
+                window.add_metric(vm_size_metric)
 
         # finalize metrics
-        for metric in batch.metrics:
+        for metric in window.metrics:
             metric.finalize()
 
         # add events
-        for event in events_batch:
-            batch.add_event(event)
+        for event in events_window:
+            window.add_event(event)
 
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug('Uploading batch:')
-            logger.debug(batch)
+            logger.debug('Uploading window:')
+            logger.debug(window)
 
-        graphsignal._get_uploader().upload_batch(batch.to_dict())
+        graphsignal._get_uploader().upload_window(window.to_dict())
         return True
 
     def _add_system_attributes(self):
@@ -404,7 +404,7 @@ def upload_all(force=False):
 
     uploaded = False
     for session in session_list:
-        if session._upload_batch(force=force):
+        if session._upload_window(force=force):
             uploaded = True
 
     return uploaded

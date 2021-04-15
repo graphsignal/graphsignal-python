@@ -35,8 +35,8 @@ class Uploader(object):
         with self.buffer_lock:
             self.buffer = {}
 
-    def upload_batch(self, batch):
-        self.upload_json('batches', [batch])
+    def upload_window(self, window):
+        self.upload_json('windows', [window])
 
     def upload_json(self, endpoint, data):
         with self.buffer_lock:

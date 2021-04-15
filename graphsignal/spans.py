@@ -1,7 +1,7 @@
 import logging
 import time
 
-from graphsignal.batches import Metric
+from graphsignal.windows import Metric
 from graphsignal import system
 
 logger = logging.getLogger('graphsignal')

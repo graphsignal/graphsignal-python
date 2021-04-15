@@ -3,12 +3,12 @@ import logging
 from unittest.mock import patch, Mock
 
 import graphsignal
-from graphsignal.batches import Metric
+from graphsignal.windows import Metric
 
 logger = logging.getLogger('graphsignal')
 
 
-class MetricsTest(unittest.TestCase):
+class WindowsTest(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
 
