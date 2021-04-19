@@ -1,4 +1,4 @@
-# Graphsignal Python Logger
+# Graphsignal Logger
 
 
 ## Overview
@@ -52,7 +52,7 @@ Configure the logger by specifying the API key.
 graphsignal.configure(api_key='my_api_key')
 ```
 
-To get an API key, sign up for a free trial account at [graphsignal.ai](https://graphsignal.ai). The key can then be found in your account's Configuration section.
+To get an API key, sign up for a free trial account at [graphsignal.ai](https://graphsignal.ai). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.ai/settings/api_keys) page.
 
 
 ### Logging session
@@ -118,7 +118,7 @@ import numpy as np
 from tensorflow import keras
 import graphsignal
 
-# Configure Graphsignal logger.
+# Configure Graphsignal logger
 graphsignal.configure(api_key='my_api_key')
 
 # Get logging session for the model
@@ -136,10 +136,10 @@ with sess.measure_latency()
     output = model.predict(x_test)
 
 # See supported data formats description at 
-# https://graphsignal.ai/docs/python-logger/supported-data-formats.
+# https://graphsignal.ai/docs/python-logger/supported-data-formats
 sess.log_prediction(output_data=output)
 
-# Report a metric.
+# Report a metric
 sess.log_metric('my_metric', 1.2)
 ```
 
