@@ -137,6 +137,15 @@ class StatisticsTest(unittest.TestCase):
         self.assertEqual([str(t) for t in data2d.dtypes.tolist()], [
                          'float64', 'float64', 'float64'])
 
+    def test_convert_window_to_2d(self):
+        d1 = np.asarray([[1, 3.1], [2, 4.1]])
+        d2 = np.asarray([[2, 3.2], [3, 5.1]])
+
+        data2d = ds._convert_window_to_2d([(d1, 1), (d2, 2)])
+        self.assertTrue(np.array_equal(data2d[0].to_numpy(), np.concatenate([d1, d2])))
+        self.assertTrue(np.array_equal(data2d[1], np.concatenate([[1, 1], [2, 2]])))
+
+
     @patch('time.time', return_value=1)
     def test_compute_metrics_empty(self, mocked_time):
         metrics, samples = ds.compute_metrics(

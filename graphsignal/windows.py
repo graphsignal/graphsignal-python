@@ -246,7 +246,7 @@ class Metric(object):
         m_max = max(values)
         m_range = m_max - min(values)
 
-        if m_range == 0:
+        if m_range == 0 or len(values) == 1:
             self.measurement.append(0)
             self.measurement.extend([values[0], len(values)])
             return

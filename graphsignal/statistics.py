@@ -438,12 +438,12 @@ def _convert_window_to_2d(data_window):
         data2d_window.append((data2d, np.full((data2d.shape[0],), timestamp)))
 
     if len(data2d_window) > 0:
-        data2d = pd.concat(
-            [data2d for d, _ in data2d_window], ignore_index=True)
-        timestamps = np.concatenate(
+        data2d_df = pd.concat(
+            [data2d for data2d, _ in data2d_window], ignore_index=True)
+        timestamps_arr = np.concatenate(
             [timestamps for _, timestamps in data2d_window])
-        if not data2d.empty:
-            return data2d, timestamps
+        if not data2d_df.empty:
+            return data2d_df, timestamps_arr
 
     return None, None
 
