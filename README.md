@@ -148,7 +148,7 @@ See more [examples](https://github.com/graphsignal/graphsignal/tree/main/example
 
 ## Performance
 
-When logging predictions, the data is windowed and only when certain time interval or window size conditions are met, data statistics are computed and and **asynchronously** sent along with a few sample and outlier data instances.
+When logging predictions, the data is windowed and only when certain time interval or window size conditions are met, data statistics are computed and sent along with a few sample and outlier data instances by the **background thread**.
 
 Since only data statistics are sent to our servers, there is **no limitation** on logged data size and it doesn't have a direct effect on logging performance.
 
