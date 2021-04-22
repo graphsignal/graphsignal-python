@@ -8,7 +8,7 @@ from scipy.stats import skew, kurtosis
 from sklearn.neighbors import LocalOutlierFactor
 
 import graphsignal
-from graphsignal.windows import Metric, Sample
+from graphsignal.windows import Metric, Sample, SamplePart
 
 logger = logging.getLogger('graphsignal')
 _rand = np.random.RandomState(int(time.time()))
@@ -67,9 +67,7 @@ def compute_metrics(prediction_window):
         return metrics, samples
 
     # add timestamp to context
-    timestamps = input_timestamps
-    if input_timestamps is not None:
-        timestamps = output_timestamps
+    timestamps = input_timestamps if input_timestamps is not None else output_timestamps
     if timestamps is not None:
         if context_data2d is None:
             context_data2d = pd.DataFrame(
@@ -277,23 +275,23 @@ def _compute_random_sample(
     if input_data2d is not None:
         sample_idx = _random_index(input_data2d)
         sample.set_size(len(sample_idx))
-        sample.add_segment(
+        sample.add_part(
             dataset='input',
-            format_=Sample.SEGMENT_FORMAT_CSV,
+            format_=SamplePart.FORMAT_CSV,
             data=_create_csv(
                 data=input_data2d.iloc[sample_idx, :].to_numpy().tolist(),
                 columns=_format_names(input_data2d.columns.values)))
         if output_data2d is not None and input_data2d.shape[0] == output_data2d.shape[0]:
-            sample.add_segment(
+            sample.add_part(
                 dataset='output',
-                format_=Sample.SEGMENT_FORMAT_CSV,
+                format_=SamplePart.FORMAT_CSV,
                 data=_create_csv(
                     data=output_data2d.iloc[sample_idx, :].to_numpy().tolist(),
                     columns=_format_names(output_data2d.columns.values)))
         if context_data2d is not None and input_data2d.shape[0] == context_data2d.shape[0]:
-            sample.add_segment(
+            sample.add_part(
                 dataset='context',
-                format_=Sample.SEGMENT_FORMAT_CSV,
+                format_=SamplePart.FORMAT_CSV,
                 data=_create_csv(
                     data=context_data2d.iloc[sample_idx,
                                              :].to_numpy().tolist(),
@@ -301,16 +299,16 @@ def _compute_random_sample(
     elif output_data2d is not None:
         sample_idx = _random_index(output_data2d)
         sample.set_size(len(sample_idx))
-        sample.add_segment(
+        sample.add_part(
             dataset='output',
-            format_=Sample.SEGMENT_FORMAT_CSV,
+            format_=SamplePart.FORMAT_CSV,
             data=_create_csv(
                 data=output_data2d.iloc[sample_idx, :].to_numpy().tolist(),
                 columns=_format_names(output_data2d.columns.values)))
         if context_data2d is not None and output_data2d.shape[0] == context_data2d.shape[0]:
-            sample.add_segment(
+            sample.add_part(
                 dataset='context',
-                format_=Sample.SEGMENT_FORMAT_CSV,
+                format_=SamplePart.FORMAT_CSV,
                 data=_create_csv(
                     data=context_data2d.iloc[sample_idx,
                                              :].to_numpy().tolist(),
@@ -333,24 +331,24 @@ def _compute_outlier_samples(
         sample_idx = _outlier_index(input_data2d)
         if sample_idx is not None and sample_idx.shape[0] > 0:
             sample.set_size(sample_idx.shape[0])
-            sample.add_segment(
+            sample.add_part(
                 dataset='input',
-                format_=Sample.SEGMENT_FORMAT_CSV,
+                format_=SamplePart.FORMAT_CSV,
                 data=_create_csv(
                     data=input_data2d.iloc[sample_idx, :].to_numpy().tolist(),
                     columns=_format_names(input_data2d.columns.values)))
             if output_data2d is not None and input_data2d.shape[0] == output_data2d.shape[0]:
-                sample.add_segment(
+                sample.add_part(
                     dataset='output',
-                    format_=Sample.SEGMENT_FORMAT_CSV,
+                    format_=SamplePart.FORMAT_CSV,
                     data=_create_csv(
                         data=output_data2d.iloc[sample_idx,
                                                 :].to_numpy().tolist(),
                         columns=_format_names(output_data2d.columns.values)))
             if context_data2d is not None and input_data2d.shape[0] == context_data2d.shape[0]:
-                sample.add_segment(
+                sample.add_part(
                     dataset='context',
-                    format_=Sample.SEGMENT_FORMAT_CSV,
+                    format_=SamplePart.FORMAT_CSV,
                     data=_create_csv(
                         data=context_data2d.iloc[sample_idx,
                                                  :].to_numpy().tolist(),
@@ -362,25 +360,25 @@ def _compute_outlier_samples(
         sample_idx = _outlier_index(output_data2d)
         if sample_idx is not None and sample_idx.shape[0] > 0:
             sample.set_size(sample_idx.shape[0])
-            sample.add_segment(
+            sample.add_part(
                 dataset='output',
-                format_=Sample.SEGMENT_FORMAT_CSV,
+                format_=SamplePart.FORMAT_CSV,
                 data=_create_csv(
                     data=output_data2d.iloc[sample_idx, :].to_numpy().tolist(),
                     columns=_format_names(output_data2d.columns.values)))
             if input_data2d is not None and output_data2d.shape[0] == input_data2d.shape[0]:
-                sample.add_segment(
+                sample.add_part(
                     dataset='input',
-                    format_=Sample.SEGMENT_FORMAT_CSV,
+                    format_=SamplePart.FORMAT_CSV,
                     data=_create_csv(
                         data=input_data2d.iloc[sample_idx,
                                                :].to_numpy().tolist(),
                         columns=_format_names(input_data2d.columns.values)),
                     insert_at=0)
             if context_data2d is not None and output_data2d.shape[0] == context_data2d.shape[0]:
-                sample.add_segment(
+                sample.add_part(
                     dataset='context',
-                    format_=Sample.SEGMENT_FORMAT_CSV,
+                    format_=SamplePart.FORMAT_CSV,
                     data=_create_csv(
                         data=context_data2d.iloc[sample_idx,
                                                  :].to_numpy().tolist(),

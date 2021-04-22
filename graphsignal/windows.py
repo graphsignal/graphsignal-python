@@ -101,13 +101,13 @@ class Window(object):
             report.append('Samples ({0})'.format(len(self.samples)))
             for sample in self.samples:
                 report.append('    {0}'.format(sample.name))
-                for segment in sample.segments:
+                for part in sample.parts:
                     report.append(
                         '        dataset: {0}'.format(
-                            segment.dataset))
-                    report.append('        format: {0}'.format(segment.format))
+                            part.dataset))
+                    report.append('        format: {0}'.format(part.format))
                     report.append(
-                        '        data size: {0}'.format(len(segment.data)))
+                        '        data size: {0}'.format(len(part.data)))
 
         return '\n'.join(report)
 
@@ -331,11 +331,13 @@ def _category_hash(category, n_components=256):
     return int(h, 16) % n_components
 
 
-class Segment(object):
+class SamplePart(object):
     __slots__ = [
         'dataset',
         'format',
         'data']
+
+    FORMAT_CSV = 'csv'
 
     def __init__(self, dataset, format_, data):
         self.dataset = dataset
@@ -354,35 +356,33 @@ class Sample(object):
     __slots__ = [
         'name',
         'size',
-        'segments',
+        'parts',
         'timestamp'
     ]
-
-    SEGMENT_FORMAT_CSV = 'csv'
 
     def __init__(self, name=None, size=None, timestamp=None):
         self.name = name
         self.size = size
-        self.segments = []
+        self.parts = []
         self.timestamp = timestamp if timestamp is not None else _now()
 
     def set_size(self, size):
         self.size = size
 
-    def add_segment(self, dataset, format_, data, insert_at=None):
+    def add_part(self, dataset, format_, data, insert_at=None):
         if insert_at:
-            self.segments.insert(insert_at, Segment(dataset, format_, data))
+            self.parts.insert(insert_at, SamplePart(dataset, format_, data))
         else:
-            self.segments.append(Segment(dataset, format_, data))
+            self.parts.append(SamplePart(dataset, format_, data))
 
     def to_dict(self):
-        segment_dicts = [segment.to_dict()
-                         for segment in self.segments] if self.segments else None
+        part_dicts = [part.to_dict()
+                         for part in self.parts] if self.parts else None
 
         sample_dict = {
             'name': self.name,
             'size': self.size,
-            'segments': segment_dicts,
+            'parts': part_dicts,
             'timestamp': self.timestamp
         }
 

@@ -78,7 +78,7 @@ Some system attributes, such as Python version and OS are added automatically.
 
 Log single or batch model prediction/inference data. Pass prediction data according to [supported data formats](https://graphsignal.ai/docs/python-logger/supported-data-formats) using `list`, `dict`, `pandas.DataFrame` or `numpy.ndarray`.
 
-Computed data statistics such as feature and class distributions are uploaded at certain intervals and on process exit. Additionally, random and outlier prediction instances may be uploaded. This can be disabled by setting `log_instances` option to `False` when configuring the logger.
+Computed data statistics such as feature and class distributions are uploaded at certain intervals and on process exit. Additionally, random and outlier prediction instances may be uploaded.
 
 
 ```python
@@ -153,15 +153,15 @@ When logging predictions, the data is windowed and only when certain time interv
 Since only data statistics are sent to our servers, there is **no limitation** on logged data size and it doesn't have a direct effect on logging performance.
 
 
-## Security
+## Security and Privacy
 
 Graphsignal logger can only open outbound connections to `log-api.graphsignal.ai` and send data, no inbound connections or commands are possible. 
 
-Please make sure to exclude or anonymize any personally identifiable information (PII) when logging model inputs and outputs. If necessary, sending prediction instances can be disabled by setting `log_instances` option to `False` when configuring the logger. This, however, can impair troubleshooting capabilities.
+Please make sure to exclude or anonymize any personally identifiable information (PII) when logging model data and events. If necessary, sending prediction instances can be disabled by setting `log_instances` option to `False` when configuring the logger. This, however, can impair root cause analysis capabilities.
 
 
 ## Troubleshooting
 
-To enable debug logging, add `debug_mode=True` to `configure()`. If the debug log doesn't give you any hints on how to fix a problem, please report it to our support team in your account's Support section.
+To enable debug logging, add `debug_mode=True` to `configure()`. If the debug log doesn't give you any hints on how to fix a problem, please report it to our support team via your account.
 
 In case of connection issues, please make sure outgoing connections to `log-api.graphsignal.ai` are allowed.

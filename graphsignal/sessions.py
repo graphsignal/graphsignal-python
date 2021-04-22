@@ -106,21 +106,19 @@ class Session(object):
         and outliers may be uploaded. This can be disabled by setting ``log_instances`` option
         to ``False`` when configuring the logger.
 
-        Please make sure to exclude or anonymize any personally identifiable information (PII).
-
         Args:
             input_data (:obj:`list` or :obj:`dict` or :obj:`numpy.ndarray` or :obj:`pandas.DataFrame`, optional):
-                Input data representation.
+                Input data instances.
             input_type (:obj:`str`, optional, default  is ``tabular``):
                 Type of the provided input data.
             output_data (:obj:`list` or :obj:`dict` or :obj:`numpy.ndarray` or :obj:`pandas.DataFrame`, optional):
-                Output data representation.
+                Output data instances.
             output_type (:obj:`str`, optional, default  is ``tabular``):
                 Type of the provided output data.
             context_data (:obj:`list` or :obj:`dict` or :obj:`numpy.ndarray` or :obj:`pandas.DataFrame`, optional):
-                Context data, such as user ID, feature ID or any other prediction or data related information.
-                It will be included in prediction samples and/or outliers. Context data is not monitored.
-                The number of rows/instances in ``context_data`` should match ``input_data`` and/or ``output_data``.
+                Context data for each prediction instance, such as feature ID or any other prediction related information.
+                Context data is not monitored, it is only included in prediction samples and/or outliers.
+                The number of rows in `context_data` should match `input_data` and/or `output_data` instances.
             actual_timestamp (:obj:`int`, optional, default is current timestamp):
                 Actual timestamp of the measurement, when different from current timestamp.
         '''

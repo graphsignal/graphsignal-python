@@ -743,7 +743,7 @@ class StatisticsTest(unittest.TestCase):
         self.assertEqual(
             samples_dict,
             [{'name': 'random_sample',
-              'segments': [{'data': 'f1,f2\n10,10\n20,20\n30,30',
+              'parts': [{'data': 'f1,f2\n10,10\n20,20\n30,30',
                             'dataset': 'input',
                             'format': 'csv'},
                            {'data': 'c1\n10\n20\n30',
@@ -755,7 +755,7 @@ class StatisticsTest(unittest.TestCase):
               'size': 3,
               'timestamp': 1},
              {'name': 'input_outliers',
-              'segments': [{'data': 'f1,f2\n1002,1002\n1001,1001',
+              'parts': [{'data': 'f1,f2\n1002,1002\n1001,1001',
                             'dataset': 'input',
                             'format': 'csv'},
                            {'data': 'c1\n1002\n1001',
@@ -767,7 +767,7 @@ class StatisticsTest(unittest.TestCase):
               'size': 2,
               'timestamp': 1},
              {'name': 'output_outliers',
-              'segments': [{'data': 'c1\n1002\n1001',
+              'parts': [{'data': 'c1\n1002\n1001',
                             'dataset': 'output',
                             'format': 'csv'},
                            {'data': 'f1,f2\n1002,1002\n1001,1001',
@@ -792,7 +792,7 @@ class StatisticsTest(unittest.TestCase):
         self.assertEqual(
             sample_dict,
             [{'name': 'random_sample',
-              'segments': [{'data': 'f1,f2\n1,2', 'dataset': 'input', 'format': 'csv'},
+              'parts': [{'data': 'f1,f2\n1,2', 'dataset': 'input', 'format': 'csv'},
                            {'data': 'c1\n3', 'dataset': 'output', 'format': 'csv'},
                            {'data': 'prediction_timestamp\n1',
                             'dataset': 'context',
@@ -816,7 +816,7 @@ class StatisticsTest(unittest.TestCase):
         self.assertEqual(
             sample_dict,
             [{'name': 'random_sample',
-              'segments': [{'data': 'f1,f2\n1,1', 'dataset': 'input', 'format': 'csv'},
+              'parts': [{'data': 'f1,f2\n1,1', 'dataset': 'input', 'format': 'csv'},
                            {'data': 'c1\n1', 'dataset': 'output', 'format': 'csv'},
                            {'data': 'prediction_timestamp\n1',
                             'dataset': 'context',
@@ -840,7 +840,7 @@ class StatisticsTest(unittest.TestCase):
         self.assertEqual(
             sample_dict,
             [{'name': 'random_sample',
-              'segments': [{'data': '0,1,2,3,4\nNone,nan,inf,nan,inf',
+              'parts': [{'data': '0,1,2,3,4\nNone,nan,inf,nan,inf',
                             'dataset': 'input',
                             'format': 'csv'},
                            {'data': '0,1,2,3,4\nNone,nan,inf,nan,inf',
