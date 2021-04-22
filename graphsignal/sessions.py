@@ -29,7 +29,8 @@ _session_index_lock = threading.Lock()
 
 class Session(object):
     __slots__ = [
-        '_model',
+        '_model_name',
+        '_model_deployment',
         '_model_attributes',
         '_metric_index',
         '_prediction_window',
@@ -42,7 +43,8 @@ class Session(object):
     ]
 
     def __init__(self, model_name, deployment_name=None):
-        self._model = Model(name=model_name, deployment=deployment_name)
+        self._model_name = model_name
+        self._model_deployment = deployment_name
         self._model_attributes = {}
         self._update_lock = threading.Lock()
         self._reset_window()
@@ -299,7 +301,10 @@ class Session(object):
         # initialize window object
         window = Window()
 
-        window.model = self._model
+        # set model
+        window.model = Model(
+            name=self._model_name,
+            deployment=self._model_deployment)
         if self._model_attributes is not None:
             for name, value in self._model_attributes.items():
                 window.model.add_attribute(name, value)
@@ -366,8 +371,8 @@ class Session(object):
         return True
 
     def _add_system_attributes(self):
-        self._model.add_attribute('Python', platform.python_version())
-        self._model.add_attribute('OS', platform.system())
+        self.set_attribute('Python', platform.python_version())
+        self.set_attribute('OS', platform.system())
 
 
 def get_session(model_name, deployment_name=None):
