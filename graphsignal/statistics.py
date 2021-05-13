@@ -8,6 +8,7 @@ from scipy.stats import skew, kurtosis
 from sklearn.neighbors import LocalOutlierFactor
 
 import graphsignal
+from graphsignal.predictions import Prediction, DataWindow
 from graphsignal.windows import Metric, Sample, SamplePart
 
 logger = logging.getLogger('graphsignal')
@@ -16,6 +17,7 @@ _rand = np.random.RandomState(int(time.time()))
 MAX_COLUMNS = 250
 RANDOM_SAMPLE_SIZE = 10
 OUTLIER_SAMPLE_SIZE = 10
+USER_DEFINED_SAMPLE_SIZE = 10
 MIN_INSTANCES_FOR_OUTLIER_DETECTION = 30
 
 
@@ -49,57 +51,76 @@ def compute_metrics(prediction_window):
 
     last_timestamp = max([p.timestamp for p in prediction_window if p])
 
-    # convert data to 2d
-    input_data_window = [(p.input_data, p.timestamp)
-                        for p in prediction_window if p.input_data is not None]
-    input_data2d, input_timestamps = _convert_window_to_2d(input_data_window)
+    prediction_inputs = [(p.input_data, p.ensure_sample, p.timestamp)
+                         for p in prediction_window if p.input_data is not None]
+    input_window = _concat_prediction_data(prediction_inputs)
 
-    output_data_window = [(p.output_data, p.timestamp)
-                         for p in prediction_window if p.output_data is not None]
-    output_data2d, output_timestamps = _convert_window_to_2d(output_data_window)
+    prediction_outputs = [(p.output_data, p.ensure_sample, p.timestamp)
+                          for p in prediction_window if p.output_data is not None]
+    output_window = _concat_prediction_data(prediction_outputs)
 
-    context_data_window = [(p.context_data, p.timestamp)
+    prediction_context = [(p.context_data, p.ensure_sample, p.timestamp)
                           for p in prediction_window if p.context_data is not None]
-    context_data2d, _ = _convert_window_to_2d(context_data_window)
+    context_window = _concat_prediction_data(prediction_context)
 
-    if input_data2d is None and output_data2d is None:
+    if input_window is None and output_window is None:
         logger.warning('Provided empty data, nothing to compute')
         return metrics, samples
 
-    # add timestamp to context
-    timestamps = input_timestamps if input_timestamps is not None else output_timestamps
-    if timestamps is not None:
-        if context_data2d is None:
-            context_data2d = pd.DataFrame(
-                data={'prediction_timestamp': timestamps})
-        elif timestamps.shape[0] == context_data2d.shape[0]:
-            context_data2d['prediction_timestamp'] = timestamps
+    # add timestamps to context
+    if context_window is not None:
+        if input_window is not None and context_window.size() == input_window.size():
+            context_window.data['prediction_timestamp'] = input_window.timestamp
+        elif output_window is not None and context_window.size() == output_window.size():
+            context_window.data['prediction_timestamp'] = output_window.timestamp
+    else:
+        if input_window:
+            context_window = DataWindow(data=pd.DataFrame(
+                data={'prediction_timestamp': input_window.timestamp}))
+        elif output_window:
+            context_window = DataWindow(data=pd.DataFrame(
+                data={'prediction_timestamp': output_window.timestamp}))
 
     # compute metrics
-    if input_data2d is not None:
+    if input_window is not None:
         metrics.extend(
             _compute_tabular_metrics(
-                input_data2d,
+                input_window,
                 Metric.DATASET_INPUT,
                 last_timestamp))
 
-    if output_data2d is not None:
+    if output_window is not None:
         metrics.extend(
             _compute_tabular_metrics(
-                output_data2d,
+                output_window,
                 Metric.DATASET_OUTPUT,
                 last_timestamp))
 
     # compute samples
     if graphsignal._get_config().log_instances:
         random_sample = _compute_random_sample(
-            input_data2d, output_data2d, context_data2d, last_timestamp)
+            input_window, output_window, context_window, last_timestamp)
         if random_sample:
             samples.append(random_sample)
-        outlier_samples = _compute_outlier_samples(
-            input_data2d, output_data2d, context_data2d, last_timestamp)
-        if outlier_samples is not None:
-            samples.extend(outlier_samples)
+
+        input_outlier_sample, input_outlier_metric = _compute_input_outlier_sample(
+            input_window, output_window, context_window, last_timestamp)
+        if input_outlier_sample is not None:
+            samples.append(input_outlier_sample)
+        if input_outlier_metric is not None:
+            metrics.append(input_outlier_metric)
+
+        output_outlier_sample, output_outlier_metric = _compute_output_outlier_sample(
+            input_window, output_window, context_window, last_timestamp)
+        if output_outlier_sample is not None:
+            samples.append(output_outlier_sample)
+        if output_outlier_metric is not None:
+            metrics.append(output_outlier_metric)
+
+        user_defined_sample = _compute_user_defined_sample(
+            input_window, output_window, context_window, last_timestamp)
+        if user_defined_sample is not None:
+            samples.append(user_defined_sample)
 
     logger.debug('Computing metrics and samples took %.3f sec',
                  time.time() - start_ts)
@@ -107,10 +128,10 @@ def compute_metrics(prediction_window):
     return metrics, samples
 
 
-def _compute_tabular_metrics(data2d, dataset, timestamp):
+def _compute_tabular_metrics(data_window, dataset, timestamp):
     metrics = []
 
-    instance_count = data2d.shape[0]
+    instance_count = data_window.data.shape[0]
 
     metric = Metric(
         dataset=dataset,
@@ -123,20 +144,20 @@ def _compute_tabular_metrics(data2d, dataset, timestamp):
         dataset=dataset,
         name='dimension_count',
         timestamp=timestamp)
-    metric.set_statistic(len(data2d.columns), instance_count)
+    metric.set_statistic(len(data_window.data.columns), instance_count)
     metrics.append(metric)
 
-    types = data2d.dtypes.tolist()
-    columns = _format_names(data2d.columns.values.tolist())
+    types = data_window.data.dtypes.tolist()
+    columns = _format_names(data_window.data.columns.values.tolist())
 
-    for column_index in range(min(data2d.shape[1], MAX_COLUMNS)):
+    for column_index in range(min(data_window.data.shape[1], MAX_COLUMNS)):
         column_name = columns[column_index]
         if column_name.lower() in ('timestamp', 'time', 'datetime', 'date'):
             continue
         column_type = types[column_index]
         if np.issubdtype(column_type, np.datetime64):
             continue
-        column_values = data2d[data2d.columns[column_index]].to_numpy()
+        column_values = data_window.data[data_window.data.columns[column_index]].to_numpy()
 
         if np.issubdtype(column_type, np.number):
             missing_count = np.count_nonzero(np.isnan(column_values))
@@ -270,150 +291,256 @@ def _compute_tabular_metrics(data2d, dataset, timestamp):
 
 
 def _compute_random_sample(
-        input_data2d, output_data2d, context_data2d, timestamp):
+        input_window, output_window, context_window, timestamp):
     sample = Sample(name='random_sample', timestamp=timestamp)
-    if input_data2d is not None:
-        sample_idx = _random_index(input_data2d)
-        sample.set_size(len(sample_idx))
+    if input_window is not None:
+        sample_idx = _random_index(input_window.data)
+        sample.set_size(sample_idx.shape[0])
+
         sample.add_part(
             dataset='input',
             format_=SamplePart.FORMAT_CSV,
             data=_create_csv(
-                data=input_data2d.iloc[sample_idx, :].to_numpy().tolist(),
-                columns=_format_names(input_data2d.columns.values)))
-        if output_data2d is not None and input_data2d.shape[0] == output_data2d.shape[0]:
+                data=input_window.data.iloc[sample_idx, :].to_numpy().tolist(),
+                columns=_format_names(input_window.data.columns.values)))
+
+        if output_window is not None and input_window.size() == output_window.size():
             sample.add_part(
                 dataset='output',
                 format_=SamplePart.FORMAT_CSV,
                 data=_create_csv(
-                    data=output_data2d.iloc[sample_idx, :].to_numpy().tolist(),
-                    columns=_format_names(output_data2d.columns.values)))
-        if context_data2d is not None and input_data2d.shape[0] == context_data2d.shape[0]:
+                    data=output_window.data.iloc[sample_idx, :].to_numpy(
+                    ).tolist(),
+                    columns=_format_names(output_window.data.columns.values)))
+
+        if context_window is not None and context_window.size() == input_window.size():
             sample.add_part(
                 dataset='context',
                 format_=SamplePart.FORMAT_CSV,
                 data=_create_csv(
-                    data=context_data2d.iloc[sample_idx,
-                                             :].to_numpy().tolist(),
-                    columns=_format_names(context_data2d.columns.values)))
-    elif output_data2d is not None:
-        sample_idx = _random_index(output_data2d)
-        sample.set_size(len(sample_idx))
+                    data=context_window.data.iloc[sample_idx,
+                                                  :].to_numpy().tolist(),
+                    columns=_format_names(context_window.data.columns.values)))
+    elif output_window is not None:
+        sample_idx = _random_index(output_window.data)
+        sample.set_size(sample_idx.shape[0])
+
         sample.add_part(
             dataset='output',
             format_=SamplePart.FORMAT_CSV,
             data=_create_csv(
-                data=output_data2d.iloc[sample_idx, :].to_numpy().tolist(),
-                columns=_format_names(output_data2d.columns.values)))
-        if context_data2d is not None and output_data2d.shape[0] == context_data2d.shape[0]:
+                data=output_window.data.iloc[sample_idx,
+                                             :].to_numpy().tolist(),
+                columns=_format_names(output_window.data.columns.values)))
+
+        if context_window is not None and context_window.size() == output_window.size():
             sample.add_part(
                 dataset='context',
                 format_=SamplePart.FORMAT_CSV,
                 data=_create_csv(
-                    data=context_data2d.iloc[sample_idx,
-                                             :].to_numpy().tolist(),
-                    columns=_format_names(context_data2d.columns.values)))
+                    data=context_window.data.iloc[sample_idx,
+                                                  :].to_numpy().tolist(),
+                    columns=_format_names(context_window.data.columns.values)))
 
     return sample
 
 
-def _random_index(data2d):
-    sample_size = min(data2d.shape[0], RANDOM_SAMPLE_SIZE)
-    return _rand.choice(data2d.shape[0], sample_size, replace=False)
+def _random_index(data):
+    sample_size = min(data.shape[0], RANDOM_SAMPLE_SIZE)
+    return _rand.choice(data.shape[0], sample_size, replace=False)
 
 
-def _compute_outlier_samples(
-        input_data2d, output_data2d, context_data2d, timestamp):
-    samples = []
+def _compute_input_outlier_sample(
+        input_window, output_window, context_window, timestamp):
+    if input_window is None:
+        return None, None
 
-    if input_data2d is not None:
+    metric = Metric(
+        dataset=Metric.DATASET_INPUT,
+        name='outlier_count',
+        timestamp=timestamp)
+
+    sample_idx, outlier_count = _outlier_index(input_window.data)
+    if sample_idx is not None and sample_idx.shape[0] > 0:
         sample = Sample(name='input_outliers', timestamp=timestamp)
-        sample_idx = _outlier_index(input_data2d)
-        if sample_idx is not None and sample_idx.shape[0] > 0:
-            sample.set_size(sample_idx.shape[0])
-            sample.add_part(
-                dataset='input',
-                format_=SamplePart.FORMAT_CSV,
-                data=_create_csv(
-                    data=input_data2d.iloc[sample_idx, :].to_numpy().tolist(),
-                    columns=_format_names(input_data2d.columns.values)))
-            if output_data2d is not None and input_data2d.shape[0] == output_data2d.shape[0]:
-                sample.add_part(
-                    dataset='output',
-                    format_=SamplePart.FORMAT_CSV,
-                    data=_create_csv(
-                        data=output_data2d.iloc[sample_idx,
-                                                :].to_numpy().tolist(),
-                        columns=_format_names(output_data2d.columns.values)))
-            if context_data2d is not None and input_data2d.shape[0] == context_data2d.shape[0]:
-                sample.add_part(
-                    dataset='context',
-                    format_=SamplePart.FORMAT_CSV,
-                    data=_create_csv(
-                        data=context_data2d.iloc[sample_idx,
-                                                 :].to_numpy().tolist(),
-                        columns=_format_names(context_data2d.columns.values)))
-            samples.append(sample)
+        sample.set_size(sample_idx.shape[0])
 
-    if output_data2d is not None:
-        sample = Sample(name='output_outliers', timestamp=timestamp)
-        sample_idx = _outlier_index(output_data2d)
-        if sample_idx is not None and sample_idx.shape[0] > 0:
-            sample.set_size(sample_idx.shape[0])
+        sample.add_part(
+            dataset='input',
+            format_=SamplePart.FORMAT_CSV,
+            data=_create_csv(
+                data=input_window.data.iloc[sample_idx, :].to_numpy(
+                ).tolist(),
+                columns=_format_names(input_window.data.columns.values)))
+
+        if output_window is not None and output_window.size() == input_window.size():
             sample.add_part(
                 dataset='output',
                 format_=SamplePart.FORMAT_CSV,
                 data=_create_csv(
-                    data=output_data2d.iloc[sample_idx, :].to_numpy().tolist(),
-                    columns=_format_names(output_data2d.columns.values)))
-            if input_data2d is not None and output_data2d.shape[0] == input_data2d.shape[0]:
-                sample.add_part(
-                    dataset='input',
-                    format_=SamplePart.FORMAT_CSV,
-                    data=_create_csv(
-                        data=input_data2d.iloc[sample_idx,
-                                               :].to_numpy().tolist(),
-                        columns=_format_names(input_data2d.columns.values)),
-                    insert_at=0)
-            if context_data2d is not None and output_data2d.shape[0] == context_data2d.shape[0]:
-                sample.add_part(
-                    dataset='context',
-                    format_=SamplePart.FORMAT_CSV,
-                    data=_create_csv(
-                        data=context_data2d.iloc[sample_idx,
-                                                 :].to_numpy().tolist(),
-                        columns=_format_names(context_data2d.columns.values)))
-            samples.append(sample)
+                    data=output_window.data.iloc[sample_idx,
+                                                    :].to_numpy().tolist(),
+                    columns=_format_names(output_window.data.columns.values)))
 
-    return samples
+        if context_window is not None and context_window.size() == input_window.size():
+            sample.add_part(
+                dataset='context',
+                format_=SamplePart.FORMAT_CSV,
+                data=_create_csv(
+                    data=context_window.data.iloc[sample_idx,
+                                                    :].to_numpy().tolist(),
+                    columns=_format_names(context_window.data.columns.values)))
+
+        metric.set_statistic(outlier_count, input_window.size())
+        return sample, metric
+    else:
+        metric.set_statistic(0, input_window.size())
+        return None, metric
 
 
-def _outlier_index(data2d):
-    if data2d.shape[0] < MIN_INSTANCES_FOR_OUTLIER_DETECTION:
-        return None
+def _compute_output_outlier_sample(
+        input_window, output_window, context_window, timestamp):
+    if output_window is None:
+        return None, None
 
-    numeric_data2d = data2d.select_dtypes(include=np.number).to_numpy()
-    if numeric_data2d.shape[1] == 0:
-        return None
+    metric = Metric(
+        dataset=Metric.DATASET_OUTPUT,
+        name='outlier_count',
+        timestamp=timestamp)
 
-    finite_numeric_data2d = numeric_data2d[np.isfinite(
-        numeric_data2d).all(axis=1)]
-    if finite_numeric_data2d.shape[0] < MIN_INSTANCES_FOR_OUTLIER_DETECTION:
-        return None
+    sample_idx, outlier_count = _outlier_index(output_window.data)
+    if sample_idx is not None and sample_idx.shape[0] > 0:
+        sample = Sample(name='output_outliers', timestamp=timestamp)
+        sample.set_size(sample_idx.shape[0])
+
+        if input_window is not None and input_window.size() == output_window.size():
+            sample.add_part(
+                dataset='input',
+                format_=SamplePart.FORMAT_CSV,
+                data=_create_csv(
+                    data=input_window.data.iloc[sample_idx,
+                                                :].to_numpy().tolist(),
+                    columns=_format_names(input_window.data.columns.values)),
+                insert_at=0)
+
+        sample.add_part(
+            dataset='output',
+            format_=SamplePart.FORMAT_CSV,
+            data=_create_csv(
+                data=output_window.data.iloc[sample_idx, :].to_numpy(
+                ).tolist(),
+                columns=_format_names(output_window.data.columns.values)))
+
+        if context_window is not None and context_window.size() == output_window.size():
+            sample.add_part(
+                dataset='context',
+                format_=SamplePart.FORMAT_CSV,
+                data=_create_csv(
+                    data=context_window.data.iloc[sample_idx,
+                                                    :].to_numpy().tolist(),
+                    columns=_format_names(context_window.data.columns.values)))
+
+        metric.set_statistic(outlier_count, output_window.size())
+        return sample, metric
+    else:
+        metric.set_statistic(0, input_window.size())
+        return None, metric
+
+
+def _outlier_index(data):
+    if data.shape[0] < MIN_INSTANCES_FOR_OUTLIER_DETECTION:
+        return None, 0
+
+    numeric_data = data.select_dtypes(include=np.number).to_numpy()
+    if numeric_data.shape[1] == 0:
+        return None, 0
+
+    finite_numeric_data = numeric_data[np.isfinite(
+        numeric_data).all(axis=1)]
+    if finite_numeric_data.shape[0] < MIN_INSTANCES_FOR_OUTLIER_DETECTION:
+        return None, 0
 
     try:
-        n_neighbors = min(finite_numeric_data2d.shape[0] - 1, 20)
+        n_neighbors = min(finite_numeric_data.shape[0] - 1, 20)
         lof = LocalOutlierFactor(n_neighbors=n_neighbors)
-        scores = lof.fit_predict(finite_numeric_data2d)
+        scores = lof.fit_predict(finite_numeric_data)
         factors = lof.negative_outlier_factor_
+
+        outlier_count = np.count_nonzero(scores == -1)
 
         top_factor_idx = np.argsort(factors)[0:OUTLIER_SAMPLE_SIZE]
         top_scores = scores[top_factor_idx]
-        return top_factor_idx[top_scores == -1]
+
+        return top_factor_idx[top_scores == -1], outlier_count
     except BaseException:
         logger.error('Error detecting outliers', exc_info=True)
 
-    return None
+    return None, 0
+
+
+def _compute_user_defined_sample(
+        input_window, output_window, context_window, timestamp):
+    sample = Sample(name='user_defined_sample', timestamp=timestamp)
+    if input_window is not None:
+        sample_idx = _user_defined_index(
+            input_window.data, input_window.ensure_sample)
+        if sample_idx.shape[0] == 0:
+            return None
+        sample.set_size(sample_idx.shape[0])
+
+        sample.add_part(
+            dataset='input',
+            format_=SamplePart.FORMAT_CSV,
+            data=_create_csv(
+                data=input_window.data.iloc[sample_idx, :].to_numpy().tolist(),
+                columns=_format_names(input_window.data.columns.values)))
+
+        if output_window is not None and output_window.size() == input_window.size():
+            sample.add_part(
+                dataset='output',
+                format_=SamplePart.FORMAT_CSV,
+                data=_create_csv(
+                    data=output_window.data.iloc[sample_idx, :].to_numpy(
+                    ).tolist(),
+                    columns=_format_names(output_window.data.columns.values)))
+
+        if context_window is not None and context_window.size() == input_window.size():
+            sample.add_part(
+                dataset='context',
+                format_=SamplePart.FORMAT_CSV,
+                data=_create_csv(
+                    data=context_window.data.iloc[sample_idx,
+                                                  :].to_numpy().tolist(),
+                    columns=_format_names(context_window.data.columns.values)))
+    elif output_window is not None:
+        sample_idx = _user_defined_index(
+            output_window.data, output_window.ensure_sample)
+        if sample_idx.shape[0] == 0:
+            return None
+        sample.set_size(sample_idx.shape[0])
+
+        sample.add_part(
+            dataset='output',
+            format_=SamplePart.FORMAT_CSV,
+            data=_create_csv(
+                data=output_window.data.iloc[sample_idx,
+                                             :].to_numpy().tolist(),
+                columns=_format_names(output_window.data.columns.values)))
+
+        if context_window is not None and context_window.size() == output_window.size():
+            sample.add_part(
+                dataset='context',
+                format_=SamplePart.FORMAT_CSV,
+                data=_create_csv(
+                    data=context_window.data.iloc[sample_idx,
+                                                  :].to_numpy().tolist(),
+                    columns=_format_names(context_window.data.columns.values)))
+
+    return sample
+
+
+def _user_defined_index(data, ensure_sample):
+    return data[ensure_sample][0:USER_DEFINED_SAMPLE_SIZE].index.values
 
 
 def _create_csv(data, columns):
@@ -424,26 +551,34 @@ def _create_csv(data, columns):
     return '\n'.join(rows)
 
 
-def _convert_window_to_2d(data_window):
-    if data_window is None:
+def _concat_prediction_data(prediction_data):
+    if prediction_data is None:
         return None
 
     data2d_window = []
-    for data, timestamp in data_window:
+    for data, ensure_sample, timestamp in prediction_data:
         data2d = _convert_to_2d(data)
         if data2d is None:
             return None
-        data2d_window.append((data2d, np.full((data2d.shape[0],), timestamp)))
+        data2d_window.append((
+            data2d,
+            np.full((data2d.shape[0],), ensure_sample),
+            np.full((data2d.shape[0],), timestamp)))
 
     if len(data2d_window) > 0:
         data2d_df = pd.concat(
-            [data2d for data2d, _ in data2d_window], ignore_index=True)
-        timestamps_arr = np.concatenate(
-            [timestamps for _, timestamps in data2d_window])
+            [data2d for data2d, _, _ in data2d_window], ignore_index=True)
+        ensure_sample_arr = np.concatenate(
+            [ensure_sample for _, ensure_sample, _ in data2d_window])
+        timestamp_arr = np.concatenate(
+            [timestamp for _, _, timestamp in data2d_window])
         if not data2d_df.empty:
-            return data2d_df, timestamps_arr
+            return DataWindow(
+                data=data2d_df,
+                ensure_sample=ensure_sample_arr,
+                timestamp=timestamp_arr)
 
-    return None, None
+    return None
 
 
 def _convert_to_2d(data):

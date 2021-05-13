@@ -96,6 +96,7 @@ class Session(object):
             output_data=None,
             output_type='tabular',
             context_data=None,
+            ensure_sample=False,
             actual_timestamp=None):
         '''
         Log single or batch model prediction.
@@ -121,6 +122,10 @@ class Session(object):
                 Context data for each prediction instance, such as feature ID or any other prediction related information.
                 Context data is not monitored, it is only included in prediction samples and/or outliers.
                 The number of rows in `context_data` should match `input_data` and/or `output_data` instances.
+            ensure_sample (:obj:`bool`, optional, defualt is False)
+                Instruct logger to sample and report this prediction data instance or batch.
+                Use when current prediction data is of any interest, e.g. known or suspected to be invalid.
+                Since the number of samples per prediction time window is limited, not all predictions may be sampled.
             actual_timestamp (:obj:`int`, optional, default is current timestamp):
                 Actual timestamp of the measurement, when different from current timestamp.
         '''
@@ -144,6 +149,7 @@ class Session(object):
                 output_data=output_data,
                 output_type=Prediction.data_type(output_type),
                 context_data=context_data,
+                ensure_sample=ensure_sample,
                 timestamp=actual_timestamp))
 
         self._set_updated()
@@ -315,7 +321,8 @@ class Session(object):
             window.add_metric(metric)
 
         # add prediction count metric
-        last_timestamp = max([p.timestamp for p in prediction_window if p]) if len(prediction_window) > 0 else None
+        last_timestamp = max([p.timestamp for p in prediction_window if p]) if len(
+            prediction_window) > 0 else None
         prediction_count_metric = Metric(
             dataset=Metric.DATASET_SYSTEM,
             name='prediction_count',
@@ -379,7 +386,8 @@ def get_session(model_name, deployment_name=None):
     if not isinstance(model_name, str) or len(model_name) > 250:
         raise ValueError('invalid model name format')
 
-    if deployment_name is not None and (not isinstance(deployment_name, str) or len(deployment_name) > 250):
+    if deployment_name is not None and (not isinstance(
+            deployment_name, str) or len(deployment_name) > 250):
         raise ValueError('invalid deployment_name format')
 
     model_key = model_name

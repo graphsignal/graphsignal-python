@@ -137,14 +137,18 @@ class StatisticsTest(unittest.TestCase):
         self.assertEqual([str(t) for t in data2d.dtypes.tolist()], [
                          'float64', 'float64', 'float64'])
 
-    def test_convert_window_to_2d(self):
+    def test_concat_prediction_data(self):
         d1 = np.asarray([[1, 3.1], [2, 4.1]])
         d2 = np.asarray([[2, 3.2], [3, 5.1]])
 
-        data2d = ds._convert_window_to_2d([(d1, 1), (d2, 2)])
-        self.assertTrue(np.array_equal(data2d[0].to_numpy(), np.concatenate([d1, d2])))
-        self.assertTrue(np.array_equal(data2d[1], np.concatenate([[1, 1], [2, 2]])))
-
+        data_window = ds._concat_prediction_data(
+            [(d1, True, 1), (d2, False, 2)])
+        self.assertTrue(np.array_equal(
+            data_window.data.to_numpy(), np.concatenate([d1, d2])))
+        self.assertTrue(np.array_equal(
+            data_window.ensure_sample, np.concatenate([[True, True], [False, False]])))
+        self.assertTrue(np.array_equal(
+            data_window.timestamp, np.concatenate([[1, 1], [2, 2]])))
 
     @patch('time.time', return_value=1)
     def test_compute_metrics_empty(self, mocked_time):
@@ -421,6 +425,18 @@ class StatisticsTest(unittest.TestCase):
               'name': 'distribution',
               'timestamp': 1,
               'type': 'histogram',
+              'unit': ''},
+             {'dataset': 'input',
+              'measurement': [0, 4],
+              'name': 'outlier_count',
+              'timestamp': 1,
+              'type': 'statistic',
+              'unit': ''},
+             {'dataset': 'input',
+              'measurement': [0, 4],
+              'name': 'outlier_count',
+              'timestamp': 1,
+              'type': 'statistic',
               'unit': ''}]
         )
 
@@ -570,6 +586,18 @@ class StatisticsTest(unittest.TestCase):
               'name': 'distribution',
               'timestamp': 1,
               'type': 'histogram',
+              'unit': ''},
+             {'dataset': 'input',
+              'measurement': [0, 2],
+              'name': 'outlier_count',
+              'timestamp': 1,
+              'type': 'statistic',
+              'unit': ''},
+             {'dataset': 'input',
+              'measurement': [0, 2],
+              'name': 'outlier_count',
+              'timestamp': 1,
+              'type': 'statistic',
               'unit': ''}]
         )
 
@@ -720,10 +748,23 @@ class StatisticsTest(unittest.TestCase):
               'name': 'distribution',
               'timestamp': 1,
               'type': 'histogram',
+              'unit': ''},
+             {'dataset': 'input',
+              'measurement': [0, 4],
+              'name': 'outlier_count',
+              'timestamp': 1,
+              'type': 'statistic',
+              'unit': ''},
+             {'dataset': 'input',
+              'measurement': [0, 4],
+              'name': 'outlier_count',
+              'timestamp': 1,
+              'type': 'statistic',
               'unit': ''}]
         )
 
-    @patch('graphsignal.statistics._random_index', return_value=[10, 20, 30])
+    @patch('graphsignal.statistics._random_index',
+           return_value=np.asarray([10, 20, 30]))
     @patch('time.time', return_value=1)
     def test_compute_metrics_samples(self, mocked_time, mocked_random_index):
         r = []
@@ -744,36 +785,36 @@ class StatisticsTest(unittest.TestCase):
             samples_dict,
             [{'name': 'random_sample',
               'parts': [{'data': 'f1,f2\n10,10\n20,20\n30,30',
-                            'dataset': 'input',
-                            'format': 'csv'},
-                           {'data': 'c1\n10\n20\n30',
+                         'dataset': 'input',
+                         'format': 'csv'},
+                        {'data': 'c1\n10\n20\n30',
                             'dataset': 'output',
                             'format': 'csv'},
-                           {'data': 'ctx1,prediction_timestamp\nabc10,1\nabc20,1\nabc30,1',
+                        {'data': 'ctx1,prediction_timestamp\nabc10,1\nabc20,1\nabc30,1',
                             'dataset': 'context',
                             'format': 'csv'}],
               'size': 3,
               'timestamp': 1},
              {'name': 'input_outliers',
               'parts': [{'data': 'f1,f2\n1002,1002\n1001,1001',
-                            'dataset': 'input',
-                            'format': 'csv'},
-                           {'data': 'c1\n1002\n1001',
+                         'dataset': 'input',
+                         'format': 'csv'},
+                        {'data': 'c1\n1002\n1001',
                             'dataset': 'output',
                             'format': 'csv'},
-                           {'data': 'ctx1,prediction_timestamp\nabc1002,1\nabc1001,1',
+                        {'data': 'ctx1,prediction_timestamp\nabc1002,1\nabc1001,1',
                             'dataset': 'context',
                             'format': 'csv'}],
               'size': 2,
               'timestamp': 1},
              {'name': 'output_outliers',
               'parts': [{'data': 'c1\n1002\n1001',
-                            'dataset': 'output',
-                            'format': 'csv'},
-                           {'data': 'f1,f2\n1002,1002\n1001,1001',
+                         'dataset': 'output',
+                         'format': 'csv'},
+                        {'data': 'f1,f2\n1002,1002\n1001,1001',
                             'dataset': 'input',
                             'format': 'csv'},
-                           {'data': 'ctx1,prediction_timestamp\nabc1002,1\nabc1001,1',
+                        {'data': 'ctx1,prediction_timestamp\nabc1002,1\nabc1001,1',
                             'dataset': 'context',
                             'format': 'csv'}],
               'size': 2,
@@ -793,15 +834,16 @@ class StatisticsTest(unittest.TestCase):
             sample_dict,
             [{'name': 'random_sample',
               'parts': [{'data': 'f1,f2\n1,2', 'dataset': 'input', 'format': 'csv'},
-                           {'data': 'c1\n3', 'dataset': 'output', 'format': 'csv'},
-                           {'data': 'prediction_timestamp\n1',
+                        {'data': 'c1\n3', 'dataset': 'output', 'format': 'csv'},
+                        {'data': 'prediction_timestamp\n1',
                             'dataset': 'context',
                             'format': 'csv'}],
               'size': 1,
               'timestamp': 1}]
         )
 
-    @patch('graphsignal.statistics._random_index', return_value=[0])
+    @patch('graphsignal.statistics._random_index',
+           return_value=np.asarray([0]))
     @patch('time.time', return_value=1)
     def test_compute_metrics_sample_no_outliers(
             self, mocked_time, mocked_random_index):
@@ -817,15 +859,16 @@ class StatisticsTest(unittest.TestCase):
             sample_dict,
             [{'name': 'random_sample',
               'parts': [{'data': 'f1,f2\n1,1', 'dataset': 'input', 'format': 'csv'},
-                           {'data': 'c1\n1', 'dataset': 'output', 'format': 'csv'},
-                           {'data': 'prediction_timestamp\n1',
+                        {'data': 'c1\n1', 'dataset': 'output', 'format': 'csv'},
+                        {'data': 'prediction_timestamp\n1',
                             'dataset': 'context',
                             'format': 'csv'}],
               'size': 1,
               'timestamp': 1}]
         )
 
-    @patch('graphsignal.statistics._random_index', return_value=[0])
+    @patch('graphsignal.statistics._random_index',
+           return_value=np.asarray([0]))
     @patch('time.time', return_value=1)
     def test_compute_metrics_sample_missing_values(
             self, mocked_time, mocked_random_index):
@@ -841,14 +884,71 @@ class StatisticsTest(unittest.TestCase):
             sample_dict,
             [{'name': 'random_sample',
               'parts': [{'data': '0,1,2,3,4\nNone,nan,inf,nan,inf',
-                            'dataset': 'input',
-                            'format': 'csv'},
-                           {'data': '0,1,2,3,4\nNone,nan,inf,nan,inf',
+                         'dataset': 'input',
+                         'format': 'csv'},
+                        {'data': '0,1,2,3,4\nNone,nan,inf,nan,inf',
                             'dataset': 'output',
                             'format': 'csv'},
-                           {'data': 'prediction_timestamp\n1',
+                        {'data': 'prediction_timestamp\n1',
                             'dataset': 'context',
                             'format': 'csv'}],
               'size': 1,
               'timestamp': 1}]
         )
+
+    @patch('graphsignal.statistics._random_index',
+           return_value=np.asarray([0]))
+    @patch('time.time', return_value=1)
+    def test_compute_metrics_sample_user_defined(
+            self, mocked_time, mocked_random_index):
+        r1 = [[1, 2], [10, 20]]
+        r2 = [[3, 4], [30, 40]]
+        _, samples = ds.compute_metrics(
+            [Prediction(
+                input_data=pd.DataFrame(data=r1),
+                output_data=pd.DataFrame(data=r1)),
+             Prediction(
+                input_data=pd.DataFrame(data=r2),
+                output_data=pd.DataFrame(data=r2),
+                ensure_sample=True)])
+        sample_dict = [sample.to_dict() for sample in samples]
+        #pp = pprint.PrettyPrinter()
+        #pp.pprint(sample_dict)
+        self.assertEqual(
+            sample_dict,
+            [{'name': 'random_sample',
+              'parts': [{'data': '0,1\n1,2', 'dataset': 'input', 'format': 'csv'},
+                        {'data': '0,1\n1,2', 'dataset': 'output', 'format': 'csv'},
+                        {'data': 'prediction_timestamp\n1',
+                         'dataset': 'context',
+                         'format': 'csv'}],
+              'size': 1,
+              'timestamp': 1},
+             {'name': 'user_defined_sample',
+             'parts': [{'data': '0,1\n3,4\n30,40', 'dataset': 'input', 'format': 'csv'},
+                       {'data': '0,1\n3,4\n30,40',
+                           'dataset': 'output', 'format': 'csv'},
+                       {'data': 'prediction_timestamp\n1\n1',
+                       'dataset': 'context',
+                        'format': 'csv'}],
+              'size': 2,
+              'timestamp': 1}]
+        )
+
+    
+    def test_outlier_index(self):
+        d = []
+        d.extend(list(range(100)))
+        d.append(1001)
+        d.extend(list(range(100)))
+        d.append(1002)
+        df = pd.DataFrame(data={'f1': d})
+
+        idx, count = ds._outlier_index(df)
+        self.assertTrue(np.array_equal(idx, np.asarray([201, 100])))
+        self.assertEqual(count, 2)
+
+    def test_user_defined_index(self):
+        df = pd.DataFrame(data={'f1': [1,2,3]})
+        idx = ds._user_defined_index(df, [True, False, True])
+        self.assertTrue(np.array_equal(idx, np.asarray([0, 2])))

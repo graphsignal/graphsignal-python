@@ -377,7 +377,7 @@ class Sample(object):
 
     def to_dict(self):
         part_dicts = [part.to_dict()
-                         for part in self.parts] if self.parts else None
+                      for part in self.parts] if self.parts else None
 
         sample_dict = {
             'name': self.name,
