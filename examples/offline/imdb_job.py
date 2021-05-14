@@ -14,7 +14,7 @@ import graphsignal
 graphsignal.configure(api_key='testkey', debug_mode=True)
 
 # Get logging session for the model
-sess = graphsignal.session(model_name='my_imdb_model', deployment_name='production')
+sess = graphsignal.session(deployment_name='imdb_prod')
 
 
 max_features = 20000

@@ -17,8 +17,8 @@ _rand = np.random.RandomState(int(time.time()))
 MAX_COLUMNS = 250
 RANDOM_SAMPLE_SIZE = 10
 OUTLIER_SAMPLE_SIZE = 10
-USER_DEFINED_SAMPLE_SIZE = 10
 MIN_INSTANCES_FOR_OUTLIER_DETECTION = 30
+SELECTIVE_SAMPLE_SIZE = 10
 
 
 def estimate_size(data):
@@ -117,10 +117,10 @@ def compute_metrics(prediction_window):
         if output_outlier_metric is not None:
             metrics.append(output_outlier_metric)
 
-        user_defined_sample = _compute_user_defined_sample(
+        selective_sample = _compute_selective_sample(
             input_window, output_window, context_window, last_timestamp)
-        if user_defined_sample is not None:
-            samples.append(user_defined_sample)
+        if selective_sample is not None:
+            samples.append(selective_sample)
 
     logger.debug('Computing metrics and samples took %.3f sec',
                  time.time() - start_ts)
@@ -283,6 +283,7 @@ def _compute_tabular_metrics(data_window, dataset, timestamp):
                     dataset=dataset,
                     dimension=column_name,
                     name='distribution',
+                    unit='hash',
                     timestamp=timestamp)
                 metric.compute_categorical_histogram(string_column_values)
                 metrics.append(metric)
@@ -292,7 +293,7 @@ def _compute_tabular_metrics(data_window, dataset, timestamp):
 
 def _compute_random_sample(
         input_window, output_window, context_window, timestamp):
-    sample = Sample(name='random_sample', timestamp=timestamp)
+    sample = Sample(name='random', timestamp=timestamp)
     if input_window is not None:
         sample_idx = _random_index(input_window.data)
         sample.set_size(sample_idx.shape[0])
@@ -478,11 +479,11 @@ def _outlier_index(data):
     return None, 0
 
 
-def _compute_user_defined_sample(
+def _compute_selective_sample(
         input_window, output_window, context_window, timestamp):
-    sample = Sample(name='user_defined_sample', timestamp=timestamp)
+    sample = Sample(name='selective', timestamp=timestamp)
     if input_window is not None:
-        sample_idx = _user_defined_index(
+        sample_idx = _selective_index(
             input_window.data, input_window.ensure_sample)
         if sample_idx.shape[0] == 0:
             return None
@@ -513,7 +514,7 @@ def _compute_user_defined_sample(
                                                   :].to_numpy().tolist(),
                     columns=_format_names(context_window.data.columns.values)))
     elif output_window is not None:
-        sample_idx = _user_defined_index(
+        sample_idx = _selective_index(
             output_window.data, output_window.ensure_sample)
         if sample_idx.shape[0] == 0:
             return None
@@ -539,8 +540,8 @@ def _compute_user_defined_sample(
     return sample
 
 
-def _user_defined_index(data, ensure_sample):
-    return data[ensure_sample][0:USER_DEFINED_SAMPLE_SIZE].index.values
+def _selective_index(data, ensure_sample):
+    return data[ensure_sample][0:SELECTIVE_SAMPLE_SIZE].index.values
 
 
 def _create_csv(data, columns):

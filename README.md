@@ -58,10 +58,10 @@ To get an API key, sign up for a free trial account at [graphsignal.ai](https://
 
 ### Logging session
 
-Get logging session for a deployed model identified by model name and deployment name. Multiple sessions can be used in parallel in case of multi-model scrips or servers.
+Get logging session for a deployed model identified by deployment name. Multiple sessions can be used in parallel in case of multi-model scrips or servers.
 
 ```python
-sess = graphsignal.session(model_name='my_model', deployment_name='production')
+sess = graphsignal.session(deployment_name='model1_prod')
 ```
 
 If a model is versioned you can set the version as a model attribute.
@@ -123,7 +123,7 @@ import graphsignal
 graphsignal.configure(api_key='my_api_key')
 
 # Get logging session for the model
-sess = graphsignal.session(model_name='my_mnist_model', deployment_name='production')
+sess = graphsignal.session(deployment_name='mnist_prod')
 
 
 model = keras.models.load_model('mnist_model.h5')

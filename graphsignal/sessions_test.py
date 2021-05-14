@@ -30,7 +30,7 @@ class SessionsTest(unittest.TestCase):
     @patch('time.time', return_value=1)
     def test_prediction_batched(self, mocked_time, mocked_vm_rss, mocked_vm_size, mocked_compute_metrics,
                                 mocked_upload_window, mocked_flush, mocked_system, mocked_version):
-        session = graphsignal.session('m1', 'd1')
+        session = graphsignal.session('d1')
         session.set_attribute(name='a1', value='v1')
         session.log_metric(name='m1', value=1)
         session.log_event(
@@ -51,11 +51,11 @@ class SessionsTest(unittest.TestCase):
             call_args,
             {'events': [{'attributes': [{'name': 'a1', 'value': 'v1'}],
                          'description': 'e1',
-                         'name': 'user_defined_event',
+                         'name': 'error',
                          'score': 1,
                          'timestamp': 1,
                          'type': 'error'}],
-             'metrics': [{'dataset': 'user_defined',
+             'metrics': [{'dataset': 'model',
                           'measurement': [1],
                           'name': 'm1',
                           'timestamp': 1,
@@ -82,7 +82,6 @@ class SessionsTest(unittest.TestCase):
              'model': {'attributes': [{'name': 'Python', 'value': '1.2.3'},
                                       {'name': 'OS', 'value': 'Linux'},
                                       {'name': 'a1', 'value': 'v1'}],
-                       'name': 'm1',
                        'deployment': 'd1',
                        'timestamp': 1},
              'timestamp': 1}
@@ -91,7 +90,7 @@ class SessionsTest(unittest.TestCase):
     @patch.object(Uploader, 'flush')
     @patch.object(Uploader, 'upload_window')
     def test_prediction_not_uploaded(self, mocked_upload_window, mocked_flush):
-        session = graphsignal.session('m1')
+        session = graphsignal.session(deployment_name='d1')
 
         session.log_prediction(input_data=[[1, 2], [3, 4]])
         session.log_prediction(input_data=[[1, 2], [3, 4]])
@@ -103,7 +102,7 @@ class SessionsTest(unittest.TestCase):
     @patch.object(Uploader, 'upload_window')
     def test_prediction_uploaded_max_window_duration(
             self, mocked_upload_window, mocked_flush):
-        session = graphsignal.session('m1')
+        session = graphsignal.session('d1')
 
         session._window_start_time = session._window_start_time - \
             graphsignal.sessions.MAX_WINDOW_DURATION - 1
@@ -115,7 +114,7 @@ class SessionsTest(unittest.TestCase):
     @patch.object(Uploader, 'upload_window')
     def test_prediction_uploaded_min_window_size(
             self, mocked_upload_window, mocked_flush):
-        session = graphsignal.session('m1')
+        session = graphsignal.session('d1')
 
         session._window_start_time = session._window_start_time - \
             graphsignal.sessions.MIN_WINDOW_DURATION - 1
@@ -136,7 +135,7 @@ class SessionsTest(unittest.TestCase):
     @patch('time.monotonic', return_value=1)
     def test_measure_latency_context(self, mocked_monotonic, mocked_time, mocked_cpu_time, mocked_vm_rss, mocked_vm_size,
                                      mocked_upload_window, mocked_flush, mocked_system, mocked_version):
-        session = graphsignal.session('m1')
+        session = graphsignal.session('d1')
 
         try:
             with session.measure_latency():
@@ -185,7 +184,7 @@ class SessionsTest(unittest.TestCase):
                           'unit': 'KB'}],
              'model': {'attributes': [{'name': 'Python', 'value': '1.2.3'},
                                       {'name': 'OS', 'value': 'Linux'}],
-                       'name': 'm1',
+                       'deployment': 'd1',
                        'timestamp': 1},
              'timestamp': 1}
         )
@@ -201,7 +200,7 @@ class SessionsTest(unittest.TestCase):
     @patch('time.monotonic', return_value=1)
     def test_measure_latency_start_stop(
             self, mocked_monotonic, mocked_time, mocked_cpu_time, mocked_vm_rss, mocked_vm_size, mocked_upload_window, mocked_flush, mocked_system, mocked_version):
-        session = graphsignal.session('m1')
+        session = graphsignal.session('d1')
 
         span = session.measure_latency()
         span.start()
@@ -248,7 +247,7 @@ class SessionsTest(unittest.TestCase):
                           'unit': 'KB'}],
              'model': {'attributes': [{'name': 'Python', 'value': '1.2.3'},
                                       {'name': 'OS', 'value': 'Linux'}],
-                       'name': 'm1',
+                       'deployment': 'd1',
                        'timestamp': 1},
              'timestamp': 1}
         )

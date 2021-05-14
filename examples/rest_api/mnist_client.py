@@ -15,7 +15,7 @@ logger.setLevel(logging.DEBUG)
 graphsignal.configure(api_key='testkey', debug_mode=True)
 
 # Get logging session for the model
-sess = graphsignal.session(model_name='my_mnist_model', deployment_name='production')
+sess = graphsignal.session(deployment_name='mnist_prod')
 
 
 (_, _), (x_test, _) = keras.datasets.mnist.load_data()

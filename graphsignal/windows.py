@@ -183,7 +183,7 @@ class Metric(object):
     DATASET_INPUT = 'input'
     DATASET_OUTPUT = 'output'
     DATASET_SYSTEM = 'system'
-    DATASET_USER_DEFINED = 'user_defined'
+    DATASET_MODEL = 'model'
 
     TYPE_GAUGE = 'gauge'
     TYPE_STATISTIC = 'statistic'
@@ -199,6 +199,7 @@ class Metric(object):
             dataset=None,
             dimension=None,
             name=None,
+            unit=None,
             timestamp=None):
         self.dataset = dataset
         self.dimension = dimension

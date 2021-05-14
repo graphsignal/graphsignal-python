@@ -121,23 +121,21 @@ def tick():
     _uploader.flush()
 
 
-def session(model_name, deployment_name=None):
+def session(deployment_name):
     '''
-    Get logging session for the model identified by model name and optional model deployment name.
+    Get logging session for the model identified by model deployment name.
 
     Args:
-        model_name (:obj:`str`):
-            The name of the model.
         deployment_name (:obj:`str`, optional):
-            Model deployment name, e.g. `production`, `canary` or any other string value.
+            Model deployment name, e.g. `model1_production`, `modelB_canary` or any other string value.
     Returns:
         :obj:`Session` - session object for logging prediction data, metrics and events.
     Raises:
-        `ValueError`: When `model_name` and/or `deployment_name` have wrong type or format.
+        `ValueError`: When `deployment_name` is invalid.
     '''
 
     if not _config:
         raise ValueError(
             'graphsignal not configured, please use graphsignal.configure()')
 
-    return sessions.get_session(model_name, deployment_name)
+    return sessions.get_session(deployment_name)

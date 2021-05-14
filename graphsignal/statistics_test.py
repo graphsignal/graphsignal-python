@@ -432,7 +432,7 @@ class StatisticsTest(unittest.TestCase):
               'timestamp': 1,
               'type': 'statistic',
               'unit': ''},
-             {'dataset': 'input',
+             {'dataset': 'output',
               'measurement': [0, 4],
               'name': 'outlier_count',
               'timestamp': 1,
@@ -593,7 +593,7 @@ class StatisticsTest(unittest.TestCase):
               'timestamp': 1,
               'type': 'statistic',
               'unit': ''},
-             {'dataset': 'input',
+             {'dataset': 'output',
               'measurement': [0, 2],
               'name': 'outlier_count',
               'timestamp': 1,
@@ -755,7 +755,7 @@ class StatisticsTest(unittest.TestCase):
               'timestamp': 1,
               'type': 'statistic',
               'unit': ''},
-             {'dataset': 'input',
+             {'dataset': 'output',
               'measurement': [0, 4],
               'name': 'outlier_count',
               'timestamp': 1,
@@ -783,7 +783,7 @@ class StatisticsTest(unittest.TestCase):
         # pp.pprint(samples_dict)
         self.assertEqual(
             samples_dict,
-            [{'name': 'random_sample',
+            [{'name': 'random',
               'parts': [{'data': 'f1,f2\n10,10\n20,20\n30,30',
                          'dataset': 'input',
                          'format': 'csv'},
@@ -808,12 +808,12 @@ class StatisticsTest(unittest.TestCase):
               'size': 2,
               'timestamp': 1},
              {'name': 'output_outliers',
-              'parts': [{'data': 'c1\n1002\n1001',
-                         'dataset': 'output',
-                         'format': 'csv'},
-                        {'data': 'f1,f2\n1002,1002\n1001,1001',
+              'parts': [{'data': 'f1,f2\n1002,1002\n1001,1001',
                             'dataset': 'input',
                             'format': 'csv'},
+                        {'data': 'c1\n1002\n1001',
+                         'dataset': 'output',
+                         'format': 'csv'},
                         {'data': 'ctx1,prediction_timestamp\nabc1002,1\nabc1001,1',
                             'dataset': 'context',
                             'format': 'csv'}],
@@ -832,7 +832,7 @@ class StatisticsTest(unittest.TestCase):
         # pp.pprint(sample_dict)
         self.assertEqual(
             sample_dict,
-            [{'name': 'random_sample',
+            [{'name': 'random',
               'parts': [{'data': 'f1,f2\n1,2', 'dataset': 'input', 'format': 'csv'},
                         {'data': 'c1\n3', 'dataset': 'output', 'format': 'csv'},
                         {'data': 'prediction_timestamp\n1',
@@ -857,7 +857,7 @@ class StatisticsTest(unittest.TestCase):
         # pp.pprint(sample_dict)
         self.assertEqual(
             sample_dict,
-            [{'name': 'random_sample',
+            [{'name': 'random',
               'parts': [{'data': 'f1,f2\n1,1', 'dataset': 'input', 'format': 'csv'},
                         {'data': 'c1\n1', 'dataset': 'output', 'format': 'csv'},
                         {'data': 'prediction_timestamp\n1',
@@ -882,7 +882,7 @@ class StatisticsTest(unittest.TestCase):
         # pp.pprint(sample_dict)
         self.assertEqual(
             sample_dict,
-            [{'name': 'random_sample',
+            [{'name': 'random',
               'parts': [{'data': '0,1,2,3,4\nNone,nan,inf,nan,inf',
                          'dataset': 'input',
                          'format': 'csv'},
@@ -899,7 +899,7 @@ class StatisticsTest(unittest.TestCase):
     @patch('graphsignal.statistics._random_index',
            return_value=np.asarray([0]))
     @patch('time.time', return_value=1)
-    def test_compute_metrics_sample_user_defined(
+    def test_compute_metrics_sample_selective(
             self, mocked_time, mocked_random_index):
         r1 = [[1, 2], [10, 20]]
         r2 = [[3, 4], [30, 40]]
@@ -916,7 +916,7 @@ class StatisticsTest(unittest.TestCase):
         #pp.pprint(sample_dict)
         self.assertEqual(
             sample_dict,
-            [{'name': 'random_sample',
+            [{'name': 'random',
               'parts': [{'data': '0,1\n1,2', 'dataset': 'input', 'format': 'csv'},
                         {'data': '0,1\n1,2', 'dataset': 'output', 'format': 'csv'},
                         {'data': 'prediction_timestamp\n1',
@@ -924,7 +924,7 @@ class StatisticsTest(unittest.TestCase):
                          'format': 'csv'}],
               'size': 1,
               'timestamp': 1},
-             {'name': 'user_defined_sample',
+             {'name': 'selective',
              'parts': [{'data': '0,1\n3,4\n30,40', 'dataset': 'input', 'format': 'csv'},
                        {'data': '0,1\n3,4\n30,40',
                            'dataset': 'output', 'format': 'csv'},
@@ -948,7 +948,7 @@ class StatisticsTest(unittest.TestCase):
         self.assertTrue(np.array_equal(idx, np.asarray([201, 100])))
         self.assertEqual(count, 2)
 
-    def test_user_defined_index(self):
+    def test_selective_index(self):
         df = pd.DataFrame(data={'f1': [1,2,3]})
-        idx = ds._user_defined_index(df, [True, False, True])
+        idx = ds._selective_index(df, [True, False, True])
         self.assertTrue(np.array_equal(idx, np.asarray([0, 2])))

@@ -29,7 +29,6 @@ _session_index_lock = threading.Lock()
 
 class Session(object):
     __slots__ = [
-        '_model_name',
         '_model_deployment',
         '_model_attributes',
         '_metric_index',
@@ -42,8 +41,7 @@ class Session(object):
         '_upload_timer'
     ]
 
-    def __init__(self, model_name, deployment_name=None):
-        self._model_name = model_name
+    def __init__(self, deployment_name):
         self._model_deployment = deployment_name
         self._model_attributes = {}
         self._update_lock = threading.Lock()
@@ -187,7 +185,7 @@ class Session(object):
                 metric = self._metric_index[name]
             else:
                 metric = self._metric_index[name] = Metric(
-                    dataset=Metric.DATASET_USER_DEFINED,
+                    dataset=Metric.DATASET_MODEL,
                     name=name,
                     timestamp=actual_timestamp)
             metric.set_gauge(value)
@@ -254,8 +252,10 @@ class Session(object):
                 attributes['error_message'] = traceback.format_exception_only(
                     exc_info[0], exc_info[1])
                 attributes['stack_trace'] = traceback.format_tb(exc_info[2])
+        elif is_error:
+            event_name = 'error'
         else:
-            event_name = 'user_defined_event'
+            event_name = 'info'
 
         with self._update_lock:
             event = Event(
@@ -309,7 +309,6 @@ class Session(object):
 
         # set model
         window.model = Model(
-            name=self._model_name,
             deployment=self._model_deployment)
         if self._model_attributes is not None:
             for name, value in self._model_attributes.items():
@@ -382,24 +381,16 @@ class Session(object):
         self.set_attribute('OS', platform.system())
 
 
-def get_session(model_name, deployment_name=None):
-    if not isinstance(model_name, str) or len(model_name) > 250:
-        raise ValueError('invalid model name format')
-
-    if deployment_name is not None and (not isinstance(
-            deployment_name, str) or len(deployment_name) > 250):
+def get_session(deployment_name):
+    if not deployment_name or len(deployment_name) > 250:
         raise ValueError('invalid deployment_name format')
 
-    model_key = model_name
-    if deployment_name is not None:
-        model_key += model_name
-
     with _session_index_lock:
-        if model_key in _session_index:
-            return _session_index[model_key]
+        if deployment_name in _session_index:
+            return _session_index[deployment_name]
         else:
-            sess = Session(model_name, deployment_name)
-            _session_index[model_key] = sess
+            sess = Session(deployment_name)
+            _session_index[deployment_name] = sess
             return sess
 
 

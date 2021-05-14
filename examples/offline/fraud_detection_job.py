@@ -15,7 +15,7 @@ import graphsignal
 graphsignal.configure(api_key='testkey', debug_mode=True)
 
 # Get logging session for the model
-sess = graphsignal.session(model_name='my_fraud_detection_model', deployment_name='production')
+sess = graphsignal.session(deployment_name='fraud_detector_prod')
 
 
 model = FraudModel().double().cpu()
