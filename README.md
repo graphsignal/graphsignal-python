@@ -9,8 +9,8 @@ Graphsignal is an observability platform for monitoring and troubleshooting prod
 
 ## AI Observability
 
-* **Model monitoring.** Monitor offline and online predictions for *data validity and anomalies*, *sudden data drift and concept drift*, *prediction latency*, *exceptions*, *system metrics* and more.
-* **Automatic issue detection.** Get notified on data, model and code issues via email, Slack and other channels.
+* **Model monitoring.** Monitor offline and online predictions for *data validity and anomalies*, *data drift and concept drift*, *prediction latency*, *exceptions*, *system metrics* and more.
+* **Automatic issue detection.** Graphsignal automatically detects and notifies on issues in data and models, no need to manually setup and maintain complex rules.
 * **Root cause analysis.** Analyse prediction outliers and issue-related samples for faster problem root cause identification.
 * **Model framework and deployment agnostic.** Monitor models serving *online*, in streaming apps, accessed via APIs or *offline*, running batch predictions.
 * **Any scale and data size.** Graphsignal logger *only sends data statistics and samples* allowing it to scale with your application and data.
@@ -158,11 +158,11 @@ Since only data statistics are sent to our servers, there is **no limitation** o
 
 Graphsignal logger can only open outbound connections to `log-api.graphsignal.ai` and send data, no inbound connections or commands are possible. 
 
-Please make sure to exclude or anonymize any personally identifiable information (PII) when logging model data and events. If necessary, sending prediction instances can be disabled by setting `log_instances` option to `False` when configuring the logger. This, however, can impair root cause analysis capabilities.
+Please make sure to exclude or anonymize any personally identifiable information (PII) when logging model data and events.
 
 
 ## Troubleshooting
 
 To enable debug logging, add `debug_mode=True` to `configure()`. If the debug log doesn't give you any hints on how to fix a problem, please report it to our support team via your account.
 
-In case of connection issues, please make sure outgoing connections to `log-api.graphsignal.ai` are allowed.
+In case of connection issues, please make sure outgoing connections to `https://log-api.graphsignal.ai` are allowed.

@@ -31,7 +31,7 @@ def predict_digit():
     # Log prediction
     sess.log_prediction(output_data=output)
 
-    # Increment global counter
+    # Set any metric
     sess.log_metric('my_metric', 1)
 
     logger.debug('Returning prediction output: %s', input)

@@ -17,4 +17,3 @@ class GraphsignalTest(unittest.TestCase):
     def test_configure(self):
         self.assertEqual(graphsignal._get_config().api_key, 'k1')
         self.assertEqual(graphsignal._get_config().debug_mode, True)
-        self.assertEqual(graphsignal._get_config().log_instances, True)

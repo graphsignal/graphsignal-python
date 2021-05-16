@@ -10,7 +10,8 @@ logger = logging.getLogger('graphsignal')
 
 
 RESERVOIR_SIZE = 100
-HISTOGRAM_BIN_COUNT = 10
+MIN_HISTOGRAM_BIN_COUNT = 10
+MAX_HISTOGRAM_BIN_COUNT = 50
 
 
 class Window(object):
@@ -193,6 +194,7 @@ class Metric(object):
     UNIT_PERCENT = '%'
     UNIT_MILLISECOND = 'ms'
     UNIT_KILOBYTE = 'KB'
+    UNIT_CATEGORY_HASH = '#'
 
     def __init__(
             self,
@@ -244,28 +246,31 @@ class Metric(object):
         self.unit = unit
         self.measurement = []
 
-        m_max = max(values)
-        m_range = m_max - min(values)
-
-        if m_range == 0 or len(values) == 1:
+        unique_values, counts = np.unique(values, return_counts=True)
+        if len(unique_values) < MAX_HISTOGRAM_BIN_COUNT:
             self.measurement.append(0)
-            self.measurement.extend([values[0], len(values)])
+            for value, count in zip(unique_values.tolist(), counts.tolist()):
+                self.measurement.extend([value, count])
             return
 
+        # probably not categorical value, fallback to log10 bins
+        m_max = max(values)
+        m_range = m_max - min(values)
         bin_size = 10 ** math.floor(math.log10(m_range /
-                                               float(HISTOGRAM_BIN_COUNT)))
+                                               float(MIN_HISTOGRAM_BIN_COUNT)))
 
-        bin_exp = math.floor(math.log10(bin_size))
-        if bin_exp > 0:
-            bin_exp = 0
+        bin_precision = math.floor(math.log10(bin_size))
+        if bin_precision > 0:
+            bin_precision = 0
         else:
-            bin_exp = int(abs(bin_exp))
+            bin_precision = int(abs(bin_precision))
 
         hist = {}
         for m in values:
             bin = None
             if bin_size > 0:
-                bin = math.floor(m / bin_size) * bin_size
+                # round to avoid approximation
+                bin = math.floor(round(m / bin_size, 10)) * bin_size
             else:
                 bin = m
 
@@ -275,9 +280,9 @@ class Metric(object):
                 hist[bin] = 1
 
         self.measurement.append(bin_size)
-        for bin in sorted(hist):
-            self.measurement.append(round(bin, bin_exp))
-            self.measurement.append(hist[bin])
+        for bin, count in hist.items():
+            self.measurement.append(round(bin, bin_precision))
+            self.measurement.append(count)
 
     def compute_categorical_histogram(self, values, unit=UNIT_NONE):
         if len(values) == 0:
@@ -296,7 +301,7 @@ class Metric(object):
             else:
                 counts[h] = 1
 
-        self.measurement = [1]
+        self.measurement = [0]
         for i in range(n_components):
             if i in counts:
                 self.measurement.append(i)

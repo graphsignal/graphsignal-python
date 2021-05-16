@@ -22,7 +22,6 @@ class Config(object):
     def __init__(self):
         self.api_key = None
         self.debug_mode = False
-        self.log_instances = True
         self.log_system_metrics = True
 
 
@@ -34,8 +33,7 @@ def _get_uploader():
     return _uploader
 
 
-def configure(api_key, debug_mode=False, log_instances=True,
-              log_system_metrics=True):
+def configure(api_key, debug_mode=False, log_system_metrics=True):
     '''
     Configures and initializes the logger.
 
@@ -44,8 +42,6 @@ def configure(api_key, debug_mode=False, log_instances=True,
             The access key for communication with the Graphsignal servers.
         debug_mode (:obj:`bool`, optional):
             Enable/disable debug output.
-        log_instances (:obj:`bool`, optional, default is ``True``):
-            Enable/disable the recording and uploading of data samples.
         log_system_metrics (:obj:`bool`, optional, default is ``True``):
             Enable/disable the recording and uploading of system metrics.
     '''
@@ -68,7 +64,6 @@ def configure(api_key, debug_mode=False, log_instances=True,
     _config = Config()
     _config.api_key = api_key
     _config.debug_mode = debug_mode
-    _config.log_instances = log_instances
     _config.log_system_metrics = log_system_metrics
 
     _uploader = Uploader()

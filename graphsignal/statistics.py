@@ -97,30 +97,29 @@ def compute_metrics(prediction_window):
                 last_timestamp))
 
     # compute samples
-    if graphsignal._get_config().log_instances:
-        random_sample = _compute_random_sample(
-            input_window, output_window, context_window, last_timestamp)
-        if random_sample:
-            samples.append(random_sample)
+    random_sample = _compute_random_sample(
+        input_window, output_window, context_window, last_timestamp)
+    if random_sample:
+        samples.append(random_sample)
 
-        input_outlier_sample, input_outlier_metric = _compute_input_outlier_sample(
-            input_window, output_window, context_window, last_timestamp)
-        if input_outlier_sample is not None:
-            samples.append(input_outlier_sample)
-        if input_outlier_metric is not None:
-            metrics.append(input_outlier_metric)
+    input_outlier_sample, input_outlier_metric = _compute_input_outlier_sample(
+        input_window, output_window, context_window, last_timestamp)
+    if input_outlier_sample is not None:
+        samples.append(input_outlier_sample)
+    if input_outlier_metric is not None:
+        metrics.append(input_outlier_metric)
 
-        output_outlier_sample, output_outlier_metric = _compute_output_outlier_sample(
-            input_window, output_window, context_window, last_timestamp)
-        if output_outlier_sample is not None:
-            samples.append(output_outlier_sample)
-        if output_outlier_metric is not None:
-            metrics.append(output_outlier_metric)
+    output_outlier_sample, output_outlier_metric = _compute_output_outlier_sample(
+        input_window, output_window, context_window, last_timestamp)
+    if output_outlier_sample is not None:
+        samples.append(output_outlier_sample)
+    if output_outlier_metric is not None:
+        metrics.append(output_outlier_metric)
 
-        selective_sample = _compute_selective_sample(
-            input_window, output_window, context_window, last_timestamp)
-        if selective_sample is not None:
-            samples.append(selective_sample)
+    selective_sample = _compute_selective_sample(
+        input_window, output_window, context_window, last_timestamp)
+    if selective_sample is not None:
+        samples.append(selective_sample)
 
     logger.debug('Computing metrics and samples took %.3f sec',
                  time.time() - start_ts)
@@ -157,7 +156,8 @@ def _compute_tabular_metrics(data_window, dataset, timestamp):
         column_type = types[column_index]
         if np.issubdtype(column_type, np.datetime64):
             continue
-        column_values = data_window.data[data_window.data.columns[column_index]].to_numpy()
+        column_values = data_window.data[data_window.data.columns[column_index]].to_numpy(
+        )
 
         if np.issubdtype(column_type, np.number):
             missing_count = np.count_nonzero(np.isnan(column_values))
@@ -170,7 +170,7 @@ def _compute_tabular_metrics(data_window, dataset, timestamp):
             metric.set_statistic(
                 missing_count / instance_count * 100,
                 instance_count,
-                Metric.UNIT_PERCENT)
+                unit=Metric.UNIT_PERCENT)
             metrics.append(metric)
 
             zero_count = np.count_nonzero(column_values == 0)
@@ -182,7 +182,7 @@ def _compute_tabular_metrics(data_window, dataset, timestamp):
             metric.set_statistic(
                 zero_count / instance_count * 100,
                 instance_count,
-                Metric.UNIT_PERCENT)
+                unit=Metric.UNIT_PERCENT)
             metrics.append(metric)
 
             finite_column_values = column_values[np.isfinite(column_values)]
@@ -255,7 +255,7 @@ def _compute_tabular_metrics(data_window, dataset, timestamp):
                 metric.set_statistic(
                     missing_count / instance_count * 100,
                     instance_count,
-                    Metric.UNIT_PERCENT)
+                    unit=Metric.UNIT_PERCENT)
                 metrics.append(metric)
 
                 empty_count = string_column_values.count('')
@@ -267,7 +267,7 @@ def _compute_tabular_metrics(data_window, dataset, timestamp):
                 metric.set_statistic(
                     empty_count / instance_count * 100,
                     instance_count,
-                    Metric.UNIT_PERCENT)
+                    unit=Metric.UNIT_PERCENT)
                 metrics.append(metric)
 
                 unique_count = len(set(string_column_values))
@@ -283,9 +283,10 @@ def _compute_tabular_metrics(data_window, dataset, timestamp):
                     dataset=dataset,
                     dimension=column_name,
                     name='distribution',
-                    unit='hash',
                     timestamp=timestamp)
-                metric.compute_categorical_histogram(string_column_values)
+                metric.compute_categorical_histogram(
+                    string_column_values, 
+                    unit=Metric.UNIT_CATEGORY_HASH)
                 metrics.append(metric)
 
     return metrics
@@ -380,7 +381,7 @@ def _compute_input_outlier_sample(
                 format_=SamplePart.FORMAT_CSV,
                 data=_create_csv(
                     data=output_window.data.iloc[sample_idx,
-                                                    :].to_numpy().tolist(),
+                                                 :].to_numpy().tolist(),
                     columns=_format_names(output_window.data.columns.values)))
 
         if context_window is not None and context_window.size() == input_window.size():
@@ -389,7 +390,7 @@ def _compute_input_outlier_sample(
                 format_=SamplePart.FORMAT_CSV,
                 data=_create_csv(
                     data=context_window.data.iloc[sample_idx,
-                                                    :].to_numpy().tolist(),
+                                                  :].to_numpy().tolist(),
                     columns=_format_names(context_window.data.columns.values)))
 
         metric.set_statistic(outlier_count, input_window.size())
@@ -438,7 +439,7 @@ def _compute_output_outlier_sample(
                 format_=SamplePart.FORMAT_CSV,
                 data=_create_csv(
                     data=context_window.data.iloc[sample_idx,
-                                                    :].to_numpy().tolist(),
+                                                  :].to_numpy().tolist(),
                     columns=_format_names(context_window.data.columns.values)))
 
         metric.set_statistic(outlier_count, output_window.size())

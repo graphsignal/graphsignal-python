@@ -241,7 +241,7 @@ class StatisticsTest(unittest.TestCase):
               'unit': ''},
              {'dataset': 'input',
               'dimension': 'f1',
-              'measurement': [0.1, 0.0, 1, 1.0, 2, 2.0, 1],
+              'measurement': [0, 0, 1, 1, 2, 2, 1],
               'name': 'distribution',
               'timestamp': 1,
               'type': 'histogram',
@@ -297,7 +297,7 @@ class StatisticsTest(unittest.TestCase):
               'unit': ''},
              {'dataset': 'input',
               'dimension': 'f2',
-              'measurement': [0.1, 0.0, 1, 3.5, 1, 4.5, 1, 5.5, 1],
+              'measurement': [0, 0.0, 1, 3.5, 1, 4.5, 1, 5.5, 1],
               'name': 'distribution',
               'timestamp': 1,
               'type': 'histogram',
@@ -365,7 +365,7 @@ class StatisticsTest(unittest.TestCase):
               'unit': ''},
              {'dataset': 'output',
               'dimension': 'c1',
-              'measurement': [0.01, 0.1, 2, 0.2, 1, 0.4, 1],
+              'measurement': [0, 0.1, 2, 0.2, 1, 0.4, 1],
               'name': 'distribution',
               'timestamp': 1,
               'type': 'histogram',
@@ -421,7 +421,7 @@ class StatisticsTest(unittest.TestCase):
               'unit': ''},
              {'dataset': 'output',
               'dimension': 'c2',
-              'measurement': [0.1, 5.0, 1, 7.0, 1, 10.0, 1, 12.0, 1],
+              'measurement': [0, 5, 1, 7, 1, 10, 1, 12, 1],
               'name': 'distribution',
               'timestamp': 1,
               'type': 'histogram',
@@ -648,11 +648,11 @@ class StatisticsTest(unittest.TestCase):
               'unit': ''},
              {'dataset': 'input',
               'dimension': '0',
-              'measurement': [1, 43, 3, 97, 1],
+              'measurement': [0, 43, 3, 97, 1],
               'name': 'distribution',
               'timestamp': 1,
               'type': 'histogram',
-              'unit': ''},
+              'unit': '#'},
              {'dataset': 'input',
               'dimension': '1',
               'measurement': [0.0, 4],
@@ -704,7 +704,7 @@ class StatisticsTest(unittest.TestCase):
               'unit': ''},
              {'dataset': 'input',
               'dimension': '1',
-              'measurement': [0.1, 1.0, 1, 2.0, 2, 3.0, 1],
+              'measurement': [0, 1, 1, 2, 2, 3, 1],
               'name': 'distribution',
               'timestamp': 1,
               'type': 'histogram',
@@ -744,11 +744,11 @@ class StatisticsTest(unittest.TestCase):
               'unit': ''},
              {'dataset': 'output',
               'dimension': '0',
-              'measurement': [1, 53, 1, 59, 2, 66, 3],
+              'measurement': [0, 53, 1, 59, 2, 66, 3],
               'name': 'distribution',
               'timestamp': 1,
               'type': 'histogram',
-              'unit': ''},
+              'unit': '#'},
              {'dataset': 'input',
               'measurement': [0, 4],
               'name': 'outlier_count',
@@ -809,8 +809,8 @@ class StatisticsTest(unittest.TestCase):
               'timestamp': 1},
              {'name': 'output_outliers',
               'parts': [{'data': 'f1,f2\n1002,1002\n1001,1001',
-                            'dataset': 'input',
-                            'format': 'csv'},
+                         'dataset': 'input',
+                         'format': 'csv'},
                         {'data': 'c1\n1002\n1001',
                          'dataset': 'output',
                          'format': 'csv'},
@@ -913,7 +913,7 @@ class StatisticsTest(unittest.TestCase):
                 ensure_sample=True)])
         sample_dict = [sample.to_dict() for sample in samples]
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(sample_dict)
+        # pp.pprint(sample_dict)
         self.assertEqual(
             sample_dict,
             [{'name': 'random',
@@ -935,7 +935,6 @@ class StatisticsTest(unittest.TestCase):
               'timestamp': 1}]
         )
 
-    
     def test_outlier_index(self):
         d = []
         d.extend(list(range(100)))
@@ -949,6 +948,6 @@ class StatisticsTest(unittest.TestCase):
         self.assertEqual(count, 2)
 
     def test_selective_index(self):
-        df = pd.DataFrame(data={'f1': [1,2,3]})
+        df = pd.DataFrame(data={'f1': [1, 2, 3]})
         idx = ds._selective_index(df, [True, False, True])
         self.assertTrue(np.array_equal(idx, np.asarray([0, 2])))

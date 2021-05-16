@@ -104,8 +104,7 @@ class Session(object):
 
         Computed data statistics such as feature and class distributions are uploaded
         at certain intervals and on process exit. Additionally, some prediction samples
-        and outliers may be uploaded. This can be disabled by setting ``log_instances`` option
-        to ``False`` when configuring the logger.
+        and outliers may be uploaded.
 
         Args:
             input_data (:obj:`list` or :obj:`dict` or :obj:`numpy.ndarray` or :obj:`pandas.DataFrame`, optional):
