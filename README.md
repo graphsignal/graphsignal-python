@@ -39,7 +39,7 @@ git clone https://github.com/graphsignal/graphsignal.git
 python setup.py install
 ```
 
-And import the package in your application
+Import the package in your application
 
 ```python
 import graphsignal
@@ -47,13 +47,13 @@ import graphsignal
 
 ### Configuration
 
-Configure the logger by specifying the API key.
+Configure the logger by specifying your API key.
 
 ```python
 graphsignal.configure(api_key='my_api_key')
 ```
 
-To get an API key, sign up for a free trial account at [graphsignal.ai](https://graphsignal.ai). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.ai/settings/api_keys) page.
+To get an API key, sign up for a free account at [graphsignal.ai](https://graphsignal.ai). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.ai/settings/api_keys) page.
 
 
 ### Logging session
