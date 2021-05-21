@@ -7,6 +7,8 @@ Graphsignal is an observability platform for monitoring and troubleshooting prod
 
 ![Model Dashboard](readme-screenshot.png)
 
+[Watch 2-minute screencast](https://www.youtube.com/watch?v=g_wNa9A8gr4).
+
 ## AI Observability
 
 * **Model monitoring.** Monitor offline and online predictions for *data validity and anomalies*, *data drift and concept drift*, *prediction latency*, *exceptions*, *system metrics* and more.
