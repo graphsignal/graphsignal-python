@@ -243,7 +243,7 @@ class Session(object):
             type_name = Event.TYPE_ERROR
 
         if exc_info:
-            event_name = 'exception'
+            event_name = Event.NAME_EXCEPTION
             if exc_info == True:
                 exc_info = sys.exc_info()
             if len(
@@ -252,9 +252,9 @@ class Session(object):
                     exc_info[0], exc_info[1])
                 attributes['stack_trace'] = traceback.format_tb(exc_info[2])
         elif is_error:
-            event_name = 'error'
+            event_name = Event.NAME_ERROR
         else:
-            event_name = 'info'
+            event_name = Event.NAME_EXCEPTION
 
         with self._update_lock:
             event = Event(
@@ -265,6 +265,10 @@ class Session(object):
             for name, value in attributes.items():
                 event.add_attribute(name, value)
             self._event_window.append(event)
+
+        if is_error or exc_info is not None:
+            if len(self._prediction_window) > 0:
+                self._prediction_window[-1].ensure_sample = True
 
         self._set_updated()
 

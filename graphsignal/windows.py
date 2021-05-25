@@ -412,6 +412,11 @@ class Event(object):
     TYPE_INFO = 'info'
     TYPE_ERROR = 'error'
 
+    NAME_INFO = 'info'
+    NAME_ERROR = 'error'
+    NAME_EXCEPTION = 'exception'
+    NAME_ANOMALY = 'anomaly'
+
     def __init__(
             self,
             type=None,

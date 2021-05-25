@@ -32,11 +32,13 @@ class SessionsTest(unittest.TestCase):
                                 mocked_upload_window, mocked_flush, mocked_system, mocked_version):
         session = graphsignal.session('d1')
         session.set_attribute(name='a1', value='v1')
+        session.log_prediction(input_data=[[1, 2], [3, 4]], output_data=[5, 6])
         session.log_metric(name='m1', value=1)
         session.log_event(
             description='e1', attributes={
                 'a1': 'v1'}, is_error=True)
-        session.log_prediction(input_data=[[1, 2], [3, 4]], output_data=[5, 6])
+        self.assertEqual(session._prediction_window[-1].ensure_sample, True)
+
         session._upload_window(force=True)
 
         mocked_upload_window.assert_called_once()
