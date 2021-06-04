@@ -26,7 +26,7 @@ See full documentation at [graphsignal.ai/docs](https://graphsignal.ai/docs/).
 
 ## Getting Started
 
-### Installation
+### 1. Installation
 
 Install the Python logger by running
 
@@ -47,7 +47,7 @@ Import the package in your application
 import graphsignal
 ```
 
-### Configuration
+### 2. Configuration
 
 Configure the logger by specifying your API key.
 
@@ -58,7 +58,7 @@ graphsignal.configure(api_key='my_api_key')
 To get an API key, sign up for a free account at [graphsignal.ai](https://graphsignal.ai). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.ai/settings/api_keys) page.
 
 
-### Logging session
+### 3. Logging session
 
 Get logging session for a deployed model identified by deployment name. Multiple sessions can be used in parallel in case of multi-model scrips or servers.
 
@@ -77,7 +77,7 @@ sess.set_attribute('my attribute', 'value123')
 Some system attributes, such as Python version and OS are added automatically.
 
 
-### Prediction Logging
+### 4. Prediction Logging
 
 Log single or batch model prediction/inference data. Pass prediction data according to [supported data formats](https://graphsignal.ai/docs/python-logger/supported-data-formats) using `list`, `dict`, `pandas.DataFrame` or `numpy.ndarray`.
 
@@ -114,7 +114,12 @@ with sess.measure_latency()
 See [prediction logging API reference](https://graphsignal.ai/docs/python-logger/api-reference/) for full documentation.
 
 
-### Example
+### 5. Dashboards and Alerting
+
+After prediction logging is setup, [sign in](https://app.graphsignal.ai/signin) to Graphsignal to check out various dashboards and set up alerts for automatically detected issues.
+
+
+## Example
 
 ```python
 import numpy as np
@@ -162,6 +167,7 @@ Graphsignal logger can only open outbound connections to `log-api.graphsignal.ai
 
 Please make sure to exclude or anonymize any personally identifiable information (PII) when logging model data and events.
 
+Samples of logged model input and output data as well as some of the computed data metrics, such as feature distriburions, contain actual data values. If you do not want any data values to be sent to Graphsignal cloud, you can add `privacy_mode=True` to `configure()`.
 
 ## Troubleshooting
 

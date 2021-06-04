@@ -97,37 +97,39 @@ def compute_metrics(prediction_window):
                 last_timestamp))
 
     # compute samples
-    random_sample = _compute_random_sample(
-        input_window, output_window, context_window, last_timestamp)
-    if random_sample:
-        samples.append(random_sample)
+    if not graphsignal._get_config().privacy_mode:
+        random_sample = _compute_random_sample(
+            input_window, output_window, context_window, last_timestamp)
+        if random_sample:
+            samples.append(random_sample)
 
-    input_outlier_sample, input_outlier_metric = _compute_input_outlier_sample(
-        input_window, output_window, context_window, last_timestamp)
-    if input_outlier_sample is not None:
-        samples.append(input_outlier_sample)
-    if input_outlier_metric is not None:
-        metrics.append(input_outlier_metric)
+        input_outlier_sample, input_outlier_metric = _compute_input_outlier_sample(
+            input_window, output_window, context_window, last_timestamp)
+        if input_outlier_sample is not None:
+            samples.append(input_outlier_sample)
+        if input_outlier_metric is not None:
+            metrics.append(input_outlier_metric)
 
-    output_outlier_sample, output_outlier_metric = _compute_output_outlier_sample(
-        input_window, output_window, context_window, last_timestamp)
-    if output_outlier_sample is not None:
-        samples.append(output_outlier_sample)
-    if output_outlier_metric is not None:
-        metrics.append(output_outlier_metric)
+        output_outlier_sample, output_outlier_metric = _compute_output_outlier_sample(
+            input_window, output_window, context_window, last_timestamp)
+        if output_outlier_sample is not None:
+            samples.append(output_outlier_sample)
+        if output_outlier_metric is not None:
+            metrics.append(output_outlier_metric)
 
-    selective_sample = _compute_selective_sample(
-        input_window, output_window, context_window, last_timestamp)
-    if selective_sample is not None:
-        samples.append(selective_sample)
+        selective_sample = _compute_selective_sample(
+            input_window, output_window, context_window, last_timestamp)
+        if selective_sample is not None:
+            samples.append(selective_sample)
 
-    logger.debug('Computing metrics and samples took %.3f sec',
-                 time.time() - start_ts)
+        logger.debug('Computing metrics and samples took %.3f sec',
+                     time.time() - start_ts)
 
     return metrics, samples
 
 
 def _compute_tabular_metrics(data_window, dataset, timestamp):
+    privacy_mode = graphsignal._get_config().privacy_mode
     metrics = []
 
     instance_count = data_window.data.shape[0]
@@ -196,14 +198,15 @@ def _compute_tabular_metrics(data_window, dataset, timestamp):
                 metric.set_statistic(unique_count, instance_count)
                 metrics.append(metric)
 
-                mean_value = np.mean(finite_column_values)
-                metric = Metric(
-                    dataset=dataset,
-                    dimension=column_name,
-                    name='mean',
-                    timestamp=timestamp)
-                metric.set_statistic(mean_value, instance_count)
-                metrics.append(metric)
+                if not privacy_mode:
+                    mean_value = np.mean(finite_column_values)
+                    metric = Metric(
+                        dataset=dataset,
+                        dimension=column_name,
+                        name='mean',
+                        timestamp=timestamp)
+                    metric.set_statistic(mean_value, instance_count)
+                    metrics.append(metric)
 
                 std_value = np.std(
                     finite_column_values,
@@ -234,13 +237,14 @@ def _compute_tabular_metrics(data_window, dataset, timestamp):
                 metric.set_statistic(kurtosis_value, instance_count)
                 metrics.append(metric)
 
-                metric = Metric(
-                    dataset=dataset,
-                    dimension=column_name,
-                    name='distribution',
-                    timestamp=timestamp)
-                metric.compute_histogram(finite_column_values.tolist())
-                metrics.append(metric)
+                if not privacy_mode:
+                    metric = Metric(
+                        dataset=dataset,
+                        dimension=column_name,
+                        name='distribution',
+                        timestamp=timestamp)
+                    metric.compute_histogram(finite_column_values.tolist())
+                    metrics.append(metric)
         else:
             string_column_values = [
                 m for m in column_values.tolist() if isinstance(m, str)]
@@ -285,7 +289,7 @@ def _compute_tabular_metrics(data_window, dataset, timestamp):
                     name='distribution',
                     timestamp=timestamp)
                 metric.compute_categorical_histogram(
-                    string_column_values, 
+                    string_column_values,
                     unit=Metric.UNIT_CATEGORY_HASH)
                 metrics.append(metric)
 

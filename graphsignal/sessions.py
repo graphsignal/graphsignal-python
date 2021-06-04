@@ -347,7 +347,7 @@ class Session(object):
                 'Unable to compute data statistics', exc_info=True)
 
         # add system metrics
-        if graphsignal._get_config().log_system_metrics:
+        if graphsignal._get_config().enable_system_metrics:
             vm_rss = system.vm_rss()
             if vm_rss is not None:
                 vm_rss_metric = Metric(
