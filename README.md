@@ -66,6 +66,13 @@ Get logging session for a deployed model identified by deployment name. Multiple
 sess = graphsignal.session(deployment_name='model1_prod')
 ```
 
+You can also use `with` statement:
+
+```python
+with graphsignal.session(deployment_name='model1_prod') as sess:
+    # prediction code here
+```
+
 If a model is versioned you can set the version as a model attribute.
 
 Set model attributes.

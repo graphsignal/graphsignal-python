@@ -61,6 +61,16 @@ class Session(object):
         if self._upload_window():
             graphsignal._get_uploader().flush_in_thread()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type and exc_val and exc_tb:
+            self.log_event(
+                description='Prediction exception',
+                exc_info=(exc_type, exc_val, exc_tb)
+            )
+
     def set_attribute(self, name=None, value=None):
         '''
         Set model attributes. Only last set value is kept.
@@ -248,6 +258,8 @@ class Session(object):
                 exc_info = sys.exc_info()
             if len(
                     exc_info) == 3 and exc_info[0] and exc_info[1] and exc_info[2]:
+                if attributes is None:
+                    attributes = {}
                 attributes['error_message'] = traceback.format_exception_only(
                     exc_info[0], exc_info[1])
                 attributes['stack_trace'] = traceback.format_tb(exc_info[2])

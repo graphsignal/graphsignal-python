@@ -24,7 +24,7 @@ class SessionsTest(unittest.TestCase):
     @patch('platform.system', return_value='Linux')
     @patch.object(Uploader, 'flush')
     @patch.object(Uploader, 'upload_window')
-    @patch('graphsignal.statistics.compute_metrics', return_value=[])
+    @patch('graphsignal.statistics.compute_metrics', return_value=([], []))
     @patch('graphsignal.system.vm_size', return_value=1)
     @patch('graphsignal.system.vm_rss', return_value=1)
     @patch('time.time', return_value=1)
@@ -143,7 +143,7 @@ class SessionsTest(unittest.TestCase):
             with session.measure_latency():
                 time.sleep(0.1)
                 raise Exception('ex1')
-        except BaseException:
+        except BaseException as ex:
             pass
 
         session._upload_window(force=True)
@@ -154,36 +154,49 @@ class SessionsTest(unittest.TestCase):
 
         self.assertEqual(
             window,
-            {'metrics': [{'dataset': 'system',
-                          'measurement': [0, 1],
-                          'name': 'prediction_latency_p50',
-                          'timestamp': 1,
-                          'type': 'statistic',
-                          'unit': 'ms'},
-                         {'dataset': 'system',
-                          'measurement': [0, 1],
-                          'name': 'prediction_cpu_time_p50',
-                          'timestamp': 1,
-                          'type': 'statistic',
-                          'unit': 'ms'},
-                         {'dataset': 'system',
-                          'measurement': [0],
-                          'name': 'prediction_count',
-                          'timestamp': 1,
-                          'type': 'gauge',
-                          'unit': ''},
-                         {'dataset': 'system',
-                          'measurement': [1],
-                          'name': 'process_memory_usage',
-                          'timestamp': 1,
-                          'type': 'gauge',
-                          'unit': 'KB'},
-                         {'dataset': 'system',
-                          'measurement': [1],
-                          'name': 'process_virtual_memory',
-                          'timestamp': 1,
-                          'type': 'gauge',
-                          'unit': 'KB'}],
+            {'events': [{'attributes': [{'name': 'error_message',
+                                         'value': "['Exception: ex1\\n']"},
+                                        {'name': 'stack_trace',
+                                         'value': "['  File "
+                                         '"/code/graphsignal/graphsignal/sessions_test.py", '
+                                         'line 145, in '
+                                         'test_measure_latency_context\\n    '
+                                         "raise Exception(\\'ex1\\')\\n']"}],
+                         'description': 'Prediction exception',
+                         'name': 'exception',
+                         'score': 1,
+                         'timestamp': 1,
+                         'type': 'error'}],
+                'metrics': [{'dataset': 'system',
+                             'measurement': [0, 1],
+                             'name': 'prediction_latency_p50',
+                             'timestamp': 1,
+                             'type': 'statistic',
+                             'unit': 'ms'},
+                            {'dataset': 'system',
+                             'measurement': [0, 1],
+                             'name': 'prediction_cpu_time_p50',
+                             'timestamp': 1,
+                             'type': 'statistic',
+                             'unit': 'ms'},
+                            {'dataset': 'system',
+                             'measurement': [0],
+                             'name': 'prediction_count',
+                             'timestamp': 1,
+                             'type': 'gauge',
+                             'unit': ''},
+                            {'dataset': 'system',
+                             'measurement': [1],
+                             'name': 'process_memory_usage',
+                             'timestamp': 1,
+                             'type': 'gauge',
+                             'unit': 'KB'},
+                            {'dataset': 'system',
+                             'measurement': [1],
+                             'name': 'process_virtual_memory',
+                             'timestamp': 1,
+                             'type': 'gauge',
+                             'unit': 'KB'}],
              'model': {'attributes': [{'name': 'Python', 'value': '1.2.3'},
                                       {'name': 'OS', 'value': 'Linux'}],
                        'deployment': 'd1',
@@ -253,3 +266,23 @@ class SessionsTest(unittest.TestCase):
                        'timestamp': 1},
              'timestamp': 1}
         )
+
+    @patch.object(Uploader, 'flush')
+    @patch.object(Uploader, 'upload_window')
+    def test_session_with(self, mocked_upload_window, mocked_flush):
+        with graphsignal.session(deployment_name='d1') as sess:
+            self.assertEqual(sess._window_size, 0)
+
+    @patch.object(Uploader, 'flush')
+    @patch.object(Uploader, 'upload_window')
+    def test_session_contextmanager(self, mocked_upload_window, mocked_flush):
+        try:
+            with graphsignal.session(deployment_name='d1') as sess:
+                raise Exception('ex1')
+        except BaseException:
+            pass
+
+        self.assertEqual(
+            graphsignal.session(
+                deployment_name='d1')._event_window[0].description,
+            'Prediction exception')
