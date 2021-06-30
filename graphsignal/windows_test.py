@@ -12,22 +12,6 @@ class WindowsTest(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
 
-    def test_update_percentile(self):
-        data = [1, 2, 3, 4, 5] * 10
-        data.append(100)
-        data.append(1000)
-
-        metric = Metric()
-        for sample in data:
-            metric.update_percentile(sample, 95)
-
-        metric.finalize()
-
-        self.assertEqual(
-            metric.measurement,
-            [5, 52]
-        )
-
     def test_compute_histogram_0_bin(self):
         data = [1.1, 1.1, 2, 2, 3, 3, 3, 4.0001, 4.0001]
 

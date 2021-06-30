@@ -22,7 +22,6 @@ else
     pip --version
     pip install numpy
     pip install pandas
-    pip install scikit-learn
     pip install mock
     pip install pylint
     pip install autopep8

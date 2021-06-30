@@ -39,7 +39,6 @@ setup(
     'Environment :: Web Environment',
     'Environment :: Console',
     'Intended Audience :: Developers',
-    'Intended Audience :: System Administrators',
     'License :: OSI Approved :: BSD License',
     'Operating System :: OS Independent',
     'Programming Language :: Python',
@@ -52,9 +51,7 @@ setup(
   python_requires='>=3.5',
   install_requires=[
     'numpy',
-    'pandas',
-    'scipy',
-    'scikit-learn'
+    'pandas'
   ],
   
   packages = find_packages(exclude=[

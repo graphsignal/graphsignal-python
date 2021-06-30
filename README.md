@@ -3,19 +3,18 @@
 
 ## Overview
 
-Graphsignal is an observability platform for monitoring and troubleshooting production machine learning applications. It helps ML engineers, MLOps teams and data scientists to quickly address issues with data and models as well as proactively analyze model performance and availability. Learn more at [graphsignal.ai](https://graphsignal.ai).
+Graphsignal is a machine learning model monitoring platform. It helps ML engineers, MLOps teams and data scientists to quickly address issues with data and models as well as proactively analyze model performance and availability. Learn more at [graphsignal.ai](https://graphsignal.ai).
 
 ![Model Dashboard](readme-screenshot.png)
 
-[Watch 2-minute screencast](https://www.youtube.com/watch?v=g_wNa9A8gr4).
 
-## AI Observability
+## Model Monitoring
 
-* **Model monitoring.** Monitor offline and online predictions for *data validity and anomalies*, *data drift and concept drift*, *prediction latency*, *exceptions*, *system metrics* and more.
-* **Automatic issue detection.** Graphsignal automatically detects and notifies on issues in data and models, no need to manually setup and maintain complex rules.
-* **Root cause analysis.** Analyse prediction outliers and issue-related samples for faster problem root cause identification.
+* **Data monitoring.** Monitor offline and online predictions for *data validity and anomalies*, *data drift, model drift*, and more.
+* **Automatic issue detection.** Graphsignal automatically detects and notifies on issues with data and models, no need to manually setup and maintain complex rules.
 * **Model framework and deployment agnostic.** Monitor models serving *online*, in streaming apps, accessed via APIs or *offline*, running batch predictions.
-* **Any scale and data size.** Graphsignal logger *only sends data statistics and samples* allowing it to scale with your application and data.
+* **Any scale and data size.** Graphsignal logger *only sends data statistics* allowing it to scale with your application and data.
+* **Data privacy.** No raw data is sent to Graphsignal cloud, only data statistics and metadata.
 * **Team access.** Easily add team members to your account, as many as you need.
 
 
@@ -66,30 +65,27 @@ Get logging session for a deployed model identified by deployment name. Multiple
 sess = graphsignal.session(deployment_name='model1_prod')
 ```
 
-You can also use `with` statement:
+You can also use `with` statement, which will also transparently catch exceptions and report as error events:
 
 ```python
 with graphsignal.session(deployment_name='model1_prod') as sess:
     # prediction code here
 ```
 
-If a model is versioned you can set the version as a model attribute.
+If a model is versioned you can set the version as a model tag.
 
-Set model attributes.
+Set model tags. Tags can be updated dynamically, for example, when a new model version is dynamically loaded.
 
 ```python
-sess.set_attribute('my attribute', 'value123')
+sess.set_tag('version', '1.0')
 ```
-
-Some system attributes, such as Python version and OS are added automatically.
 
 
 ### 4. Prediction Logging
 
 Log single or batch model prediction/inference data. Pass prediction data according to [supported data formats](https://graphsignal.ai/docs/python-logger/supported-data-formats) using `list`, `dict`, `pandas.DataFrame` or `numpy.ndarray`.
 
-Computed data statistics such as feature and class distributions are uploaded at certain intervals and on process exit. Additionally, random and outlier prediction instances may be uploaded.
-
+Computed data statistics are uploaded at certain intervals and on process exit.
 
 ```python
 # Examples of input features and output classes.
@@ -99,23 +95,10 @@ y = numpy.asarray([[0.2, 0.8], [0.1, 0.9]])
 sess.log_prediction(input_data=x, output_data=y)
 ```
 
-Track metrics. The last set value is used when metric is aggregated.
+Log any prediction-related event and error.
 
 ```python
-sess.log_metric('my_metric', 1.0)
-```
-
-Log any prediction-related event or exception.
-
-```python
-sess.log_event(description='My event', attributes={'my_attr': '123'})
-```
-
-Measure prediction latency and record any exceptions.
-
-```python
-with sess.measure_latency()
-    my_model.predict(X)
+sess.log_event(description='Some event', attributes={'some_attr': '123'}, is_error=True)
 ```
 
 See [prediction logging API reference](https://graphsignal.ai/docs/python-logger/api-reference/) for full documentation.
@@ -146,16 +129,11 @@ model = keras.models.load_model('mnist_model.h5')
 x_test = x_test.astype("float32") / 255
 x_test = np.expand_dims(x_test, -1)
 
-# Measure predict call latency
-with sess.measure_latency()
-    output = model.predict(x_test)
+output = model.predict(x_test)
 
 # See supported data formats description at 
 # https://graphsignal.ai/docs/python-logger/supported-data-formats
 sess.log_prediction(output_data=output)
-
-# Report a metric
-sess.log_metric('my_metric', 1.2)
 ```
 
 See more [examples](https://github.com/graphsignal/graphsignal/tree/main/examples).
@@ -163,7 +141,7 @@ See more [examples](https://github.com/graphsignal/graphsignal/tree/main/example
 
 ## Performance
 
-When logging predictions, the data is windowed and only when certain time interval or window size conditions are met, data statistics are computed and sent along with a few sample and outlier data instances by the **background thread**.
+When logging predictions, the data is windowed and only when certain time interval or window size conditions are met, data statistics are computed and sent by the **background thread**.
 
 Since only data statistics are sent to our servers, there is **no limitation** on logged data size and it doesn't have a direct effect on logging performance.
 
@@ -172,9 +150,8 @@ Since only data statistics are sent to our servers, there is **no limitation** o
 
 Graphsignal logger can only open outbound connections to `log-api.graphsignal.ai` and send data, no inbound connections or commands are possible. 
 
-Please make sure to exclude or anonymize any personally identifiable information (PII) when logging model data and events.
+No raw data is sent to Graphsignal cloud, only data statistics and metadata.
 
-Samples of logged model input and output data as well as some of the computed data metrics, such as feature distriburions, contain actual data values. If you do not want any data values to be sent to Graphsignal cloud, you can add `privacy_mode=True` to `configure()`.
 
 ## Troubleshooting
 

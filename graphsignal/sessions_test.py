@@ -21,23 +21,18 @@ class SessionsTest(unittest.TestCase):
         graphsignal.shutdown()
 
     @patch('platform.python_version', return_value='1.2.3')
-    @patch('platform.system', return_value='Linux')
     @patch.object(Uploader, 'flush')
     @patch.object(Uploader, 'upload_window')
-    @patch('graphsignal.statistics.compute_metrics', return_value=([], []))
-    @patch('graphsignal.system.vm_size', return_value=1)
-    @patch('graphsignal.system.vm_rss', return_value=1)
+    @patch('graphsignal.statistics.compute_metrics', return_value=[])
     @patch('time.time', return_value=1)
-    def test_prediction_batched(self, mocked_time, mocked_vm_rss, mocked_vm_size, mocked_compute_metrics,
-                                mocked_upload_window, mocked_flush, mocked_system, mocked_version):
+    def test_prediction_batched(self, mocked_time, mocked_compute_metrics,
+                                mocked_upload_window, mocked_flush, mocked_version):
         session = graphsignal.session('d1')
-        session.set_attribute(name='a1', value='v1')
+        session.set_tag(name='t1', value='v1')
         session.log_prediction(input_data=[[1, 2], [3, 4]], output_data=[5, 6])
-        session.log_metric(name='m1', value=1)
         session.log_event(
             description='e1', attributes={
                 'a1': 'v1'}, is_error=True)
-        self.assertEqual(session._prediction_window[-1].ensure_sample, True)
 
         session._upload_window(force=True)
 
@@ -52,39 +47,20 @@ class SessionsTest(unittest.TestCase):
         self.assertEqual(
             call_args,
             {'events': [{'attributes': [{'name': 'a1', 'value': 'v1'}],
-                         'description': 'e1',
+                        'description': 'e1',
                          'name': 'error',
                          'score': 1,
                          'timestamp': 1,
                          'type': 'error'}],
-             'metrics': [{'dataset': 'model',
-                          'measurement': [1],
-                          'name': 'm1',
-                          'timestamp': 1,
-                          'type': 'gauge',
-                          'unit': ''},
-                         {'dataset': 'system',
+             'metrics': [{'aggregation': 'sum',
+                         'dataset': 'model_statistics',
                           'measurement': [1],
                           'name': 'prediction_count',
                           'timestamp': 1,
                           'type': 'gauge',
-                          'unit': ''},
-                         {'dataset': 'system',
-                          'measurement': [1],
-                          'name': 'process_memory_usage',
-                          'timestamp': 1,
-                          'type': 'gauge',
-                          'unit': 'KB'},
-                         {'dataset': 'system',
-                          'measurement': [1],
-                          'name': 'process_virtual_memory',
-                          'timestamp': 1,
-                          'type': 'gauge',
-                          'unit': 'KB'}],
-             'model': {'attributes': [{'name': 'Python', 'value': '1.2.3'},
-                                      {'name': 'OS', 'value': 'Linux'},
-                                      {'name': 'a1', 'value': 'v1'}],
-                       'deployment': 'd1',
+                          'unit': ''}],
+             'model': {'deployment': 'd1',
+                       'tags': [{'name': 't1', 'value': 'v1'}],
                        'timestamp': 1},
              'timestamp': 1}
         )
@@ -125,147 +101,6 @@ class SessionsTest(unittest.TestCase):
                 graphsignal.sessions.MIN_WINDOW_SIZE, 2))
 
         mocked_upload_window.assert_called_once()
-
-    @patch('platform.python_version', return_value='1.2.3')
-    @patch('platform.system', return_value='Linux')
-    @patch.object(Uploader, 'flush')
-    @patch.object(Uploader, 'upload_window')
-    @patch('graphsignal.system.vm_size', return_value=1)
-    @patch('graphsignal.system.vm_rss', return_value=1)
-    @patch('graphsignal.system.cpu_time', return_value=1)
-    @patch('time.time', return_value=1)
-    @patch('time.monotonic', return_value=1)
-    def test_measure_latency_context(self, mocked_monotonic, mocked_time, mocked_cpu_time, mocked_vm_rss, mocked_vm_size,
-                                     mocked_upload_window, mocked_flush, mocked_system, mocked_version):
-        session = graphsignal.session('d1')
-
-        try:
-            with session.measure_latency():
-                time.sleep(0.1)
-                raise Exception('ex1')
-        except BaseException as ex:
-            pass
-
-        session._upload_window(force=True)
-
-        window = mocked_upload_window.call_args[0][0]
-        #pp = pprint.PrettyPrinter()
-        # pp.pprint(window)
-
-        self.assertEqual(
-            window,
-            {'events': [{'attributes': [{'name': 'error_message',
-                                         'value': "['Exception: ex1\\n']"},
-                                        {'name': 'stack_trace',
-                                         'value': "['  File "
-                                         '"/code/graphsignal/graphsignal/sessions_test.py", '
-                                         'line 145, in '
-                                         'test_measure_latency_context\\n    '
-                                         "raise Exception(\\'ex1\\')\\n']"}],
-                         'description': 'Prediction exception',
-                         'name': 'exception',
-                         'score': 1,
-                         'timestamp': 1,
-                         'type': 'error'}],
-                'metrics': [{'dataset': 'system',
-                             'measurement': [0, 1],
-                             'name': 'prediction_latency_p50',
-                             'timestamp': 1,
-                             'type': 'statistic',
-                             'unit': 'ms'},
-                            {'dataset': 'system',
-                             'measurement': [0, 1],
-                             'name': 'prediction_cpu_time_p50',
-                             'timestamp': 1,
-                             'type': 'statistic',
-                             'unit': 'ms'},
-                            {'dataset': 'system',
-                             'measurement': [0],
-                             'name': 'prediction_count',
-                             'timestamp': 1,
-                             'type': 'gauge',
-                             'unit': ''},
-                            {'dataset': 'system',
-                             'measurement': [1],
-                             'name': 'process_memory_usage',
-                             'timestamp': 1,
-                             'type': 'gauge',
-                             'unit': 'KB'},
-                            {'dataset': 'system',
-                             'measurement': [1],
-                             'name': 'process_virtual_memory',
-                             'timestamp': 1,
-                             'type': 'gauge',
-                             'unit': 'KB'}],
-             'model': {'attributes': [{'name': 'Python', 'value': '1.2.3'},
-                                      {'name': 'OS', 'value': 'Linux'}],
-                       'deployment': 'd1',
-                       'timestamp': 1},
-             'timestamp': 1}
-        )
-
-    @patch('platform.python_version', return_value='1.2.3')
-    @patch('platform.system', return_value='Linux')
-    @patch.object(Uploader, 'flush')
-    @patch.object(Uploader, 'upload_window')
-    @patch('graphsignal.system.vm_size', return_value=1)
-    @patch('graphsignal.system.vm_rss', return_value=1)
-    @patch('graphsignal.system.cpu_time', return_value=1)
-    @patch('time.time', return_value=1)
-    @patch('time.monotonic', return_value=1)
-    def test_measure_latency_start_stop(
-            self, mocked_monotonic, mocked_time, mocked_cpu_time, mocked_vm_rss, mocked_vm_size, mocked_upload_window, mocked_flush, mocked_system, mocked_version):
-        session = graphsignal.session('d1')
-
-        span = session.measure_latency()
-        span.start()
-        time.sleep(0.1)
-        span.stop()
-
-        session._upload_window(force=True)
-
-        window = mocked_upload_window.call_args[0][0]
-        #pp = pprint.PrettyPrinter()
-        # pp.pprint(window)
-
-        self.assertEqual(
-            window,
-            {'metrics': [{'dataset': 'system',
-                          'measurement': [0, 1],
-                          'name': 'prediction_latency_p50',
-                          'timestamp': 1,
-                          'type': 'statistic',
-                          'unit': 'ms'},
-                         {'dataset': 'system',
-                          'measurement': [0, 1],
-                          'name': 'prediction_cpu_time_p50',
-                          'timestamp': 1,
-                          'type': 'statistic',
-                          'unit': 'ms'},
-                         {'dataset': 'system',
-                          'measurement': [0],
-                          'name': 'prediction_count',
-                          'timestamp': 1,
-                          'type': 'gauge',
-                          'unit': ''},
-                         {'dataset': 'system',
-                          'measurement': [1],
-                          'name': 'process_memory_usage',
-                          'timestamp': 1,
-                          'type': 'gauge',
-                          'unit': 'KB'},
-                         {'dataset': 'system',
-                          'measurement': [1],
-                          'name': 'process_virtual_memory',
-                          'timestamp': 1,
-                          'type': 'gauge',
-                          'unit': 'KB'}],
-             'model': {'attributes': [{'name': 'Python', 'value': '1.2.3'},
-                                      {'name': 'OS', 'value': 'Linux'}],
-                       'deployment': 'd1',
-                       'timestamp': 1},
-             'timestamp': 1}
-        )
 
     @patch.object(Uploader, 'flush')
     @patch.object(Uploader, 'upload_window')

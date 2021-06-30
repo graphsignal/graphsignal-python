@@ -18,7 +18,6 @@ class Window(object):
     __slots__ = [
         'model',
         'metrics',
-        'samples',
         'events',
         'timestamp'
     ]
@@ -29,7 +28,6 @@ class Window(object):
             timestamp=None):
         self.model = model
         self.metrics = None
-        self.samples = None
         self.events = None
         self.timestamp = timestamp if timestamp is not None else _now()
 
@@ -37,11 +35,6 @@ class Window(object):
         if self.metrics is None:
             self.metrics = []
         self.metrics.append(metric)
-
-    def add_sample(self, sample):
-        if self.samples is None:
-            self.samples = []
-        self.samples.append(sample)
 
     def add_event(self, event):
         if self.events is None:
@@ -51,15 +44,12 @@ class Window(object):
     def to_dict(self):
         metric_dicts = [metric.to_dict()
                         for metric in self.metrics] if self.metrics else None
-        sample_dicts = [sample.to_dict()
-                        for sample in self.samples] if self.samples else None
         event_dicts = [event.to_dict()
                        for event in self.events] if self.events else None
 
         window_dict = {
             'model': self.model.to_dict(),
             'metrics': metric_dicts,
-            'samples': sample_dicts,
             'events': event_dicts,
             'timestamp': self.timestamp
         }
@@ -75,12 +65,11 @@ class Window(object):
 
         report.append('Model')
         if self.model:
-            report.append('    name: {0}'.format(self.model.name))
             report.append('    deployment: {0}'.format(self.model.deployment))
-            if self.model.attributes is not None:
+            if self.model.tags is not None:
                 report.append(
-                    '    attributes: {0}'.format(
-                        self.model.attributes))
+                    '    tags: {0}'.format(
+                        self.model.tags))
 
         if self.metrics is not None:
             report.append('Metrics ({0})'.format(len(self.metrics)))
@@ -98,19 +87,21 @@ class Window(object):
                         report.append(
                             '        attribute: {0}: {1}'.format(attribute.name, attribute.value))
 
-        if self.samples is not None:
-            report.append('Samples ({0})'.format(len(self.samples)))
-            for sample in self.samples:
-                report.append('    {0}'.format(sample.name))
-                for part in sample.parts:
-                    report.append(
-                        '        dataset: {0}'.format(
-                            part.dataset))
-                    report.append('        format: {0}'.format(part.format))
-                    report.append(
-                        '        data size: {0}'.format(len(part.data)))
-
         return '\n'.join(report)
+
+
+class Tag(object):
+    __slots__ = ['name', 'value']
+
+    def __init__(self, name, value):
+        self.name = name
+        self.value = value
+
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'value': self.value
+        }
 
 
 class Attribute(object):
@@ -129,35 +120,31 @@ class Attribute(object):
 
 class Model(object):
     __slots__ = [
-        'name',
         'deployment',
-        'attributes',
+        'tags',
         'timestamp'
     ]
 
     def __init__(
             self,
-            name=None,
             deployment=None,
             timestamp=None):
-        self.name = name
         self.deployment = deployment
-        self.attributes = None
+        self.tags = None
         self.timestamp = timestamp if timestamp is not None else _now()
 
-    def add_attribute(self, name, value):
-        if self.attributes is None:
-            self.attributes = []
-        self.attributes.append(Attribute(name, str(value)))
+    def add_tag(self, name, value):
+        if self.tags is None:
+            self.tags = []
+        self.tags.append(Tag(name, str(value)))
 
     def to_dict(self):
-        attribute_dicts = [attribute.to_dict(
-        ) for attribute in self.attributes] if self.attributes else None
+        tag_dicts = [tag.to_dict(
+        ) for tag in self.tags] if self.tags else None
 
         model_dict = {
-            'name': self.name,
             'deployment': self.deployment,
-            'attributes': attribute_dicts,
+            'tags': tag_dicts,
             'timestamp': self.timestamp
         }
 
@@ -174,21 +161,19 @@ class Metric(object):
         'dimension',
         'name',
         'type',
+        'aggregation',
         'unit',
         'measurement',
-        'timestamp',
-        '_reservoir',
-        '_percent'
+        'timestamp'
     ]
-
-    DATASET_INPUT = 'input'
-    DATASET_OUTPUT = 'output'
-    DATASET_SYSTEM = 'system'
-    DATASET_MODEL = 'model'
 
     TYPE_GAUGE = 'gauge'
     TYPE_STATISTIC = 'statistic'
     TYPE_HISTOGRAM = 'histogram'
+
+    AGGREGATION_LAST = 'last'
+    AGGREGATION_SUM = 'sum'
+    AGGREGATION_MERGE = 'merge'
 
     UNIT_NONE = ''
     UNIT_PERCENT = '%'
@@ -201,49 +186,32 @@ class Metric(object):
             dataset=None,
             dimension=None,
             name=None,
-            unit=None,
+            aggregation=AGGREGATION_LAST,
+            unit=UNIT_NONE,
             timestamp=None):
         self.dataset = dataset
         self.dimension = dimension
         self.name = name
         self.type = None
-        self.unit = None
+        self.aggregation = aggregation
+        self.unit = unit
         self.measurement = None
         self.timestamp = timestamp if timestamp is not None else _now()
-        self._reservoir = None
-        self._percent = None
 
-    def set_gauge(self, value, unit=UNIT_NONE):
+    def set_gauge(self, value):
         self.type = Metric.TYPE_GAUGE
         self.measurement = [value]
-        self.unit = unit
 
-    def set_statistic(self, statistic, sample_size, unit=UNIT_NONE):
+    def set_statistic(self, statistic, sample_size):
         self.type = Metric.TYPE_STATISTIC
         self.measurement = [statistic, sample_size]
-        self.unit = unit
 
-    def update_percentile(self, value, percent, unit=UNIT_NONE):
-        if not self.type:
-            self.type = Metric.TYPE_STATISTIC
-            self.unit = unit
-            self.measurement = [None, 0]
-            self._reservoir = []
-            self._percent = percent
-
-        if len(self._reservoir) < RESERVOIR_SIZE:
-            self._reservoir.append(value)
-        else:
-            self._reservoir[random.randint(0, RESERVOIR_SIZE - 1)] = value
-
-        self.measurement[1] += 1
-
-    def compute_histogram(self, values, unit=UNIT_NONE):
+    def compute_histogram(self, values):
         if len(values) == 0:
             return None
 
         self.type = Metric.TYPE_HISTOGRAM
-        self.unit = unit
+        self.aggregation = Metric.AGGREGATION_MERGE
         self.measurement = []
 
         unique_values, counts = np.unique(values, return_counts=True)
@@ -284,12 +252,12 @@ class Metric(object):
             self.measurement.append(round(bin, bin_precision))
             self.measurement.append(count)
 
-    def compute_categorical_histogram(self, values, unit=UNIT_NONE):
+    def compute_categorical_histogram(self, values):
         if len(values) == 0:
             return None
 
         self.type = Metric.TYPE_HISTOGRAM
-        self.unit = unit
+        self.aggregation = Metric.AGGREGATION_MERGE
         self.measurement = []
 
         n_components = 100
@@ -307,18 +275,13 @@ class Metric(object):
                 self.measurement.append(i)
                 self.measurement.append(counts[i])
 
-    def finalize(self):
-        if self._reservoir is not None:
-            size = len(self._reservoir)
-            index = int(math.ceil((size * self._percent) / 100)) - 1
-            self.measurement[0] = sorted(self._reservoir)[index]
-
     def to_dict(self):
         metric_dict = {
             'dataset': self.dataset,
             'dimension': self.dimension,
             'name': self.name,
             'type': self.type,
+            'aggregation': self.aggregation,
             'unit': self.unit,
             'measurement': self.measurement,
             'timestamp': self.timestamp
@@ -337,68 +300,6 @@ def _category_hash(category, n_components=256):
     return int(h, 16) % n_components
 
 
-class SamplePart(object):
-    __slots__ = [
-        'dataset',
-        'format',
-        'data']
-
-    FORMAT_CSV = 'csv'
-
-    def __init__(self, dataset, format_, data):
-        self.dataset = dataset
-        self.format = format_
-        self.data = data
-
-    def to_dict(self):
-        return {
-            'dataset': self.dataset,
-            'format': self.format,
-            'data': self.data
-        }
-
-
-class Sample(object):
-    __slots__ = [
-        'name',
-        'size',
-        'parts',
-        'timestamp'
-    ]
-
-    def __init__(self, name=None, size=None, timestamp=None):
-        self.name = name
-        self.size = size
-        self.parts = []
-        self.timestamp = timestamp if timestamp is not None else _now()
-
-    def set_size(self, size):
-        self.size = size
-
-    def add_part(self, dataset, format_, data, insert_at=None):
-        if insert_at:
-            self.parts.insert(insert_at, SamplePart(dataset, format_, data))
-        else:
-            self.parts.append(SamplePart(dataset, format_, data))
-
-    def to_dict(self):
-        part_dicts = [part.to_dict()
-                      for part in self.parts] if self.parts else None
-
-        sample_dict = {
-            'name': self.name,
-            'size': self.size,
-            'parts': part_dicts,
-            'timestamp': self.timestamp
-        }
-
-        for key in list(sample_dict):
-            if sample_dict[key] is None:
-                del sample_dict[key]
-
-        return sample_dict
-
-
 class Event(object):
     __slots__ = [
         'type',
@@ -414,7 +315,6 @@ class Event(object):
 
     NAME_INFO = 'info'
     NAME_ERROR = 'error'
-    NAME_EXCEPTION = 'exception'
     NAME_ANOMALY = 'anomaly'
 
     def __init__(
