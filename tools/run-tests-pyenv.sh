@@ -20,6 +20,7 @@ else
     pyenv activate $venv
     python --version
     pip --version
+    pip install protobuf
     pip install numpy
     pip install pandas
     pip install mock

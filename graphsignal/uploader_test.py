@@ -17,13 +17,15 @@ from unittest.mock import patch, Mock
 
 import graphsignal
 from graphsignal.uploader import Uploader
+from graphsignal import metrics_pb2
 
 logger = logging.getLogger('graphsignal')
 
 
 class UploaderTest(unittest.TestCase):
     def setUp(self):
-        logger.setLevel(logging.DEBUG)
+        if len(logger.handlers) == 0:
+            logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal._get_uploader().clear()
         graphsignal.configure(api_key='k1', debug_mode=True)
 
@@ -31,45 +33,59 @@ class UploaderTest(unittest.TestCase):
         graphsignal._get_uploader().clear()
         graphsignal.shutdown()
 
-    @patch.object(Uploader, 'post_json')
-    def test_flush(self, mocked_post_json):
-        graphsignal._get_uploader().upload_window({'m1': 1})
+    @patch.object(Uploader, '_post')
+    def test_flush(self, mocked_post):
+        window = metrics_pb2.PredictionWindow()
+        graphsignal._get_uploader().upload_window(window)
         graphsignal._get_uploader().flush()
 
-        mocked_post_json.assert_called_once_with('windows', [{'m1': 1}])
-        self.assertEqual(len(graphsignal._get_uploader().buffer['windows']), 0)
+        mocked_post.assert_called_once()
+        self.assertEqual(len(graphsignal._get_uploader().buffer), 0)
 
-    @patch.object(Uploader, 'post_json')
-    def test_flush_in_thread(self, mocked_post_json):
-        graphsignal._get_uploader().upload_window({'m1': 1})
+    @patch.object(Uploader, '_post',
+                  return_value=metrics_pb2.UploadResponse().SerializeToString())
+    def test_flush_in_thread(self, mocked_post):
+        window = metrics_pb2.PredictionWindow()
+        graphsignal._get_uploader().upload_window(window)
         graphsignal._get_uploader().flush_in_thread()
         graphsignal.tick()
 
-        mocked_post_json.assert_called_once_with('windows', [{'m1': 1}])
-        self.assertEqual(len(graphsignal._get_uploader().buffer['windows']), 0)
+        mocked_post.assert_called_once()
+        self.assertEqual(len(graphsignal._get_uploader().buffer), 0)
 
-    @patch.object(Uploader, 'post_json')
-    def test_flush_fail(self, mocked_post_json):
+    @patch.object(Uploader, '_post')
+    def test_flush_fail(self, mocked_post):
         def side_effect(*args):
             raise URLError("Ex1")
-        mocked_post_json.side_effect = side_effect
+        mocked_post.side_effect = side_effect
 
-        graphsignal._get_uploader().upload_window({'m1': 1})
-        graphsignal._get_uploader().upload_window({'m2': 2})
+        window = metrics_pb2.PredictionWindow()
+        graphsignal._get_uploader().upload_window(window)
+        graphsignal._get_uploader().upload_window(window)
         graphsignal._get_uploader().flush()
 
-        self.assertEqual(len(graphsignal._get_uploader().buffer['windows']), 2)
+        self.assertEqual(len(graphsignal._get_uploader().buffer), 2)
 
-    def test_post_json(self):
+    def test_post(self):
         graphsignal._get_uploader().collector_url = 'http://localhost:5005'
 
         server = TestServer(5005)
+        server.set_response_data(
+            metrics_pb2.UploadResponse().SerializeToString())
         server.start()
 
-        graphsignal._get_uploader().post_json('metrics', [{'m1': 1}])
+        window = metrics_pb2.PredictionWindow()
+        window.model.deployment_name = 'd1'
+        upload_request = metrics_pb2.UploadRequest()
+        upload_request.windows.append(window)
+        upload_request.upload_ts = 123
+        graphsignal._get_uploader()._post('metrics', upload_request.SerializeToString())
 
-        request_data = json.loads(server.get_request_data())
-        self.assertEqual(request_data[0]['m1'], 1)
+        received_upload_request = metrics_pb2.UploadRequest()
+        received_upload_request.ParseFromString(server.get_request_data())
+        self.assertEqual(
+            received_upload_request.windows[0].model.deployment_name, 'd1')
+        self.assertEqual(received_upload_request.upload_ts, 123)
 
         server.join()
 
@@ -79,8 +95,6 @@ class TestServer(threading.Thread):
         self.port = port
         RequestHandler.delay = delay
         RequestHandler.handler_func = [handler_func]
-        RequestHandler.response_data = '{}'
-        RequestHandler.response_code = 200
         threading.Thread.__init__(self)
         self.server = HTTPServer(('localhost', self.port), RequestHandler)
 
@@ -97,16 +111,13 @@ class TestServer(threading.Thread):
         self.server.handle_request()
 
 
-def timestamp():
-    return int(time.time())
-
-
 class RequestHandler(BaseHTTPRequestHandler):
     delay = None
     handler_func = None
     request_data = None
-    response_data = '{}'
+    response_data = None
     response_code = 200
+    response_type = 'application/octet-stream'
 
     def do_GET(self):
         if self.delay:
@@ -116,9 +127,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             RequestHandler.handler_func[0]()
 
         self.send_response(RequestHandler.response_code)
-        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Type', RequestHandler.response_type)
         self.end_headers()
-        self.wfile.write(RequestHandler.response_data.encode('utf-8'))
+        self.wfile.write(RequestHandler.response_data)
 
     def do_POST(self):
         if self.delay:
@@ -129,9 +140,9 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         decompressed_data = gzip.GzipFile(
             fileobj=BytesIO(self.rfile.read(content_len))).read()
-        RequestHandler.request_data = decompressed_data.decode('utf-8')
+        RequestHandler.request_data = decompressed_data
 
         self.send_response(RequestHandler.response_code)
-        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Type', RequestHandler.response_type)
         self.end_headers()
-        self.wfile.write(RequestHandler.response_data.encode('utf-8'))
+        self.wfile.write(RequestHandler.response_data)

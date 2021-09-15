@@ -21,7 +21,9 @@ _uploader = None
 class Config(object):
     def __init__(self):
         self.api_key = None
-        self.debug_mode = False
+        self.debug_mode = None
+        self.window_seconds = None
+        self.buffer_size = None
 
 
 def _get_config():
@@ -32,7 +34,7 @@ def _get_uploader():
     return _uploader
 
 
-def configure(api_key, debug_mode=False):
+def configure(api_key, debug_mode=False, window_seconds=600, buffer_size=100):
     '''
     Configures and initializes the logger.
 
@@ -41,6 +43,12 @@ def configure(api_key, debug_mode=False):
             The access key for communication with the Graphsignal servers.
         debug_mode (:obj:`bool`, optional):
             Enable/disable debug output.
+        window_seconds (:obj:`int`, optional, default 600):
+            The length of prediction time windows for which data statistics
+            are reported.
+        buffer_size (:obj:`int`, optional, default 100):
+            The maximum mumber of model input and/or output data instances
+            kept in memory before computing statistics.
     '''
 
     global _config, _uploader
@@ -61,6 +69,8 @@ def configure(api_key, debug_mode=False):
     _config = Config()
     _config.api_key = api_key
     _config.debug_mode = debug_mode
+    _config.window_seconds = window_seconds
+    _config.buffer_size = buffer_size
 
     _uploader = Uploader()
     _uploader.configure()
@@ -120,7 +130,7 @@ def session(deployment_name):
         deployment_name (:obj:`str`, optional):
             Model deployment name, e.g. `model1_production`, `modelB_canary` or any other string value.
     Returns:
-        :obj:`Session` - session object for logging prediction data, metrics and events.
+        :obj:`Session` - session object for logging prediction data.
     Raises:
         `ValueError`: When `deployment_name` is invalid.
     '''

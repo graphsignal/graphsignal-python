@@ -50,6 +50,7 @@ setup(
   ],
   python_requires='>=3.5',
   install_requires=[
+    'protobuf>3.0',
     'numpy',
     'pandas'
   ],

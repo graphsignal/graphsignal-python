@@ -7,36 +7,18 @@ logger = logging.getLogger('graphsignal')
 class Prediction(object):
     __slots__ = [
         'input_data',
+        'input_columns',
         'output_data',
-        'timestamp'
+        'output_columns'
     ]
 
     def __init__(
             self,
             input_data=None,
+            input_columns=None,
             output_data=None,
-            timestamp=None):
+            output_columns=None):
         self.input_data = input_data
+        self.input_columns = input_columns
         self.output_data = output_data
-        self.timestamp = timestamp if timestamp is not None else _now()
-
-
-class DataWindow(object):
-    __slots__ = [
-        'data',
-        'timestamp'
-    ]
-
-    def __init__(
-            self,
-            data=None,
-            timestamp=None):
-        self.data = data
-        self.timestamp = timestamp
-
-    def size(self):
-        return self.data.shape[0]
-
-
-def _now():
-    return int(time.time())
+        self.output_columns = output_columns

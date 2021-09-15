@@ -65,40 +65,23 @@ Get logging session for a deployed model identified by deployment name. Multiple
 sess = graphsignal.session(deployment_name='model1_prod')
 ```
 
-You can also use `with` statement, which will also transparently catch exceptions and report as error events:
+If the model is versioned and you want to track each version separately, you can include the version in the `deployment_name`, e.g. 'mymodel_v1_prod'.
+
+Set any model metadata.
 
 ```python
-with graphsignal.session(deployment_name='model1_prod') as sess:
-    # prediction code here
-```
-
-If a model is versioned you can set the version as a model tag.
-
-Set model tags. Tags can be updated dynamically, for example, when a new model version is dynamically loaded.
-
-```python
-sess.set_tag('version', '1.0')
+sess.set_metadata('key1', 'val1')
 ```
 
 
 ### 4. Prediction Logging
 
-Log single or batch model prediction/inference data. Pass prediction data according to [supported data formats](https://graphsignal.ai/docs/python-logger/supported-data-formats) using `list`, `dict`, `pandas.DataFrame` or `numpy.ndarray`.
+Log single or batch model prediction/inference data. Pass prediction data according to [supported data formats](https://graphsignal.ai/docs/python-logger/supported-data-formats) using `list`, `dict`, `numpy.ndarray` or `pandas.DataFrame`.
 
 Computed data statistics are uploaded at certain intervals and on process exit.
 
 ```python
-# Examples of input features and output classes.
-x = pandas.DataFrame(data=[[0.1, 'A'], [0.2, 'B']], columns=['feature1', 'feature2'])
-y = numpy.asarray([[0.2, 0.8], [0.1, 0.9]])
-
-sess.log_prediction(input_data=x, output_data=y)
-```
-
-Log any prediction-related event and error.
-
-```python
-sess.log_event(description='Some event', attributes={'some_attr': '123'}, is_error=True)
+sess.log_prediction(input_data={'feat1': 1, 'feat2': 2.0, 'feat3': 'yes'}, output_data=[0.1])
 ```
 
 See [prediction logging API reference](https://graphsignal.ai/docs/python-logger/api-reference/) for full documentation.
@@ -106,7 +89,7 @@ See [prediction logging API reference](https://graphsignal.ai/docs/python-logger
 
 ### 5. Dashboards and Alerting
 
-After prediction logging is setup, [sign in](https://app.graphsignal.ai/signin) to Graphsignal to check out various dashboards and set up alerts for automatically detected issues.
+After prediction logging is setup, [sign in](https://app.graphsignal.ai/signin) to Graphsignal to check out data dashboards and set up alerting for automatically detected issues.
 
 
 ## Example
@@ -141,9 +124,9 @@ See more [examples](https://github.com/graphsignal/graphsignal/tree/main/example
 
 ## Performance
 
-When logging predictions, the data is windowed and only when certain time interval or window size conditions are met, data statistics are computed and sent by the **background thread**.
+Graphsignal logger uses streaming algorithms for computing data statistics to ensure production-level performance and memory usage. Data statistics are computed for time windows and sent to Graphsignal by the **background thread**.
 
-Since only data statistics are sent to our servers, there is **no limitation** on logged data size and it doesn't have a direct effect on logging performance.
+Since only data statistics is sent to our servers, there is **no limitation** on logged data size.
 
 
 ## Security and Privacy
