@@ -91,7 +91,7 @@ class Session(object):
         '''
         Log single or batch model prediction.
 
-        See `Supported Data Formats <https://graphsignal.ai/docs/integrations/python/supported-data-formats/>`_
+        See `Supported Data Formats <https://graphsignal.com/docs/integrations/python/supported-data-formats/>`_
         for detailed description of data types and formats.
 
         Computed data statistics are computed and uploaded for time windows at certain intervals and on process exit.

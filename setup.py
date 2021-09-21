@@ -15,8 +15,8 @@ setup(
   long_description = read('README.md'),
   long_description_content_type = 'text/markdown',
   author = 'Graphsignal, Inc.',
-  author_email = 'devops@graphsignal.ai',
-  url = 'https://graphsignal.ai',
+  author_email = 'devops@graphsignal.com',
+  url = 'https://graphsignal.com',
   license = 'BSD',
   keywords = [
     'machine learning',

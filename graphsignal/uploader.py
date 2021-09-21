@@ -23,7 +23,7 @@ class Uploader(object):
     MAX_BUFFER_SIZE = 2500
 
     def __init__(self):
-        self.collector_url = 'https://log-api.graphsignal.ai'
+        self.collector_url = 'https://log-api.graphsignal.com'
         self.buffer = []
         self.buffer_lock = threading.Lock()
         self.flush_lock = threading.Lock()

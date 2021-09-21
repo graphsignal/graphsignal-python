@@ -3,7 +3,7 @@
 
 ## Overview
 
-Graphsignal is a machine learning model monitoring platform. It helps ML engineers, MLOps teams and data scientists to quickly address issues with data and models as well as proactively analyze model performance and availability. Learn more at [graphsignal.ai](https://graphsignal.ai).
+Graphsignal is a machine learning model monitoring platform. It helps ML engineers, MLOps teams and data scientists to quickly address issues with data and models as well as proactively analyze model performance and availability. Learn more at [graphsignal.com](https://graphsignal.com).
 
 ![Model Dashboard](readme-screenshot.png)
 
@@ -20,7 +20,7 @@ Graphsignal is a machine learning model monitoring platform. It helps ML enginee
 
 ## Documentation
 
-See full documentation at [graphsignal.ai/docs](https://graphsignal.ai/docs/).
+See full documentation at [graphsignal.com/docs](https://graphsignal.com/docs/).
 
 
 ## Getting Started
@@ -54,7 +54,7 @@ Configure the logger by specifying your API key.
 graphsignal.configure(api_key='my_api_key')
 ```
 
-To get an API key, sign up for a free account at [graphsignal.ai](https://graphsignal.ai). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.ai/settings/api_keys) page.
+To get an API key, sign up for a free account at [graphsignal.com](https://graphsignal.com). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.com/settings/api_keys) page.
 
 
 ### 3. Logging session
@@ -76,7 +76,7 @@ sess.set_metadata('key1', 'val1')
 
 ### 4. Prediction Logging
 
-Log single or batch model prediction/inference data. Pass prediction data according to [supported data formats](https://graphsignal.ai/docs/python-logger/supported-data-formats) using `list`, `dict`, `numpy.ndarray` or `pandas.DataFrame`.
+Log single or batch model prediction/inference data. Pass prediction data according to [supported data formats](https://graphsignal.com/docs/python-logger/supported-data-formats) using `list`, `dict`, `numpy.ndarray` or `pandas.DataFrame`.
 
 Computed data statistics are uploaded at certain intervals and on process exit.
 
@@ -84,12 +84,12 @@ Computed data statistics are uploaded at certain intervals and on process exit.
 sess.log_prediction(input_data={'feat1': 1, 'feat2': 2.0, 'feat3': 'yes'}, output_data=[0.1])
 ```
 
-See [prediction logging API reference](https://graphsignal.ai/docs/python-logger/api-reference/) for full documentation.
+See [prediction logging API reference](https://graphsignal.com/docs/python-logger/api-reference/) for full documentation.
 
 
 ### 5. Dashboards and Alerting
 
-After prediction logging is setup, [sign in](https://app.graphsignal.ai/signin) to Graphsignal to check out data dashboards and set up alerting for automatically detected issues.
+After prediction logging is setup, [sign in](https://app.graphsignal.com/signin) to Graphsignal to check out data dashboards and set up alerting for automatically detected issues.
 
 
 ## Example
@@ -115,7 +115,7 @@ x_test = np.expand_dims(x_test, -1)
 output = model.predict(x_test)
 
 # See supported data formats description at 
-# https://graphsignal.ai/docs/python-logger/supported-data-formats
+# https://graphsignal.com/docs/python-logger/supported-data-formats
 sess.log_prediction(output_data=output)
 ```
 
@@ -131,7 +131,7 @@ Since only data statistics is sent to our servers, there is **no limitation** on
 
 ## Security and Privacy
 
-Graphsignal logger can only open outbound connections to `log-api.graphsignal.ai` and send data, no inbound connections or commands are possible. 
+Graphsignal logger can only open outbound connections to `log-api.graphsignal.com` and send data, no inbound connections or commands are possible. 
 
 No raw data is sent to Graphsignal cloud, only data statistics and metadata.
 
@@ -140,4 +140,4 @@ No raw data is sent to Graphsignal cloud, only data statistics and metadata.
 
 To enable debug logging, add `debug_mode=True` to `configure()`. If the debug log doesn't give you any hints on how to fix a problem, please report it to our support team via your account.
 
-In case of connection issues, please make sure outgoing connections to `https://log-api.graphsignal.ai` are allowed.
+In case of connection issues, please make sure outgoing connections to `https://log-api.graphsignal.com` are allowed.
