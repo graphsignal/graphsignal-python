@@ -15,9 +15,8 @@ from graphsignal import metrics_pb2
 logger = logging.getLogger('graphsignal')
 
 MAX_METADATA_SIZE = 10
-
-MAX_BUFFER_SIZE = 100
-MIN_WINDOW_length = 600
+MAX_EXCEPTIONS = 50
+MAX_EXTRA_INFO_SIZE = 10
 
 _session_index = {}
 _session_index_lock = threading.Lock()
@@ -120,8 +119,7 @@ class Session(object):
         self._buffer_size += data_size
         self._current_window.num_predictions += data_size
 
-        timestamp = actual_timestamp if actual_timestamp is not None else int(
-            time.time())
+        timestamp = actual_timestamp if actual_timestamp else _timestamp()
         if self._current_window.start_ts == 0:
             self._current_window.start_ts = timestamp
         self._current_window.end_ts = timestamp
@@ -135,6 +133,75 @@ class Session(object):
 
         if self._buffer_size > graphsignal._get_config().buffer_size:
             self._merge_buffer()
+
+        self._set_updated()
+
+    def log_exception(
+            self,
+            message=None,
+            extra_info=None,
+            exc_info=None,
+            actual_timestamp=None):
+        '''
+        Log prediction exception or error.
+        Args:
+            message (:obj:`str`):
+                Exception or error message or object. if ``exc_info`` is provided, the ``message``
+                will be extracted from there.
+            extra_info (:obj:`dict`, optional):
+                Additional information about exception or error as key-value pairs.
+            exc_info (:obj:`bool` or :obj:`tuple`, optional):
+                Exception tuple or ``True`` to automatically read it from ``sys.exc_info()``.
+            actual_timestamp (:obj:`int`, optional, default is current timestamp):
+                Actual timestamp of the exception, if different from current timestamp.
+        '''
+        if len(self._current_window.exceptions) > MAX_EXCEPTIONS:
+            logger.debug(
+                'not logging exceptions, maximum for current time window reached')
+            return
+
+        if not message and not exc_info:
+            logger.error('eigher of message or exc_info must be provided')
+            return
+
+        if message:
+            message = str(message)
+            if message and len(message) > 250:
+                message = message[:250] + '...'
+
+        stack_trace = None
+        if exc_info:
+            if exc_info == True:
+                exc_info = sys.exc_info()
+            if len(
+                    exc_info) == 3 and exc_info[0] and exc_info[1] and exc_info[2]:
+                exception_part = traceback.format_exception_only(
+                    exc_info[0], exc_info[1])
+                if len(exception_part) > 0:
+                    message = str(exception_part[0]).rstrip()
+                stack_trace_part = traceback.format_tb(exc_info[2])
+                if len(stack_trace_part) > 0:
+                    stack_trace = str(stack_trace_part)
+
+        if not message:
+            logger.error('cannot extract exception message')
+            return
+
+        exception_proto = self._current_window.exceptions.add()
+        exception_proto.message = message
+        if stack_trace:
+            exception_proto.stack_trace = stack_trace
+        if extra_info and isinstance(extra_info, dict):
+            for name in list(extra_info.keys())[:MAX_EXTRA_INFO_SIZE]:
+                value = extra_info[name]
+                name = str(name)
+                if len(name) > 250:
+                    name = name[:250] + '...'
+                value = str(value)
+                if len(value) > 2500:
+                    value = value[:2500] + '...'
+                exception_proto.extra_info[name] = value
+        exception_proto.create_ts = actual_timestamp if actual_timestamp else _timestamp()
 
         self._set_updated()
 
@@ -208,3 +275,7 @@ def upload_all(force=False):
             uploaded = True
 
     return uploaded
+
+
+def _timestamp():
+    return int(time.time())

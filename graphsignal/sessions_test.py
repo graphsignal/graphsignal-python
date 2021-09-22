@@ -37,6 +37,11 @@ class SessionsTest(unittest.TestCase):
             input_columns=['A', 'B'],
             output_data=[5, 6])
 
+        try:
+            raise Exception('ex1')
+        except Exception as ex:
+            session.log_exception(message=ex, extra_info={'k1': 'v1'}, exc_info=True)
+
         session._upload_window(force=True)
 
         mocked_upload_window.assert_called_once()
@@ -44,6 +49,13 @@ class SessionsTest(unittest.TestCase):
         uploaded_window = mocked_upload_window.call_args[0][0]
         self.assertEqual(uploaded_window.num_predictions, 2)
         self.assertEqual(uploaded_window.model.metadata['k1'], 'v1')
+        self.assertEqual(
+            uploaded_window.exceptions[0].message,
+            'Exception: ex1')
+        self.assertEqual(
+            uploaded_window.exceptions[0].extra_info, {
+                'k1': 'v1'})
+        self.assertTrue(uploaded_window.exceptions[0].stack_trace)
 
     @patch.object(Uploader, 'flush')
     @patch.object(Uploader, 'upload_window')

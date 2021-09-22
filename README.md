@@ -10,7 +10,7 @@ Graphsignal is a machine learning model monitoring platform. It helps ML enginee
 
 ## Model Monitoring
 
-* **Data monitoring.** Monitor offline and online predictions for *data validity and anomalies*, *data drift, model drift*, and more.
+* **Data monitoring.** Monitor offline and online predictions for *data validity and anomalies*, *data drift, model drift*, *exceptions*, and more.
 * **Automatic issue detection.** Graphsignal automatically detects and notifies on issues with data and models, no need to manually setup and maintain complex rules.
 * **Model framework and deployment agnostic.** Monitor models serving *online*, in streaming apps, accessed via APIs or *offline*, running batch predictions.
 * **Any scale and data size.** Graphsignal logger *only sends data statistics* allowing it to scale with your application and data.
@@ -82,6 +82,12 @@ Computed data statistics are uploaded at certain intervals and on process exit.
 
 ```python
 sess.log_prediction(input_data={'feat1': 1, 'feat2': 2.0, 'feat3': 'yes'}, output_data=[0.1])
+```
+
+Report prediction exceptions and errors.
+
+```python
+sess.log_exception(message='wrong format', extra_info={'feature': 'F1'})
 ```
 
 See [prediction logging API reference](https://graphsignal.com/docs/python-logger/api-reference/) for full documentation.

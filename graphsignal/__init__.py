@@ -34,7 +34,7 @@ def _get_uploader():
     return _uploader
 
 
-def configure(api_key, debug_mode=False, window_seconds=600, buffer_size=100):
+def configure(api_key, debug_mode=False, window_seconds=300, buffer_size=100):
     '''
     Configures and initializes the logger.
 
@@ -43,7 +43,7 @@ def configure(api_key, debug_mode=False, window_seconds=600, buffer_size=100):
             The access key for communication with the Graphsignal servers.
         debug_mode (:obj:`bool`, optional):
             Enable/disable debug output.
-        window_seconds (:obj:`int`, optional, default 600):
+        window_seconds (:obj:`int`, optional, default 300):
             The length of prediction time windows for which data statistics
             are reported.
         buffer_size (:obj:`int`, optional, default 100):

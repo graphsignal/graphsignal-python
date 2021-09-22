@@ -57,7 +57,7 @@ class KLLSketchTest(unittest.TestCase):
         self.assertEqual(
             k1.cdf(), [
                 (1, 0.2), (1, 0.4), (2, 0.6), (2, 0.8), (12, 1.0)])
-                
+
     def test_kll_distribution(self):
         k1 = KLLSketch()
         for i in range(5):

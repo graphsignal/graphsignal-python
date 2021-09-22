@@ -137,8 +137,6 @@ class StatisticsTest(unittest.TestCase):
             metrics_pb2.DataStream.DataSource.MODEL_INPUT)].metrics), 0)
         self.assertEqual(len(window.data_streams[str(
             metrics_pb2.DataStream.DataSource.MODEL_OUTPUT)].metrics), 0)
-        self.assertEqual(len(window.data_streams[str(
-            metrics_pb2.DataStream.DataSource.FEATURE_IMPORTANCE)].metrics), 0)
 
     def test_update_metrics(self):
         window = metrics_pb2.PredictionWindow()
@@ -175,8 +173,8 @@ class StatisticsTest(unittest.TestCase):
                 del metric['distributionValue']['sketchKll10']
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(input_metrics_json)
-        #pp.pprint(output_metrics_json)
+        # pp.pprint(input_metrics_json)
+        # pp.pprint(output_metrics_json)
 
         self.assertEqual(input_metrics_json,
                          {'1c359883cf3d': {'dimensions': {'column': 'f1'},

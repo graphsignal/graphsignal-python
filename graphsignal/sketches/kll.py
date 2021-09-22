@@ -84,7 +84,7 @@ class KLLSketch:
             else:
                 dist.append([item, weight])
         return dist
-        
+
     def ranks(self):
         weights = []
         for (h, items) in enumerate(self._compactors):
