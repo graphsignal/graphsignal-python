@@ -118,11 +118,14 @@ model = keras.models.load_model('mnist_model.h5')
 x_test = x_test.astype("float32") / 255
 x_test = np.expand_dims(x_test, -1)
 
-output = model.predict(x_test)
+try:
+  output = model.predict(x_test)
 
-# See supported data formats description at 
-# https://graphsignal.com/docs/python-logger/supported-data-formats
-sess.log_prediction(output_data=output)
+  # See supported data formats description at 
+  # https://graphsignal.com/docs/python-logger/supported-data-formats
+  sess.log_prediction(output_data=output)
+except:
+  sess.log_exception(exc_info=True)
 ```
 
 See more [examples](https://github.com/graphsignal/graphsignal/tree/main/examples).
