@@ -165,8 +165,9 @@ class Session(object):
             return
 
         if message:
-            message = str(message)
-            if message and len(message) > 250:
+            if not isinstance(message, str):
+                message = repr(message)
+            if len(message) > 250:
                 message = message[:250] + '...'
 
         stack_trace = None
@@ -181,7 +182,7 @@ class Session(object):
                     message = str(exception_part[0]).rstrip()
                 stack_trace_part = traceback.format_tb(exc_info[2])
                 if len(stack_trace_part) > 0:
-                    stack_trace = str(stack_trace_part)
+                    stack_trace = ''.join(stack_trace_part)
 
         if not message:
             logger.error('cannot extract exception message')
