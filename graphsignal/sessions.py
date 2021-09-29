@@ -116,15 +116,16 @@ class Session(object):
             logger.debug('Logged empty data')
             return
 
-        self._buffer_size += data_size
-        self._current_window.num_predictions += data_size
-
         timestamp = actual_timestamp if actual_timestamp else _timestamp()
-        if self._current_window.start_ts == 0:
-            self._current_window.start_ts = timestamp
-        self._current_window.end_ts = timestamp
 
         with self._update_lock:
+            if self._current_window.start_ts == 0:
+                self._current_window.start_ts = timestamp
+            self._current_window.end_ts = timestamp
+
+            self._buffer_size += data_size
+            self._current_window.num_predictions += data_size
+
             self._prediction_buffer.append(Prediction(
                 input_data=input_data,
                 input_columns=input_columns,
@@ -146,7 +147,7 @@ class Session(object):
         Log prediction exception or error.
         Args:
             message (:obj:`str`):
-                Exception or error message or object. if ``exc_info`` is provided, the ``message``
+                Error message or exception object. if ``exc_info`` is provided, the ``message``
                 will be extracted from there.
             extra_info (:obj:`dict`, optional):
                 Additional information about exception or error as key-value pairs.
@@ -188,21 +189,30 @@ class Session(object):
             logger.error('cannot extract exception message')
             return
 
-        exception_proto = self._current_window.exceptions.add()
-        exception_proto.message = message
-        if stack_trace:
-            exception_proto.stack_trace = stack_trace
-        if extra_info and isinstance(extra_info, dict):
-            for name in list(extra_info.keys())[:MAX_EXTRA_INFO_SIZE]:
-                value = extra_info[name]
-                name = str(name)
-                if len(name) > 250:
-                    name = name[:250] + '...'
-                value = str(value)
-                if len(value) > 2500:
-                    value = value[:2500] + '...'
-                exception_proto.extra_info[name] = value
-        exception_proto.create_ts = actual_timestamp if actual_timestamp else _timestamp()
+        timestamp = actual_timestamp if actual_timestamp else _timestamp()
+
+        with self._update_lock:
+            if self._current_window.start_ts == 0:
+                self._current_window.start_ts = timestamp
+            self._current_window.end_ts = timestamp
+
+            self._current_window.num_exceptions += 1
+
+            exception_proto = self._current_window.exceptions.add()
+            exception_proto.message = message
+            if stack_trace:
+                exception_proto.stack_trace = stack_trace
+            if extra_info and isinstance(extra_info, dict):
+                for name in list(extra_info.keys())[:MAX_EXTRA_INFO_SIZE]:
+                    value = extra_info[name]
+                    name = str(name)
+                    if len(name) > 250:
+                        name = name[:250] + '...'
+                    value = str(value)
+                    if len(value) > 2500:
+                        value = value[:2500] + '...'
+                    exception_proto.extra_info[name] = value
+            exception_proto.create_ts = timestamp
 
         self._set_updated()
 

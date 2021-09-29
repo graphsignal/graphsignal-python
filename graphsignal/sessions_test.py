@@ -55,6 +55,7 @@ class SessionsTest(unittest.TestCase):
         self.assertEqual(
             uploaded_window.exceptions[0].extra_info, {
                 'k1': 'v1'})
+        self.assertEqual(uploaded_window.num_exceptions, 1)
         self.assertTrue(uploaded_window.exceptions[0].stack_trace)
 
     @patch.object(Uploader, 'flush')
