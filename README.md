@@ -65,9 +65,7 @@ Get logging session for a deployed model identified by deployment name. Multiple
 sess = graphsignal.session(deployment_name='model1_prod')
 ```
 
-If the model is versioned and you want to track each version separately, you can include the version in the `deployment_name`, e.g. 'mymodel_v1_prod'.
-
-Set any model metadata.
+Set any model metadata, e.g. model version or model graph details.
 
 ```python
 sess.set_metadata('key1', 'val1')
