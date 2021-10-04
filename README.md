@@ -1,11 +1,16 @@
 # Graphsignal Logger
 
+[![License](http://img.shields.io/github/license/graphsignal/graphsignal)](https://github.com/graphsignal/graphsignal/blob/main/LICENSE)
+[![Version](https://img.shields.io/github/v/tag/graphsignal/graphsignal?label=version)](https://github.com/graphsignal/graphsignal)
+[![Downloads](https://pepy.tech/badge/graphsignal)](https://pepy.tech/project/graphsignal)
+[![SaaS Status](https://img.shields.io/uptimerobot/status/m787882560-d6b932eb0068e8e4ade7f40c?label=SaaS%20status)](https://stats.uptimerobot.com/gMBNpCqqqJ)
+
 
 ## Overview
 
 Graphsignal is a machine learning model monitoring platform. It helps ML engineers, MLOps teams and data scientists to quickly address issues with data and models as well as proactively analyze model performance and availability. Learn more at [graphsignal.com](https://graphsignal.com).
 
-![Model Dashboard](readme-screenshot.png)
+[![Model Dashboard](https://graphsignal.com/external/readme-screenshot.png)](https://app.graphsignal.com)
 
 
 ## Model Monitoring

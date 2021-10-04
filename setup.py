@@ -17,7 +17,7 @@ setup(
   author = 'Graphsignal, Inc.',
   author_email = 'devops@graphsignal.com',
   url = 'https://graphsignal.com',
-  license = 'BSD',
+  license = 'Apache-2.0',
   keywords = [
     'machine learning',
     'deep learning',
@@ -39,7 +39,7 @@ setup(
     'Environment :: Web Environment',
     'Environment :: Console',
     'Intended Audience :: Developers',
-    'License :: OSI Approved :: BSD License',
+    'License :: OSI Approved :: Apache Software License',
     'Operating System :: OS Independent',
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
