@@ -10,7 +10,7 @@
 
 Graphsignal is a machine learning model monitoring platform. It helps ML engineers, MLOps teams and data scientists to quickly address issues with data and models as well as proactively analyze model performance and availability. Learn more at [graphsignal.com](https://graphsignal.com).
 
-[![Model Dashboard](https://graphsignal.com/external/readme-screenshot.png)](https://app.graphsignal.com)
+[![Model Dashboard](https://graphsignal.com/external/readme-screenshot.png)](https://graphsignal.com)
 
 
 ## Model Monitoring
