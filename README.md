@@ -94,7 +94,7 @@ Log prediction batch. Pass prediction data using `list`, `dict`, `numpy.ndarray`
 ```python
 sess.log_prediction_batch(
   features=[[1.2, 70], [3.5, 40]], 
-  predictions=[0.5, 0.75])
+  predictions=[[0.5], [0.75]])
 ```
 
 Log prediction exceptions and errors.
