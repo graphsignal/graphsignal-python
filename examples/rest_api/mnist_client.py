@@ -12,7 +12,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
 # Configure Graphsignal
-graphsignal.configure(api_key='testkey', debug_mode=True)
+graphsignal.configure(api_key='testkey')
 
 # Get logging session for the model
 sess = graphsignal.session(deployment_name='mnist_prod')
@@ -30,4 +30,4 @@ output = res.json()
 logger.debug('Prediction output: %s', output)
 
 # Log prediction
-sess.log_prediction(output_data=output)
+sess.log_prediction(prediction=output[0])

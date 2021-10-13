@@ -11,7 +11,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
 # Configure Graphsignal
-graphsignal.configure(api_key='testkey', debug_mode=True)
+graphsignal.configure(api_key='testkey')
 
 # Get logging session for the model
 sess = graphsignal.session(deployment_name='mnist_prod')
@@ -29,7 +29,7 @@ def predict_digit():
     output = model.predict(input)
 
     # Log prediction
-    sess.log_prediction(output_data=output)
+    sess.log_prediction(prediction=output[0])
 
     logger.debug('Returning prediction output: %s', input)
     return json.dumps(output.tolist())

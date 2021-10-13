@@ -12,8 +12,6 @@ from graphsignal.uploader import Uploader
 
 logger = logging.getLogger('graphsignal')
 
-UPLOAD_INTERVAL = 120
-
 _config = None
 _uploader = None
 
@@ -35,22 +33,6 @@ def _get_uploader():
 
 
 def configure(api_key, debug_mode=False, window_seconds=300, buffer_size=100):
-    '''
-    Configures and initializes the logger.
-
-    Args:
-        api_key (:obj:`str`):
-            The access key for communication with the Graphsignal servers.
-        debug_mode (:obj:`bool`, optional):
-            Enable/disable debug output.
-        window_seconds (:obj:`int`, optional, default 300):
-            The length of prediction time windows for which data statistics
-            are reported.
-        buffer_size (:obj:`int`, optional, default 100):
-            The maximum mumber of model input and/or output data instances
-            kept in memory before computing statistics.
-    '''
-
     global _config, _uploader
 
     if _config:
@@ -83,13 +65,6 @@ def configure(api_key, debug_mode=False, window_seconds=300, buffer_size=100):
 
 
 def shutdown():
-    '''
-    Send any collected data to the server and cleanup.
-
-    Normally, when python scripts exists, this method is automatically called. Use this method,
-    if you want to explicitely shutdown the logger.
-    '''
-
     global _config
 
     if not _config:
@@ -108,11 +83,6 @@ def shutdown():
 
 
 def tick():
-    '''
-    Check if any data can be uploaded and if yes, upload.
-    Can be used in situations when logging is irregular and/or rare.
-    '''
-
     if not _config:
         logger.error(
             'Logger not configured, please use graphsignal.configure()')
@@ -123,18 +93,6 @@ def tick():
 
 
 def session(deployment_name):
-    '''
-    Get logging session for the model identified by model deployment name.
-
-    Args:
-        deployment_name (:obj:`str`, optional):
-            Model deployment name, e.g. `model1_production`, `modelB_canary` or any other string value.
-    Returns:
-        :obj:`Session` - session object for logging prediction data.
-    Raises:
-        `ValueError`: When `deployment_name` is invalid.
-    '''
-
     if not _config:
         raise ValueError(
             'graphsignal not configured, please use graphsignal.configure()')

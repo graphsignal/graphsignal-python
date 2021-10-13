@@ -2,12 +2,13 @@ import re
 import unicodedata
 import time
 import logging
+import hashlib
+from functools import lru_cache
 import numpy as np
 import pandas as pd
 
 import graphsignal
-from graphsignal.predictions import Prediction
-from graphsignal.metrics import *
+from graphsignal.windows import PredictionRecord, GroundTruthRecord, get_data_stream, get_metric_updater, canonical_string
 from graphsignal import metrics_pb2
 
 logger = logging.getLogger('graphsignal')
@@ -38,53 +39,53 @@ def estimate_size(data):
     return 0
 
 
-def update_metrics(metric_updaters, window_proto, prediction_buffer):
-    if len(prediction_buffer) == 0:
+def update_data_metrics(metric_updaters, window_proto, prediction_records):
+    if len(prediction_records) == 0:
         return
 
     start_ts = time.time()
-    input_buffer = [p.input_data
-                    for p in prediction_buffer if p.input_data is not None]
-    input_columns = prediction_buffer[-1].input_columns
-    input_columns, input_arr = _convert_to_numpy(
-        input_buffer, columns=input_columns)
+    features_buffer = [p.features
+                       for p in prediction_records if p.features is not None]
+    feature_names = prediction_records[-1].feature_names
+    feature_names, features_arr = _convert_to_numpy(
+        features_buffer, columns=feature_names)
 
-    output_buffer = [p.output_data
-                     for p in prediction_buffer if p.output_data is not None]
-    output_columns = prediction_buffer[-1].output_columns
-    output_columns, output_arr = _convert_to_numpy(
-        output_buffer, columns=output_columns)
+    predictions_buffer = [p.predictions
+                          for p in prediction_records if p.predictions is not None]
+    prediction_outputs, predictions_arr = _convert_to_numpy(
+        predictions_buffer)
 
-    if input_arr is None and output_arr is None:
+    if features_arr is None and predictions_arr is None:
         return
 
-    if input_arr is not None:
+    if features_arr is not None:
         data_stream = get_data_stream(
             window_proto,
-            metrics_pb2.DataStream.DataSource.MODEL_INPUT,
-            metrics_pb2.DataStream.DataType.TABULAR)
+            metrics_pb2.DataStream.DataSource.FEATURES)
         _update_tabular_metrics(
             metric_updaters,
             data_stream,
-            input_columns,
-            input_arr)
+            'feature',
+            feature_names,
+            features_arr)
 
-    if output_arr is not None:
+    if predictions_arr is not None:
         data_stream = get_data_stream(
             window_proto,
-            metrics_pb2.DataStream.DataSource.MODEL_OUTPUT,
-            metrics_pb2.DataStream.DataType.TABULAR)
+            metrics_pb2.DataStream.DataSource.PREDICTIONS)
         _update_tabular_metrics(
             metric_updaters,
             data_stream,
-            output_columns,
-            output_arr)
+            'output',
+            prediction_outputs,
+            predictions_arr)
 
     logger.debug('Computing data metrics took %.3f sec',
                  time.time() - start_ts)
 
 
-def _update_tabular_metrics(metric_updaters, data_stream_proto, columns, data):
+def _update_tabular_metrics(
+        metric_updaters, data_stream_proto, column_label, columns, data):
     if len(columns) != len(data):
         raise ValueError(
             'Error processing tabular data: columns and values do not match')
@@ -108,9 +109,8 @@ def _update_tabular_metrics(metric_updaters, data_stream_proto, columns, data):
             continue
         value_count = column_values.shape[0]
 
-        dimensions = {
-            'column': str(column_name)[:50]
-        }
+        dimensions = {}
+        dimensions[column_label] = str(column_name)[:50]
 
         if np.issubdtype(column_type, np.number):
             missing_count = np.count_nonzero(np.isnan(column_values))
@@ -153,14 +153,16 @@ def _update_tabular_metrics(metric_updaters, data_stream_proto, columns, data):
                     metric_updaters, data_stream_proto, 'distribution', dimensions)
                 metric_updater.update_distribution(finite_column_values_list)
         else:
+            missing_column_values = [
+                m for m in column_values.tolist() if m is None]
+            missing_count = len(missing_column_values)
+            metric_updater = get_metric_updater(
+                metric_updaters, data_stream_proto, 'missing_values', dimensions)
+            metric_updater.update_ratio(missing_count, value_count)
+
             string_column_values = [
                 m for m in column_values.tolist() if isinstance(m, str)]
             if len(string_column_values) > 0:
-                missing_count = value_count - len(string_column_values)
-                metric_updater = get_metric_updater(
-                    metric_updaters, data_stream_proto, 'missing_values', dimensions)
-                metric_updater.update_ratio(missing_count, value_count)
-
                 empty_count = string_column_values.count('')
                 metric_updater = get_metric_updater(
                     metric_updaters, data_stream_proto, 'empty_values', dimensions)
@@ -176,34 +178,29 @@ def _update_tabular_metrics(metric_updaters, data_stream_proto, columns, data):
                 metric_updater.update_distribution(
                     _truncate_strings(string_column_values))
 
+            bool_column_values = [
+                str(m) for m in column_values.tolist() if isinstance(m, bool)]
+            if len(bool_column_values) > 0:
+                bool_count = len(bool_column_values)
+                metric_updater = get_metric_updater(
+                    metric_updaters, data_stream_proto, 'boolean_values', dimensions)
+                metric_updater.update_ratio(bool_count, value_count)
+
+                metric_updater = get_metric_updater(
+                    metric_updaters, data_stream_proto, 'distribution', dimensions)
+                metric_updater.update_distribution(
+                    _truncate_strings(bool_column_values))
+
 
 def _convert_to_numpy(data_buffer, columns=None):
     if len(data_buffer) == 0:
         return None, None
 
     data = None
-
     first_item = data_buffer[0]
 
-    # list
-    if isinstance(first_item, list):
-        keys = list(range(len(first_item)))
-        data_index = {key: [] for key in keys}
-        for item in data_buffer:
-            for key in keys:
-                data_index[key].append(item[key])
-        if columns is None:
-            columns = [str(key) for key in keys]
-        data = []
-        for arrays in data_index.values():
-            flat_array = _flatten_and_convert_arrays(arrays)
-            if flat_array is None:
-                data = None
-                break
-            data.append(flat_array)
-
-    # dict
-    elif isinstance(first_item, dict):
+    # dict of list
+    if isinstance(first_item, dict):
         keys = list(first_item.keys())
         data_index = {key: [] for key in keys}
         for item in data_buffer:
@@ -212,11 +209,23 @@ def _convert_to_numpy(data_buffer, columns=None):
         columns = [str(key) for key in keys]
         data = []
         for arrays in data_index.values():
-            flat_array = _flatten_and_convert_arrays(arrays)
+            flat_array = np.asarray(
+                [elem for array in arrays for elem in array])
             if flat_array is None:
                 data = None
                 break
             data.append(flat_array)
+
+    # list of list
+    elif isinstance(first_item, list):
+        if isinstance(first_item[0], list):
+            if columns is None:
+                columns = [str(column)
+                           for column in range(len(first_item[0]))]
+            data_arr = np.concatenate(data_buffer)
+            data = [
+                col_arr.ravel() for col_arr in np.hsplit(
+                    data_arr, data_arr.shape[1])]
 
     # numpy.ndarray
     elif isinstance(first_item, np.ndarray):
@@ -240,59 +249,9 @@ def _convert_to_numpy(data_buffer, columns=None):
 
     if data is None:
         raise ValueError(
-            'Unsupported data format: please use one or two-dimensional list, dict, numpy.  ndarray or pandas.DataFrame')
+            'Unsupported data format: please use one or two-dimensional list, dict, numpy.ndarray or pandas.DataFrame')
 
     return columns, data
-
-
-def _flatten_and_convert_arrays(arrays):
-    flat_array = None
-    first_array = arrays[0]
-    if isinstance(first_array, list):
-        flat_array = np.asarray([elem for array in arrays for elem in array])
-    elif isinstance(first_array, np.ndarray):
-        if first_array.ndim == 1:
-            flat_array = np.concatenate(arrays)
-    else:
-        flat_array = np.asarray(arrays)  # scalars
-
-    return flat_array
-
-
-def _is_2d(data):
-    if isinstance(data, list):
-        if len(data) > 0:
-            if not _is_1d(data[0]):
-                return False
-        return True
-    elif isinstance(data, dict):
-        if len(data) > 0:
-            if not _is_1d(list(data.values())[0]):
-                return False
-        return True
-    elif isinstance(data, np.ndarray):
-        return data.ndim == 2
-    return False
-
-
-def _is_1d(data):
-    if isinstance(data, list):
-        if len(data) > 0:
-            if not _is_scalar(data[0]):
-                return False
-        return True
-    if isinstance(data, dict):
-        if len(data) > 0:
-            if not _is_scalar(list(data.values())[0]):
-                return False
-        return True
-    elif isinstance(data, np.ndarray):
-        return data.ndim == 1
-    return False
-
-
-def _is_scalar(data):
-    return isinstance(data, (int, float, str))
 
 
 def _truncate_strings(values, max_size=18, front_size=10, tail_size=5):
@@ -304,3 +263,154 @@ def _truncate_strings(values, max_size=18, front_size=10, tail_size=5):
         else:
             truncated_values.append(value)
     return truncated_values
+
+
+def update_performance_metrics(
+        metric_updaters, window_proto, ground_truth_records):
+
+    if len(ground_truth_records) == 0:
+        return
+
+    for ground_truth in ground_truth_records:
+        is_binary = isinstance(ground_truth.label, bool)
+        is_categorical = isinstance(ground_truth.label, (str, list))
+        is_numeric = isinstance(ground_truth.label, (int, float))
+
+        if is_binary:
+            data_stream_proto = get_data_stream(
+                window_proto,
+                metrics_pb2.DataStream.DataSource.GROUND_TRUTH_BINARY)
+        elif is_categorical:
+            data_stream_proto = get_data_stream(
+                window_proto,
+                metrics_pb2.DataStream.DataSource.GROUND_TRUTH_CATEGORICAL)
+        elif is_numeric:
+            data_stream_proto = get_data_stream(
+                window_proto,
+                metrics_pb2.DataStream.DataSource.GROUND_TRUTH_NUMERIC)
+        else:
+            continue
+
+        # accuracy for binary and categorical
+        if is_binary or is_categorical:
+            label_match = (ground_truth.label ==
+                           ground_truth.prediction)
+
+            metric_updater = get_metric_updater(
+                metric_updaters, data_stream_proto, 'accuracy')
+            if label_match:
+                metric_updater.update_ratio(1, 1)
+            else:
+                metric_updater.update_ratio(0, 1)
+
+            if ground_truth.segments is not None:
+                for segment in ground_truth.segments:
+                    metric_updater = get_metric_updater(
+                        metric_updaters, data_stream_proto, 'segment_accuracy', {
+                            'segment': segment})
+                    if label_match:
+                        metric_updater.update_ratio(1, 1)
+                    else:
+                        metric_updater.update_ratio(0, 1)
+
+        # confusion matrix for binary
+        if is_binary:
+            # true positive
+            if ground_truth.label and ground_truth.prediction:
+                metric_updater = get_metric_updater(
+                    metric_updaters, data_stream_proto, 'binary_true_positives')
+                metric_updater.update_counter(1)
+
+            # true negative
+            if not ground_truth.label and not ground_truth.prediction:
+                metric_updater = get_metric_updater(
+                    metric_updaters, data_stream_proto, 'binary_true_negatives')
+                metric_updater.update_counter(1)
+
+            # false positive
+            if not ground_truth.label and ground_truth.prediction:
+                metric_updater = get_metric_updater(
+                    metric_updaters, data_stream_proto, 'binary_false_positives')
+                metric_updater.update_counter(1)
+
+            # false negative
+            if ground_truth.label and not ground_truth.prediction:
+                metric_updater = get_metric_updater(
+                    metric_updaters, data_stream_proto, 'binary_false_negatives')
+                metric_updater.update_counter(1)
+
+        # confusion matrix for categorical
+        elif is_categorical:
+            label_hash = _sha1(
+                canonical_string(
+                    ground_truth.label), size=8)
+
+            if ground_truth.label == ground_truth.prediction:
+                # true positive
+                metric_updater = get_metric_updater(
+                    metric_updaters, data_stream_proto, 'class_true_positives', {
+                        'class': label_hash})
+                metric_updater.update_counter(1)
+            else:
+                prediction_hash = _sha1(
+                    canonical_string(ground_truth.prediction), size=8)
+
+                # false positive for ground_truth.prediction
+                metric_updater = get_metric_updater(
+                    metric_updaters, data_stream_proto, 'class_false_positives', {
+                        'class': prediction_hash})
+                metric_updater.update_counter(1)
+
+                # false negative for ground_truth.label
+                metric_updater = get_metric_updater(
+                    metric_updaters, data_stream_proto, 'class_false_negatives', {
+                        'class': label_hash})
+                metric_updater.update_counter(1)
+
+            # total
+            metric_updater = get_metric_updater(
+                metric_updaters, data_stream_proto, 'class_total', {
+                    'class': label_hash})
+            metric_updater.update_counter(1)
+
+        # mse and mae for regression
+        elif is_numeric:
+            metric_updater = get_metric_updater(
+                metric_updaters, data_stream_proto, 'mse_n')
+            metric_updater.update_counter(1)
+
+            metric_updater = get_metric_updater(
+                metric_updaters, data_stream_proto, 'mse_sum')
+            metric_updater.update_counter(
+                (ground_truth.label - ground_truth.prediction) ** 2)
+
+            metric_updater = get_metric_updater(
+                metric_updaters, data_stream_proto, 'mae_sum')
+            metric_updater.update_counter(
+                abs(ground_truth.label - ground_truth.prediction))
+
+            if ground_truth.segments is not None:
+                for segment in ground_truth.segments:
+                    metric_updater = get_metric_updater(
+                        metric_updaters, data_stream_proto, 'segment_mse_n', {
+                            'segment': segment})
+                    metric_updater.update_counter(1)
+
+                    metric_updater = get_metric_updater(
+                        metric_updaters, data_stream_proto, 'segment_mse_sum', {
+                            'segment': segment})
+                    metric_updater.update_counter(
+                        (ground_truth.label - ground_truth.prediction) ** 2)
+
+                    metric_updater = get_metric_updater(
+                        metric_updaters, data_stream_proto, 'segment_mae_sum', {
+                            'segment': segment})
+                    metric_updater.update_counter(
+                        abs(ground_truth.label - ground_truth.prediction))
+
+
+@lru_cache(maxsize=250)
+def _sha1(text, size=-1):
+    sha1_hash = hashlib.sha1()
+    sha1_hash.update(text.encode('utf-8'))
+    return sha1_hash.hexdigest()[0:size]
