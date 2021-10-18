@@ -70,6 +70,7 @@ class SessionsTest(unittest.TestCase):
 
         uploaded_window = mocked_upload_window.call_args[0][0]
         self.assertEqual(uploaded_window.num_predictions, 2)
+        self.assertEqual(uploaded_window.num_ground_truths, 2)
         self.assertEqual(uploaded_window.model.metadata['k1'], 'v1')
         self.assertEqual(
             uploaded_window.exceptions[0].message,

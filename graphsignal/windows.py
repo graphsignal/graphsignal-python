@@ -162,6 +162,8 @@ class WindowUpdater(object):
                         self._window_proto.start_ts, self._ground_truth_records[0].prediction_timestamp)
                 self._window_proto.end_ts = max(
                     self._window_proto.end_ts, self._ground_truth_records[-1].prediction_timestamp)
+                self._window_proto.num_ground_truths += len(
+                    self._ground_truth_records)
 
                 try:
                     statistics.update_performance_metrics(
