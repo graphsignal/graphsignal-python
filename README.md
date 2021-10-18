@@ -70,10 +70,10 @@ Get logging session for a deployed model identified by deployment name. Multiple
 sess = graphsignal.session(deployment_name='model1_prod')
 ```
 
-Set any model metadata, e.g. model version or model graph details.
+Log any model metadata such as model version or deployment information.
 
 ```python
-sess.set_metadata('key1', 'val1')
+sess.log_metadata('key1', 'val1')
 ```
 
 
@@ -151,7 +151,7 @@ graphsignal.configure(api_key='my_key')
 
 # Get Graphsignal logging session for deployed model
 sess = graphsignal.session(deployment_name='fraud_detection_prod')
-sess.set_metadata('model version', '1.0')
+sess.log_metadata('model version', '1.0')
 
 model = keras.models.load_model('fraud_model.h5')
 app = Flask(__name__)
@@ -185,7 +185,7 @@ graphsignal.configure(api_key='my_key')
 
 # Get Graphsignal logging session for deployed model
 sess = graphsignal.session(deployment_name='job_recommender_prod')
-sess.set_metadata('model version', 'v1.2')
+sess.log_metadata('model version', 'v1.2')
 
 ...
 

@@ -304,14 +304,13 @@ def update_performance_metrics(
                 metric_updater.update_ratio(0, 1)
 
             if ground_truth.segments is not None:
-                for segment in ground_truth.segments:
+                metric_updater = get_metric_updater(
+                    metric_updaters, data_stream_proto, 'segment_totals')
+                metric_updater.update_distribution(ground_truth.segments)
+                if label_match:
                     metric_updater = get_metric_updater(
-                        metric_updaters, data_stream_proto, 'segment_accuracy', {
-                            'segment': segment})
-                    if label_match:
-                        metric_updater.update_ratio(1, 1)
-                    else:
-                        metric_updater.update_ratio(0, 1)
+                        metric_updaters, data_stream_proto, 'segment_matches')
+                    metric_updater.update_distribution(ground_truth.segments)
 
         # confusion matrix for binary
         if is_binary:
@@ -322,19 +321,19 @@ def update_performance_metrics(
                 metric_updater.update_counter(1)
 
             # true negative
-            if not ground_truth.label and not ground_truth.prediction:
+            elif not ground_truth.label and not ground_truth.prediction:
                 metric_updater = get_metric_updater(
                     metric_updaters, data_stream_proto, 'binary_true_negatives')
                 metric_updater.update_counter(1)
 
             # false positive
-            if not ground_truth.label and ground_truth.prediction:
+            elif not ground_truth.label and ground_truth.prediction:
                 metric_updater = get_metric_updater(
                     metric_updaters, data_stream_proto, 'binary_false_positives')
                 metric_updater.update_counter(1)
 
             # false negative
-            if ground_truth.label and not ground_truth.prediction:
+            elif ground_truth.label and not ground_truth.prediction:
                 metric_updater = get_metric_updater(
                     metric_updaters, data_stream_proto, 'binary_false_negatives')
                 metric_updater.update_counter(1)
@@ -344,34 +343,29 @@ def update_performance_metrics(
             label_hash = _sha1(
                 canonical_string(
                     ground_truth.label), size=8)
+            # totals
+            metric_updater = get_metric_updater(
+                metric_updaters, data_stream_proto, 'total')
+            metric_updater.update_counter(1)
 
             if ground_truth.label == ground_truth.prediction:
-                # true positive
+                # true positives
                 metric_updater = get_metric_updater(
-                    metric_updaters, data_stream_proto, 'class_true_positives', {
-                        'class': label_hash})
-                metric_updater.update_counter(1)
+                    metric_updaters, data_stream_proto, 'class_true_positives')
+                metric_updater.update_distribution([label_hash])
             else:
                 prediction_hash = _sha1(
                     canonical_string(ground_truth.prediction), size=8)
 
-                # false positive for ground_truth.prediction
+                # false positives for ground_truth.prediction
                 metric_updater = get_metric_updater(
-                    metric_updaters, data_stream_proto, 'class_false_positives', {
-                        'class': prediction_hash})
-                metric_updater.update_counter(1)
+                    metric_updaters, data_stream_proto, 'class_false_positives')
+                metric_updater.update_distribution([prediction_hash])
 
-                # false negative for ground_truth.label
+                # false negatives for ground_truth.label
                 metric_updater = get_metric_updater(
-                    metric_updaters, data_stream_proto, 'class_false_negatives', {
-                        'class': label_hash})
-                metric_updater.update_counter(1)
-
-            # total
-            metric_updater = get_metric_updater(
-                metric_updaters, data_stream_proto, 'class_total', {
-                    'class': label_hash})
-            metric_updater.update_counter(1)
+                    metric_updaters, data_stream_proto, 'class_false_negatives')
+                metric_updater.update_distribution([label_hash])
 
         # mse and mae for regression
         elif is_numeric:
@@ -388,25 +382,6 @@ def update_performance_metrics(
                 metric_updaters, data_stream_proto, 'mae_sum')
             metric_updater.update_counter(
                 abs(ground_truth.label - ground_truth.prediction))
-
-            if ground_truth.segments is not None:
-                for segment in ground_truth.segments:
-                    metric_updater = get_metric_updater(
-                        metric_updaters, data_stream_proto, 'segment_mse_n', {
-                            'segment': segment})
-                    metric_updater.update_counter(1)
-
-                    metric_updater = get_metric_updater(
-                        metric_updaters, data_stream_proto, 'segment_mse_sum', {
-                            'segment': segment})
-                    metric_updater.update_counter(
-                        (ground_truth.label - ground_truth.prediction) ** 2)
-
-                    metric_updater = get_metric_updater(
-                        metric_updaters, data_stream_proto, 'segment_mae_sum', {
-                            'segment': segment})
-                    metric_updater.update_counter(
-                        abs(ground_truth.label - ground_truth.prediction))
 
 
 @lru_cache(maxsize=250)

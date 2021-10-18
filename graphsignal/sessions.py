@@ -16,8 +16,6 @@ logger = logging.getLogger('graphsignal')
 MAX_METADATA_SIZE = 10
 MAX_EXTRA_INFO_SIZE = 10
 MAX_SEGMENT_LENGTH = 50
-MAX_DISTINCT_SEGMENTS = 250
-MAX_DISTINCT_LABELS = 250
 
 _session_index = {}
 _session_index_lock = threading.Lock()
@@ -29,9 +27,7 @@ class Session(object):
         '_metadata',
         '_update_lock',
         '_current_window_updater',
-        '_current_window_timestamp',
-        '_label_index',
-        '_segment_index'
+        '_current_window_timestamp'
     ]
 
     def __init__(self, deployment_name):
@@ -40,8 +36,6 @@ class Session(object):
         self._update_lock = threading.Lock()
         self._current_window_updater = None
         self._current_window_timestamp = None
-        self._label_index = {}
-        self._segment_index = {}
 
     def _tumble_window(self, timestamp, force=False, flush=True):
         window_seconds = graphsignal._get_config().window_seconds
@@ -81,7 +75,7 @@ class Session(object):
 
         return True
 
-    def set_metadata(self, key=None, value=None):
+    def log_metadata(self, key=None, value=None):
         if not isinstance(key, str) or len(key) > 250:
             logger.error('Invalid metadata entry key format')
             return
@@ -107,10 +101,13 @@ class Session(object):
                 'features (dict) must be provided')
             return
 
-        if not isinstance(prediction, (bool, int, float, str, list)):
+        if not isinstance(prediction, (bool, int, float, str, tuple, list)):
             logger.error(
-                'prediction (bool, int, float, str, list) must be provided')
+                'prediction (bool, int, float, str, tuple, list) must be provided')
             return
+
+        if isinstance(prediction, tuple):
+            prediction = list(prediction)
 
         if not isinstance(prediction, list):
             prediction = [prediction]
@@ -249,33 +246,6 @@ class Session(object):
         if segments is not None and not isinstance(segments, list):
             logger.error('segments (list) must be provided')
             return
-
-        if isinstance(label, str):
-            if label not in self._label_index:
-                if len(self._label_index) < MAX_DISTINCT_LABELS:
-                    self._label_index[str(label)] = True
-                else:
-                    logger.error(
-                        'Too many distinct labels, max is {0}'.format(MAX_DISTINCT_LABELS))
-                    return
-
-            if prediction not in self._label_index:
-                if len(self._label_index) < MAX_DISTINCT_LABELS:
-                    self._label_index[str(prediction)] = True
-                else:
-                    logger.error(
-                        'Too many distinct labels, max is {0}'.format(MAX_DISTINCT_LABELS))
-                    return
-
-        if segments is not None:
-            for segment in segments:
-                if segment not in self._segment_index:
-                    if len(self._segment_index) < MAX_DISTINCT_SEGMENTS:
-                        self._segment_index[segment] = True
-                    else:
-                        logger.error(
-                            'Too many distinct segments, max is {0}'.format(MAX_DISTINCT_SEGMENTS))
-                        return
 
         label = str(label)
         prediction = str(prediction)

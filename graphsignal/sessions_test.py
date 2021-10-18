@@ -30,7 +30,7 @@ class SessionsTest(unittest.TestCase):
     def test_session(self, mocked_upload_window, mocked_flush):
         now = int(time.time())
         session = graphsignal.session('d1')
-        session.set_metadata(key='k1', value='v1')
+        session.log_metadata(key='k1', value='v1')
 
         session.log_prediction(
             features={'A': 1, 'B': 2},

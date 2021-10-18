@@ -146,9 +146,9 @@ class StatisticsTest(unittest.TestCase):
             if 'distributionValue' in metric:
                 del metric['distributionValue']['sketchKll10']
 
-        pp = pprint.PrettyPrinter()
-        pp.pprint(input_metrics_json)
-        pp.pprint(output_metrics_json)
+        #pp = pprint.PrettyPrinter()
+        # pp.pprint(input_metrics_json)
+        # pp.pprint(output_metrics_json)
 
         self.assertEqual(input_metrics_json,
                          {'01f1b8b72228': {'dimensions': {'feature': 'f1'},
@@ -363,6 +363,9 @@ class StatisticsTest(unittest.TestCase):
         statistics.update_performance_metrics(
             metric_updaters, window, ground_truth_buffer)
 
+        for metric_updater in metric_updaters.values():
+            metric_updater.finalize()
+
         window_dict = MessageToDict(window)
         metrics_json = window_dict['dataStreams'][str(
             metrics_pb2.DataStream.DataSource.GROUND_TRUTH_BINARY)]['metrics']
@@ -370,11 +373,7 @@ class StatisticsTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         # pp.pprint(metrics_json)
 
-        self.assertEqual(metrics_json, {'1c9f65fe65d8': {'dimensions': {'segment': 's2'},
-                                                         'name': 'segment_accuracy',
-                                                         'ratioValue': {'counter': 2.0, 'total': 2.0},
-                                                         'type': 'RATIO'},
-                                        '2a8a320fc710': {'name': 'accuracy',
+        self.assertEqual(metrics_json, {'2a8a320fc710': {'name': 'accuracy',
                                                          'ratioValue': {'counter': 3.0, 'total': 5.0},
                                                          'type': 'RATIO'},
                                         '2a915536a163': {'counterValue': {'counter': 1.0},
@@ -386,14 +385,40 @@ class StatisticsTest(unittest.TestCase):
                                         '4769fae29cea': {'counterValue': {'counter': 1.0},
                                                          'name': 'binary_true_negatives',
                                                          'type': 'COUNTER'},
-                                        'a986c177f0d8': {'dimensions': {'segment': 's3'},
-                                                         'name': 'segment_accuracy',
-                                                         'ratioValue': {'counter': 1.0, 'total': 3.0},
-                                                         'type': 'RATIO'},
-                                        'e3f7a7df42a4': {'dimensions': {'segment': 's1'},
-                                                         'name': 'segment_accuracy',
-                                                         'ratioValue': {'counter': 3.0, 'total': 5.0},
-                                                         'type': 'RATIO'},
+                                        'a335baad03d4': {'distributionValue': {'sketchImpl': 'KLL10',
+                                                                               'sketchKll10': {'H': '1',
+                                                                                               'c': 0.6666666666666666,
+                                                                                               'compactorsString': [{'items': ['s1',
+                                                                                                                               's2',
+                                                                                                                               's1',
+                                                                                                                               's3',
+                                                                                                                               's1',
+                                                                                                                               's2']}],
+                                                                                               'itemType': 'STRING',
+                                                                                               'k': '10',
+                                                                                               'maxSize': '11',
+                                                                                               'size': '6'}},
+                                                         'name': 'segment_matches',
+                                                         'type': 'DISTRIBUTION'},
+                                        'e98d593706c6': {'distributionValue': {'sketchImpl': 'KLL10',
+                                                                               'sketchKll10': {'H': '1',
+                                                                                               'c': 0.6666666666666666,
+                                                                                               'compactorsString': [{'items': ['s1',
+                                                                                                                               's2',
+                                                                                                                               's1',
+                                                                                                                               's3',
+                                                                                                                               's1',
+                                                                                                                               's3',
+                                                                                                                               's1',
+                                                                                                                               's3',
+                                                                                                                               's1',
+                                                                                                                               's2']}],
+                                                                                               'itemType': 'STRING',
+                                                                                               'k': '10',
+                                                                                               'maxSize': '11',
+                                                                                               'size': '10'}},
+                                                         'name': 'segment_totals',
+                                                         'type': 'DISTRIBUTION'},
                                         'ee427ea584e7': {'counterValue': {'counter': 2.0},
                                                          'name': 'binary_true_positives',
                                                          'type': 'COUNTER'}})
@@ -422,6 +447,12 @@ class StatisticsTest(unittest.TestCase):
                     's1',
                     's3']),
             GroundTruthRecord(
+                label='c1',
+                prediction='c2',
+                segments=[
+                    's1',
+                    's3']),
+            GroundTruthRecord(
                 label='c2',
                 prediction='c1',
                 segments=[
@@ -432,66 +463,56 @@ class StatisticsTest(unittest.TestCase):
                 prediction='c2',
                 segments=[
                     's1',
-                    's2'])
+                    's2']),
+            GroundTruthRecord(
+                label='c3',
+                prediction='c3',
+                segments=[
+                    's1',
+                    's2']),
         ]
 
         statistics.update_performance_metrics(
             metric_updaters, window, ground_truth_buffer)
 
+        for metric_updater in metric_updaters.values():
+            metric_updater.finalize()
+
         window_dict = MessageToDict(window)
         metrics_json = window_dict['dataStreams'][str(
             metrics_pb2.DataStream.DataSource.GROUND_TRUTH_CATEGORICAL)]['metrics']
 
-        #pp = pprint.PrettyPrinter()
-        # pp.pprint(metrics_json)
+        data_stream = window.data_streams[str(
+            metrics_pb2.DataStream.DataSource.GROUND_TRUTH_CATEGORICAL)]
 
-        self.assertEqual(metrics_json, {'04d3229f1570': {'counterValue': {'counter': 2.0},
-                                                         'dimensions': {'class': '2f22765d'},
-                                                         'name': 'class_true_positives',
-                                                         'type': 'COUNTER'},
-                                        '0ac3284cc31b': {'dimensions': {'segment': 's2'},
-                                                         'name': 'segment_accuracy',
-                                                         'ratioValue': {'counter': 2.0, 'total': 2.0},
-                                                         'type': 'RATIO'},
-                                        '0ba6e8ae2434': {'name': 'accuracy',
-                                                         'ratioValue': {'counter': 3.0, 'total': 5.0},
-                                                         'type': 'RATIO'},
-                                        '12e4482171a3': {'counterValue': {'counter': 1.0},
-                                                         'dimensions': {'class': '2f22765d'},
-                                                         'name': 'class_false_negatives',
-                                                         'type': 'COUNTER'},
-                                        '2f61b5f87643': {'counterValue': {'counter': 1.0},
-                                                         'dimensions': {'class': '6b1f5330'},
-                                                         'name': 'class_false_positives',
-                                                         'type': 'COUNTER'},
-                                        '6281b7e5a6ac': {'counterValue': {'counter': 3.0},
-                                                         'dimensions': {'class': '2f22765d'},
-                                                         'name': 'class_total',
-                                                         'type': 'COUNTER'},
-                                        '74908857d5fa': {'counterValue': {'counter': 1.0},
-                                                         'dimensions': {'class': '6b1f5330'},
-                                                         'name': 'class_false_negatives',
-                                                         'type': 'COUNTER'},
-                                        '7f79ec8c9909': {'counterValue': {'counter': 1.0},
-                                                         'dimensions': {'class': '2f22765d'},
-                                                         'name': 'class_false_positives',
-                                                         'type': 'COUNTER'},
-                                        '817156b6145a': {'counterValue': {'counter': 2.0},
-                                                         'dimensions': {'class': '6b1f5330'},
-                                                         'name': 'class_total',
-                                                         'type': 'COUNTER'},
-                                        '9a5c7d3012cf': {'dimensions': {'segment': 's1'},
-                                                         'name': 'segment_accuracy',
-                                                         'ratioValue': {'counter': 3.0, 'total': 5.0},
-                                                         'type': 'RATIO'},
-                                        'b4ca2440275b': {'dimensions': {'segment': 's3'},
-                                                         'name': 'segment_accuracy',
-                                                         'ratioValue': {'counter': 1.0, 'total': 3.0},
-                                                         'type': 'RATIO'},
-                                        'c4c88fe6cf6d': {'counterValue': {'counter': 1.0},
-                                                         'dimensions': {'class': '6b1f5330'},
-                                                         'name': 'class_true_positives',
-                                                         'type': 'COUNTER'}})
+        total = None
+        sketches = {}
+        for metric in data_stream.metrics.values():
+            if metric.name == 'total':
+                total = metric.counter_value.counter
+            elif metric.name == 'class_true_positives':
+                sketches['class_true_positives'] = KLLSketch()
+                sketches['class_true_positives'].from_proto(
+                    metric.distribution_value.sketch_kll10)
+            elif metric.name == 'class_false_positives':
+                sketches['class_false_positives'] = KLLSketch()
+                sketches['class_false_positives'].from_proto(
+                    metric.distribution_value.sketch_kll10)
+            elif metric.name == 'class_false_negatives':
+                sketches['class_false_negatives'] = KLLSketch()
+                sketches['class_false_negatives'].from_proto(
+                    metric.distribution_value.sketch_kll10)
+
+        # c1 2f22765d
+        # c2 6b1f5330
+        # c3 a625406f
+        self.assertEqual(total, 7.0)
+        self.assertEqual(sketches['class_true_positives'].distribution(),
+                         [['2f22765d', 2], ['6b1f5330', 1], ['a625406f', 1]])
+        self.assertEqual(sketches['class_false_positives'].distribution(),
+                         [['2f22765d', 1], ['6b1f5330', 2]])
+        self.assertEqual(sketches['class_false_negatives'].distribution(),
+                         [['2f22765d', 2], ['6b1f5330', 1]])
 
     def test_update_performance_metrics_numeric(self):
         window = metrics_pb2.PredictionWindow()
@@ -515,6 +536,9 @@ class StatisticsTest(unittest.TestCase):
         statistics.update_performance_metrics(
             metric_updaters, window, ground_truth_buffer)
 
+        for metric_updater in metric_updaters.values():
+            metric_updater.finalize()
+
         window_dict = MessageToDict(window)
         metrics_json = window_dict['dataStreams'][str(
             metrics_pb2.DataStream.DataSource.GROUND_TRUTH_NUMERIC)]['metrics']
@@ -522,48 +546,74 @@ class StatisticsTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         # pp.pprint(metrics_json)
 
-        self.assertEqual(metrics_json, {'02b8b46b692c': {'counterValue': {'counter': 4.6},
-                                                         'dimensions': {'segment': 's1'},
-                                                         'name': 'segment_mae_sum',
-                                                         'type': 'COUNTER'},
-                                        '2789175b4787': {'counterValue': {'counter': 4.6},
+        self.assertEqual(metrics_json, {'2789175b4787': {'counterValue': {'counter': 4.6},
                                                          'name': 'mae_sum',
-                                                         'type': 'COUNTER'},
-                                        '2a9afd66d2c3': {'counterValue': {'counter': 10.599999999999998},
-                                                         'dimensions': {'segment': 's1'},
-                                                         'name': 'segment_mse_sum',
-                                                         'type': 'COUNTER'},
-                                        '32c5bfc1004c': {'counterValue': {'counter': 2.1999999999999997},
-                                                         'dimensions': {'segment': 's3'},
-                                                         'name': 'segment_mae_sum',
-                                                         'type': 'COUNTER'},
-                                        '37ffd1f338e4': {'counterValue': {'counter': 5.76},
-                                                         'dimensions': {'segment': 's2'},
-                                                         'name': 'segment_mse_sum',
-                                                         'type': 'COUNTER'},
-                                        '56dcf0352b8e': {'counterValue': {'counter': 2.4},
-                                                         'dimensions': {'segment': 's2'},
-                                                         'name': 'segment_mae_sum',
-                                                         'type': 'COUNTER'},
-                                        '6ef06c0bac41': {'counterValue': {'counter': 1.0},
-                                                         'dimensions': {'segment': 's3'},
-                                                         'name': 'segment_mse_n',
-                                                         'type': 'COUNTER'},
-                                        '868ba5d7bc4e': {'counterValue': {'counter': 2.0},
-                                                         'dimensions': {'segment': 's1'},
-                                                         'name': 'segment_mse_n',
                                                          'type': 'COUNTER'},
                                         '8c82f7b3ed54': {'counterValue': {'counter': 2.0},
                                                          'name': 'mse_n',
                                                          'type': 'COUNTER'},
-                                        'ca33de768d1e': {'counterValue': {'counter': 4.839999999999999},
-                                                         'dimensions': {'segment': 's3'},
-                                                         'name': 'segment_mse_sum',
-                                                         'type': 'COUNTER'},
-                                        'd4d7aabab524': {'counterValue': {'counter': 1.0},
-                                                         'dimensions': {'segment': 's2'},
-                                                         'name': 'segment_mse_n',
-                                                         'type': 'COUNTER'},
                                         'fe4a651921fe': {'counterValue': {'counter': 10.599999999999998},
                                                          'name': 'mse_sum',
                                                          'type': 'COUNTER'}})
+
+    def test_update_performance_metrics_segments(self):
+        window = metrics_pb2.PredictionWindow()
+        metric_updaters = {}
+
+        ground_truth_buffer = [
+            GroundTruthRecord(
+                label=True,
+                prediction=True,
+                segments=[
+                    's1',
+                    's2']),
+            GroundTruthRecord(
+                label=True,
+                prediction=True,
+                segments=[
+                    's1',
+                    's3']),
+            GroundTruthRecord(
+                label=True,
+                prediction=False,
+                segments=[
+                    's1',
+                    's3']),
+            GroundTruthRecord(
+                label=False,
+                prediction=True,
+                segments=[
+                    's1',
+                    's3']),
+            GroundTruthRecord(
+                label=False,
+                prediction=False,
+                segments=[
+                    's1',
+                    's2'])
+        ]
+
+        statistics.update_performance_metrics(
+            metric_updaters, window, ground_truth_buffer)
+
+        for metric_updater in metric_updaters.values():
+            metric_updater.finalize()
+
+        data_stream = window.data_streams[str(
+            metrics_pb2.DataStream.DataSource.GROUND_TRUTH_BINARY)]
+
+        sketches = {}
+        for metric in data_stream.metrics.values():
+            if metric.name == 'segment_totals':
+                sketches['segment_totals'] = KLLSketch()
+                sketches['segment_totals'].from_proto(
+                    metric.distribution_value.sketch_kll10)
+            elif metric.name == 'segment_matches':
+                sketches['segment_matches'] = KLLSketch()
+                sketches['segment_matches'].from_proto(
+                    metric.distribution_value.sketch_kll10)
+
+        self.assertEqual(sketches['segment_totals'].distribution(),
+                         [['s1', 5], ['s2', 2], ['s3', 3]])
+        self.assertEqual(sketches['segment_matches'].distribution(), [
+                         ['s1', 3], ['s2', 2], ['s3', 1]])
