@@ -8,12 +8,10 @@
 
 ## Overview
 
-Graphsignal is a machine learning model monitoring platform. It helps ML engineers, MLOps teams and data scientists to quickly address issues with data and models as well as proactively analyze model performance and availability. Learn more at [graphsignal.com](https://graphsignal.com).
-
-[![Model Dashboard](https://graphsignal.com/external/readme-screenshot.png)](https://graphsignal.com)
+Graphsignal is a machine learning model monitoring platform. It helps ML engineers and data scientists address data issues and analyze model performance in production. Learn more at [graphsignal.com](https://graphsignal.com).
 
 
-## Model Monitoring
+### Model Monitoring
 
 * **Data monitoring.** Monitor offline and online predictions for *data validity and anomalies*, *data drift, model drift*, *exceptions*, and more.
 * **Model performance monitoring.** Monitor model performance for *binary*, *categorical* and *numeric* models and data segments.
@@ -21,6 +19,17 @@ Graphsignal is a machine learning model monitoring platform. It helps ML enginee
 * **Model framework and deployment agnostic.** Monitor models serving *online*, in streaming apps, accessed via APIs or *offline*, running batch predictions.
 * **Any scale and data size.** Graphsignal logger *only sends data statistics* allowing it to scale with your application and data.
 * **Data privacy.** No raw data is sent to Graphsignal cloud, only data statistics and metadata.
+
+### Dashboards and Alerting
+
+#### Data Analysis
+[![Data Analysis](https://graphsignal.com/external/readme-data-analysis.png)](https://graphsignal.com)
+
+#### Model Performance
+[![Model Performance](https://graphsignal.com/external/readme-model-performance.png)](https://graphsignal.com)
+
+#### Automatic Alerts
+[![Automatic Alerts](https://graphsignal.com/external/readme-alert-timeline.png)](https://graphsignal.com)
 
 
 ## Documentation
