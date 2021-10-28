@@ -223,18 +223,18 @@ class Session(object):
 
         if label is None or not isinstance(
                 label, (str, bool, int, float)):
-            logger.error('label (srt|bool|int|float) must be provided')
+            logger.error('label (str|bool|int|float) must be provided')
             return
 
         if prediction is None or not isinstance(
                 prediction, (str, bool, int, float)):
             logger.error(
-                'prediction (srt|bool|int|float) must be provided')
+                'prediction (str|bool|int|float) must be provided')
             return
 
         if not isinstance(label, type(prediction)):
             logger.error(
-                'label and prediction must have the same type (srt|bool|int|float)')
+                'label and prediction must have the same type (str|bool|int|float)')
             return
 
         if prediction_timestamp is not None and not _check_timestamp(
@@ -247,8 +247,6 @@ class Session(object):
             logger.error('segments (list) must be provided')
             return
 
-        label = str(label)
-        prediction = str(prediction)
         segments = [segment[:MAX_SEGMENT_LENGTH] for segment in segments
                     if isinstance(segment, str)]
         timestamp = prediction_timestamp if prediction_timestamp else _timestamp()
