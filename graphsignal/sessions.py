@@ -94,30 +94,35 @@ class Session(object):
     def log_prediction(
             self,
             features=None,
-            prediction=None,
+            output=None,
             actual_timestamp=None):
         if not isinstance(features, dict):
             logger.error(
                 'features (dict) must be provided')
             return
 
-        if not isinstance(prediction, (bool, int, float, str, tuple, list)):
+        if not isinstance(output, (bool, int, float, str, tuple, list, dict)):
             logger.error(
-                'prediction (bool, int, float, str, tuple, list) must be provided')
+                'output (bool, int, float, str, tuple, list, dict) must be provided')
             return
 
-        if isinstance(prediction, tuple):
-            prediction = list(prediction)
+        if isinstance(output, tuple):
+            output = list(output)
 
-        if not isinstance(prediction, list):
-            prediction = [prediction]
+        if isinstance(output, (bool, int, float, str)):
+            output = [output]
+
+        if isinstance(output, dict):
+            output = list(output.values())
 
         self.log_prediction_batch(
             features=[list(features.values())
                       ] if features is not None else None,
             feature_names=list(
                 features.keys()) if features is not None else None,
-            predictions=[prediction] if prediction is not None else None,
+            outputs=[output] if output is not None else None,
+            output_names=list(
+                output.keys()) if isinstance(output, dict) else None,
             actual_timestamp=actual_timestamp
         )
 
@@ -125,7 +130,8 @@ class Session(object):
             self,
             features=None,
             feature_names=None,
-            predictions=None,
+            outputs=None,
+            output_names=None,
             actual_timestamp=None):
         if actual_timestamp is not None and not _check_timestamp(
                 actual_timestamp):
@@ -135,7 +141,7 @@ class Session(object):
 
         batch_size = max(
             statistics.estimate_size(features),
-            statistics.estimate_size(predictions))
+            statistics.estimate_size(outputs))
         if batch_size == 0:
             logger.debug('Logged empty data')
             return
@@ -148,7 +154,8 @@ class Session(object):
         self._current_window_updater.add_prediction(PredictionRecord(
             features=features,
             feature_names=feature_names,
-            predictions=predictions,
+            outputs=outputs,
+            output_names=output_names,
             timestamp=timestamp), batch_size)
 
     def log_exception(

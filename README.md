@@ -95,7 +95,7 @@ Log single prediction.
 ```python
 sess.log_prediction(
   features={'feat1': 1.2, 'feat2': 'XX'},
-  prediction=True)
+  output=True)
 ```
 
 Log prediction batch. Pass prediction data using `list`, `dict`, `numpy.ndarray` or `pandas.DataFrame`.
@@ -103,7 +103,7 @@ Log prediction batch. Pass prediction data using `list`, `dict`, `numpy.ndarray`
 ```python
 sess.log_prediction_batch(
   features=[[1.2, 70], [3.5, 40]], 
-  predictions=[[0.5], [0.75]])
+  outputs=[[0.5], [0.75]])
 ```
 
 Log prediction exceptions and errors.
@@ -177,7 +177,7 @@ def predict_digit():
       # Log prediction
       sess.log_prediction(
         features=features, 
-        prediction=output_data[0])
+        output=output_data[0])
     except:
       sess.log_exception(exc_info=True)    
 

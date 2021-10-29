@@ -40,7 +40,7 @@ def job():
                 scores.append(loss(output, input).data.item())
 
         # Log prediction
-        sess.log_prediction_batch(features=transactions, predictions=scores)
+        sess.log_prediction_batch(features=transactions, outputs=scores)
     except:
         sess.log_exception(exc_info=True)
 

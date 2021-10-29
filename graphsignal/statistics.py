@@ -50,35 +50,36 @@ def update_data_metrics(metric_updaters, window_proto, prediction_records):
     feature_names, features_arr = _convert_to_numpy(
         features_buffer, columns=feature_names)
 
-    predictions_buffer = [p.predictions
-                          for p in prediction_records if p.predictions is not None]
-    prediction_outputs, predictions_arr = _convert_to_numpy(
-        predictions_buffer)
+    outputs_buffer = [p.outputs
+                      for p in prediction_records if p.outputs is not None]
+    output_names = prediction_records[-1].output_names
+    output_names, outputs_arr = _convert_to_numpy(
+        outputs_buffer, columns=output_names)
 
-    if features_arr is None and predictions_arr is None:
+    if features_arr is None and outputs_arr is None:
         return
 
     if features_arr is not None:
         data_stream = get_data_stream(
             window_proto,
-            metrics_pb2.DataStream.DataSource.FEATURES)
+            metrics_pb2.DataStream.DataSource.INPUT_FEATURES)
         _update_tabular_metrics(
             metric_updaters,
             data_stream,
-            'feature',
+            'feature_name',
             feature_names,
             features_arr)
 
-    if predictions_arr is not None:
+    if outputs_arr is not None:
         data_stream = get_data_stream(
             window_proto,
-            metrics_pb2.DataStream.DataSource.PREDICTIONS)
+            metrics_pb2.DataStream.DataSource.OUTPUTS)
         _update_tabular_metrics(
             metric_updaters,
             data_stream,
-            'output',
-            prediction_outputs,
-            predictions_arr)
+            'output_name',
+            output_names,
+            outputs_arr)
 
     logger.debug('Computing data metrics took %.3f sec',
                  time.time() - start_ts)

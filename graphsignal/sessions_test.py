@@ -34,12 +34,12 @@ class SessionsTest(unittest.TestCase):
 
         session.log_prediction(
             features={'A': 1, 'B': 2},
-            prediction=False,
+            output=False,
             actual_timestamp=now)
 
         session.log_prediction(
             features={'A': 10, 'B': 20},
-            prediction=True,
+            output=True,
             actual_timestamp=now)
 
         session.log_ground_truth(

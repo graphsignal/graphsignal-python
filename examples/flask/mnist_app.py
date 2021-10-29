@@ -29,7 +29,7 @@ def predict_digit():
     output = model.predict(input)
 
     # Log prediction
-    sess.log_prediction(prediction=output[0])
+    sess.log_prediction(output=output[0])
 
     logger.debug('Returning prediction output: %s', input)
     return json.dumps(output.tolist())

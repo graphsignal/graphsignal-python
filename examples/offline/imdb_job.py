@@ -28,7 +28,7 @@ def job():
     scores = model.predict(x_test)
 
     # Log prediction
-    sess.log_prediction_batch(features=x_test, predictions=scores)
+    sess.log_prediction_batch(features=x_test, outputs=scores)
 
 job()
 schedule.every(10).minutes.do(job)

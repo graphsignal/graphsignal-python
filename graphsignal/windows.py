@@ -17,7 +17,8 @@ class PredictionRecord(object):
     __slots__ = [
         'features',
         'feature_names',
-        'predictions',
+        'outputs',
+        'output_names',
         'timestamp'
     ]
 
@@ -25,11 +26,13 @@ class PredictionRecord(object):
             self,
             features=None,
             feature_names=None,
-            predictions=None,
+            outputs=None,
+            output_names=None,
             timestamp=None):
         self.features = features
         self.feature_names = feature_names
-        self.predictions = predictions
+        self.outputs = outputs
+        self.output_names = output_names
         self.timestamp = timestamp
 
 

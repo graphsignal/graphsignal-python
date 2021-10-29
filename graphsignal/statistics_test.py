@@ -107,9 +107,9 @@ class StatisticsTest(unittest.TestCase):
         statistics.update_data_metrics({}, window, [])
 
         self.assertEqual(len(window.data_streams[str(
-            metrics_pb2.DataStream.DataSource.FEATURES)].metrics), 0)
+            metrics_pb2.DataStream.DataSource.INPUT_FEATURES)].metrics), 0)
         self.assertEqual(len(window.data_streams[str(
-            metrics_pb2.DataStream.DataSource.PREDICTIONS)].metrics), 0)
+            metrics_pb2.DataStream.DataSource.OUTPUTS)].metrics), 0)
 
     def test_update_data_metrics(self):
         window = metrics_pb2.PredictionWindow()
@@ -121,12 +121,12 @@ class StatisticsTest(unittest.TestCase):
             'f3': ['a', 'b', 'c', 'c'],
             'f4': [0, float('nan'), float('inf'), 2],
             'f5': [True, True, False, None]}
-        predictions = [[0.1], [0.2], [0.1], [0.4]]
+        outputs = [[0.1], [0.2], [0.1], [0.4]]
 
         statistics.update_data_metrics(
             metric_updaters, window, [
                 PredictionRecord(
-                    features=features, predictions=predictions)])
+                    features=features, outputs=outputs)])
 
         for metric_updater in metric_updaters.values():
             metric_updater.finalize()
@@ -134,9 +134,9 @@ class StatisticsTest(unittest.TestCase):
         window_dict = MessageToDict(window)
 
         input_metrics_json = window_dict['dataStreams'][str(
-            metrics_pb2.DataStream.DataSource.FEATURES)]['metrics']
+            metrics_pb2.DataStream.DataSource.INPUT_FEATURES)]['metrics']
         output_metrics_json = window_dict['dataStreams'][str(
-            metrics_pb2.DataStream.DataSource.PREDICTIONS)]['metrics']
+            metrics_pb2.DataStream.DataSource.OUTPUTS)]['metrics']
 
         for metric in input_metrics_json.values():
             if 'distributionValue' in metric:
@@ -151,127 +151,127 @@ class StatisticsTest(unittest.TestCase):
         # pp.pprint(output_metrics_json)
 
         self.assertEqual(input_metrics_json,
-                         {'01f1b8b72228': {'dimensions': {'feature': 'f1'},
-                                           'name': 'missing_values',
-                                           'ratioValue': {'total': 4.0},
-                                           'type': 'RATIO'},
-                             '0312b6613bfe': {'dimensions': {'feature': 'f3'},
+                         {'02ada935d60a': {'dimensions': {'feature_name': 'f5'},
+                                           'distributionValue': {'sketchImpl': 'KLL10'},
+                                           'name': 'distribution',
+                                           'type': 'DISTRIBUTION'},
+                             '076aa29f76cf': {'dimensions': {'feature_name': 'f4'},
+                                              'name': 'integer_values',
+                                              'ratioValue': {'counter': 2.0, 'total': 4.0},
+                                              'type': 'RATIO'},
+                             '222d0b1dfa42': {'dimensions': {'feature_name': 'f2'},
                                               'name': 'missing_values',
                                               'ratioValue': {'total': 4.0},
                                               'type': 'RATIO'},
-                             '08c9df5de87d': {'dimensions': {'feature': 'f4'},
-                                              'name': 'zero_values',
-                                              'ratioValue': {'counter': 1.0, 'total': 4.0},
-                                              'type': 'RATIO'},
-                             '0bf75bb0a7c2': {'dimensions': {'feature': 'f1'},
-                                              'name': 'integer_values',
+                             '23777f8d6c5b': {'dimensions': {'feature_name': 'f3'},
+                                              'name': 'string_values',
                                               'ratioValue': {'counter': 4.0, 'total': 4.0},
                                               'type': 'RATIO'},
-                             '0ea0e004a528': {'dimensions': {'feature': 'f5'},
+                             '2df60f25840a': {'dimensions': {'feature_name': 'f3'},
+                                              'distributionValue': {'sketchImpl': 'KLL10'},
+                                              'name': 'distribution',
+                                              'type': 'DISTRIBUTION'},
+                             '31cdc4047da9': {'dimensions': {'feature_name': 'f5'},
                                               'name': 'missing_values',
                                               'ratioValue': {'counter': 1.0, 'total': 4.0},
                                               'type': 'RATIO'},
+                             '342246abc789': {'dimensions': {'feature_name': 'f1'},
+                                              'name': 'missing_values',
+                                              'ratioValue': {'total': 4.0},
+                                              'type': 'RATIO'},
+                             '38b5e7971c3f': {'dimensions': {'feature_name': 'f1'},
+                                              'distributionValue': {'sketchImpl': 'KLL10'},
+                                              'name': 'distribution',
+                                              'type': 'DISTRIBUTION'},
                              '3aa8ce8a745e': {'counterValue': {'counter': 4.0},
                                               'name': 'instance_count',
                                               'type': 'COUNTER'},
-                             '3ef19ebc2645': {'dimensions': {'feature': 'f4'},
+                             '4283d6f1fd2b': {'dimensions': {'feature_name': 'f5'},
+                                              'name': 'boolean_values',
+                                              'ratioValue': {'counter': 3.0, 'total': 4.0},
+                                              'type': 'RATIO'},
+                             '4a9116752484': {'dimensions': {'feature_name': 'f4'},
+                                              'name': 'float_values',
+                                              'ratioValue': {'total': 4.0},
+                                              'type': 'RATIO'},
+                             '5f5ec237ea4f': {'dimensions': {'feature_name': 'f1'},
                                               'name': 'integer_values',
-                                              'ratioValue': {'counter': 2.0, 'total': 4.0},
-                                              'type': 'RATIO'},
-                             '4d1f1ce11139': {'dimensions': {'feature': 'f4'},
-                                              'name': 'missing_values',
-                                              'ratioValue': {'counter': 2.0, 'total': 4.0},
-                                              'type': 'RATIO'},
-                             '51d78100926d': {'dimensions': {'feature': 'f2'},
-                                              'name': 'zero_values',
-                                              'ratioValue': {'counter': 1.0, 'total': 4.0},
-                                              'type': 'RATIO'},
-                             '523fe3264e34': {'dimensions': {'feature': 'f2'},
-                                              'name': 'integer_values',
-                                              'ratioValue': {'counter': 1.0, 'total': 4.0},
-                                              'type': 'RATIO'},
-                             '5f427900499e': {'dimensions': {'feature': 'f3'},
-                                              'name': 'string_values',
                                               'ratioValue': {'counter': 4.0, 'total': 4.0},
+                                              'type': 'RATIO'},
+                             '62480aeb7da2': {'dimensions': {'feature_name': 'f1'},
+                                              'name': 'float_values',
+                                              'ratioValue': {'total': 4.0},
                                               'type': 'RATIO'},
                              '6add4609813c': {'gaugeValue': {'gauge': 5.0},
                                               'name': 'column_count',
                                               'type': 'GAUGE'},
-                             '79f34cf7d8aa': {'dimensions': {'feature': 'f2'},
-                                              'distributionValue': {'sketchImpl': 'KLL10'},
-                                              'name': 'distribution',
-                                              'type': 'DISTRIBUTION'},
-                             '7af35ecf2126': {'dimensions': {'feature': 'f4'},
-                                              'distributionValue': {'sketchImpl': 'KLL10'},
-                                              'name': 'distribution',
-                                              'type': 'DISTRIBUTION'},
-                             '7d876060e930': {'dimensions': {'feature': 'f5'},
-                                              'distributionValue': {'sketchImpl': 'KLL10'},
-                                              'name': 'distribution',
-                                              'type': 'DISTRIBUTION'},
-                             '86dfabc8ddca': {'dimensions': {'feature': 'f2'},
-                                              'name': 'float_values',
-                                              'ratioValue': {'counter': 3.0, 'total': 4.0},
-                                              'type': 'RATIO'},
-                             '94170a6ca7cd': {'dimensions': {'feature': 'f3'},
-                                              'distributionValue': {'sketchImpl': 'KLL10'},
-                                              'name': 'distribution',
-                                              'type': 'DISTRIBUTION'},
-                             'a9a91ead50d3': {'dimensions': {'feature': 'f2'},
-                                              'name': 'missing_values',
-                                              'ratioValue': {'total': 4.0},
-                                              'type': 'RATIO'},
-                             'bb1b88dbd60d': {'dimensions': {'feature': 'f1'},
+                             '709339fc41ee': {'dimensions': {'feature_name': 'f1'},
                                               'name': 'zero_values',
                                               'ratioValue': {'counter': 1.0, 'total': 4.0},
                                               'type': 'RATIO'},
-                             'd3d751169f73': {'dimensions': {'feature': 'f3'},
+                             '72dc8927bd35': {'dimensions': {'feature_name': 'f2'},
+                                              'name': 'zero_values',
+                                              'ratioValue': {'counter': 1.0, 'total': 4.0},
+                                              'type': 'RATIO'},
+                             '8bcee9cf32e3': {'dimensions': {'feature_name': 'f4'},
+                                              'distributionValue': {'sketchImpl': 'KLL10'},
+                                              'name': 'distribution',
+                                              'type': 'DISTRIBUTION'},
+                             'c236202ee147': {'dimensions': {'feature_name': 'f4'},
+                                              'name': 'zero_values',
+                                              'ratioValue': {'counter': 1.0, 'total': 4.0},
+                                              'type': 'RATIO'},
+                             'd00eadf9e4cf': {'dimensions': {'feature_name': 'f2'},
+                                              'name': 'integer_values',
+                                              'ratioValue': {'counter': 1.0, 'total': 4.0},
+                                              'type': 'RATIO'},
+                             'd082b0be0bf4': {'dimensions': {'feature_name': 'f3'},
+                                              'name': 'missing_values',
+                                              'ratioValue': {'total': 4.0},
+                                              'type': 'RATIO'},
+                             'df1ea8f7032a': {'dimensions': {'feature_name': 'f4'},
+                                              'name': 'missing_values',
+                                              'ratioValue': {'counter': 2.0, 'total': 4.0},
+                                              'type': 'RATIO'},
+                             'e2844d940cc2': {'dimensions': {'feature_name': 'f2'},
+                                              'name': 'float_values',
+                                              'ratioValue': {'counter': 3.0, 'total': 4.0},
+                                              'type': 'RATIO'},
+                             'e675c4eab4f7': {'dimensions': {'feature_name': 'f3'},
                                               'name': 'empty_values',
                                               'ratioValue': {'total': 4.0},
                                               'type': 'RATIO'},
-                             'e0f4659c6878': {'dimensions': {'feature': 'f4'},
-                                              'name': 'float_values',
-                                              'ratioValue': {'total': 4.0},
-                                              'type': 'RATIO'},
-                             'e62f7922320f': {'dimensions': {'feature': 'f5'},
-                                              'name': 'boolean_values',
-                                              'ratioValue': {'counter': 3.0, 'total': 4.0},
-                                              'type': 'RATIO'},
-                             'ea8b51112640': {'dimensions': {'feature': 'f1'},
-                                              'name': 'float_values',
-                                              'ratioValue': {'total': 4.0},
-                                              'type': 'RATIO'},
-                             'ec7869156b0b': {'dimensions': {'feature': 'f1'},
+                             'f1d8c84f680a': {'dimensions': {'feature_name': 'f2'},
                                               'distributionValue': {'sketchImpl': 'KLL10'},
                                               'name': 'distribution',
                                               'type': 'DISTRIBUTION'}})
         self.assertEqual(output_metrics_json,
-                         {'07c6ba0d31f6': {'dimensions': {'output': '0'},
+                         {'094ce9a486c0': {'gaugeValue': {'gauge': 1.0},
+                                           'name': 'column_count',
+                                           'type': 'GAUGE'},
+                          '15f3585b5a2b': {'dimensions': {'output_name': '0'},
+                                           'name': 'missing_values',
+                                           'ratioValue': {'total': 4.0},
+                                           'type': 'RATIO'},
+                          '2d4c320b727b': {'dimensions': {'output_name': '0'},
+                                           'name': 'integer_values',
+                                           'ratioValue': {'total': 4.0},
+                                           'type': 'RATIO'},
+                          '350dc33d58cf': {'dimensions': {'output_name': '0'},
+                                           'name': 'zero_values',
+                                           'ratioValue': {'total': 4.0},
+                                           'type': 'RATIO'},
+                          '3dea0616b753': {'dimensions': {'output_name': '0'},
+                                           'name': 'float_values',
+                                           'ratioValue': {'counter': 4.0, 'total': 4.0},
+                                           'type': 'RATIO'},
+                          '59abb90a51e4': {'dimensions': {'output_name': '0'},
                                            'distributionValue': {'sketchImpl': 'KLL10'},
                                            'name': 'distribution',
                                            'type': 'DISTRIBUTION'},
-                             '094ce9a486c0': {'gaugeValue': {'gauge': 1.0},
-                                              'name': 'column_count',
-                                              'type': 'GAUGE'},
-                             '2de05b0efb78': {'dimensions': {'output': '0'},
-                                              'name': 'integer_values',
-                                              'ratioValue': {'total': 4.0},
-                                              'type': 'RATIO'},
-                             '5a787c7b90c1': {'dimensions': {'output': '0'},
-                                              'name': 'missing_values',
-                                              'ratioValue': {'total': 4.0},
-                                              'type': 'RATIO'},
-                             '69a1b8edd1ba': {'dimensions': {'output': '0'},
-                                              'name': 'zero_values',
-                                              'ratioValue': {'total': 4.0},
-                                              'type': 'RATIO'},
-                             '8e1bc8013472': {'counterValue': {'counter': 4.0},
-                                              'name': 'instance_count',
-                                              'type': 'COUNTER'},
-                             '981d6707827a': {'dimensions': {'output': '0'},
-                                              'name': 'float_values',
-                                              'ratioValue': {'counter': 4.0, 'total': 4.0},
-                                              'type': 'RATIO'}})
+                          '8e1bc8013472': {'counterValue': {'counter': 4.0},
+                                           'name': 'instance_count',
+                                           'type': 'COUNTER'}})
 
     def test_update_data_metrics_perf(self):
         window = metrics_pb2.PredictionWindow()
@@ -286,11 +286,11 @@ class StatisticsTest(unittest.TestCase):
                 features['f3_' + str(j)] = [100 * 'abc' + str(i)]
                 features['f4_' + str(j)] = [float('nan')]
                 features['f4_' + str(j)] = [float('+inf')]
-            predictions = [[0.1], [0.2], [0.1], [0.4]]
+            outputs = [[0.1], [0.2], [0.1], [0.4]]
             prediction_buffer.append(
                 PredictionRecord(
                     features=features,
-                    predictions=predictions))
+                    outputs=outputs))
 
         #import cProfile
         #from pstats import Stats, SortKey
@@ -311,9 +311,9 @@ class StatisticsTest(unittest.TestCase):
 
         print('update_data_metrics took (sec): ', round(took, 6))
         self.assertTrue(len(window.data_streams[str(
-            metrics_pb2.DataStream.DataSource.FEATURES)].metrics) > 0)
+            metrics_pb2.DataStream.DataSource.INPUT_FEATURES)].metrics) > 0)
         self.assertTrue(len(window.data_streams[str(
-            metrics_pb2.DataStream.DataSource.PREDICTIONS)].metrics) > 0)
+            metrics_pb2.DataStream.DataSource.OUTPUTS)].metrics) > 0)
         self.assertTrue(took < 1)
 
     def test_truncate_strings(self):

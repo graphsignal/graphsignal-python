@@ -30,4 +30,4 @@ output = res.json()
 logger.debug('Prediction output: %s', output)
 
 # Log prediction
-sess.log_prediction(prediction=output[0])
+sess.log_prediction(output=output[0])
