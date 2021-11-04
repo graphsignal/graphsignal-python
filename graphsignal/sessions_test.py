@@ -42,14 +42,14 @@ class SessionsTest(unittest.TestCase):
             output=True,
             actual_timestamp=now)
 
-        session.log_ground_truth(
+        session.log_evaluation(
             label='c1',
             prediction='c1',
             prediction_timestamp=now,
             segments=[
                 's1',
                 's2'])
-        session.log_ground_truth(
+        session.log_evaluation(
             label='c1',
             prediction='c2',
             prediction_timestamp=now,
@@ -70,7 +70,7 @@ class SessionsTest(unittest.TestCase):
 
         uploaded_window = mocked_upload_window.call_args[0][0]
         self.assertEqual(uploaded_window.num_predictions, 2)
-        self.assertEqual(uploaded_window.num_ground_truths, 2)
+        self.assertEqual(uploaded_window.num_evaluations, 2)
         self.assertEqual(uploaded_window.model.metadata['k1'], 'v1')
         self.assertEqual(
             uploaded_window.exceptions[0].message,

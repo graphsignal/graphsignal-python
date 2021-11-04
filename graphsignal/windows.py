@@ -56,7 +56,7 @@ class ExceptionRecord(object):
         self.timestamp = timestamp
 
 
-class GroundTruthRecord(object):
+class EvaluationRecord(object):
     __slots__ = [
         'label',
         'prediction',
@@ -84,7 +84,7 @@ class WindowUpdater(object):
         '_metric_updaters',
         '_prediction_records',
         '_prediction_batch_size',
-        '_ground_truth_records',
+        '_evaluation_records',
     ]
 
     def __init__(self):
@@ -94,7 +94,7 @@ class WindowUpdater(object):
         self._metric_updaters = {}
         self._prediction_records = []
         self._prediction_batch_size = 0
-        self._ground_truth_records = []
+        self._evaluation_records = []
 
     def window(self):
         return self._window_proto
@@ -126,13 +126,13 @@ class WindowUpdater(object):
                 exception_proto.create_ts = exception.timestamp
             self._is_empty = False
 
-    def add_ground_truth(self, ground_truth):
+    def add_evaluation(self, evaluation):
         with self._update_lock:
-            self._ground_truth_records.append(ground_truth)
+            self._evaluation_records.append(evaluation)
             self._is_empty = False
 
-        if len(self._ground_truth_records) >= graphsignal._get_config().buffer_size:
-            self._update_ground_truth()
+        if len(self._evaluation_records) >= graphsignal._get_config().buffer_size:
+            self._update_evaluations()
 
     def _update_predictions(self):
         if len(self._prediction_records) > 0:
@@ -155,30 +155,30 @@ class WindowUpdater(object):
                 self._prediction_batch_size = 0
                 self._prediction_records = []
 
-    def _update_ground_truth(self):
-        if len(self._ground_truth_records) > 0:
+    def _update_evaluations(self):
+        if len(self._evaluation_records) > 0:
             with self._update_lock:
                 if self._window_proto.start_ts == 0:
-                    self._window_proto.start_ts = self._ground_truth_records[0].prediction_timestamp
+                    self._window_proto.start_ts = self._evaluation_records[0].prediction_timestamp
                 else:
                     self._window_proto.start_ts = min(
-                        self._window_proto.start_ts, self._ground_truth_records[0].prediction_timestamp)
+                        self._window_proto.start_ts, self._evaluation_records[0].prediction_timestamp)
                 self._window_proto.end_ts = max(
-                    self._window_proto.end_ts, self._ground_truth_records[-1].prediction_timestamp)
-                self._window_proto.num_ground_truths += len(
-                    self._ground_truth_records)
+                    self._window_proto.end_ts, self._evaluation_records[-1].prediction_timestamp)
+                self._window_proto.num_evaluations += len(
+                    self._evaluation_records)
 
                 try:
                     statistics.update_performance_metrics(
-                        self._metric_updaters, self._window_proto, self._ground_truth_records)
+                        self._metric_updaters, self._window_proto, self._evaluation_records)
                 except BaseException:
                     logger.error('Error updating data metrics', exc_info=True)
 
-                self._ground_truth_records = []
+                self._evaluation_records = []
 
     def finalize(self):
         self._update_predictions()
-        self._update_ground_truth()
+        self._update_evaluations()
 
         with self._update_lock:
             for metric_updater in self._metric_updaters.values():

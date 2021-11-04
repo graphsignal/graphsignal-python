@@ -327,32 +327,32 @@ class StatisticsTest(unittest.TestCase):
         window = metrics_pb2.PredictionWindow()
         metric_updaters = {}
 
-        ground_truth_buffer = [
-            GroundTruthRecord(
+        evaluation_buffer = [
+            EvaluationRecord(
                 label=True,
                 prediction=True,
                 segments=[
                     's1',
                     's2']),
-            GroundTruthRecord(
+            EvaluationRecord(
                 label=True,
                 prediction=True,
                 segments=[
                     's1',
                     's3']),
-            GroundTruthRecord(
+            EvaluationRecord(
                 label=True,
                 prediction=False,
                 segments=[
                     's1',
                     's3']),
-            GroundTruthRecord(
+            EvaluationRecord(
                 label=False,
                 prediction=True,
                 segments=[
                     's1',
                     's3']),
-            GroundTruthRecord(
+            EvaluationRecord(
                 label=False,
                 prediction=False,
                 segments=[
@@ -361,14 +361,14 @@ class StatisticsTest(unittest.TestCase):
         ]
 
         statistics.update_performance_metrics(
-            metric_updaters, window, ground_truth_buffer)
+            metric_updaters, window, evaluation_buffer)
 
         for metric_updater in metric_updaters.values():
             metric_updater.finalize()
 
         window_dict = MessageToDict(window)
         metrics_json = window_dict['dataStreams'][str(
-            metrics_pb2.DataStream.DataSource.GROUND_TRUTH_BINARY)]['metrics']
+            metrics_pb2.DataStream.DataSource.EVALUATION_BINARY)]['metrics']
 
         #pp = pprint.PrettyPrinter()
         # pp.pprint(metrics_json)
@@ -427,44 +427,44 @@ class StatisticsTest(unittest.TestCase):
         window = metrics_pb2.PredictionWindow()
         metric_updaters = {}
 
-        ground_truth_buffer = [
-            GroundTruthRecord(
+        evaluation_buffer = [
+            EvaluationRecord(
                 label='c1',
                 prediction='c1',
                 segments=[
                     's1',
                     's2']),
-            GroundTruthRecord(
+            EvaluationRecord(
                 label='c1',
                 prediction='c1',
                 segments=[
                     's1',
                     's3']),
-            GroundTruthRecord(
+            EvaluationRecord(
                 label='c1',
                 prediction='c2',
                 segments=[
                     's1',
                     's3']),
-            GroundTruthRecord(
+            EvaluationRecord(
                 label='c1',
                 prediction='c2',
                 segments=[
                     's1',
                     's3']),
-            GroundTruthRecord(
+            EvaluationRecord(
                 label='c2',
                 prediction='c1',
                 segments=[
                     's1',
                     's3']),
-            GroundTruthRecord(
+            EvaluationRecord(
                 label='c2',
                 prediction='c2',
                 segments=[
                     's1',
                     's2']),
-            GroundTruthRecord(
+            EvaluationRecord(
                 label='c3',
                 prediction='c3',
                 segments=[
@@ -473,17 +473,17 @@ class StatisticsTest(unittest.TestCase):
         ]
 
         statistics.update_performance_metrics(
-            metric_updaters, window, ground_truth_buffer)
+            metric_updaters, window, evaluation_buffer)
 
         for metric_updater in metric_updaters.values():
             metric_updater.finalize()
 
         window_dict = MessageToDict(window)
         metrics_json = window_dict['dataStreams'][str(
-            metrics_pb2.DataStream.DataSource.GROUND_TRUTH_CATEGORICAL)]['metrics']
+            metrics_pb2.DataStream.DataSource.EVALUATION_CATEGORICAL)]['metrics']
 
         data_stream = window.data_streams[str(
-            metrics_pb2.DataStream.DataSource.GROUND_TRUTH_CATEGORICAL)]
+            metrics_pb2.DataStream.DataSource.EVALUATION_CATEGORICAL)]
 
         total = None
         sketches = {}
@@ -518,14 +518,14 @@ class StatisticsTest(unittest.TestCase):
         window = metrics_pb2.PredictionWindow()
         metric_updaters = {}
 
-        ground_truth_buffer = [
-            GroundTruthRecord(
+        evaluation_buffer = [
+            EvaluationRecord(
                 label=1.0,
                 prediction=3.4,
                 segments=[
                     's1',
                     's2']),
-            GroundTruthRecord(
+            EvaluationRecord(
                 label=2.4,
                 prediction=0.2,
                 segments=[
@@ -534,14 +534,14 @@ class StatisticsTest(unittest.TestCase):
         ]
 
         statistics.update_performance_metrics(
-            metric_updaters, window, ground_truth_buffer)
+            metric_updaters, window, evaluation_buffer)
 
         for metric_updater in metric_updaters.values():
             metric_updater.finalize()
 
         window_dict = MessageToDict(window)
         metrics_json = window_dict['dataStreams'][str(
-            metrics_pb2.DataStream.DataSource.GROUND_TRUTH_NUMERIC)]['metrics']
+            metrics_pb2.DataStream.DataSource.EVALUATION_NUMERIC)]['metrics']
 
         #pp = pprint.PrettyPrinter()
         # pp.pprint(metrics_json)
@@ -560,32 +560,32 @@ class StatisticsTest(unittest.TestCase):
         window = metrics_pb2.PredictionWindow()
         metric_updaters = {}
 
-        ground_truth_buffer = [
-            GroundTruthRecord(
+        evaluation_buffer = [
+            EvaluationRecord(
                 label=True,
                 prediction=True,
                 segments=[
                     's1',
                     's2']),
-            GroundTruthRecord(
+            EvaluationRecord(
                 label=True,
                 prediction=True,
                 segments=[
                     's1',
                     's3']),
-            GroundTruthRecord(
+            EvaluationRecord(
                 label=True,
                 prediction=False,
                 segments=[
                     's1',
                     's3']),
-            GroundTruthRecord(
+            EvaluationRecord(
                 label=False,
                 prediction=True,
                 segments=[
                     's1',
                     's3']),
-            GroundTruthRecord(
+            EvaluationRecord(
                 label=False,
                 prediction=False,
                 segments=[
@@ -594,13 +594,13 @@ class StatisticsTest(unittest.TestCase):
         ]
 
         statistics.update_performance_metrics(
-            metric_updaters, window, ground_truth_buffer)
+            metric_updaters, window, evaluation_buffer)
 
         for metric_updater in metric_updaters.values():
             metric_updater.finalize()
 
         data_stream = window.data_streams[str(
-            metrics_pb2.DataStream.DataSource.GROUND_TRUTH_BINARY)]
+            metrics_pb2.DataStream.DataSource.EVALUATION_BINARY)]
 
         sketches = {}
         for metric in data_stream.metrics.values():

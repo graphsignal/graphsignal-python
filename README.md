@@ -117,12 +117,12 @@ sess.log_exception(
 See [logging API reference](https://graphsignal.com/docs/python-logger/api-reference/) for full documentation.
 
 
-### 5. Ground Truth Logging
+### 5. Evaluation Logging
 
-Log ground truth when it becomes available. Because ground truth is usually available at a later point, **ground truth logging is independent from prediction logging**. Prediction logging is **not** required for model performance monitoring and visualization.
+Log ground truth label and prediction to evaluate model performance. Because ground truth is usually available at a later point, **evaluation logging is independent from prediction logging**. Prediction logging is **not** required for model performance monitoring and visualization.
 
 ```python
-sess.log_ground_truth(
+sess.log_evaluation(
   label=True, 
   prediction=False)
 ```
@@ -134,7 +134,7 @@ Model output type is inferred from label and prediction types. Model performance
 To additionally visualize and monitor performance metrics for various data segments, a `segments` list can be provided.
 
 ```python
-sess.log_ground_truth(
+sess.log_evaluation(
   label=True, 
   prediction=False,
   segments=['seg1', 'seg2'])
@@ -143,67 +143,6 @@ sess.log_ground_truth(
 ### 6. Dashboards and Alerting
 
 After logging is setup, [sign in](https://app.graphsignal.com/signin) to Graphsignal to check out various dashboards and set up alerting for automatically detected issues.
-
-
-## Examples
-
-Logging model serving predictions.
-
-```python
-from tensorflow import keras
-import json
-from flask import Flask
-from flask import request
-
-import graphsignal
-graphsignal.configure(api_key='my_key')
-
-# Get Graphsignal logging session for deployed model
-sess = graphsignal.session(deployment_name='fraud_detection_prod')
-sess.log_metadata('model version', '1.0')
-
-model = keras.models.load_model('fraud_model.h5')
-app = Flask(__name__)
-
-@app.route('/predict_fraud', methods = ['POST'])
-def predict_digit():
-    try:
-      features = request.get_json()
-
-      # feature extraction code here...
-
-      output_data = model.predict([input_data])
-
-      # Log prediction
-      sess.log_prediction(
-        features=features, 
-        output=output_data[0])
-    except:
-      sess.log_exception(exc_info=True)    
-
-    return json.dumps(output_data.tolist())
-
-app.run(port=8090)
-```
-
-Logging ground truth.
-
-```python
-import graphsignal
-graphsignal.configure(api_key='my_key')
-
-# Get Graphsignal logging session for deployed model
-sess = graphsignal.session(deployment_name='job_recommender_prod')
-sess.log_metadata('model version', 'v1.2')
-
-...
-
-sess.log_ground_truth(
-  label=True,
-  prediction=False)
-```
-
-See more [examples](https://github.com/graphsignal/graphsignal/tree/main/examples).
 
 
 ## Performance

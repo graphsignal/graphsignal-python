@@ -64,6 +64,26 @@ def configure(api_key, debug_mode=False, window_seconds=300, buffer_size=100):
     logger.debug('Logger configured')
 
 
+def tick():
+    if not _config:
+        logger.error(
+            'Logger not configured, please use graphsignal.configure()')
+        return
+
+    sessions.upload_all()
+    _uploader.flush()
+
+
+def flush():
+    if not _config:
+        logger.error(
+            'Logger not configured, please use graphsignal.configure()')
+        return
+
+    sessions.upload_all(force=True)
+    _uploader.flush()
+
+
 def shutdown():
     global _config
 
@@ -80,16 +100,6 @@ def shutdown():
     _config = None
 
     logger.debug('Logger shutdown')
-
-
-def tick():
-    if not _config:
-        logger.error(
-            'Logger not configured, please use graphsignal.configure()')
-        return
-
-    sessions.upload_all()
-    _uploader.flush()
 
 
 def session(deployment_name):

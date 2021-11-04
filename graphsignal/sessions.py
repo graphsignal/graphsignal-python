@@ -8,7 +8,7 @@ from google.protobuf.json_format import MessageToDict
 
 import graphsignal
 from graphsignal import statistics
-from graphsignal.windows import PredictionRecord, ExceptionRecord, GroundTruthRecord, WindowUpdater
+from graphsignal.windows import PredictionRecord, ExceptionRecord, EvaluationRecord, WindowUpdater
 from graphsignal import metrics_pb2
 
 logger = logging.getLogger('graphsignal')
@@ -221,7 +221,7 @@ class Session(object):
             stack_trace=stack_trace,
             timestamp=timestamp))
 
-    def log_ground_truth(
+    def log_evaluation(
             self,
             label,
             prediction,
@@ -261,7 +261,7 @@ class Session(object):
         if not self._tumble_window(timestamp):
             return
 
-        self._current_window_updater.add_ground_truth(GroundTruthRecord(
+        self._current_window_updater.add_evaluation(EvaluationRecord(
             label=label,
             prediction=prediction,
             prediction_timestamp=timestamp,

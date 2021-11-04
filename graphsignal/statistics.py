@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 import graphsignal
-from graphsignal.windows import PredictionRecord, GroundTruthRecord, get_data_stream, get_metric_updater, canonical_string
+from graphsignal.windows import PredictionRecord, EvaluationRecord, get_data_stream, get_metric_updater, canonical_string
 from graphsignal import metrics_pb2
 
 logger = logging.getLogger('graphsignal')
@@ -267,35 +267,35 @@ def _truncate_strings(values, max_size=18, front_size=10, tail_size=5):
 
 
 def update_performance_metrics(
-        metric_updaters, window_proto, ground_truth_records):
+        metric_updaters, window_proto, evaluation_records):
 
-    if len(ground_truth_records) == 0:
+    if len(evaluation_records) == 0:
         return
 
-    for ground_truth in ground_truth_records:
-        is_binary = isinstance(ground_truth.label, bool)
-        is_categorical = isinstance(ground_truth.label, (str, list))
-        is_numeric = isinstance(ground_truth.label, (int, float))
+    for evaluation in evaluation_records:
+        is_binary = isinstance(evaluation.label, bool)
+        is_categorical = isinstance(evaluation.label, (str, list))
+        is_numeric = isinstance(evaluation.label, (int, float))
 
         if is_binary:
             data_stream_proto = get_data_stream(
                 window_proto,
-                metrics_pb2.DataStream.DataSource.GROUND_TRUTH_BINARY)
+                metrics_pb2.DataStream.DataSource.EVALUATION_BINARY)
         elif is_categorical:
             data_stream_proto = get_data_stream(
                 window_proto,
-                metrics_pb2.DataStream.DataSource.GROUND_TRUTH_CATEGORICAL)
+                metrics_pb2.DataStream.DataSource.EVALUATION_CATEGORICAL)
         elif is_numeric:
             data_stream_proto = get_data_stream(
                 window_proto,
-                metrics_pb2.DataStream.DataSource.GROUND_TRUTH_NUMERIC)
+                metrics_pb2.DataStream.DataSource.EVALUATION_NUMERIC)
         else:
             continue
 
         # accuracy for binary and categorical
         if is_binary or is_categorical:
-            label_match = (ground_truth.label ==
-                           ground_truth.prediction)
+            label_match = (evaluation.label ==
+                           evaluation.prediction)
 
             metric_updater = get_metric_updater(
                 metric_updaters, data_stream_proto, 'accuracy')
@@ -304,37 +304,37 @@ def update_performance_metrics(
             else:
                 metric_updater.update_ratio(0, 1)
 
-            if ground_truth.segments is not None:
+            if evaluation.segments is not None:
                 metric_updater = get_metric_updater(
                     metric_updaters, data_stream_proto, 'segment_totals')
-                metric_updater.update_distribution(ground_truth.segments)
+                metric_updater.update_distribution(evaluation.segments)
                 if label_match:
                     metric_updater = get_metric_updater(
                         metric_updaters, data_stream_proto, 'segment_matches')
-                    metric_updater.update_distribution(ground_truth.segments)
+                    metric_updater.update_distribution(evaluation.segments)
 
         # confusion matrix for binary
         if is_binary:
             # true positive
-            if ground_truth.label and ground_truth.prediction:
+            if evaluation.label and evaluation.prediction:
                 metric_updater = get_metric_updater(
                     metric_updaters, data_stream_proto, 'binary_true_positives')
                 metric_updater.update_counter(1)
 
             # true negative
-            elif not ground_truth.label and not ground_truth.prediction:
+            elif not evaluation.label and not evaluation.prediction:
                 metric_updater = get_metric_updater(
                     metric_updaters, data_stream_proto, 'binary_true_negatives')
                 metric_updater.update_counter(1)
 
             # false positive
-            elif not ground_truth.label and ground_truth.prediction:
+            elif not evaluation.label and evaluation.prediction:
                 metric_updater = get_metric_updater(
                     metric_updaters, data_stream_proto, 'binary_false_positives')
                 metric_updater.update_counter(1)
 
             # false negative
-            elif ground_truth.label and not ground_truth.prediction:
+            elif evaluation.label and not evaluation.prediction:
                 metric_updater = get_metric_updater(
                     metric_updaters, data_stream_proto, 'binary_false_negatives')
                 metric_updater.update_counter(1)
@@ -343,27 +343,27 @@ def update_performance_metrics(
         elif is_categorical:
             label_hash = _sha1(
                 canonical_string(
-                    ground_truth.label), size=8)
+                    evaluation.label), size=8)
             # totals
             metric_updater = get_metric_updater(
                 metric_updaters, data_stream_proto, 'total')
             metric_updater.update_counter(1)
 
-            if ground_truth.label == ground_truth.prediction:
+            if evaluation.label == evaluation.prediction:
                 # true positives
                 metric_updater = get_metric_updater(
                     metric_updaters, data_stream_proto, 'class_true_positives')
                 metric_updater.update_distribution([label_hash])
             else:
                 prediction_hash = _sha1(
-                    canonical_string(ground_truth.prediction), size=8)
+                    canonical_string(evaluation.prediction), size=8)
 
-                # false positives for ground_truth.prediction
+                # false positives for evaluation.prediction
                 metric_updater = get_metric_updater(
                     metric_updaters, data_stream_proto, 'class_false_positives')
                 metric_updater.update_distribution([prediction_hash])
 
-                # false negatives for ground_truth.label
+                # false negatives for evaluation.label
                 metric_updater = get_metric_updater(
                     metric_updaters, data_stream_proto, 'class_false_negatives')
                 metric_updater.update_distribution([label_hash])
@@ -377,12 +377,12 @@ def update_performance_metrics(
             metric_updater = get_metric_updater(
                 metric_updaters, data_stream_proto, 'mse_sum')
             metric_updater.update_counter(
-                (ground_truth.label - ground_truth.prediction) ** 2)
+                (evaluation.label - evaluation.prediction) ** 2)
 
             metric_updater = get_metric_updater(
                 metric_updaters, data_stream_proto, 'mae_sum')
             metric_updater.update_counter(
-                abs(ground_truth.label - ground_truth.prediction))
+                abs(evaluation.label - evaluation.prediction))
 
 
 @lru_cache(maxsize=250)
