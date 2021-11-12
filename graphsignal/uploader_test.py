@@ -35,7 +35,7 @@ class UploaderTest(unittest.TestCase):
 
     @patch.object(Uploader, '_post')
     def test_flush(self, mocked_post):
-        window = metrics_pb2.PredictionWindow()
+        window = metrics_pb2.MetricWindow()
         graphsignal._get_uploader().upload_window(window)
         graphsignal._get_uploader().flush()
 
@@ -45,10 +45,10 @@ class UploaderTest(unittest.TestCase):
     @patch.object(Uploader, '_post',
                   return_value=metrics_pb2.UploadResponse().SerializeToString())
     def test_flush_in_thread(self, mocked_post):
-        window = metrics_pb2.PredictionWindow()
+        window = metrics_pb2.MetricWindow()
         graphsignal._get_uploader().upload_window(window)
         graphsignal._get_uploader().flush_in_thread()
-        graphsignal.tick()
+        graphsignal.sessions.upload_all()
 
         mocked_post.assert_called_once()
         self.assertEqual(len(graphsignal._get_uploader().buffer), 0)
@@ -59,7 +59,7 @@ class UploaderTest(unittest.TestCase):
             raise URLError("Ex1")
         mocked_post.side_effect = side_effect
 
-        window = metrics_pb2.PredictionWindow()
+        window = metrics_pb2.MetricWindow()
         graphsignal._get_uploader().upload_window(window)
         graphsignal._get_uploader().upload_window(window)
         graphsignal._get_uploader().flush()
@@ -74,7 +74,7 @@ class UploaderTest(unittest.TestCase):
             metrics_pb2.UploadResponse().SerializeToString())
         server.start()
 
-        window = metrics_pb2.PredictionWindow()
+        window = metrics_pb2.MetricWindow()
         window.model.deployment_name = 'd1'
         upload_request = metrics_pb2.UploadRequest()
         upload_request.windows.append(window)

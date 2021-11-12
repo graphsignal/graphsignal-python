@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\rmetrics.proto\x12\x07metrics\"N\n\rUploadRequest\x12*\n\x07windows\x18\x01 \x03(\x0b\x32\x19.metrics.PredictionWindow\x12\x11\n\tupload_ts\x18\x02 \x01(\x04\"\x10\n\x0eUploadResponse\"p\n\rWindowMessage\x12\x0f\n\x07\x64\x61ta_id\x18\x01 \x01(\t\x12\x11\n\twindow_id\x18\x02 \x01(\t\x12\x10\n\x08model_id\x18\x03 \x01(\t\x12)\n\x06window\x18\x04 \x01(\x0b\x32\x19.metrics.PredictionWindow\"\x93\x01\n\x06Rollup\x12\x11\n\trollup_id\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\x04\x12\x12\n\nresolution\x18\x03 \x01(\x04\x12\x13\n\x0btime_bucket\x18\x04 \x01(\x04\x12\x11\n\texpire_at\x18\x05 \x01(\x04\x12)\n\x06window\x18\x06 \x01(\x0b\x32\x19.metrics.PredictionWindow\"\xe2\x02\n\x10PredictionWindow\x12%\n\x05model\x18\x02 \x01(\x0b\x32\x16.metrics.DeployedModel\x12\x17\n\x0fnum_predictions\x18\x03 \x01(\x04\x12\x10\n\x08start_ts\x18\x04 \x01(\x04\x12\x0e\n\x06\x65nd_ts\x18\x05 \x01(\x04\x12@\n\x0c\x64\x61ta_streams\x18\x06 \x03(\x0b\x32*.metrics.PredictionWindow.DataStreamsEntry\x12\x30\n\nexceptions\x18\x07 \x03(\x0b\x32\x1c.metrics.PredictionException\x12\x16\n\x0enum_exceptions\x18\x08 \x01(\x04\x12\x17\n\x0fnum_evaluations\x18\t \x01(\x04\x1aG\n\x10\x44\x61taStreamsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\"\n\x05value\x18\x02 \x01(\x0b\x32\x13.metrics.DataStream:\x02\x38\x01\"\x91\x01\n\rDeployedModel\x12\x17\n\x0f\x64\x65ployment_name\x18\x02 \x01(\t\x12\x36\n\x08metadata\x18\x03 \x03(\x0b\x32$.metrics.DeployedModel.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xe1\x02\n\nDataStream\x12\x33\n\x0b\x64\x61ta_source\x18\x01 \x01(\x0e\x32\x1e.metrics.DataStream.DataSource\x12\x31\n\x07metrics\x18\x02 \x03(\x0b\x32 .metrics.DataStream.MetricsEntry\x1a\x43\n\x0cMetricsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\"\n\x05value\x18\x02 \x01(\x0b\x32\x13.metrics.DataMetric:\x02\x38\x01\"\xa5\x01\n\nDataSource\x12\x13\n\x0fNOT_INITIALIZED\x10\x00\x12\x12\n\x0eINPUT_FEATURES\x10\x01\x12\x0b\n\x07OUTPUTS\x10\x02\x12\x16\n\x12\x46\x45\x41TURE_IMPORTANCE\x10\x03\x12\x15\n\x11\x45VALUATION_BINARY\x10\x04\x12\x1a\n\x16\x45VALUATION_CATEGORICAL\x10\x05\x12\x16\n\x12\x45VALUATION_NUMERIC\x10\x06\"\xdd\x03\n\nDataMetric\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x37\n\ndimensions\x18\x02 \x03(\x0b\x32#.metrics.DataMetric.DimensionsEntry\x12,\n\x04type\x18\x03 \x01(\x0e\x32\x1e.metrics.DataMetric.MetricType\x12*\n\x0bgauge_value\x18\x04 \x01(\x0b\x32\x13.metrics.GaugeValueH\x00\x12.\n\rcounter_value\x18\x05 \x01(\x0b\x32\x15.metrics.CounterValueH\x00\x12*\n\x0bratio_value\x18\x06 \x01(\x0b\x32\x13.metrics.RatioValueH\x00\x12\x38\n\x12\x64istribution_value\x18\x07 \x01(\x0b\x32\x1a.metrics.DistributionValueH\x00\x1a\x31\n\x0f\x44imensionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"V\n\nMetricType\x12\x13\n\x0fNOT_INITIALIZED\x10\x00\x12\t\n\x05GAUGE\x10\x01\x12\x0b\n\x07\x43OUNTER\x10\x02\x12\t\n\x05RATIO\x10\x03\x12\x10\n\x0c\x44ISTRIBUTION\x10\x04\x42\r\n\x0bvalue_oneof\"\x1b\n\nGaugeValue\x12\r\n\x05gauge\x18\x01 \x01(\x01\"\x1f\n\x0c\x43ounterValue\x12\x0f\n\x07\x63ounter\x18\x01 \x01(\x01\",\n\nRatioValue\x12\x0f\n\x07\x63ounter\x18\x01 \x01(\x01\x12\r\n\x05total\x18\x02 \x01(\x01\"\xba\x01\n\x11\x44istributionValue\x12:\n\x0bsketch_impl\x18\x01 \x01(\x0e\x32%.metrics.DistributionValue.SketchImpl\x12,\n\x0csketch_kll10\x18\x02 \x01(\x0b\x32\x14.metrics.SketchKLL10H\x00\"*\n\nSketchImpl\x12\x11\n\rNOT_SPECIFIED\x10\x00\x12\t\n\x05KLL10\x10\x01\x42\x0f\n\rone_of_sketch\"\xa4\x02\n\x0bSketchKLL10\x12\t\n\x01k\x18\x01 \x01(\x04\x12\t\n\x01\x63\x18\x02 \x01(\x01\x12\t\n\x01H\x18\x03 \x01(\x04\x12\x0c\n\x04size\x18\x04 \x01(\x04\x12\x10\n\x08max_size\x18\x05 \x01(\x04\x12\x30\n\titem_type\x18\x06 \x01(\x0e\x32\x1d.metrics.SketchKLL10.ItemType\x12>\n\x11\x63ompactors_double\x18\x07 \x03(\x0b\x32#.metrics.SketchKLL10CompactorDouble\x12>\n\x11\x63ompactors_string\x18\x08 \x03(\x0b\x32#.metrics.SketchKLL10CompactorString\"\"\n\x08ItemType\x12\n\n\x06\x44OUBLE\x10\x00\x12\n\n\x06STRING\x10\x01\"+\n\x1aSketchKLL10CompactorDouble\x12\r\n\x05items\x18\x01 \x03(\x01\"+\n\x1aSketchKLL10CompactorString\x12\r\n\x05items\x18\x01 \x03(\t\"\xc1\x01\n\x13PredictionException\x12\x0f\n\x07message\x18\x01 \x01(\t\x12\x13\n\x0bstack_trace\x18\x02 \x01(\t\x12?\n\nextra_info\x18\x03 \x03(\x0b\x32+.metrics.PredictionException.ExtraInfoEntry\x12\x11\n\tcreate_ts\x18\x04 \x01(\x04\x1a\x30\n\x0e\x45xtraInfoEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x62\x06proto3'
+  serialized_pb=b'\n\rmetrics.proto\x12\x07metrics\"J\n\rUploadRequest\x12&\n\x07windows\x18\x01 \x03(\x0b\x32\x15.metrics.MetricWindow\x12\x11\n\tupload_ts\x18\x02 \x01(\x04\"\x10\n\x0eUploadResponse\"l\n\rWindowMessage\x12\x0f\n\x07\x64\x61ta_id\x18\x01 \x01(\t\x12\x11\n\twindow_id\x18\x02 \x01(\t\x12\x10\n\x08model_id\x18\x03 \x01(\t\x12%\n\x06window\x18\x04 \x01(\x0b\x32\x15.metrics.MetricWindow\"\x8f\x01\n\x06Rollup\x12\x11\n\trollup_id\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\x04\x12\x12\n\nresolution\x18\x03 \x01(\x04\x12\x13\n\x0btime_bucket\x18\x04 \x01(\x04\x12\x11\n\texpire_at\x18\x05 \x01(\x04\x12%\n\x06window\x18\x06 \x01(\x0b\x32\x15.metrics.MetricWindow\"\x90\x02\n\x0cMetricWindow\x12%\n\x05model\x18\x02 \x01(\x0b\x32\x16.metrics.DeployedModel\x12\x17\n\x0fnum_predictions\x18\x03 \x01(\x04\x12\x10\n\x08start_ts\x18\x04 \x01(\x04\x12\x0e\n\x06\x65nd_ts\x18\x05 \x01(\x04\x12<\n\x0c\x64\x61ta_streams\x18\x06 \x03(\x0b\x32&.metrics.MetricWindow.DataStreamsEntry\x12\x17\n\x0fnum_evaluations\x18\t \x01(\x04\x1aG\n\x10\x44\x61taStreamsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\"\n\x05value\x18\x02 \x01(\x0b\x32\x13.metrics.DataStream:\x02\x38\x01\"\x91\x01\n\rDeployedModel\x12\x17\n\x0f\x64\x65ployment_name\x18\x02 \x01(\t\x12\x36\n\x08metadata\x18\x03 \x03(\x0b\x32$.metrics.DeployedModel.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xe1\x02\n\nDataStream\x12\x33\n\x0b\x64\x61ta_source\x18\x01 \x01(\x0e\x32\x1e.metrics.DataStream.DataSource\x12\x31\n\x07metrics\x18\x02 \x03(\x0b\x32 .metrics.DataStream.MetricsEntry\x1a\x43\n\x0cMetricsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\"\n\x05value\x18\x02 \x01(\x0b\x32\x13.metrics.DataMetric:\x02\x38\x01\"\xa5\x01\n\nDataSource\x12\x13\n\x0fNOT_INITIALIZED\x10\x00\x12\x12\n\x0eINPUT_FEATURES\x10\x01\x12\x0b\n\x07OUTPUTS\x10\x02\x12\x16\n\x12\x46\x45\x41TURE_IMPORTANCE\x10\x03\x12\x15\n\x11\x45VALUATION_BINARY\x10\x04\x12\x1a\n\x16\x45VALUATION_CATEGORICAL\x10\x05\x12\x16\n\x12\x45VALUATION_NUMERIC\x10\x06\"\xdd\x03\n\nDataMetric\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x37\n\ndimensions\x18\x02 \x03(\x0b\x32#.metrics.DataMetric.DimensionsEntry\x12,\n\x04type\x18\x03 \x01(\x0e\x32\x1e.metrics.DataMetric.MetricType\x12*\n\x0bgauge_value\x18\x04 \x01(\x0b\x32\x13.metrics.GaugeValueH\x00\x12.\n\rcounter_value\x18\x05 \x01(\x0b\x32\x15.metrics.CounterValueH\x00\x12*\n\x0bratio_value\x18\x06 \x01(\x0b\x32\x13.metrics.RatioValueH\x00\x12\x38\n\x12\x64istribution_value\x18\x07 \x01(\x0b\x32\x1a.metrics.DistributionValueH\x00\x1a\x31\n\x0f\x44imensionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"V\n\nMetricType\x12\x13\n\x0fNOT_INITIALIZED\x10\x00\x12\t\n\x05GAUGE\x10\x01\x12\x0b\n\x07\x43OUNTER\x10\x02\x12\t\n\x05RATIO\x10\x03\x12\x10\n\x0c\x44ISTRIBUTION\x10\x04\x42\r\n\x0bvalue_oneof\"\x1b\n\nGaugeValue\x12\r\n\x05gauge\x18\x01 \x01(\x01\"\x1f\n\x0c\x43ounterValue\x12\x0f\n\x07\x63ounter\x18\x01 \x01(\x01\",\n\nRatioValue\x12\x0f\n\x07\x63ounter\x18\x01 \x01(\x01\x12\r\n\x05total\x18\x02 \x01(\x01\"\xba\x01\n\x11\x44istributionValue\x12:\n\x0bsketch_impl\x18\x01 \x01(\x0e\x32%.metrics.DistributionValue.SketchImpl\x12,\n\x0csketch_kll10\x18\x02 \x01(\x0b\x32\x14.metrics.SketchKLL10H\x00\"*\n\nSketchImpl\x12\x11\n\rNOT_SPECIFIED\x10\x00\x12\t\n\x05KLL10\x10\x01\x42\x0f\n\rone_of_sketch\"\xa4\x02\n\x0bSketchKLL10\x12\t\n\x01k\x18\x01 \x01(\x04\x12\t\n\x01\x63\x18\x02 \x01(\x01\x12\t\n\x01H\x18\x03 \x01(\x04\x12\x0c\n\x04size\x18\x04 \x01(\x04\x12\x10\n\x08max_size\x18\x05 \x01(\x04\x12\x30\n\titem_type\x18\x06 \x01(\x0e\x32\x1d.metrics.SketchKLL10.ItemType\x12>\n\x11\x63ompactors_double\x18\x07 \x03(\x0b\x32#.metrics.SketchKLL10CompactorDouble\x12>\n\x11\x63ompactors_string\x18\x08 \x03(\x0b\x32#.metrics.SketchKLL10CompactorString\"\"\n\x08ItemType\x12\n\n\x06\x44OUBLE\x10\x00\x12\n\n\x06STRING\x10\x01\"+\n\x1aSketchKLL10CompactorDouble\x12\r\n\x05items\x18\x01 \x03(\x01\"+\n\x1aSketchKLL10CompactorString\x12\r\n\x05items\x18\x01 \x03(\tb\x06proto3'
 )
 
 
@@ -69,8 +69,8 @@ _DATASTREAM_DATASOURCE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=1082,
-  serialized_end=1247,
+  serialized_start=988,
+  serialized_end=1153,
 )
 _sym_db.RegisterEnumDescriptor(_DATASTREAM_DATASOURCE)
 
@@ -109,8 +109,8 @@ _DATAMETRIC_METRICTYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=1626,
-  serialized_end=1712,
+  serialized_start=1532,
+  serialized_end=1618,
 )
 _sym_db.RegisterEnumDescriptor(_DATAMETRIC_METRICTYPE)
 
@@ -134,8 +134,8 @@ _DISTRIBUTIONVALUE_SKETCHIMPL = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=1965,
-  serialized_end=2007,
+  serialized_start=1871,
+  serialized_end=1913,
 )
 _sym_db.RegisterEnumDescriptor(_DISTRIBUTIONVALUE_SKETCHIMPL)
 
@@ -159,8 +159,8 @@ _SKETCHKLL10_ITEMTYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=2285,
-  serialized_end=2319,
+  serialized_start=2191,
+  serialized_end=2225,
 )
 _sym_db.RegisterEnumDescriptor(_SKETCHKLL10_ITEMTYPE)
 
@@ -200,7 +200,7 @@ _UPLOADREQUEST = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=26,
-  serialized_end=104,
+  serialized_end=100,
 )
 
 
@@ -224,8 +224,8 @@ _UPLOADRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=106,
-  serialized_end=122,
+  serialized_start=102,
+  serialized_end=118,
 )
 
 
@@ -277,8 +277,8 @@ _WINDOWMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=124,
-  serialized_end=236,
+  serialized_start=120,
+  serialized_end=228,
 )
 
 
@@ -344,28 +344,28 @@ _ROLLUP = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=239,
-  serialized_end=386,
+  serialized_start=231,
+  serialized_end=374,
 )
 
 
-_PREDICTIONWINDOW_DATASTREAMSENTRY = _descriptor.Descriptor(
+_METRICWINDOW_DATASTREAMSENTRY = _descriptor.Descriptor(
   name='DataStreamsEntry',
-  full_name='metrics.PredictionWindow.DataStreamsEntry',
+  full_name='metrics.MetricWindow.DataStreamsEntry',
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
   create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
-      name='key', full_name='metrics.PredictionWindow.DataStreamsEntry.key', index=0,
+      name='key', full_name='metrics.MetricWindow.DataStreamsEntry.key', index=0,
       number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=b"".decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='value', full_name='metrics.PredictionWindow.DataStreamsEntry.value', index=1,
+      name='value', full_name='metrics.MetricWindow.DataStreamsEntry.value', index=1,
       number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
@@ -383,69 +383,55 @@ _PREDICTIONWINDOW_DATASTREAMSENTRY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=672,
-  serialized_end=743,
+  serialized_start=578,
+  serialized_end=649,
 )
 
-_PREDICTIONWINDOW = _descriptor.Descriptor(
-  name='PredictionWindow',
-  full_name='metrics.PredictionWindow',
+_METRICWINDOW = _descriptor.Descriptor(
+  name='MetricWindow',
+  full_name='metrics.MetricWindow',
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
   create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
-      name='model', full_name='metrics.PredictionWindow.model', index=0,
+      name='model', full_name='metrics.MetricWindow.model', index=0,
       number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='num_predictions', full_name='metrics.PredictionWindow.num_predictions', index=1,
+      name='num_predictions', full_name='metrics.MetricWindow.num_predictions', index=1,
       number=3, type=4, cpp_type=4, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='start_ts', full_name='metrics.PredictionWindow.start_ts', index=2,
+      name='start_ts', full_name='metrics.MetricWindow.start_ts', index=2,
       number=4, type=4, cpp_type=4, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='end_ts', full_name='metrics.PredictionWindow.end_ts', index=3,
+      name='end_ts', full_name='metrics.MetricWindow.end_ts', index=3,
       number=5, type=4, cpp_type=4, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='data_streams', full_name='metrics.PredictionWindow.data_streams', index=4,
+      name='data_streams', full_name='metrics.MetricWindow.data_streams', index=4,
       number=6, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='exceptions', full_name='metrics.PredictionWindow.exceptions', index=5,
-      number=7, type=11, cpp_type=10, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='num_exceptions', full_name='metrics.PredictionWindow.num_exceptions', index=6,
-      number=8, type=4, cpp_type=4, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='num_evaluations', full_name='metrics.PredictionWindow.num_evaluations', index=7,
+      name='num_evaluations', full_name='metrics.MetricWindow.num_evaluations', index=5,
       number=9, type=4, cpp_type=4, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
@@ -454,7 +440,7 @@ _PREDICTIONWINDOW = _descriptor.Descriptor(
   ],
   extensions=[
   ],
-  nested_types=[_PREDICTIONWINDOW_DATASTREAMSENTRY, ],
+  nested_types=[_METRICWINDOW_DATASTREAMSENTRY, ],
   enum_types=[
   ],
   serialized_options=None,
@@ -463,8 +449,8 @@ _PREDICTIONWINDOW = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=389,
-  serialized_end=743,
+  serialized_start=377,
+  serialized_end=649,
 )
 
 
@@ -502,8 +488,8 @@ _DEPLOYEDMODEL_METADATAENTRY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=844,
-  serialized_end=891,
+  serialized_start=750,
+  serialized_end=797,
 )
 
 _DEPLOYEDMODEL = _descriptor.Descriptor(
@@ -540,8 +526,8 @@ _DEPLOYEDMODEL = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=746,
-  serialized_end=891,
+  serialized_start=652,
+  serialized_end=797,
 )
 
 
@@ -579,8 +565,8 @@ _DATASTREAM_METRICSENTRY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1012,
-  serialized_end=1079,
+  serialized_start=918,
+  serialized_end=985,
 )
 
 _DATASTREAM = _descriptor.Descriptor(
@@ -618,8 +604,8 @@ _DATASTREAM = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=894,
-  serialized_end=1247,
+  serialized_start=800,
+  serialized_end=1153,
 )
 
 
@@ -657,8 +643,8 @@ _DATAMETRIC_DIMENSIONSENTRY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1575,
-  serialized_end=1624,
+  serialized_start=1481,
+  serialized_end=1530,
 )
 
 _DATAMETRIC = _descriptor.Descriptor(
@@ -736,8 +722,8 @@ _DATAMETRIC = _descriptor.Descriptor(
       create_key=_descriptor._internal_create_key,
     fields=[]),
   ],
-  serialized_start=1250,
-  serialized_end=1727,
+  serialized_start=1156,
+  serialized_end=1633,
 )
 
 
@@ -768,8 +754,8 @@ _GAUGEVALUE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1729,
-  serialized_end=1756,
+  serialized_start=1635,
+  serialized_end=1662,
 )
 
 
@@ -800,8 +786,8 @@ _COUNTERVALUE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1758,
-  serialized_end=1789,
+  serialized_start=1664,
+  serialized_end=1695,
 )
 
 
@@ -839,8 +825,8 @@ _RATIOVALUE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1791,
-  serialized_end=1835,
+  serialized_start=1697,
+  serialized_end=1741,
 )
 
 
@@ -884,8 +870,8 @@ _DISTRIBUTIONVALUE = _descriptor.Descriptor(
       create_key=_descriptor._internal_create_key,
     fields=[]),
   ],
-  serialized_start=1838,
-  serialized_end=2024,
+  serialized_start=1744,
+  serialized_end=1930,
 )
 
 
@@ -966,8 +952,8 @@ _SKETCHKLL10 = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2027,
-  serialized_end=2319,
+  serialized_start=1933,
+  serialized_end=2225,
 )
 
 
@@ -998,8 +984,8 @@ _SKETCHKLL10COMPACTORDOUBLE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2321,
-  serialized_end=2364,
+  serialized_start=2227,
+  serialized_end=2270,
 )
 
 
@@ -1030,109 +1016,17 @@ _SKETCHKLL10COMPACTORSTRING = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2366,
-  serialized_end=2409,
+  serialized_start=2272,
+  serialized_end=2315,
 )
 
-
-_PREDICTIONEXCEPTION_EXTRAINFOENTRY = _descriptor.Descriptor(
-  name='ExtraInfoEntry',
-  full_name='metrics.PredictionException.ExtraInfoEntry',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='key', full_name='metrics.PredictionException.ExtraInfoEntry.key', index=0,
-      number=1, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='value', full_name='metrics.PredictionException.ExtraInfoEntry.value', index=1,
-      number=2, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=b'8\001',
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=2557,
-  serialized_end=2605,
-)
-
-_PREDICTIONEXCEPTION = _descriptor.Descriptor(
-  name='PredictionException',
-  full_name='metrics.PredictionException',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='message', full_name='metrics.PredictionException.message', index=0,
-      number=1, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='stack_trace', full_name='metrics.PredictionException.stack_trace', index=1,
-      number=2, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='extra_info', full_name='metrics.PredictionException.extra_info', index=2,
-      number=3, type=11, cpp_type=10, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='create_ts', full_name='metrics.PredictionException.create_ts', index=3,
-      number=4, type=4, cpp_type=4, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[_PREDICTIONEXCEPTION_EXTRAINFOENTRY, ],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=2412,
-  serialized_end=2605,
-)
-
-_UPLOADREQUEST.fields_by_name['windows'].message_type = _PREDICTIONWINDOW
-_WINDOWMESSAGE.fields_by_name['window'].message_type = _PREDICTIONWINDOW
-_ROLLUP.fields_by_name['window'].message_type = _PREDICTIONWINDOW
-_PREDICTIONWINDOW_DATASTREAMSENTRY.fields_by_name['value'].message_type = _DATASTREAM
-_PREDICTIONWINDOW_DATASTREAMSENTRY.containing_type = _PREDICTIONWINDOW
-_PREDICTIONWINDOW.fields_by_name['model'].message_type = _DEPLOYEDMODEL
-_PREDICTIONWINDOW.fields_by_name['data_streams'].message_type = _PREDICTIONWINDOW_DATASTREAMSENTRY
-_PREDICTIONWINDOW.fields_by_name['exceptions'].message_type = _PREDICTIONEXCEPTION
+_UPLOADREQUEST.fields_by_name['windows'].message_type = _METRICWINDOW
+_WINDOWMESSAGE.fields_by_name['window'].message_type = _METRICWINDOW
+_ROLLUP.fields_by_name['window'].message_type = _METRICWINDOW
+_METRICWINDOW_DATASTREAMSENTRY.fields_by_name['value'].message_type = _DATASTREAM
+_METRICWINDOW_DATASTREAMSENTRY.containing_type = _METRICWINDOW
+_METRICWINDOW.fields_by_name['model'].message_type = _DEPLOYEDMODEL
+_METRICWINDOW.fields_by_name['data_streams'].message_type = _METRICWINDOW_DATASTREAMSENTRY
 _DEPLOYEDMODEL_METADATAENTRY.containing_type = _DEPLOYEDMODEL
 _DEPLOYEDMODEL.fields_by_name['metadata'].message_type = _DEPLOYEDMODEL_METADATAENTRY
 _DATASTREAM_METRICSENTRY.fields_by_name['value'].message_type = _DATAMETRIC
@@ -1170,13 +1064,11 @@ _SKETCHKLL10.fields_by_name['item_type'].enum_type = _SKETCHKLL10_ITEMTYPE
 _SKETCHKLL10.fields_by_name['compactors_double'].message_type = _SKETCHKLL10COMPACTORDOUBLE
 _SKETCHKLL10.fields_by_name['compactors_string'].message_type = _SKETCHKLL10COMPACTORSTRING
 _SKETCHKLL10_ITEMTYPE.containing_type = _SKETCHKLL10
-_PREDICTIONEXCEPTION_EXTRAINFOENTRY.containing_type = _PREDICTIONEXCEPTION
-_PREDICTIONEXCEPTION.fields_by_name['extra_info'].message_type = _PREDICTIONEXCEPTION_EXTRAINFOENTRY
 DESCRIPTOR.message_types_by_name['UploadRequest'] = _UPLOADREQUEST
 DESCRIPTOR.message_types_by_name['UploadResponse'] = _UPLOADRESPONSE
 DESCRIPTOR.message_types_by_name['WindowMessage'] = _WINDOWMESSAGE
 DESCRIPTOR.message_types_by_name['Rollup'] = _ROLLUP
-DESCRIPTOR.message_types_by_name['PredictionWindow'] = _PREDICTIONWINDOW
+DESCRIPTOR.message_types_by_name['MetricWindow'] = _METRICWINDOW
 DESCRIPTOR.message_types_by_name['DeployedModel'] = _DEPLOYEDMODEL
 DESCRIPTOR.message_types_by_name['DataStream'] = _DATASTREAM
 DESCRIPTOR.message_types_by_name['DataMetric'] = _DATAMETRIC
@@ -1187,7 +1079,6 @@ DESCRIPTOR.message_types_by_name['DistributionValue'] = _DISTRIBUTIONVALUE
 DESCRIPTOR.message_types_by_name['SketchKLL10'] = _SKETCHKLL10
 DESCRIPTOR.message_types_by_name['SketchKLL10CompactorDouble'] = _SKETCHKLL10COMPACTORDOUBLE
 DESCRIPTOR.message_types_by_name['SketchKLL10CompactorString'] = _SKETCHKLL10COMPACTORSTRING
-DESCRIPTOR.message_types_by_name['PredictionException'] = _PREDICTIONEXCEPTION
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 UploadRequest = _reflection.GeneratedProtocolMessageType('UploadRequest', (_message.Message,), {
@@ -1218,20 +1109,20 @@ Rollup = _reflection.GeneratedProtocolMessageType('Rollup', (_message.Message,),
   })
 _sym_db.RegisterMessage(Rollup)
 
-PredictionWindow = _reflection.GeneratedProtocolMessageType('PredictionWindow', (_message.Message,), {
+MetricWindow = _reflection.GeneratedProtocolMessageType('MetricWindow', (_message.Message,), {
 
   'DataStreamsEntry' : _reflection.GeneratedProtocolMessageType('DataStreamsEntry', (_message.Message,), {
-    'DESCRIPTOR' : _PREDICTIONWINDOW_DATASTREAMSENTRY,
+    'DESCRIPTOR' : _METRICWINDOW_DATASTREAMSENTRY,
     '__module__' : 'metrics_pb2'
-    # @@protoc_insertion_point(class_scope:metrics.PredictionWindow.DataStreamsEntry)
+    # @@protoc_insertion_point(class_scope:metrics.MetricWindow.DataStreamsEntry)
     })
   ,
-  'DESCRIPTOR' : _PREDICTIONWINDOW,
+  'DESCRIPTOR' : _METRICWINDOW,
   '__module__' : 'metrics_pb2'
-  # @@protoc_insertion_point(class_scope:metrics.PredictionWindow)
+  # @@protoc_insertion_point(class_scope:metrics.MetricWindow)
   })
-_sym_db.RegisterMessage(PredictionWindow)
-_sym_db.RegisterMessage(PredictionWindow.DataStreamsEntry)
+_sym_db.RegisterMessage(MetricWindow)
+_sym_db.RegisterMessage(MetricWindow.DataStreamsEntry)
 
 DeployedModel = _reflection.GeneratedProtocolMessageType('DeployedModel', (_message.Message,), {
 
@@ -1327,25 +1218,9 @@ SketchKLL10CompactorString = _reflection.GeneratedProtocolMessageType('SketchKLL
   })
 _sym_db.RegisterMessage(SketchKLL10CompactorString)
 
-PredictionException = _reflection.GeneratedProtocolMessageType('PredictionException', (_message.Message,), {
 
-  'ExtraInfoEntry' : _reflection.GeneratedProtocolMessageType('ExtraInfoEntry', (_message.Message,), {
-    'DESCRIPTOR' : _PREDICTIONEXCEPTION_EXTRAINFOENTRY,
-    '__module__' : 'metrics_pb2'
-    # @@protoc_insertion_point(class_scope:metrics.PredictionException.ExtraInfoEntry)
-    })
-  ,
-  'DESCRIPTOR' : _PREDICTIONEXCEPTION,
-  '__module__' : 'metrics_pb2'
-  # @@protoc_insertion_point(class_scope:metrics.PredictionException)
-  })
-_sym_db.RegisterMessage(PredictionException)
-_sym_db.RegisterMessage(PredictionException.ExtraInfoEntry)
-
-
-_PREDICTIONWINDOW_DATASTREAMSENTRY._options = None
+_METRICWINDOW_DATASTREAMSENTRY._options = None
 _DEPLOYEDMODEL_METADATAENTRY._options = None
 _DATASTREAM_METRICSENTRY._options = None
 _DATAMETRIC_DIMENSIONSENTRY._options = None
-_PREDICTIONEXCEPTION_EXTRAINFOENTRY._options = None
 # @@protoc_insertion_point(module_scope)

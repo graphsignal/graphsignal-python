@@ -74,7 +74,7 @@ class KLLSketchTest(unittest.TestCase):
         k1.update(2)
         k1.update(3)
 
-        window = metrics_pb2.PredictionWindow()
+        window = metrics_pb2.MetricWindow()
         proto = window.data_streams['1'].metrics['1'].distribution_value.sketch_kll10
 
         k1.to_proto(proto)

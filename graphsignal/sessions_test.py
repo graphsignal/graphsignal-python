@@ -29,42 +29,33 @@ class SessionsTest(unittest.TestCase):
     @patch.object(Uploader, 'upload_window')
     def test_session(self, mocked_upload_window, mocked_flush):
         now = int(time.time())
-        session = graphsignal.session('d1')
-        session.log_metadata(key='k1', value='v1')
+        with graphsignal.session('d1') as sess:
+            sess.log_metadata(key='k1', value='v1')
 
-        session.log_prediction(
-            features={'A': 1, 'B': 2},
-            output=False,
-            actual_timestamp=now)
+            sess.log_prediction(
+                features={'A': 1, 'B': 2},
+                output=False,
+                actual_timestamp=now)
 
-        session.log_prediction(
-            features={'A': 10, 'B': 20},
-            output=True,
-            actual_timestamp=now)
+            sess.log_prediction(
+                features={'A': 10, 'B': 20},
+                output=True,
+                actual_timestamp=now)
 
-        session.log_evaluation(
-            label='c1',
-            prediction='c1',
-            prediction_timestamp=now,
-            segments=[
-                's1',
-                's2'])
-        session.log_evaluation(
-            label='c1',
-            prediction='c2',
-            prediction_timestamp=now,
-            segments=[
-                's1',
-                's3'])
-
-        try:
-            raise Exception('ex1')
-        except Exception as ex:
-            session.log_exception(
-                message=ex, extra_info={
-                    'k1': 'v1'}, exc_info=True, actual_timestamp=now)
-
-        graphsignal.sessions.upload_all(force=True)
+            sess.log_evaluation(
+                prediction='c1',
+                label='c1',
+                actual_timestamp=now,
+                segments=[
+                    's1',
+                    's2'])
+            sess.log_evaluation(
+                prediction='c2',
+                label='c1',
+                actual_timestamp=now,
+                segments=[
+                    's1',
+                    's3'])
 
         mocked_upload_window.assert_called_once()
 
@@ -72,14 +63,6 @@ class SessionsTest(unittest.TestCase):
         self.assertEqual(uploaded_window.num_predictions, 2)
         self.assertEqual(uploaded_window.num_evaluations, 2)
         self.assertEqual(uploaded_window.model.metadata['k1'], 'v1')
-        self.assertEqual(
-            uploaded_window.exceptions[0].message,
-            'Exception: ex1')
-        self.assertEqual(
-            uploaded_window.exceptions[0].extra_info, {
-                'k1': 'v1'})
-        self.assertEqual(uploaded_window.num_exceptions, 1)
-        self.assertTrue(uploaded_window.exceptions[0].stack_trace)
         self.assertEqual(len(uploaded_window.data_streams), 3)
 
     @patch.object(Uploader, 'flush')

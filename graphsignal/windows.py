@@ -60,20 +60,20 @@ class EvaluationRecord(object):
     __slots__ = [
         'label',
         'prediction',
-        'prediction_timestamp',
-        'segments'
+        'segments',
+        'timestamp'
     ]
 
     def __init__(
             self,
-            label=None,
             prediction=None,
-            prediction_timestamp=None,
-            segments=None):
-        self.label = label
+            label=None,
+            segments=None,
+            timestamp=None):
         self.prediction = prediction
-        self.prediction_timestamp = prediction_timestamp
+        self.label = label
         self.segments = segments
+        self.timestamp = timestamp
 
 
 class WindowUpdater(object):
@@ -88,7 +88,7 @@ class WindowUpdater(object):
     ]
 
     def __init__(self):
-        self._window_proto = metrics_pb2.PredictionWindow()
+        self._window_proto = metrics_pb2.MetricWindow()
         self._update_lock = threading.Lock()
         self._is_empty = True
         self._metric_updaters = {}
@@ -146,11 +146,8 @@ class WindowUpdater(object):
                     self._window_proto.end_ts, self._prediction_records[-1].timestamp)
                 self._window_proto.num_predictions += self._prediction_batch_size
 
-                try:
-                    statistics.update_data_metrics(
-                        self._metric_updaters, self._window_proto, self._prediction_records)
-                except BaseException:
-                    logger.error('Error updating data metrics', exc_info=True)
+                statistics.update_data_metrics(
+                    self._metric_updaters, self._window_proto, self._prediction_records)
 
                 self._prediction_batch_size = 0
                 self._prediction_records = []
@@ -159,20 +156,17 @@ class WindowUpdater(object):
         if len(self._evaluation_records) > 0:
             with self._update_lock:
                 if self._window_proto.start_ts == 0:
-                    self._window_proto.start_ts = self._evaluation_records[0].prediction_timestamp
+                    self._window_proto.start_ts = self._evaluation_records[0].timestamp
                 else:
                     self._window_proto.start_ts = min(
-                        self._window_proto.start_ts, self._evaluation_records[0].prediction_timestamp)
+                        self._window_proto.start_ts, self._evaluation_records[0].timestamp)
                 self._window_proto.end_ts = max(
-                    self._window_proto.end_ts, self._evaluation_records[-1].prediction_timestamp)
+                    self._window_proto.end_ts, self._evaluation_records[-1].timestamp)
                 self._window_proto.num_evaluations += len(
                     self._evaluation_records)
 
-                try:
-                    statistics.update_performance_metrics(
-                        self._metric_updaters, self._window_proto, self._evaluation_records)
-                except BaseException:
-                    logger.error('Error updating data metrics', exc_info=True)
+                statistics.update_performance_metrics(
+                    self._metric_updaters, self._window_proto, self._evaluation_records)
 
                 self._evaluation_records = []
 

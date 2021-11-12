@@ -56,5 +56,5 @@ setup(
   ],
   
   packages = find_packages(exclude=[
-    '*.sh', '*_test.py', 'examples'])
+    '*.sh', '*_test.py'])
 )

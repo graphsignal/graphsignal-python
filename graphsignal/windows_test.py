@@ -25,7 +25,7 @@ class WindowsTest(unittest.TestCase):
         graphsignal.shutdown()
 
     def test_update_gauge(self):
-        window = metrics_pb2.PredictionWindow()
+        window = metrics_pb2.MetricWindow()
         metric_updater = get_metric_updater(
             {}, window.data_streams['1'], 'test')
 
@@ -34,7 +34,7 @@ class WindowsTest(unittest.TestCase):
         self.assertEqual(metric_updater._metric_proto.gauge_value.gauge, 1.2)
 
     def test_update_counter(self):
-        window = metrics_pb2.PredictionWindow()
+        window = metrics_pb2.MetricWindow()
         metric_updater = get_metric_updater(
             {}, window.data_streams['1'], 'test')
 
@@ -44,7 +44,7 @@ class WindowsTest(unittest.TestCase):
             metric_updater._metric_proto.counter_value.counter, 6.01)
 
     def test_update_ratio(self):
-        window = metrics_pb2.PredictionWindow()
+        window = metrics_pb2.MetricWindow()
         metric_updater = get_metric_updater(
             {}, window.data_streams['1'], 'test')
 
@@ -56,7 +56,7 @@ class WindowsTest(unittest.TestCase):
             metric_updater._metric_proto.ratio_value.total, 35)
 
     def test_update_distribution(self):
-        window = metrics_pb2.PredictionWindow()
+        window = metrics_pb2.MetricWindow()
         metric_updater = get_metric_updater(
             {}, window.data_streams['1'], 'test')
 

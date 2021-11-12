@@ -5,6 +5,8 @@ import sys
 import traceback
 import platform
 from google.protobuf.json_format import MessageToDict
+import numpy as np
+import pandas as pd
 
 import graphsignal
 from graphsignal import statistics
@@ -37,18 +39,30 @@ class Session(object):
         self._current_window_updater = None
         self._current_window_timestamp = None
 
-    def _tumble_window(self, timestamp, force=False, flush=True):
-        window_seconds = graphsignal._get_config().window_seconds
-        time_bucket = int(timestamp / window_seconds) * window_seconds
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.flush()
+
+    def _tumble_window(self, to_timestamp, force=False, flush=True):
+        if to_timestamp is not None:
+            window_seconds = graphsignal._get_config().window_seconds
+            time_bucket = int(to_timestamp / window_seconds) * window_seconds
+        elif self._current_window_timestamp:
+            # makes sense only if force provided
+            time_bucket = self._current_window_timestamp
+        else:
+            # no timestamp to tumble to
+            return
 
         if not force and time_bucket == self._current_window_timestamp:
             # window matches, no need to tumble/create
-            return True
+            return
 
         if self._current_window_timestamp and time_bucket < self._current_window_timestamp:
-            logger.error(
+            raise ValueError(
                 'Cannot tumble time windows backwards. Please log in chronological order when providing timestamps explicitely.')
-            return False
 
         if self._current_window_updater and not self._current_window_updater.is_empty():
             with self._update_lock:
@@ -73,38 +87,44 @@ class Session(object):
                 self._current_window_updater = WindowUpdater()
                 self._current_window_timestamp = time_bucket
 
-        return True
-
     def log_metadata(self, key=None, value=None):
-        if not isinstance(key, str) or len(key) > 250:
-            logger.error('Invalid metadata entry key format')
-            return
-        if not isinstance(value, (str, int, float)) or len(str(value)) > 2500:
-            logger.error(
-                'Invalid metadata entry value format for key: {0}'.format(key))
-            return
+        if not isinstance(key, str) or key == '':
+            raise ValueError('Metadata entry key (str) must be provided')
+        if not isinstance(value, (str, int, float)):
+            raise ValueError(
+                'Metadata entry value (str|int|float) for key: {0} must be provided'.format(key))
 
         if len(self._metadata) >= MAX_METADATA_SIZE:
-            logger.error(
+            raise ValueError(
                 'Too many metadata entries, max={0}'.format(MAX_METADATA_SIZE))
-            return
 
-        self._metadata[key] = str(value)
+        value = str(value)
+
+        if len(key) > 250:
+            value[:250] + '...'
+
+        if len(str(value)) > 2500:
+            value[:2500] + '...'
+
+        self._metadata[key] = value
 
     def log_prediction(
             self,
             features=None,
             output=None,
             actual_timestamp=None):
-        if not isinstance(features, dict):
-            logger.error(
-                'features (dict) must be provided')
-            return
+        if features is None and output is None:
+            raise ValueError(
+                'features or output or both must be provided')
 
-        if not isinstance(output, (bool, int, float, str, tuple, list, dict)):
-            logger.error(
-                'output (bool, int, float, str, tuple, list, dict) must be provided')
-            return
+        if features is not None and not isinstance(features, dict):
+            raise ValueError(
+                'features must be (dict)')
+
+        if output is not None and not isinstance(
+                output, (bool, int, float, str, tuple, list, dict)):
+            raise ValueError(
+                'output must be (bool|int|float|str|tuple|list|dict)')
 
         if isinstance(output, tuple):
             output = list(output)
@@ -135,9 +155,30 @@ class Session(object):
             actual_timestamp=None):
         if actual_timestamp is not None and not _check_timestamp(
                 actual_timestamp):
-            logger.error(
+            raise ValueError(
                 'actual_timestamp (int) must be a unix timestamp in seconds')
-            return
+
+        if features is None and outputs is None:
+            raise ValueError(
+                'features or outputs or both must be provided')
+
+        if features is not None and not isinstance(
+                features, (list, dict, np.ndarray, pd.DataFrame)):
+            raise ValueError(
+                'features must be (list|dict|np.ndarray|pd.DataFrame)')
+
+        if feature_names is not None and not isinstance(feature_names, list):
+            raise ValueError(
+                'feature_names must be (list)')
+
+        if outputs is not None and not isinstance(
+                outputs, (list, dict, np.ndarray, pd.DataFrame)):
+            raise ValueError(
+                'outputs must be (list|dict|np.ndarray|pd.DataFrame)')
+
+        if output_names is not None and not isinstance(output_names, list):
+            raise ValueError(
+                'output_names must be (list)')
 
         batch_size = max(
             statistics.estimate_size(features),
@@ -148,8 +189,7 @@ class Session(object):
 
         timestamp = actual_timestamp if actual_timestamp else _timestamp()
 
-        if not self._tumble_window(timestamp):
-            return
+        self._tumble_window(timestamp)
 
         self._current_window_updater.add_prediction(PredictionRecord(
             features=features,
@@ -158,114 +198,100 @@ class Session(object):
             output_names=output_names,
             timestamp=timestamp), batch_size)
 
-    def log_exception(
-            self,
-            message=None,
-            extra_info=None,
-            exc_info=None,
-            actual_timestamp=None):
-        if not message and not exc_info:
-            logger.error('Eigher of message or exc_info must be provided')
-            return
-
-        if message:
-            if not isinstance(message, str):
-                message = repr(message)
-            if len(message) > 250:
-                message = message[:250] + '...'
-
-        stack_trace = None
-        if exc_info:
-            if exc_info == True:
-                exc_info = sys.exc_info()
-            if len(
-                    exc_info) == 3 and exc_info[0] and exc_info[1] and exc_info[2]:
-                exception_part = traceback.format_exception_only(
-                    exc_info[0], exc_info[1])
-                if len(exception_part) > 0:
-                    message = str(exception_part[0]).rstrip()
-                stack_trace_part = traceback.format_tb(exc_info[2])
-                if len(stack_trace_part) > 0:
-                    stack_trace = ''.join(stack_trace_part)
-
-        if not message:
-            logger.error('Cannot extract exception message')
-            return
-
-        if actual_timestamp is not None and not _check_timestamp(
-                actual_timestamp):
-            logger.error(
-                'actual_timestamp (int) must be a unix timestamp in seconds')
-            return
-
-        filtered_extra_info = {}
-        if extra_info and isinstance(extra_info, dict):
-            for name in list(extra_info.keys())[:MAX_EXTRA_INFO_SIZE]:
-                value = extra_info[name]
-                name = str(name)
-                if len(name) > 250:
-                    name = name[:250] + '...'
-                value = str(value)
-                if len(value) > 2500:
-                    value = value[:2500] + '...'
-                filtered_extra_info[name] = value
-
-        timestamp = actual_timestamp if actual_timestamp else _timestamp()
-
-        if not self._tumble_window(timestamp):
-            return
-
-        self._current_window_updater.add_exception(ExceptionRecord(
-            message=message,
-            extra_info=filtered_extra_info if extra_info else None,
-            stack_trace=stack_trace,
-            timestamp=timestamp))
-
     def log_evaluation(
             self,
-            label,
             prediction,
-            prediction_timestamp=None,
-            segments=None):
-
-        if label is None or not isinstance(
-                label, (str, bool, int, float)):
-            logger.error('label (str|bool|int|float) must be provided')
-            return
+            label,
+            segments=None,
+            actual_timestamp=None):
 
         if prediction is None or not isinstance(
                 prediction, (str, bool, int, float)):
-            logger.error(
+            raise ValueError(
                 'prediction (str|bool|int|float) must be provided')
-            return
+
+        if label is None or not isinstance(
+                label, (str, bool, int, float)):
+            raise ValueError('label (str|bool|int|float) must be provided')
 
         if not isinstance(label, type(prediction)):
-            logger.error(
+            raise ValueError(
                 'label and prediction must have the same type (str|bool|int|float)')
-            return
 
-        if prediction_timestamp is not None and not _check_timestamp(
-                prediction_timestamp):
-            logger.error(
-                'prediction_timestamp (int) must be a unix timestamp in seconds')
-            return
+        if actual_timestamp is not None and not _check_timestamp(
+                actual_timestamp):
+            raise ValueError(
+                'actual_timestamp (int) must be a unix timestamp in seconds')
 
         if segments is not None and not isinstance(segments, list):
-            logger.error('segments (list) must be provided')
-            return
+            raise ValueError('segments must be (list)')
 
         segments = [segment[:MAX_SEGMENT_LENGTH] for segment in segments
                     if isinstance(segment, str)]
-        timestamp = prediction_timestamp if prediction_timestamp else _timestamp()
+        timestamp = actual_timestamp if actual_timestamp else _timestamp()
 
-        if not self._tumble_window(timestamp):
-            return
+        self._tumble_window(timestamp)
 
         self._current_window_updater.add_evaluation(EvaluationRecord(
-            label=label,
             prediction=prediction,
-            prediction_timestamp=timestamp,
-            segments=segments))
+            label=label,
+            segments=segments,
+            timestamp=timestamp))
+
+    def log_evaluation_batch(
+            self,
+            predictions,
+            labels,
+            segments=None,
+            actual_timestamp=None):
+
+        if predictions is None or not isinstance(
+                prediction, (list, np.ndarray)):
+            raise ValueError(
+                'predictions (list|numpy.ndarray) must be provided')
+
+        if labels is None or not isinstance(
+                label, (list, np.ndarray)):
+            raise ValueError('labels (list|numpy.ndarray) must be provided')
+
+        if isinstance(predictions, np.ndarray):
+            if predictions.ndim > 2:
+                raise ValueError('predictions has too many (>2) dimensions')
+            predictions = predictions.tolist()
+
+        if isinstance(labels, np.ndarray):
+            if labels.ndim > 2:
+                raise ValueError('labels has too many (>2) dimensions')
+            labels = labels.tolist()
+
+        if len(labels) != len(predictions):
+            raise ValueError('Number of labels and predictions must be equal')
+
+        if segments is not None:
+            if not isinstance(segments, list):
+                raise ValueError('segments must be (list of list)')
+            if len(segments) != len(predictions):
+                raise ValueError(
+                    'Number of predictions, labels and segments must be equal')
+
+        if segments is not None:
+            for prediction, label, segments in zip(
+                    predictions, labels, segments):
+                log_evaluation(
+                    prediction=prediction,
+                    label=label,
+                    segments=segments,
+                    actual_timestamp=actual_timestamp)
+        else:
+            for prediction, label in zip(predictions, labels):
+                log_evaluation(
+                    prediction=prediction,
+                    label=label,
+                    actual_timestamp=actual_timestamp)
+
+    def flush(self):
+        self._tumble_window(None, force=True, flush=False)
+        graphsignal._get_uploader().flush()
 
 
 def get_session(deployment_name):
@@ -286,13 +312,13 @@ def reset_all():
         _session_index.clear()
 
 
-def upload_all(force=False):
+def upload_all():
     session_list = None
     with _session_index_lock:
         session_list = _session_index.values()
 
     for session in session_list:
-        session._tumble_window(_timestamp(), force=force, flush=False)
+        session._tumble_window(None, force=True, flush=False)
 
 
 def _check_timestamp(timestamp):

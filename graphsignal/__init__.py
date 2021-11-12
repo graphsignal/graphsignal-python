@@ -45,8 +45,7 @@ def configure(api_key, debug_mode=False, window_seconds=300, buffer_size=100):
         logger.setLevel(logging.WARNING)
 
     if not api_key:
-        logger.error('Missing argument: api_key')
-        return
+        raise ValueError('Missing argument: api_key')
 
     _config = Config()
     _config.api_key = api_key
@@ -64,37 +63,12 @@ def configure(api_key, debug_mode=False, window_seconds=300, buffer_size=100):
     logger.debug('Logger configured')
 
 
-def tick():
-    if not _config:
-        logger.error(
-            'Logger not configured, please use graphsignal.configure()')
-        return
-
-    sessions.upload_all()
-    _uploader.flush()
-
-
-def flush():
-    if not _config:
-        logger.error(
-            'Logger not configured, please use graphsignal.configure()')
-        return
-
-    sessions.upload_all(force=True)
-    _uploader.flush()
-
-
 def shutdown():
-    global _config
-
-    if not _config:
-        logger.error(
-            'Logger not configured, please use graphsignal.configure()')
-        return
+    _check_configured()
 
     atexit.unregister(shutdown)
 
-    sessions.upload_all(force=True)
+    sessions.upload_all()
     _uploader.flush()
 
     _config = None
@@ -103,8 +77,13 @@ def shutdown():
 
 
 def session(deployment_name):
-    if not _config:
-        raise ValueError(
-            'graphsignal not configured, please use graphsignal.configure()')
+    _check_configured()
 
     return sessions.get_session(deployment_name)
+
+
+def _check_configured():
+    global _config
+    if not _config:
+        raise ValueError(
+            'graphsignal is not configured, call graphsignal.configure() first')

@@ -79,6 +79,12 @@ Get logging session for a deployed model identified by deployment name. Multiple
 sess = graphsignal.session(deployment_name='model1_prod')
 ```
 
+`with` statement can be used for offline/batch logging to make sure all remaining buffered data is automatically uploaded at the end.
+
+```python
+with graphsignal.session(deployment_name='model1_prod') as sess:
+```
+
 Log any model metadata such as model version or deployment information.
 
 ```python
@@ -88,7 +94,7 @@ sess.log_metadata('key1', 'val1')
 
 ### 4. Prediction Logging
 
-Log single or batch model prediction/inference data. Computed data statistics are uploaded at certain intervals and on process exit.
+Log single or batch model prediction/inference data to monitor data schema changes and drift. Computed data statistics are uploaded at certain intervals and on process exit.
 
 Log single prediction.
 
@@ -106,25 +112,17 @@ sess.log_prediction_batch(
   outputs=[[0.5], [0.75]])
 ```
 
-Log prediction exceptions and errors.
-
-```python
-sess.log_exception(
-  message='wrong format', 
-  extra_info={'feature': 'F1'})
-```
-
 See [logging API reference](https://graphsignal.com/docs/python-logger/api-reference/) for full documentation.
 
 
 ### 5. Evaluation Logging
 
-Log ground truth label and prediction to evaluate model performance. Because ground truth is usually available at a later point, **evaluation logging is independent from prediction logging**. Prediction logging is **not** required for model performance monitoring and visualization.
+Log prediction and ground truth label to evaluate model performance. Because ground truth is usually available at a later point, **evaluation logging is independent from prediction logging**. Prediction logging is **not** required for model performance monitoring and visualization.
 
 ```python
 sess.log_evaluation(
-  label=True, 
-  prediction=False)
+  prediction=False,
+  label=True)
 ```
 
 See [logging API reference](https://graphsignal.com/docs/python-logger/api-reference/) for full documentation.
@@ -135,15 +133,76 @@ To additionally visualize and monitor performance metrics for various data segme
 
 ```python
 sess.log_evaluation(
-  label=True, 
   prediction=False,
-  segments=['seg1', 'seg2'])
+  label=True, 
+  segments=['age_group_2', 'country_US'])
 ```
+
+Log evaluation batch by passing predictions and labels using `list` or `numpy.ndarray`.
+
+```python
+sess.log_evaluation_batch(
+  predictions=[True, True, False], 
+  labels=[False, True, False],
+  segments=[['state_CA'], ['state_CA'], ['state_MA']])
+```
+
 
 ### 6. Dashboards and Alerting
 
 After logging is setup, [sign in](https://app.graphsignal.com/signin) to Graphsignal to check out various dashboards and set up alerting for automatically detected issues.
 
+
+## Examples
+
+### Online prediction logging
+
+```python
+from tensorflow import keras
+import json
+from flask import Flask, request
+
+import graphsignal
+graphsignal.configure(api_key='my_key')
+
+sess = graphsignal.session(deployment_name='fraud_detection_prod')
+sess.log_metadata('model version', '1.0')
+
+model = keras.models.load_model('fraud_model.h5')
+app = Flask(__name__)
+
+@app.route('/predict_fraud', methods = ['POST'])
+def predict_digit():
+    features = request.get_json()
+
+    # feature extraction code here
+    
+    output_data = model.predict([input_data])
+
+    sess.log_prediction(
+      features=features, 
+      prediction=output_data[0])
+
+    return json.dumps(output_data.tolist())
+
+app.run(port=8090)
+```
+
+### Offline evaluation logging
+
+```python
+import graphsignal
+graphsignal.configure(api_key='my_key')
+
+# load predictions and labels here
+last_hour_predictions=...
+last_hour_labels=...
+
+with graphsignal.session(deployment_name='my_risk_model_prod') as sess:
+  sess.log_evaluation_batch(
+    predictions=last_hour_predictions,
+    labels=last_hour_labels)
+```
 
 ## Performance
 

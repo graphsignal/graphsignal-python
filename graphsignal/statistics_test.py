@@ -103,7 +103,7 @@ class StatisticsTest(unittest.TestCase):
         self.assertEqual(data[1].dtype, 'float64')
 
     def test_update_data_metrics_empty(self):
-        window = metrics_pb2.PredictionWindow()
+        window = metrics_pb2.MetricWindow()
         statistics.update_data_metrics({}, window, [])
 
         self.assertEqual(len(window.data_streams[str(
@@ -112,7 +112,7 @@ class StatisticsTest(unittest.TestCase):
             metrics_pb2.DataStream.DataSource.OUTPUTS)].metrics), 0)
 
     def test_update_data_metrics(self):
-        window = metrics_pb2.PredictionWindow()
+        window = metrics_pb2.MetricWindow()
         metric_updaters = {}
 
         features = {
@@ -274,7 +274,7 @@ class StatisticsTest(unittest.TestCase):
                                            'type': 'COUNTER'}})
 
     def test_update_data_metrics_perf(self):
-        window = metrics_pb2.PredictionWindow()
+        window = metrics_pb2.MetricWindow()
         metric_updaters = {}
 
         prediction_buffer = []
@@ -324,7 +324,7 @@ class StatisticsTest(unittest.TestCase):
                 'abc', '1234567890abcdefgh', '1234567890...efghi'])
 
     def test_update_performance_metrics_binary(self):
-        window = metrics_pb2.PredictionWindow()
+        window = metrics_pb2.MetricWindow()
         metric_updaters = {}
 
         evaluation_buffer = [
@@ -424,7 +424,7 @@ class StatisticsTest(unittest.TestCase):
                                                          'type': 'COUNTER'}})
 
     def test_update_performance_metrics_categorical(self):
-        window = metrics_pb2.PredictionWindow()
+        window = metrics_pb2.MetricWindow()
         metric_updaters = {}
 
         evaluation_buffer = [
@@ -515,7 +515,7 @@ class StatisticsTest(unittest.TestCase):
                          [['2f22765d', 2], ['6b1f5330', 1]])
 
     def test_update_performance_metrics_numeric(self):
-        window = metrics_pb2.PredictionWindow()
+        window = metrics_pb2.MetricWindow()
         metric_updaters = {}
 
         evaluation_buffer = [
@@ -557,7 +557,7 @@ class StatisticsTest(unittest.TestCase):
                                                          'type': 'COUNTER'}})
 
     def test_update_performance_metrics_segments(self):
-        window = metrics_pb2.PredictionWindow()
+        window = metrics_pb2.MetricWindow()
         metric_updaters = {}
 
         evaluation_buffer = [
