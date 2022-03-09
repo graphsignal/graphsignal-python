@@ -10,3 +10,5 @@ class Agent(object):
         self.span_scheduler = None
         self.profiler = None
         self.active_span = None
+        self.host_reader = None
+        self.nvml_reader = None

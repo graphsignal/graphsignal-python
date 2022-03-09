@@ -17,7 +17,7 @@ from unittest.mock import patch, Mock
 
 import graphsignal
 from graphsignal.uploader import Uploader
-from graphsignal import profiles_pb2
+from graphsignal.proto import profiles_pb2
 
 logger = logging.getLogger('graphsignal')
 

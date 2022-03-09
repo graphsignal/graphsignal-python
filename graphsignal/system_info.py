@@ -5,7 +5,7 @@ import platform
 import socket
 import re
 
-from graphsignal import profiles_pb2
+from graphsignal.proto import profiles_pb2
 
 logger = logging.getLogger('graphsignal')
 

@@ -8,7 +8,7 @@ import pprint
 
 import graphsignal
 from graphsignal.profilers.pytorch_profiler import PytorchProfiler
-from graphsignal import profiles_pb2
+from graphsignal.proto import profiles_pb2
 
 logger = logging.getLogger('graphsignal')
 

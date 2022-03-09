@@ -18,7 +18,7 @@ from graphsignal.profilers.tensorflow_proto import memory_profile_pb2
 
 import graphsignal
 from graphsignal.system_info import parse_semver
-from graphsignal import profiles_pb2
+from graphsignal.proto import profiles_pb2
 
 logger = logging.getLogger('graphsignal')
 

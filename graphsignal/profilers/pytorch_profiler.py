@@ -10,7 +10,7 @@ from torch.autograd import DeviceType
 
 import graphsignal
 from graphsignal.system_info import parse_semver
-from graphsignal import profiles_pb2
+from graphsignal.proto import profiles_pb2
 
 logger = logging.getLogger('graphsignal')
 
@@ -26,9 +26,6 @@ class PytorchProfiler():
         self._run_env = None
 
     def start(self):
-        # check if PyTorch version, etc. is supported here
-        # replace is_profiling with global profiling lock
-
         logger.debug('Activating PyTorch profiler')
 
         if not self._torch_prof:

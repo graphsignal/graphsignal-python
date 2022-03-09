@@ -14,7 +14,7 @@ from urllib.error import URLError
 from urllib.error import HTTPError
 
 import graphsignal
-from graphsignal import profiles_pb2
+from graphsignal.proto import profiles_pb2
 
 logger = logging.getLogger('graphsignal')
 

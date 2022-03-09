@@ -12,6 +12,8 @@ from graphsignal.agent import Agent
 from graphsignal.uploader import Uploader
 from graphsignal.span_scheduler import SpanScheduler
 from graphsignal.profiling_span import ProfilingSpan
+from graphsignal.usage.host_reader import HostReader
+from graphsignal.usage.nvml_reader import NvmlReader
 
 logger = logging.getLogger('graphsignal')
 
@@ -51,6 +53,10 @@ def configure(api_key, workload_name, debug_mode=False):
     _agent.debug_mode = debug_mode
     _agent.uploader = Uploader()
     _agent.uploader.configure()
+    _agent.host_reader = HostReader()
+    _agent.host_reader.setup()
+    _agent.nvml_reader = NvmlReader()
+    _agent.nvml_reader.setup()
 
     atexit.register(shutdown)
 
@@ -63,6 +69,8 @@ def shutdown():
     global _agent
     atexit.unregister(shutdown)
     _agent.uploader.flush()
+    _agent.host_reader.shutdown()
+    _agent.nvml_reader.shutdown()
     _agent = None
 
     logger.debug('Graphsignal profiler shutdown')

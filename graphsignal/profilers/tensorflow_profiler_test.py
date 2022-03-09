@@ -8,7 +8,7 @@ import pprint
 
 import graphsignal
 from graphsignal.profilers.tensorflow_profiler import TensorflowProfiler
-from graphsignal import profiles_pb2
+from graphsignal.proto import profiles_pb2
 
 logger = logging.getLogger('graphsignal')
 
