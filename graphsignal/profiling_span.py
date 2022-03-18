@@ -23,8 +23,7 @@ class ProfilingSpan(object):
 
     SPAN_TIMEOUT_SEC = 10
 
-    def __init__(self, scheduler, profiler, span_name=None,
-                 ensure_profile=False):
+    def __init__(self, scheduler, profiler, span_name=None, ensure_profile=False):
         self._scheduler = scheduler
         self._profiler = profiler
         self._is_scheduled = False
@@ -46,10 +45,8 @@ class ProfilingSpan(object):
 
             try:
                 self._profile.resource_usage.read_us = _timestamp_us()
-                graphsignal._agent.host_reader.read(
-                    self._profile.resource_usage)
-                graphsignal._agent.nvml_reader.read(
-                    self._profile.resource_usage)
+                graphsignal._agent.host_reader.read(self._profile.resource_usage)
+                graphsignal._agent.nvml_reader.read(self._profile.resource_usage)
             except Exception as exc:
                 _add_exception(self._profile, exc)
                 logger.error(
@@ -65,7 +62,7 @@ class ProfilingSpan(object):
                 self._is_profiling = False
                 _add_exception(self._profile, exc)
                 logger.error('Error starting profiler', exc_info=True)
-            
+
             self._profile.start_us = _timestamp_us()
 
     def __enter__(self):

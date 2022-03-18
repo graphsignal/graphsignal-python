@@ -61,11 +61,8 @@ class PytorchProfiler():
 
     def _read_run_env(self):
         self._run_env = profiles_pb2.RunEnvironment()
-        self._run_env.ml_framework = profiles_pb2.RunEnvironment.MLFramework.Value(
-            'PYTORCH')
+        self._run_env.ml_framework = profiles_pb2.RunEnvironment.MLFramework.Value('PYTORCH')
         parse_semver(self._run_env.ml_framework_version, torch.__version__)
-        device_proto = self._run_env.devices.add()
-        device_proto.type = profiles_pb2.DeviceType.CPU
         if torch.cuda.is_available():
             for index in range(torch.cuda.device_count()):
                 device_proto = self._run_env.devices.add()
@@ -112,8 +109,7 @@ class PytorchProfiler():
                     kernel_stats.count += 1
                     kernel_stats.duration_ns += int(kernel.duration * 1000)
                 else:
-                    kernel_stats = kernel_index[key] = profile.kernel_stats.add(
-                    )
+                    kernel_stats = kernel_index[key] = profile.kernel_stats.add()
                     kernel_stats.device_type = profiles_pb2.DeviceType.GPU
                     kernel_stats.device_id = str(kernel.device)
                     kernel_stats.op_name = event.name
@@ -124,6 +120,15 @@ class PytorchProfiler():
         for kernel_stats in kernel_index.values():
             profile.kernel_stats.append(kernel_stats)
 
+        sum_host_op_time_us = 0
+        sum_device_op_time_us = 0
+        for op_stats in profile.op_stats:
+            sum_host_op_time_us += op_stats.self_host_time_us
+            sum_device_op_time_us += op_stats.self_device_time_us
+        sum_op_time_us = sum_host_op_time_us + sum_device_op_time_us
+        if sum_op_time_us > 0:
+            profile.summary.host_op_percent = sum_host_op_time_us / sum_op_time_us * 100
+            profile.summary.device_op_percent = sum_device_op_time_us / sum_op_time_us * 100
+
         logger.debug(
-            'Converted %d PyTorch operation statistics', len(
-                profile.op_stats))
+            'Converted %d PyTorch operation statistics', len(profile.op_stats))

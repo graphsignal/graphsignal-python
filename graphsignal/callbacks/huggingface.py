@@ -42,7 +42,7 @@ class GraphsignalPTCallback(TrainerCallback):
 
     def _start_profiler(self, span_name, batch=None):
         if not self._span:
-            self._span = graphsignal.profile_span_pt(pan_name=span_name)
+            self._span = graphsignal.profile_span_pt(span_name=span_name)
             if batch is not None:
                 self._span.add_metadata('batch', batch)
 

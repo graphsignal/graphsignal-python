@@ -52,18 +52,17 @@ class PytorchProfilerTest(unittest.TestCase):
         profiler.stop(profile)
 
         #pp = pprint.PrettyPrinter()
-        # pp.pprint(MessageToJson(profile))
+        #pp.pprint(MessageToJson(profile))
 
-        self.assertEqual(profile.run_env.ml_framework,
-                         profiles_pb2.RunEnvironment.MLFramework.PYTORCH)
+        self.assertEqual(
+            profile.run_env.ml_framework,
+            profiles_pb2.RunEnvironment.MLFramework.PYTORCH)
         if torch.cuda.is_available():
             self.assertEqual(
-                profile.run_env.devices[1].type,
+                profile.run_env.devices[0].type,
                 profiles_pb2.DeviceType.GPU)
         else:
-            self.assertEqual(
-                profile.run_env.devices[0].type,
-                profiles_pb2.DeviceType.CPU)
+            self.assertEqual(len(profile.run_env.devices), 0)
 
         test_op_stats = None
         for op_stats in profile.op_stats:
@@ -75,6 +74,8 @@ class PytorchProfilerTest(unittest.TestCase):
         if torch.cuda.is_available():
             self.assertTrue(test_op_stats.total_device_time_us >= 1)
             self.assertTrue(test_op_stats.self_device_time_us >= 1)
+            self.assertTrue(profile.summary.device_op_percent > 0)
         else:
             self.assertTrue(test_op_stats.total_host_time_us >= 1)
             self.assertTrue(test_op_stats.self_host_time_us >= 1)
+            self.assertEqual(profile.summary.host_op_percent, 100)

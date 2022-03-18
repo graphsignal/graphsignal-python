@@ -17,7 +17,7 @@ from graphsignal.profilers.tensorflow_proto import kernel_stats_pb2
 from graphsignal.profilers.tensorflow_proto import memory_profile_pb2
 
 import graphsignal
-from graphsignal.system_info import parse_semver
+from graphsignal.system_info import parse_semver, compare_semver
 from graphsignal.proto import profiles_pb2
 
 logger = logging.getLogger('graphsignal')
@@ -88,8 +88,9 @@ class TensorflowProfiler():
         self._run_env = profiles_pb2.RunEnvironment()
         self._run_env.ml_framework = profiles_pb2.RunEnvironment.MLFramework.TENSORFLOW
         parse_semver(self._run_env.ml_framework_version, tf.__version__)
-        device_proto = self._run_env.devices.add()
-        device_proto.type = profiles_pb2.DeviceType.CPU
+        if compare_semver(self._run_env.ml_framework_version, (2, 2, 0)) == -1:
+            raise Exception(
+                'TensorFlow profiling is not supported for versions <=2.2')
         for device in tf.config.list_physical_devices('GPU'):
             device_proto = self._run_env.devices.add()
             device_proto.type = profiles_pb2.DeviceType.GPU
