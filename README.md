@@ -126,6 +126,14 @@ with profile_span() as span:
     # training step, prediction call, etc.
 ```
 
+Profile PyTorch Lightning using a profiler callback:
+
+```python
+from graphsignal.profilers.pytorch_lightning import GraphsignalProfiler
+
+trainer = Trainer(..., profiler=GraphsignalProfiler())
+```
+
 Profile Hugging Face training using a callback:
 
 ```python
