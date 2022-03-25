@@ -45,4 +45,4 @@ class NvmlReaderTest(unittest.TestCase):
             #self.assertTrue(device_usage.mem_utilization_percent > 0)
             self.assertTrue(device_usage.gpu_temp_c > 0)
             self.assertTrue(device_usage.power_usage_w > 0)
-            self.assertTrue(device_usage.fan_speed_percent > 0)
+            #self.assertTrue(device_usage.fan_speed_percent > 0)

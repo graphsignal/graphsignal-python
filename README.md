@@ -76,13 +76,15 @@ To get an API key, sign up for a free account at [graphsignal.com](https://graph
 
 ### 3. Profiling
 
-To profile TensorFlow or PyTorch, add the following code around a code span, e.g. training step/batch or a prediction call. Only some spans will be profiled; the profiler decides which spans to profile for optimal statistics and low overhead. To ensure a profile for the current span, `ensure_profile=True` argument can be provided. See [profiling API reference](https://graphsignal.com/docs/profiler/api-reference/) for full documentation.
+To profile TensorFlow or PyTorch, add the following code around a code span, e.g. training step/batch or a prediction call. Only some spans will be profiled; the profiler decides which spans to profile for optimal statistics and low overhead. See [profiling API reference](https://graphsignal.com/docs/profiler/api-reference/) for full documentation.
  
 
 Profile TensorFlow:
 
 ```python
-span = graphsignal.profile_span_tf()
+from graphsignal.profilers.tensorflow import profile_span
+
+span = profile_span()
     # training step, prediction call, etc.
 span.stop()
 ```
@@ -90,15 +92,17 @@ span.stop()
 Profile TensorFlow using `with` context manager:
 
 ```python
-with graphsignal.profile_span_tf() as span:
+from graphsignal.profilers.tensorflow import profile_span
+
+with graphsignal.profile_span() as span:
     # training step, prediction call, etc.
 ```
 
 Profile Keras training or inference using a callback:
 
 ```python
-from graphsignal.callbacks.keras import GraphsignalCallback
-...
+from graphsignal.profilers.keras import GraphsignalCallback
+
 model.fit(..., callbacks=[GraphsignalCallback()])
 # or model.predict(..., callbacks=[GraphsignalCallback()])
 ```
@@ -106,7 +110,9 @@ model.fit(..., callbacks=[GraphsignalCallback()])
 Profile PyTorch:
 
 ```python
-span = graphsignal.profile_span_pt()
+from graphsignal.profilers.pytorch import profile_span
+
+span = profile_span()
     # training step, prediction call, etc.
 span.stop()
 ```
@@ -114,16 +120,18 @@ span.stop()
 Profile PyTorch using `with` context manager:
 
 ```python
-with graphsignal.profile_span_pt() as span:
+from graphsignal.profilers.pytorch import profile_span
+
+with profile_span() as span:
     # training step, prediction call, etc.
 ```
 
 Profile Hugging Face training using a callback:
 
 ```python
-from graphsignal.callbacks.huggingface import GraphsignalPTCallback
+from graphsignal.profilers.huggingface import GraphsignalPTCallback
 # or GraphsignalTFCallback for TensorFlow
-...
+
 trainer = Trainer(..., callbacks=[GraphsignalPTCallback()])
 # or trainer.add_callback(GraphsignalPTCallback())
 ```
@@ -148,6 +156,8 @@ After profiling is setup, [sign in](https://app.graphsignal.com/signin) to Graph
 import torch
 
 import graphsignal
+from graphsignal.profilers.pytorch import profile_span
+
 graphsignal.configure(api_key='my_key', workload_name='training_example')
 
 x = torch.arange(-5, 5, 0.1).view(-1, 1)
@@ -158,7 +168,7 @@ criterion = torch.nn.MSELoss()
 optimizer = torch.optim.SGD(model.parameters(), lr = 0.1)
 
 for epoch in range(10):
-    with graphsignal.profile_span_pt():
+    with profile_span():
         y1 = model(x)
         loss = criterion(y1, y)
         optimizer.zero_grad()
@@ -174,6 +184,8 @@ import json
 from flask import Flask, request
 
 import graphsignal
+from graphsignal.profilers.tensorflow import profile_span
+
 graphsignal.configure(api_key='my_key', workload_name='fraud_detection_prod')
 
 model = keras.models.load_model('fraud_model.h5')
@@ -183,7 +195,7 @@ app = Flask(__name__)
 def predict_digit():
     input_data = request.get_json()
 
-    with graphsignal.profile_span_tf():
+    with profile_span():
       output_data = model.predict([input_data])
 
     return json.dumps(output_data.tolist())

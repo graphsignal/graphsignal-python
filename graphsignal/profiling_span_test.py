@@ -8,7 +8,7 @@ import graphsignal
 from graphsignal.proto import profiles_pb2
 from graphsignal.profiling_span import ProfilingSpan
 from graphsignal.span_scheduler import SpanScheduler
-from graphsignal.profilers.tensorflow_profiler import TensorflowProfiler
+from graphsignal.profilers.tensorflow import TensorflowProfiler
 from graphsignal.usage.host_reader import HostReader
 from graphsignal.usage.nvml_reader import NvmlReader
 from graphsignal.uploader import Uploader

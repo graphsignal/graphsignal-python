@@ -57,6 +57,7 @@ def configure(api_key, workload_name, debug_mode=False):
     _agent.host_reader.setup()
     _agent.nvml_reader = NvmlReader()
     _agent.nvml_reader.setup()
+    _agent.span_scheduler = SpanScheduler()
 
     atexit.register(shutdown)
 
@@ -74,40 +75,6 @@ def shutdown():
     _agent = None
 
     logger.debug('Graphsignal profiler shutdown')
-
-
-def profile_span_tf(span_name=None, ensure_profile=False):
-    _check_configured()
-
-    if not _agent.span_scheduler:
-        _agent.span_scheduler = SpanScheduler()
-
-    if not _agent.profiler:
-        from graphsignal.profilers.tensorflow_profiler import TensorflowProfiler
-        _agent.profiler = TensorflowProfiler()
-
-    return ProfilingSpan(
-        scheduler=_agent.span_scheduler,
-        profiler=_agent.profiler,
-        span_name=span_name,
-        ensure_profile=ensure_profile)
-
-
-def profile_span_pt(span_name=None, ensure_profile=False):
-    _check_configured()
-
-    if not _agent.span_scheduler:
-        _agent.span_scheduler = SpanScheduler()
-
-    if not _agent.profiler:
-        from graphsignal.profilers.pytorch_profiler import PytorchProfiler
-        _agent.profiler = PytorchProfiler()
-
-    return ProfilingSpan(
-        scheduler=_agent.span_scheduler,
-        profiler=_agent.profiler,
-        span_name=span_name,
-        ensure_profile=ensure_profile)
 
 
 def _sha1(text, size=-1):

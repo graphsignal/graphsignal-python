@@ -2,7 +2,7 @@ import logging
 
 from tensorflow.keras.callbacks import Callback
 
-import graphsignal
+import graphsignal.profilers.tensorflow import profile_span
 
 logger = logging.getLogger('graphsignal')
 
@@ -17,7 +17,7 @@ class GraphsignalCallback(Callback):
 
     def _start_profiler(self, span_name, batch=None):
         if not self._span:
-            self._span = graphsignal.profile_span_tf(span_name=span_name)
+            self._span = profile_span(span_name=span_name)
             if batch is not None:
                 self._span.add_metadata('batch', batch)
 

@@ -56,7 +56,7 @@ class HuggingFacePTCallbackTest(unittest.TestCase):
         training_args = TrainingArguments("test_trainer")
 
         from transformers import Trainer
-        from graphsignal.callbacks.huggingface import GraphsignalPTCallback
+        from graphsignal.profilers.huggingface import GraphsignalPTCallback
         trainer = Trainer(
             model=model,
             args=training_args,

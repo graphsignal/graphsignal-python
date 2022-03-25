@@ -11,11 +11,12 @@ from torch.autograd import DeviceType
 import graphsignal
 from graphsignal.system_info import parse_semver
 from graphsignal.proto import profiles_pb2
+from graphsignal.profiling_span import ProfilingSpan
 
 logger = logging.getLogger('graphsignal')
 
 
-class PytorchProfiler():
+class PyTorchProfiler():
     __slots__ = [
         '_torch_prof',
         '_run_env'
@@ -83,6 +84,8 @@ class PytorchProfiler():
 
     def _convert_to_profile(self, profile):
         for event_avg in self._torch_prof.key_averages():
+            if event_avg.key and event_avg.key.startswith('ProfilerStep'):
+                continue
             op_stats = profile.op_stats.add()
             if event_avg.device_type == DeviceType.CUDA:
                 op_stats.device_type = profiles_pb2.DeviceType.GPU
@@ -132,3 +135,15 @@ class PytorchProfiler():
 
         logger.debug(
             'Converted %d PyTorch operation statistics', len(profile.op_stats))
+
+
+_profiler = PyTorchProfiler()
+
+def profile_span(span_name=None, ensure_profile=False):
+    graphsignal._check_configured()
+
+    return ProfilingSpan(
+        scheduler=graphsignal._agent.span_scheduler,
+        profiler=_profiler,
+        span_name=span_name,
+        ensure_profile=ensure_profile)

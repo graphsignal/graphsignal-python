@@ -19,6 +19,7 @@ from graphsignal.profilers.tensorflow_proto import memory_profile_pb2
 import graphsignal
 from graphsignal.system_info import parse_semver, compare_semver
 from graphsignal.proto import profiles_pb2
+from graphsignal.profiling_span import ProfilingSpan
 
 logger = logging.getLogger('graphsignal')
 
@@ -116,37 +117,39 @@ class TensorflowProfiler():
             overview_page = overview_page_pb2.OverviewPage()
             overview_page.ParseFromString(overview_page_data)
             analysis = overview_page.analysis
-            profile.summary.device_idle_percent = analysis.device_idle_time_percent
-            profile.summary.host_idle_percent = analysis.host_idle_time_percent
             profile.summary.device_compute_16bit_percent = analysis.device_compute_16bit_percent
             profile.summary.device_compute_32bit_percent = analysis.device_compute_32bit_percent
-            profile.summary.host_op_percent = analysis.host_tf_op_percent
-            profile.summary.device_op_percent = analysis.device_tf_op_percent
             profile.summary.mxu_utilization = analysis.mxu_utilization_percent
 
+            input_analysis = overview_page.input_analysis
+            profile.summary.input_percent = input_analysis.input_percent
+            profile.summary.output_percent = input_analysis.output_percent
+
+        host_idle_time_us = 0
+        device_idle_time_us = 0
         tf_stats_data = self._find_and_read(
             'plugins/profile/*/*tensorflow_stats.pb')
         if tf_stats_data:
             tf_stats_db = tf_stats_pb2.TfStatsDatabase()
             tf_stats_db.ParseFromString(tf_stats_data)
-            for tf_stats_record in tf_stats_db.without_idle.tf_stats_record:
+            for tf_stats_record in tf_stats_db.with_idle.tf_stats_record:
+                if tf_stats_record.op_type == 'IDLE':
+                    if tf_stats_record.host_or_device == 'Host':
+                        host_idle_time_us += int(tf_stats_record.total_self_time_in_us)
+                    else:
+                        device_idle_time_us += int(tf_stats_record.total_self_time_in_us)
+                    continue
                 op_stats = profile.op_stats.add()
                 if tf_stats_record.host_or_device == 'Host':
                     op_stats.device_type = profiles_pb2.DeviceType.CPU
-                    op_stats.total_host_time_us = int(
-                        tf_stats_record.total_time_in_us)
-                    op_stats.self_host_time_us = int(
-                        tf_stats_record.total_self_time_in_us)
-                    op_stats.self_host_memory_rate = int(
-                        tf_stats_record.measured_memory_bw)
+                    op_stats.total_host_time_us = int(tf_stats_record.total_time_in_us)
+                    op_stats.self_host_time_us = int(tf_stats_record.total_self_time_in_us)
+                    op_stats.self_host_memory_rate = int(tf_stats_record.measured_memory_bw)
                 else:
                     op_stats.device_type = profiles_pb2.DeviceType.GPU
-                    op_stats.total_device_time_us = int(
-                        tf_stats_record.total_time_in_us)
-                    op_stats.self_device_time_us = int(
-                        tf_stats_record.total_self_time_in_us)
-                    op_stats.self_device_memory_rate = int(
-                        tf_stats_record.measured_memory_bw)
+                    op_stats.total_device_time_us = int(tf_stats_record.total_time_in_us)
+                    op_stats.self_device_time_us = int(tf_stats_record.total_self_time_in_us)
+                    op_stats.self_device_memory_rate = int(tf_stats_record.measured_memory_bw)
                     op_stats.tensorcore_utilization = tf_stats_record.gpu_tensorcore_utilization
                 op_stats.op_type = tf_stats_record.op_type
                 op_stats.op_name = tf_stats_record.op_name
@@ -170,6 +173,26 @@ class TensorflowProfiler():
         else:
             logger.debug('No kernel data found in TensorFlow log directory')
 
+        sum_host_op_time_us = 0
+        sum_device_op_time_us = 0
+        for op_stats in profile.op_stats:
+            sum_host_op_time_us += op_stats.self_host_time_us
+            sum_device_op_time_us += op_stats.self_device_time_us
+        sum_op_time_us = sum_host_op_time_us + sum_device_op_time_us
+        if sum_op_time_us > 0:
+            profile.summary.host_op_percent = sum_host_op_time_us / sum_op_time_us * 100
+            profile.summary.device_op_percent = sum_device_op_time_us / sum_op_time_us * 100
+
+        if host_idle_time_us > 0:
+            sum_host_op_time_us_with_idle = sum_host_op_time_us + host_idle_time_us
+            if sum_host_op_time_us_with_idle > 0:
+                profile.summary.host_idle_percent = host_idle_time_us / sum_host_op_time_us_with_idle * 100
+        if device_idle_time_us > 0:
+            sum_device_op_time_us_with_idle = sum_device_op_time_us + device_idle_time_us
+            if sum_device_op_time_us_with_idle > 0:
+                profile.summary.device_idle_percent = device_idle_time_us / sum_device_op_time_us_with_idle * 100
+
+
     def _find_and_read(self, file_pattern):
         file_paths = glob.glob(os.path.join(self._log_dir, file_pattern))
         if len(file_paths) == 0:
@@ -187,3 +210,15 @@ class TensorflowProfiler():
         last_file.close()
 
         return data
+
+
+_profiler = TensorflowProfiler()
+
+def profile_span(span_name=None, ensure_profile=False):
+    graphsignal._check_configured()
+
+    return ProfilingSpan(
+        scheduler=graphsignal._agent.span_scheduler,
+        profiler=_profiler,
+        span_name=span_name,
+        ensure_profile=ensure_profile)

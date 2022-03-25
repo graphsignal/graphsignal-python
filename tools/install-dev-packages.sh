@@ -17,7 +17,15 @@ else
     pip install tensorflow
 fi
 pip install tensorflow_datasets
-pip install torch
+if [ `uname -m` = "aarch64" ]; then
+    pip install torch
+else
+    #pip install torch
+    pip install torch==1.11.0+cu115 -f https://download.pytorch.org/whl/torch_stable.html
+fi
+pip install pytorch_lightning
+pip install torchmetrics
+pip install torchvision
 pip install transformers
 pip install datasets
 deactivate

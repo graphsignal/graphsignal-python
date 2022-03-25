@@ -46,9 +46,13 @@ class KerasCallbackTest(unittest.TestCase):
 
         ds_train = ds_train.map(normalize_img)
         ds_train = ds_train.batch(128)
+        ds_train = ds_train.cache()
+        ds_train = ds_train.prefetch(tf.data.experimental.AUTOTUNE)
 
         ds_test = ds_test.map(normalize_img)
         ds_test = ds_test.batch(128)
+        ds_test = ds_test.cache()
+        ds_test = ds_test.prefetch(tf.data.experimental.AUTOTUNE)
 
         model = tf.keras.models.Sequential([
             tf.keras.layers.Flatten(input_shape=(28, 28, 1)),
@@ -61,7 +65,7 @@ class KerasCallbackTest(unittest.TestCase):
             metrics=['accuracy']
         )
 
-        from graphsignal.callbacks.keras import GraphsignalCallback
+        from graphsignal.profilers.keras import GraphsignalCallback
 
         model.fit(ds_train,
                   epochs=2,
@@ -71,7 +75,7 @@ class KerasCallbackTest(unittest.TestCase):
         profile = mocked_upload_profile.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        # pp.pprint(MessageToJson(profile))
+        #pp.pprint(MessageToJson(profile))
 
         test_op_stats = None
         for op_stats in profile.op_stats:
