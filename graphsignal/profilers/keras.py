@@ -2,7 +2,7 @@ import logging
 
 from tensorflow.keras.callbacks import Callback
 
-import graphsignal.profilers.tensorflow import profile_span
+from graphsignal.profilers.tensorflow import profile_span
 
 logger = logging.getLogger('graphsignal')
 
@@ -25,12 +25,6 @@ class GraphsignalCallback(Callback):
         if self._span:
             self._span.stop()
             self._span = None
-
-    def on_test_begin(self, logs=None):
-        self._start_profiler('Test')
-
-    def on_test_end(self, logs=None):
-        self._stop_profiler()
 
     def on_predict_begin(self, logs=None):
         self._start_profiler('Prediction')

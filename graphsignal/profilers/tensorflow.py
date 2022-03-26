@@ -218,7 +218,6 @@ def profile_span(span_name=None, ensure_profile=False):
     graphsignal._check_configured()
 
     return ProfilingSpan(
-        scheduler=graphsignal._agent.span_scheduler,
         profiler=_profiler,
         span_name=span_name,
         ensure_profile=ensure_profile)

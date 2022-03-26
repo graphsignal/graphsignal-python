@@ -1,11 +1,15 @@
 import logging
 import time
+import random
 from threading import Lock
 
 logger = logging.getLogger('graphsignal')
 
+MAX_SCHEDULERS = 10
+
 # global profiling lock
 _profiling_lock = Lock()
+_schedulers = {}
 
 
 class SpanScheduler(object):
@@ -57,3 +61,17 @@ class SpanScheduler(object):
             return
         self._last_interval_ts = time.time()
         _profiling_lock.release()
+
+
+def select_scheduler(span_name):
+    if span_name is None:
+        span_name = ''
+
+    if span_name in _schedulers:
+        return _schedulers[span_name]
+    else:
+        if len(_schedulers) < MAX_SCHEDULERS:
+            scheduler = _schedulers[span_name] = SpanScheduler()
+            return scheduler
+        else:
+            return random.choice(list(_schedulers.values()))

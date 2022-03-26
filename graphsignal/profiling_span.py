@@ -6,6 +6,7 @@ import traceback
 import graphsignal
 from graphsignal import system_info
 from graphsignal.proto import profiles_pb2
+from graphsignal.span_scheduler import select_scheduler
 
 logger = logging.getLogger('graphsignal')
 
@@ -23,8 +24,8 @@ class ProfilingSpan(object):
 
     SPAN_TIMEOUT_SEC = 10
 
-    def __init__(self, scheduler, profiler, span_name=None, ensure_profile=False):
-        self._scheduler = scheduler
+    def __init__(self, profiler, span_name=None, ensure_profile=False):
+        self._scheduler = select_scheduler(span_name)
         self._profiler = profiler
         self._is_scheduled = False
         self._is_profiling = False

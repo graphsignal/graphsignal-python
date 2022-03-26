@@ -57,7 +57,6 @@ def configure(api_key, workload_name, debug_mode=False):
     _agent.host_reader.setup()
     _agent.nvml_reader = NvmlReader()
     _agent.nvml_reader.setup()
-    _agent.span_scheduler = SpanScheduler()
 
     atexit.register(shutdown)
 

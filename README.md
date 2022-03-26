@@ -126,12 +126,12 @@ with profile_span() as span:
     # training step, prediction call, etc.
 ```
 
-Profile PyTorch Lightning using a profiler callback:
+Profile PyTorch Lightning using a callback:
 
 ```python
-from graphsignal.profilers.pytorch_lightning import GraphsignalProfiler
+from graphsignal.profilers.pytorch_lightning import GraphsignalCallback
 
-trainer = Trainer(..., profiler=GraphsignalProfiler())
+trainer = Trainer(..., callbacks=[GraphsignalCallback()])
 ```
 
 Profile Hugging Face training using a callback:
@@ -156,59 +156,20 @@ span.add_metadata('key1', 'value1')
 After profiling is setup, [sign in](https://app.graphsignal.com/signin) to Graphsignal to analyze recorded profiles.
 
 
-## Examples
-
-### Model training
+## Example
 
 ```python
-import torch
-
+# 1. Import Graphsignal modules
 import graphsignal
-from graphsignal.profilers.pytorch import profile_span
+from graphsignal.profilers.keras import GraphsignalCallback
 
+# 2. Configure
 graphsignal.configure(api_key='my_key', workload_name='training_example')
 
-x = torch.arange(-5, 5, 0.1).view(-1, 1)
-y = -5 * x + 0.1 * torch.randn(x.size())
+....
 
-model = torch.nn.Linear(1, 1)
-criterion = torch.nn.MSELoss()
-optimizer = torch.optim.SGD(model.parameters(), lr = 0.1)
-
-for epoch in range(10):
-    with profile_span():
-        y1 = model(x)
-        loss = criterion(y1, y)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-```
-
-### Model serving
-
-```python
-from tensorflow import keras
-import json
-from flask import Flask, request
-
-import graphsignal
-from graphsignal.profilers.tensorflow import profile_span
-
-graphsignal.configure(api_key='my_key', workload_name='fraud_detection_prod')
-
-model = keras.models.load_model('fraud_model.h5')
-app = Flask(__name__)
-
-@app.route('/predict_fraud', methods = ['POST'])
-def predict_digit():
-    input_data = request.get_json()
-
-    with profile_span():
-      output_data = model.predict([input_data])
-
-    return json.dumps(output_data.tolist())
-
-app.run(port=8090)
+# 3. Add profiler callback or use profiler API
+model.fit(..., callbacks=[GraphsignalCallback()])
 ```
 
 

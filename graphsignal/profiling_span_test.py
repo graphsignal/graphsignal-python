@@ -7,7 +7,6 @@ from unittest.mock import patch, Mock
 import graphsignal
 from graphsignal.proto import profiles_pb2
 from graphsignal.profiling_span import ProfilingSpan
-from graphsignal.span_scheduler import SpanScheduler
 from graphsignal.profilers.tensorflow import TensorflowProfiler
 from graphsignal.usage.host_reader import HostReader
 from graphsignal.usage.nvml_reader import NvmlReader
@@ -36,7 +35,6 @@ class ProflingSpanTest(unittest.TestCase):
     def test_start_stop(self, mocked_upload_profile, mocked_nvml_read, mocked_host_read,
                         mocked_stop, mocked_start):
         span = ProfilingSpan(
-            scheduler=SpanScheduler(),
             profiler=TensorflowProfiler(),
             span_name='s1',
             ensure_profile=True)
@@ -67,7 +65,6 @@ class ProflingSpanTest(unittest.TestCase):
                              mocked_stop, mocked_start):
         mocked_start.side_effect = Exception('ex1')
         span = ProfilingSpan(
-            scheduler=SpanScheduler(),
             profiler=TensorflowProfiler(),
             span_name='s1',
             ensure_profile=True)
@@ -94,7 +91,6 @@ class ProflingSpanTest(unittest.TestCase):
                             mocked_stop, mocked_start):
         mocked_stop.side_effect = Exception('ex1')
         span = ProfilingSpan(
-            scheduler=SpanScheduler(),
             profiler=TensorflowProfiler(),
             span_name='s1',
             ensure_profile=True)

@@ -4,7 +4,7 @@ import sys
 from unittest.mock import patch, Mock
 
 import graphsignal
-from graphsignal.span_scheduler import SpanScheduler
+from graphsignal.span_scheduler import SpanScheduler, select_scheduler
 
 logger = logging.getLogger('graphsignal')
 
@@ -53,3 +53,22 @@ class SpanSchedulerTest(unittest.TestCase):
         scheduler.unlock()
         self.assertTrue(scheduler.lock(ensure=True))
         scheduler.unlock()
+
+    def test_select_scheduler(self):
+        s1 = select_scheduler(None)
+        s2 = select_scheduler(None)
+        self.assertTrue(s1 == s2)
+
+        s1 = select_scheduler('a')
+        s2 = select_scheduler('a')
+        self.assertTrue(s1 == s2)
+
+        s1 = select_scheduler('b')
+        s2 = select_scheduler('c')
+        self.assertTrue(s1 != s2)
+
+        for i in range(10):
+            select_scheduler(str(i))
+
+        sX = select_scheduler('x')
+        self.assertIsNotNone(sX)

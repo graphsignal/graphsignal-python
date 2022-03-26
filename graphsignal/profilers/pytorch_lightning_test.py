@@ -36,7 +36,7 @@ class PyTorchLightningTest(unittest.TestCase):
         from torchmetrics import Accuracy
         from torchvision import transforms
         from torchvision.datasets import MNIST
-        from graphsignal.profilers.pytorch_lightning import GraphsignalProfiler
+        from graphsignal.profilers.pytorch_lightning import GraphsignalCallback
 
         PATH_DATASETS = os.environ.get("PATH_DATASETS", ".")
         AVAIL_GPUS = min(1, torch.cuda.device_count())
@@ -58,27 +58,23 @@ class PyTorchLightningTest(unittest.TestCase):
             def configure_optimizers(self):
                 return torch.optim.Adam(self.parameters(), lr=0.02)
 
-        # Init our model
         mnist_model = MNISTModel()
 
-        # Init DataLoader from MNIST Dataset
         train_ds = MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
         train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE)
 
-        # Initialize a trainer
         trainer = Trainer(
             gpus=AVAIL_GPUS,
             max_epochs=3,
-            profiler=GraphsignalProfiler()
+            callbacks=[GraphsignalCallback()]
         )
 
-        # Train the model ⚡
         trainer.fit(mnist_model, train_loader)
 
         profile = mocked_upload_profile.call_args[0][0]
 
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(profile))
+        pp = pprint.PrettyPrinter()
+        pp.pprint(MessageToJson(profile))
 
         test_op_stats = None
         for op_stats in profile.op_stats:
