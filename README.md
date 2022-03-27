@@ -5,26 +5,16 @@
 [![SaaS Status](https://img.shields.io/uptimerobot/status/m787882560-d6b932eb0068e8e4ade7f40c?label=SaaS%20status)](https://stats.uptimerobot.com/gMBNpCqqqJ)
 
 
-## Overview
+Graphsignal is a machine learning profiler. It helps data scientists and ML engineers make model training and inference faster and more efficient. 
 
-Graphsignal is a machine learning profiler. It helps data scientists and ML engineers make model training and inference faster and more efficient. Learn more at [graphsignal.com](https://graphsignal.com).
-
-
-### Machine Learning Profiling
-
-* **Training and inference profiling** Graphsignal provides operation and kernel level statistics about machine learning runs, e.g. training steps or prediction calls, to enable optimization and tuning.
-
-* **Integration and support** Add a few lines of code to automatically profile TensorFlow and PyTorch jobs and model serving.
-
-* **Any environment** The profiler only needs outbound connection to Graphsignal. No inbound ports or additional software is required, allowing it run everywhere.
-
-* **Data privacy** No code or data is sent to Graphsignal cloud, only run statistics and metadata.
-
-
-### Profile dashboard
+* **Training and inference profiling**: Graphsignal provides operation and kernel level statistics about machine learning runs, e.g. training steps or prediction calls, to enable optimization and tuning.
+* **Integration and support**: add a few lines of code to automatically profile TensorFlow and PyTorch jobs and model serving.
+* **Any environment**: the profiler only needs outbound connection to Graphsignal. No inbound ports or additional software is required, allowing it run everywhere.
+* **Data privacy**: no code or data is sent to Graphsignal cloud, only run statistics and metadata.
 
 [![Data Analysis](https://graphsignal.com/external/profile-dashboard.png)](https://graphsignal.com)
 
+Learn more at [graphsignal.com](https://graphsignal.com).
 
 ## Documentation
 
