@@ -14,7 +14,7 @@ Graphsignal is a machine learning profiler. It helps data scientists and ML engi
 
 * **Training and inference profiling** Graphsignal provides operation and kernel level statistics about machine learning runs, e.g. training steps or prediction calls, to enable optimization and tuning.
 
-* **Integration and support** Add a few lines of code to automatically profile TensorFlow and PyTorch jobs and model serving automatically.
+* **Integration and support** Add a few lines of code to automatically profile TensorFlow and PyTorch jobs and model serving.
 
 * **Any environment** The profiler only needs outbound connection to Graphsignal. No inbound ports or additional software is required, allowing it run everywhere.
 
@@ -76,29 +76,20 @@ To get an API key, sign up for a free account at [graphsignal.com](https://graph
 
 ### 3. Profiling
 
-To profile TensorFlow or PyTorch, add the following code around a code span, e.g. training step/batch or a prediction call. Only some spans will be profiled; the profiler decides which spans to profile for optimal statistics and low overhead. See [profiling API reference](https://graphsignal.com/docs/profiler/api-reference/) for full documentation.
- 
+Use the the following minimal examples to integrate Graphsignal into your machine learning script. See [profiling API reference](/docs/profiler/api-reference/) for full reference.
 
-Profile TensorFlow:
+To ensure optimal statistics and low overhead, the profiler automatically profiles only certain training batches and/or predictions. 
 
-```python
-from graphsignal.profilers.tensorflow import profile_span
-
-span = profile_span()
-    # training step, prediction call, etc.
-span.stop()
-```
-
-Profile TensorFlow using `with` context manager:
+#### TensorFlow
 
 ```python
 from graphsignal.profilers.tensorflow import profile_span
 
-with graphsignal.profile_span() as span:
+with profile_span() as span:
     # training step, prediction call, etc.
 ```
 
-Profile Keras training or inference using a callback:
+#### Keras
 
 ```python
 from graphsignal.profilers.keras import GraphsignalCallback
@@ -107,17 +98,7 @@ model.fit(..., callbacks=[GraphsignalCallback()])
 # or model.predict(..., callbacks=[GraphsignalCallback()])
 ```
 
-Profile PyTorch:
-
-```python
-from graphsignal.profilers.pytorch import profile_span
-
-span = profile_span()
-    # training step, prediction call, etc.
-span.stop()
-```
-
-Profile PyTorch using `with` context manager:
+#### PyTorch
 
 ```python
 from graphsignal.profilers.pytorch import profile_span
@@ -126,7 +107,7 @@ with profile_span() as span:
     # training step, prediction call, etc.
 ```
 
-Profile PyTorch Lightning using a callback:
+#### PyTorch Lightning
 
 ```python
 from graphsignal.profilers.pytorch_lightning import GraphsignalCallback
@@ -134,7 +115,7 @@ from graphsignal.profilers.pytorch_lightning import GraphsignalCallback
 trainer = Trainer(..., callbacks=[GraphsignalCallback()])
 ```
 
-Profile Hugging Face training using a callback:
+#### Hugging Face
 
 ```python
 from graphsignal.profilers.huggingface import GraphsignalPTCallback
@@ -142,12 +123,6 @@ from graphsignal.profilers.huggingface import GraphsignalPTCallback
 
 trainer = Trainer(..., callbacks=[GraphsignalPTCallback()])
 # or trainer.add_callback(GraphsignalPTCallback())
-```
-
-Optionally record metadata in the profile:
-
-```python
-span.add_metadata('key1', 'value1')
 ```
 
 
