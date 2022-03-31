@@ -41,22 +41,12 @@ class ProfilingSpan(object):
             self._profile.run_start_ms = graphsignal._agent.run_start_ms
             if span_name:
                 self._profile.span_name = span_name
+            self._profile.resource_usage.read_us = _timestamp_us()
+            self._profile.run_env.CopyFrom(system_info.cached_run_env)
 
             try:
-                self._profile.run_env.CopyFrom(system_info.cached_run_env)
-                self._profile.resource_usage.read_us = _timestamp_us()
-                graphsignal._agent.host_reader.read(self._profile.resource_usage)
-                graphsignal._agent.nvml_reader.read(self._profile.resource_usage)
-            except Exception as exc:
-                _add_exception(self._profile, exc)
-                logger.error(
-                    'Error taking run snapshot', exc_info=True)
-
-            try:
-                if self._profiler.start():
-                    self._is_profiling = True
-                else:
-                    self._scheduler.unlock()
+                self._profiler.start()
+                self._is_profiling = True
             except Exception as exc:
                 self._scheduler.unlock()
                 self._is_profiling = False
@@ -82,7 +72,7 @@ class ProfilingSpan(object):
                 self._metadata = {}
             self._metadata[key] = value
 
-    def stop(self, no_save=False):
+    def stop(self):
         with self._stop_lock:
             if self._is_scheduled:
                 self._profile.end_us = _timestamp_us()
@@ -94,21 +84,19 @@ class ProfilingSpan(object):
 
                 try:
                     if self._is_profiling:
-                        if self._profiler.stop(self._profile):
-                            if not no_save:
-                                _upload_profile(self._profile)
-                    else:
-                        if not no_save:
-                            _upload_profile(self._profile)
+                        self._profiler.stop(self._profile)
+
+                    graphsignal._agent.host_reader.read(self._profile.resource_usage)
+                    graphsignal._agent.nvml_reader.read(self._profile.resource_usage)
                 except Exception as exc:
                     logger.error('Error stopping profiler', exc_info=True)
                     _add_exception(self._profile, exc)
-                    _upload_profile(self._profile)
-                finally:
-                    self._is_scheduled = False
-                    self._is_profiling = False
-                    self._profile = None
-                    self._scheduler.unlock()
+
+                _upload_profile(self._profile)
+                self._is_scheduled = False
+                self._is_profiling = False
+                self._profile = None
+                self._scheduler.unlock()
 
 
 def _add_exception(profile, exc):

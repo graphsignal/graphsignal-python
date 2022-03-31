@@ -12,11 +12,12 @@ import graphsignal
 from graphsignal.system_info import parse_semver
 from graphsignal.proto import profiles_pb2
 from graphsignal.profiling_span import ProfilingSpan
+from graphsignal.profilers.base_profiler import BaseProfiler
 
 logger = logging.getLogger('graphsignal')
 
 
-class PyTorchProfiler():
+class PyTorchProfiler(BaseProfiler):
     __slots__ = [
         '_torch_prof',
         '_run_env'
@@ -48,8 +49,6 @@ class PyTorchProfiler():
 
         self._torch_prof.start()
 
-        return True
-
     def stop(self, profile):
         logger.debug('Deactivating PyTorch profiler')
 
@@ -57,8 +56,6 @@ class PyTorchProfiler():
 
         self._copy_run_env(profile)
         self._convert_to_profile(profile)
-
-        return True
 
     def _read_run_env(self):
         self._run_env = profiles_pb2.RunEnvironment()
