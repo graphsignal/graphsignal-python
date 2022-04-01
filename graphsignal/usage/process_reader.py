@@ -19,7 +19,7 @@ VM_RSS_REGEXP = re.compile('VmRSS:\\s+(\\d+)\\s+kB')
 VM_SIZE_REGEXP = re.compile('VmSize:\\s+(\\d+)\\s+kB')
 
 
-class HostReader():
+class ProcessReader():
     __slots__ = [
         '_last_read_time',
         '_last_cpu_time_ns'
@@ -37,22 +37,24 @@ class HostReader():
     def shutdown(self):
         pass
 
-    def read(self, resource_usage):
-        host_usage = resource_usage.host_usage
+    def read(self, profile):
+        process_usage = profile.process_usage
+
+        process_usage.process_id = str(os.getpid())
 
         if not OS_WIN:
             cpu_time_ns = _read_cpu_time()
             if cpu_time_ns is not None:
                 if self._last_cpu_time_ns is not None:
                     interval_ns = (time.time() - self._last_read_time) * 1e9
-                    if interval_ns > HostReader.MIN_CPU_READ_INTERVAL:
+                    if interval_ns > ProcessReader.MIN_CPU_READ_INTERVAL:
                         cpu_diff_ns = cpu_time_ns - self._last_cpu_time_ns
                         cpu_usage = (cpu_diff_ns / interval_ns) * 100
                         try:
                             cpu_usage = cpu_usage / multiprocessing.cpu_count()
                         except Exception:
                             pass
-                        host_usage.cpu_usage_percent = cpu_usage
+                        process_usage.cpu_usage_percent = cpu_usage
                 else:
                     self._last_read_time = time.time()
                     self._last_cpu_time_ns = cpu_time_ns
@@ -60,16 +62,16 @@ class HostReader():
         if not OS_WIN:
             max_rss = _read_max_rss()
             if max_rss is not None:
-                host_usage.max_rss = max_rss
+                process_usage.max_rss = max_rss
 
         if OS_LINUX:
             current_rss = _read_current_rss()
             if current_rss is not None:
-                host_usage.current_rss = current_rss
+                process_usage.current_rss = current_rss
 
             vm_size = _read_vm_size()
             if vm_size is not None:
-                host_usage.vm_size = vm_size
+                process_usage.vm_size = vm_size
 
 
 def _read_cpu_time():

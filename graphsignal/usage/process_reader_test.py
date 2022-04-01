@@ -8,13 +8,13 @@ import pprint
 import time
 
 import graphsignal
-from graphsignal.usage.host_reader import HostReader
+from graphsignal.usage.process_reader import ProcessReader
 from graphsignal.proto import profiles_pb2
 
 logger = logging.getLogger('graphsignal')
 
 
-class HostReaderTest(unittest.TestCase):
+class ProcessReaderTest(unittest.TestCase):
     def setUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -27,17 +27,18 @@ class HostReaderTest(unittest.TestCase):
         graphsignal.shutdown()
 
     def test_read(self):
-        resource_usage = profiles_pb2.ResourceUsage()
-        reader = graphsignal._agent.host_reader
-        reader.read(resource_usage)
-        HostReader.MIN_CPU_READ_INTERVAL = 0
+        profile = profiles_pb2.MLProfile()
+        reader = graphsignal._agent.process_reader
+        reader.read(profile)
+        ProcessReader.MIN_CPU_READ_INTERVAL = 0
         time.sleep(0.2)
-        reader.read(resource_usage)
+        reader.read(profile)
 
         #pp = pprint.PrettyPrinter()
-        # pp.pprint(MessageToJson(resource_usage))
+        # pp.pprint(MessageToJson(profile))
 
-        self.assertTrue(resource_usage.host_usage.cpu_usage_percent > 0)
-        self.assertTrue(resource_usage.host_usage.max_rss > 0)
-        self.assertTrue(resource_usage.host_usage.current_rss > 0)
-        self.assertTrue(resource_usage.host_usage.vm_size > 0)
+        self.assertIsNotNone(profile.process_usage.process_id)
+        self.assertTrue(profile.process_usage.cpu_usage_percent > 0)
+        self.assertTrue(profile.process_usage.max_rss > 0)
+        self.assertTrue(profile.process_usage.current_rss > 0)
+        self.assertTrue(profile.process_usage.vm_size > 0)

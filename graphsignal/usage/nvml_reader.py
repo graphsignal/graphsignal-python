@@ -37,14 +37,16 @@ class NvmlReader():
         except BaseException:
             logger.error('Error shutting down NVML', exc_info=True)
 
-    def read(self, resource_usage):
+    def read(self, profile):
         if not self._is_initialized:
             return
 
         device_count = nvmlDeviceGetCount()
         for i in range(0, device_count):
-            device_usage = resource_usage.device_usage.add()
+            device_usage = profile.device_usage.add()
             handle = nvmlDeviceGetHandleByIndex(i)
+
+            device_usage.device_type = profiles_pb2.DeviceType.GPU
 
             try:
                 pci_info = nvmlDeviceGetPciInfo(handle)

@@ -8,7 +8,7 @@ import graphsignal
 from graphsignal.proto import profiles_pb2
 from graphsignal.profiling_span import ProfilingSpan
 from graphsignal.profilers.tensorflow import TensorflowProfiler
-from graphsignal.usage.host_reader import HostReader
+from graphsignal.usage.process_reader import ProcessReader
 from graphsignal.usage.nvml_reader import NvmlReader
 from graphsignal.uploader import Uploader
 
@@ -29,7 +29,7 @@ class ProflingSpanTest(unittest.TestCase):
 
     @patch.object(TensorflowProfiler, 'start', return_value=True)
     @patch.object(TensorflowProfiler, 'stop', return_value=True)
-    @patch.object(HostReader, 'read')
+    @patch.object(ProcessReader, 'read')
     @patch.object(NvmlReader, 'read')
     @patch.object(Uploader, 'upload_profile')
     def test_start_stop(self, mocked_upload_profile, mocked_nvml_read, mocked_host_read,
@@ -58,7 +58,7 @@ class ProflingSpanTest(unittest.TestCase):
 
     @patch.object(TensorflowProfiler, 'start', return_value=True)
     @patch.object(TensorflowProfiler, 'stop', return_value=True)
-    @patch.object(HostReader, 'read')
+    @patch.object(ProcessReader, 'read')
     @patch.object(NvmlReader, 'read')
     @patch.object(Uploader, 'upload_profile')
     def test_start_exception(self, mocked_upload_profile, mocked_nvml_read, mocked_host_read,
@@ -84,7 +84,7 @@ class ProflingSpanTest(unittest.TestCase):
 
     @patch.object(TensorflowProfiler, 'start', return_value=True)
     @patch.object(TensorflowProfiler, 'stop', return_value=True)
-    @patch.object(HostReader, 'read')
+    @patch.object(ProcessReader, 'read')
     @patch.object(NvmlReader, 'read')
     @patch.object(Uploader, 'upload_profile')
     def test_stop_exception(self, mocked_upload_profile, mocked_nvml_read, mocked_host_read,

@@ -7,5 +7,5 @@ class Agent(object):
         self.workload_name = None
         self.debug_mode = None
         self.uploader = None
-        self.host_reader = None
+        self.process_reader = None
         self.nvml_reader = None

@@ -41,7 +41,6 @@ class ProfilingSpan(object):
             self._profile.run_start_ms = graphsignal._agent.run_start_ms
             if span_name:
                 self._profile.span_name = span_name
-            self._profile.resource_usage.read_us = _timestamp_us()
             self._profile.run_env.CopyFrom(system_info.cached_run_env)
 
             try:
@@ -86,8 +85,8 @@ class ProfilingSpan(object):
                     if self._is_profiling:
                         self._profiler.stop(self._profile)
 
-                    graphsignal._agent.host_reader.read(self._profile.resource_usage)
-                    graphsignal._agent.nvml_reader.read(self._profile.resource_usage)
+                    graphsignal._agent.process_reader.read(self._profile)
+                    graphsignal._agent.nvml_reader.read(self._profile)
                 except Exception as exc:
                     logger.error('Error stopping profiler', exc_info=True)
                     _add_exception(self._profile, exc)
