@@ -24,11 +24,11 @@ class KerasCallbackTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    @unittest.skip("enable manually")
     @patch.object(Uploader, 'upload_profile')
     def test_callback(self, mocked_upload_profile):
         import tensorflow as tf
-
+        if len(tf.config.list_physical_devices('GPU')) == 0:
+            return
         import tensorflow_datasets as tfds
         tfds.disable_progress_bar()
 

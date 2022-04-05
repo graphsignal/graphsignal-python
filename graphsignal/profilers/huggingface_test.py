@@ -24,9 +24,11 @@ class HuggingFacePTCallbackTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    @unittest.skip("enable manually")
     @patch.object(Uploader, 'upload_profile')
     def test_callback(self, mocked_upload_profile):
+        import torch
+        if not torch.cuda.is_available():
+            return
         from datasets import load_dataset
         raw_datasets = load_dataset("imdb")
 
@@ -69,11 +71,11 @@ class HuggingFacePTCallbackTest(unittest.TestCase):
         profile = mocked_upload_profile.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        # pp.pprint(MessageToJson(profile))
+        #pp.pprint(MessageToJson(profile))
 
         test_op_stats = None
         for op_stats in profile.op_stats:
-            if op_stats.op_name == 'aten::addmm':
+            if op_stats.op_name == 'aten::mm':
                 test_op_stats = op_stats
                 break
         self.assertIsNotNone(test_op_stats)

@@ -37,6 +37,7 @@ class ProflingSpanTest(unittest.TestCase):
         span = ProfilingSpan(
             profiler=TensorflowProfiler(),
             span_name='s1',
+            span_type=profiles_pb2.Span.SpanType.TRAINING_BATCH,
             ensure_profile=True)
         span.add_metadata('m1', 'v1')
         span.add_metadata('m2', 'v2')
@@ -48,7 +49,8 @@ class ProflingSpanTest(unittest.TestCase):
 
         self.assertEqual(profile.workload_name, 'w1')
         self.assertTrue(profile.run_id != '')
-        self.assertEqual(profile.span_name, 's1')
+        self.assertEqual(profile.span.name, 's1')
+        self.assertEqual(profile.span.type, profiles_pb2.Span.SpanType.TRAINING_BATCH)
         self.assertTrue(profile.start_us > 0)
         self.assertTrue(profile.end_us > 0)
         self.assertEqual(profile.metadata[0].key, 'm1')
@@ -76,9 +78,10 @@ class ProflingSpanTest(unittest.TestCase):
 
         self.assertEqual(profile.workload_name, 'w1')
         self.assertTrue(profile.run_id != '')
-        self.assertEqual(profile.span_name, 's1')
         self.assertTrue(profile.start_us > 0)
         self.assertTrue(profile.end_us > 0)
+        self.assertEqual(profile.span.name, 's1')
+        self.assertTrue(profile.span.duration_us >= 0)
         self.assertEqual(profile.profiler_errors[0].message, 'ex1')
         self.assertNotEqual(profile.profiler_errors[0].stack_trace, '')
 
@@ -102,8 +105,9 @@ class ProflingSpanTest(unittest.TestCase):
 
         self.assertEqual(profile.workload_name, 'w1')
         self.assertTrue(profile.run_id != '')
-        self.assertEqual(profile.span_name, 's1')
+        self.assertEqual(profile.span.name, 's1')
         self.assertTrue(profile.start_us > 0)
         self.assertTrue(profile.end_us > 0)
+        self.assertTrue(profile.span.duration_us >= 0)
         self.assertEqual(profile.profiler_errors[0].message, 'ex1')
         self.assertNotEqual(profile.profiler_errors[0].stack_trace, '')

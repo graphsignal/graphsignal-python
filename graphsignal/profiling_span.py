@@ -22,10 +22,8 @@ class ProfilingSpan(object):
         '_stop_lock'
     ]
 
-    SPAN_TIMEOUT_SEC = 10
-
-    def __init__(self, profiler, span_name=None, ensure_profile=False):
-        self._scheduler = select_scheduler(span_name)
+    def __init__(self, profiler, span_name=None, span_type=None, ensure_profile=False):
+        self._scheduler = select_scheduler(str(span_type))
         self._profiler = profiler
         self._is_scheduled = False
         self._is_profiling = False
@@ -40,7 +38,9 @@ class ProfilingSpan(object):
             self._profile.run_id = graphsignal._agent.run_id
             self._profile.run_start_ms = graphsignal._agent.run_start_ms
             if span_name:
-                self._profile.span_name = span_name
+                self._profile.span.name = span_name
+            if span_type:
+                self._profile.span.type = span_type
             self._profile.run_env.CopyFrom(system_info.cached_run_env)
 
             try:
@@ -75,6 +75,7 @@ class ProfilingSpan(object):
         with self._stop_lock:
             if self._is_scheduled:
                 self._profile.end_us = _timestamp_us()
+                self._profile.span.duration_us = self._profile.end_us - self._profile.start_us
                 if self._metadata is not None:
                     for key, value in self._metadata.items():
                         entry = self._profile.metadata.add()
@@ -84,11 +85,15 @@ class ProfilingSpan(object):
                 try:
                     if self._is_profiling:
                         self._profiler.stop(self._profile)
+                except Exception as exc:
+                    logger.error('Error stopping profiler', exc_info=True)
+                    _add_exception(self._profile, exc)
 
+                try:
                     graphsignal._agent.process_reader.read(self._profile)
                     graphsignal._agent.nvml_reader.read(self._profile)
                 except Exception as exc:
-                    logger.error('Error stopping profiler', exc_info=True)
+                    logger.error('Error reading usage information', exc_info=True)
                     _add_exception(self._profile, exc)
 
                 _upload_profile(self._profile)
