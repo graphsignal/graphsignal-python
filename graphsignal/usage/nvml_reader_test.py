@@ -28,17 +28,20 @@ class NvmlReaderTest(unittest.TestCase):
 
     def test_read(self):
         profile = profiles_pb2.MLProfile()
+        node_usage = profile.node_usage.add()
         reader = graphsignal._agent.nvml_reader
-        reader.read(profile)
+        reader.read(node_usage)
 
         #pp = pprint.PrettyPrinter()
         # pp.pprint(MessageToJson(profile))
 
-        if len(profile.device_usage) > 0:
-            device_usage = profile.device_usage[0]
+        if len(node_usage.device_usage) > 0:
+            device_usage = node_usage.device_usage[0]
             self.assertEqual(device_usage.device_type, profiles_pb2.DeviceType.GPU)
             self.assertNotEqual(device_usage.device_id, '')
             self.assertNotEqual(device_usage.device_name, '')
+            self.assertTrue(device_usage.compute_capability.major > 0)
+            self.assertTrue(device_usage.compute_capability.minor > 0)
             self.assertTrue(device_usage.mem_total > 0)
             self.assertTrue(device_usage.mem_used > 0)
             self.assertTrue(device_usage.mem_free > 0)

@@ -1,6 +1,6 @@
 
 
-class BaseProfiler():
+class FrameworkProfiler():
     def start(self):
         raise NotImplementedError()
 

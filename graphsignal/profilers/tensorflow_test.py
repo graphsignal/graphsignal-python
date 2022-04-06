@@ -46,12 +46,6 @@ class TensorflowProfilerTest(unittest.TestCase):
         self.assertEqual(
             profile.run_env.ml_framework,
             profiles_pb2.RunEnvironment.MLFramework.TENSORFLOW)
-        if len(tf.config.list_physical_devices('GPU')) > 0:
-            self.assertEqual(
-                profile.run_env.devices[0].type,
-                profiles_pb2.DeviceType.GPU)
-        else:
-            self.assertEqual(len(profile.run_env.devices), 0)
 
         test_op_stats = None
         for op_stats in profile.op_stats:

@@ -14,7 +14,7 @@ logger = logging.getLogger('graphsignal')
 class ProfilingSpan(object):
     __slots__ = [
         '_scheduler',
-        '_profiler',
+        '_framework_profiler',
         '_is_scheduled',
         '_is_profiling',
         '_profile',
@@ -22,9 +22,9 @@ class ProfilingSpan(object):
         '_stop_lock'
     ]
 
-    def __init__(self, profiler, span_name=None, span_type=None, ensure_profile=False):
+    def __init__(self, framework_profiler=None, span_name=None, span_type=None, ensure_profile=False):
         self._scheduler = select_scheduler(str(span_type))
-        self._profiler = profiler
+        self._framework_profiler = framework_profiler
         self._is_scheduled = False
         self._is_profiling = False
         self._profile = None
@@ -43,14 +43,15 @@ class ProfilingSpan(object):
                 self._profile.span.type = span_type
             self._profile.run_env.CopyFrom(system_info.cached_run_env)
 
-            try:
-                self._profiler.start()
-                self._is_profiling = True
-            except Exception as exc:
-                self._scheduler.unlock()
-                self._is_profiling = False
-                _add_exception(self._profile, exc)
-                logger.error('Error starting profiler', exc_info=True)
+            if self._framework_profiler:
+                try:
+                    self._framework_profiler.start()
+                    self._is_profiling = True
+                except Exception as exc:
+                    self._scheduler.unlock()
+                    self._is_profiling = False
+                    _add_exception(self._profile, exc)
+                    logger.error('Error starting profiler', exc_info=True)
 
             self._profile.start_us = _timestamp_us()
 
@@ -82,16 +83,18 @@ class ProfilingSpan(object):
                         entry.key = str(key)
                         entry.value = str(value)
 
-                try:
-                    if self._is_profiling:
-                        self._profiler.stop(self._profile)
-                except Exception as exc:
-                    logger.error('Error stopping profiler', exc_info=True)
-                    _add_exception(self._profile, exc)
+                if self._framework_profiler:
+                    try:
+                        if self._is_profiling:
+                            self._framework_profiler.stop(self._profile)
+                    except Exception as exc:
+                        logger.error('Error stopping profiler', exc_info=True)
+                        _add_exception(self._profile, exc)
 
                 try:
-                    graphsignal._agent.process_reader.read(self._profile)
-                    graphsignal._agent.nvml_reader.read(self._profile)
+                    node_usage = self._profile.node_usage.add()
+                    graphsignal._agent.process_reader.read(node_usage)
+                    graphsignal._agent.nvml_reader.read(node_usage)
                 except Exception as exc:
                     logger.error('Error reading usage information', exc_info=True)
                     _add_exception(self._profile, exc)

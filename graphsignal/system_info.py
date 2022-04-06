@@ -16,10 +16,6 @@ def _read_run_env():
     run_env = profiles_pb2.RunEnvironment()
 
     try:
-        try:
-            run_env.hostname = socket.gethostname()
-        except BaseException:
-            logger.debug('Error reading hostname', exc_info=True)
         run_env.platform = sys.platform
         run_env.machine = platform.machine()
         run_env.os_name = os.uname().sysname

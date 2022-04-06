@@ -20,12 +20,12 @@ import graphsignal
 from graphsignal.system_info import parse_semver, compare_semver
 from graphsignal.proto import profiles_pb2
 from graphsignal.profiling_span import ProfilingSpan
-from graphsignal.profilers.base_profiler import BaseProfiler
+from graphsignal.profilers.framework_profiler import FrameworkProfiler
 
 logger = logging.getLogger('graphsignal')
 
 
-class TensorflowProfiler(BaseProfiler):
+class TensorflowProfiler(FrameworkProfiler):
     __slots__ = [
         '_is_initialized',
         '_log_dir',
@@ -90,23 +90,11 @@ class TensorflowProfiler(BaseProfiler):
         if compare_semver(self._run_env.ml_framework_version, (2, 2, 0)) == -1:
             raise Exception(
                 'TensorFlow profiling is not supported for versions <=2.2')
-        for device in tf.config.list_physical_devices('GPU'):
-            device_proto = self._run_env.devices.add()
-            device_proto.type = profiles_pb2.DeviceType.GPU
-            details = tf.config.experimental.get_device_details(device)
-            if details:
-                if 'device_name' in details:
-                    device_proto.name = details['device_name']
-                if 'compute_capability' in details:
-                    device_proto.is_cuda_enabled = True
-                    device_proto.compute_capability.major = details['compute_capability'][0]
-                    device_proto.compute_capability.minor = details['compute_capability'][1]
 
     def _copy_run_env(self, profile):
         profile.run_env.ml_framework = self._run_env.ml_framework
         profile.run_env.ml_framework_version.CopyFrom(
             self._run_env.ml_framework_version)
-        profile.run_env.devices.extend(self._run_env.devices)
 
     def _convert_to_profile(self, profile):
         overview_page_data = self._find_and_read(

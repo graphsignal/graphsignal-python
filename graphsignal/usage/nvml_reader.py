@@ -37,15 +37,15 @@ class NvmlReader():
         except BaseException:
             logger.error('Error shutting down NVML', exc_info=True)
 
-    def read(self, profile):
+    def read(self, node_usage):
         if not self._is_initialized:
             return
 
         device_count = nvmlDeviceGetCount()
         for i in range(0, device_count):
-            device_usage = profile.device_usage.add()
             handle = nvmlDeviceGetHandleByIndex(i)
 
+            device_usage = node_usage.device_usage.add()
             device_usage.device_type = profiles_pb2.DeviceType.GPU
 
             try:
@@ -56,6 +56,13 @@ class NvmlReader():
 
             try:
                 device_usage.device_name = nvmlDeviceGetName(handle)
+            except NVMLError as err:
+                log_nvml_error(err)
+
+            try:
+                cc_major, cc_minor = nvmlDeviceGetCudaComputeCapability(handle)
+                device_usage.compute_capability.major = cc_major
+                device_usage.compute_capability.minor = cc_minor
             except NVMLError as err:
                 log_nvml_error(err)
 
@@ -74,6 +81,14 @@ class NvmlReader():
             except NVMLError as err:
                 log_nvml_error(err)
 
+            try:
+                device_usage.pcie_throughput_tx = nvmlDeviceGetPcieThroughput(
+                    handle, NVML_PCIE_UTIL_TX_BYTES)
+                device_usage.pcie_throughput_rx = nvmlDeviceGetPcieThroughput(
+                    handle, NVML_PCIE_UTIL_RX_BYTES)
+            except NVMLError as err:
+                log_nvml_error(err)
+                
             try:
                 device_usage.gpu_temp_c = nvmlDeviceGetTemperature(
                     handle, NVML_TEMPERATURE_GPU)

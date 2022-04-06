@@ -12,12 +12,12 @@ import graphsignal
 from graphsignal.system_info import parse_semver
 from graphsignal.proto import profiles_pb2
 from graphsignal.profiling_span import ProfilingSpan
-from graphsignal.profilers.base_profiler import BaseProfiler
+from graphsignal.profilers.framework_profiler import FrameworkProfiler
 
 logger = logging.getLogger('graphsignal')
 
 
-class PyTorchProfiler(BaseProfiler):
+class PyTorchProfiler(FrameworkProfiler):
     __slots__ = [
         '_torch_prof',
         '_run_env'
@@ -61,23 +61,11 @@ class PyTorchProfiler(BaseProfiler):
         self._run_env = profiles_pb2.RunEnvironment()
         self._run_env.ml_framework = profiles_pb2.RunEnvironment.MLFramework.Value('PYTORCH')
         parse_semver(self._run_env.ml_framework_version, torch.__version__)
-        if torch.cuda.is_available():
-            for index in range(torch.cuda.device_count()):
-                device_proto = self._run_env.devices.add()
-                device_proto.type = profiles_pb2.DeviceType.GPU
-                device_proto.name = torch.cuda.get_device_name(index)
-                device_proto.is_cuda_enabled = True
-
-                device_properties = torch.cuda.get_device_properties(index)
-                device_proto.compute_capability.major = device_properties.major
-                device_proto.compute_capability.minor = device_properties.minor
-                device_proto.total_memory = device_properties.total_memory
 
     def _copy_run_env(self, profile):
         profile.run_env.ml_framework = self._run_env.ml_framework
         profile.run_env.ml_framework_version.CopyFrom(
             self._run_env.ml_framework_version)
-        profile.run_env.devices.extend(self._run_env.devices)
 
     def _convert_to_profile(self, profile):
         for event_avg in self._torch_prof.key_averages():

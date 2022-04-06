@@ -21,7 +21,7 @@ class GraphsignalPTCallback(TrainerCallback):
     def _start_profiler(self, span_name, span_type, args, state):
         if not self._span:
             self._span = ProfilingSpan(
-                profiler=self._profiler,
+                framework_profiler=self._profiler,
                 span_name=span_name,
                 span_type=span_type)
             if args:
@@ -60,7 +60,7 @@ class GraphsignalTFCallback(TrainerCallback):
     def _start_profiler(self, span_name, span_type, args, state):
         if not self._span:
             self._span = ProfilingSpan(
-                profiler=self._profiler,
+                framework_profiler=self._profiler,
                 span_name=span_name,
                 span_type=span_type)
             if args:

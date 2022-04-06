@@ -6,6 +6,7 @@ import time
 import resource
 import re
 import multiprocessing
+import socket
 
 import graphsignal
 from graphsignal.proto import profiles_pb2
@@ -37,10 +38,21 @@ class ProcessReader():
     def shutdown(self):
         pass
 
-    def read(self, profile):
-        process_usage = profile.process_usage
+    def read(self, node_usage):
+        pid = str(os.getpid())
+        try:
+            node_usage.hostname = socket.gethostname()
+        except BaseException:
+            logger.debug('Error reading hostname', exc_info=True)
 
-        process_usage.process_id = str(os.getpid())
+        process_usage = None
+        for pu in node_usage.process_usage:
+            if pu.process_id == pid:
+                process_usage = pu
+
+        if not process_usage:
+            process_usage = node_usage.process_usage.add()
+            process_usage.process_id = pid
 
         if not OS_WIN:
             cpu_time_ns = _read_cpu_time()

@@ -35,7 +35,7 @@ class ProflingSpanTest(unittest.TestCase):
     def test_start_stop(self, mocked_upload_profile, mocked_nvml_read, mocked_host_read,
                         mocked_stop, mocked_start):
         span = ProfilingSpan(
-            profiler=TensorflowProfiler(),
+            framework_profiler=TensorflowProfiler(),
             span_name='s1',
             span_type=profiles_pb2.Span.SpanType.TRAINING_BATCH,
             ensure_profile=True)
@@ -67,7 +67,7 @@ class ProflingSpanTest(unittest.TestCase):
                              mocked_stop, mocked_start):
         mocked_start.side_effect = Exception('ex1')
         span = ProfilingSpan(
-            profiler=TensorflowProfiler(),
+            framework_profiler=TensorflowProfiler(),
             span_name='s1',
             ensure_profile=True)
         span.stop()
@@ -94,7 +94,7 @@ class ProflingSpanTest(unittest.TestCase):
                             mocked_stop, mocked_start):
         mocked_stop.side_effect = Exception('ex1')
         span = ProfilingSpan(
-            profiler=TensorflowProfiler(),
+            framework_profiler=TensorflowProfiler(),
             span_name='s1',
             ensure_profile=True)
         span.stop()
