@@ -92,9 +92,8 @@ class ProfilingSpan(object):
                         _add_exception(self._profile, exc)
 
                 try:
-                    node_usage = self._profile.node_usage.add()
-                    graphsignal._agent.process_reader.read(node_usage)
-                    graphsignal._agent.nvml_reader.read(node_usage)
+                    graphsignal._agent.process_reader.read(self._profile)
+                    graphsignal._agent.nvml_reader.read(self._profile)
                 except Exception as exc:
                     logger.error('Error reading usage information', exc_info=True)
                     _add_exception(self._profile, exc)

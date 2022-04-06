@@ -38,21 +38,22 @@ class ProcessReader():
     def shutdown(self):
         pass
 
-    def read(self, node_usage):
+    def read(self, profile):
         pid = str(os.getpid())
-        try:
-            node_usage.hostname = socket.gethostname()
-        except BaseException:
-            logger.debug('Error reading hostname', exc_info=True)
 
         process_usage = None
-        for pu in node_usage.process_usage:
+        for pu in profile.process_usage:
             if pu.process_id == pid:
                 process_usage = pu
 
         if not process_usage:
-            process_usage = node_usage.process_usage.add()
+            process_usage = profile.process_usage.add()
             process_usage.process_id = pid
+
+        try:
+            process_usage.hostname = socket.gethostname()
+        except BaseException:
+            logger.debug('Error reading hostname', exc_info=True)
 
         if not OS_WIN:
             cpu_time_ns = _read_cpu_time()

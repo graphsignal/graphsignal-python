@@ -28,18 +28,18 @@ class ProcessReaderTest(unittest.TestCase):
 
     def test_read(self):
         profile = profiles_pb2.MLProfile()
-        node_usage = profile.node_usage.add()
         reader = graphsignal._agent.process_reader
-        reader.read(node_usage)
+        reader.read(profile)
         ProcessReader.MIN_CPU_READ_INTERVAL = 0
         time.sleep(0.2)
-        reader.read(node_usage)
+        reader.read(profile)
 
         #pp = pprint.PrettyPrinter()
         # pp.pprint(MessageToJson(profile))
 
-        self.assertIsNotNone(node_usage.process_usage[0].process_id)
-        self.assertTrue(node_usage.process_usage[0].cpu_usage_percent > 0)
-        self.assertTrue(node_usage.process_usage[0].max_rss > 0)
-        self.assertTrue(node_usage.process_usage[0].current_rss > 0)
-        self.assertTrue(node_usage.process_usage[0].vm_size > 0)
+        self.assertNotEqual(profile.process_usage[0].hostname, '')
+        self.assertNotEqual(profile.process_usage[0].process_id, '')
+        self.assertTrue(profile.process_usage[0].cpu_usage_percent > 0)
+        self.assertTrue(profile.process_usage[0].max_rss > 0)
+        self.assertTrue(profile.process_usage[0].current_rss > 0)
+        self.assertTrue(profile.process_usage[0].vm_size > 0)
