@@ -9,3 +9,4 @@ class Agent(object):
         self.uploader = None
         self.process_reader = None
         self.nvml_reader = None
+        self.metadata = None

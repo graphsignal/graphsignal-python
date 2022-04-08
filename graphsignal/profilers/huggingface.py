@@ -18,20 +18,12 @@ class GraphsignalPTCallback(TrainerCallback):
         self._profiler = PyTorchProfiler()
         self._span = None
 
-    def _start_profiler(self, span_name, span_type, args, state):
+    def _start_profiler(self, run_phase, args, state):
         if not self._span:
             self._span = ProfilingSpan(
-                framework_profiler=self._profiler,
-                span_name=span_name,
-                span_type=span_type)
-            if args:
-                if args.run_name:
-                    self._span.add_metadata('Run name', args.run_name)
-            if state:
-                if state.epoch is not None:
-                    self._span.add_metadata('Epoch', state.epoch)
-                if state.global_step is not None:
-                    self._span.add_metadata('Global step', state.global_step)
+                run_phase=run_phase,
+                is_step=True,
+                framework_profiler=self._profiler)
 
     def _stop_profiler(self):
         if self._span:
@@ -39,8 +31,7 @@ class GraphsignalPTCallback(TrainerCallback):
             self._span = None
 
     def on_step_begin(self, args, state, control, **kwarg):
-        self._start_profiler(
-            'Training step', profiles_pb2.Span.SpanType.TRAINING_STEP, args, state)
+        self._start_profiler(profiles_pb2.RunPhase.TRAINING, args, state)
 
     def on_step_end(self, args, state, control, **kwarg):
         self._stop_profiler()
@@ -57,21 +48,12 @@ class GraphsignalTFCallback(TrainerCallback):
         self._profiler = TensorflowProfiler()
         self._span = None
 
-    def _start_profiler(self, span_name, span_type, args, state):
+    def _start_profiler(self, run_phase, args, state):
         if not self._span:
             self._span = ProfilingSpan(
-                framework_profiler=self._profiler,
-                span_name=span_name,
-                span_type=span_type)
-            if args:
-                if args.run_name:
-                    self._span.add_metadata('Run name', args.run_name)
-            if state:
-                if state.epoch is not None:
-                    self._span.add_metadata('Epoch', state.epoch)
-                if state.global_step is not None:
-                    self._span.add_metadata('Global step', state.global_step)
-
+                run_phase=run_phase,
+                is_step=True,
+                framework_profiler=self._profiler)
 
     def _stop_profiler(self):
         if self._span:
@@ -79,8 +61,7 @@ class GraphsignalTFCallback(TrainerCallback):
             self._span = None
 
     def on_step_begin(self, args, state, control, **kwarg):
-        self._start_profiler(
-            'Training step', profiles_pb2.Span.SpanType.TRAINING_STEP, args, state)
+        self._start_profiler(profiles_pb2.RunPhase.TRAINING, args, state)
 
     def on_step_end(self, args, state, control, **kwarg):
         self._stop_profiler()

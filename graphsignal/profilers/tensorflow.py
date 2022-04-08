@@ -200,10 +200,10 @@ class TensorflowProfiler(FrameworkProfiler):
 
 _profiler = TensorflowProfiler()
 
-def profile_span(span_name=None, ensure_profile=False):
+def profile_batch(ensure_profile=False):
     graphsignal._check_configured()
 
     return ProfilingSpan(
-        profiler=_profiler,
-        span_name=span_name,
-        ensure_profile=ensure_profile)
+        is_batch=True,
+        ensure_profile=ensure_profile,
+        framework_profiler=_profiler)

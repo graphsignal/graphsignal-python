@@ -4,12 +4,12 @@ import sys
 from unittest.mock import patch, Mock
 
 import graphsignal
-from graphsignal.span_scheduler import SpanScheduler, select_scheduler
+from graphsignal.profile_scheduler import ProfileScheduler, select_scheduler
 
 logger = logging.getLogger('graphsignal')
 
 
-class SpanSchedulerTest(unittest.TestCase):
+class ProfileSchedulerTest(unittest.TestCase):
     def setUp(self):
         graphsignal.configure(
             api_key='k1',
@@ -20,7 +20,7 @@ class SpanSchedulerTest(unittest.TestCase):
         graphsignal.shutdown()
 
     def test_automatic(self):
-        scheduler = SpanScheduler()
+        scheduler = ProfileScheduler()
         self.assertFalse(scheduler.lock())
         scheduler.unlock()
         self.assertTrue(scheduler.lock())
@@ -29,7 +29,7 @@ class SpanSchedulerTest(unittest.TestCase):
         scheduler.unlock()
 
     def test_default(self):
-        scheduler = SpanScheduler()
+        scheduler = ProfileScheduler()
         for _ in range(scheduler.DEFAULT_SPANS[0] - 1):
             scheduler.lock()
             scheduler.unlock()
@@ -37,7 +37,7 @@ class SpanSchedulerTest(unittest.TestCase):
         scheduler.unlock()
 
     def test_ensured(self):
-        scheduler = SpanScheduler()
+        scheduler = ProfileScheduler()
         self.assertTrue(scheduler.lock(ensure=True))
         scheduler.unlock()
         self.assertFalse(scheduler.lock(ensure=False))
@@ -46,7 +46,7 @@ class SpanSchedulerTest(unittest.TestCase):
         scheduler.unlock()
 
     def test_concurrent(self):
-        scheduler = SpanScheduler()
+        scheduler = ProfileScheduler()
         self.assertTrue(scheduler.lock(ensure=True))
         self.assertFalse(scheduler.lock(ensure=True))
         self.assertFalse(scheduler.lock(ensure=True))

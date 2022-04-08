@@ -10,8 +10,6 @@ import atexit
 from graphsignal import version
 from graphsignal.agent import Agent
 from graphsignal.uploader import Uploader
-from graphsignal.span_scheduler import SpanScheduler
-from graphsignal.profiling_span import ProfilingSpan
 from graphsignal.usage.process_reader import ProcessReader
 from graphsignal.usage.nvml_reader import NvmlReader
 
@@ -61,6 +59,18 @@ def configure(api_key, workload_name, debug_mode=False):
     atexit.register(shutdown)
 
     logger.debug('Graphsignal profiler configured')
+
+
+def add_metadata(key, value):
+    _check_configured()
+
+    if key is None or value is None:
+        raise ValueError('Missing argument: api_key')
+
+    global _agent
+    if _agent.metadata is None:
+        _agent.metadata = {}
+    _agent.metadata[key] = value
 
 
 def shutdown():

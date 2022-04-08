@@ -73,10 +73,10 @@ To ensure optimal statistics and low overhead, the profiler automatically profil
 #### TensorFlow
 
 ```python
-from graphsignal.profilers.tensorflow import profile_span
+from graphsignal.profilers.tensorflow import profile_batch
 
-with profile_span() as span:
-    # training step, prediction call, etc.
+with profile_batch() as span:
+    # training batch, prediction, etc.
 ```
 
 #### Keras
@@ -91,10 +91,10 @@ model.fit(..., callbacks=[GraphsignalCallback()])
 #### PyTorch
 
 ```python
-from graphsignal.profilers.pytorch import profile_span
+from graphsignal.profilers.pytorch import profile_batch
 
-with profile_span() as span:
-    # training step, prediction call, etc.
+with profile_batch() as span:
+    # training batch, prediction, etc.
 ```
 
 #### PyTorch Lightning
@@ -140,7 +140,7 @@ model.fit(..., callbacks=[GraphsignalCallback()])
 
 ## Overhead
 
-Although profiling may add some overhead to applications, Graphsignal Profiler only profiles certain spans, e.g. training batches or prediction calls, automatically limiting the overhead.
+Although profiling may add some overhead to applications, Graphsignal Profiler only profiles certain spans, e.g. training batches or predictions, automatically limiting the overhead.
 
 
 ## Security and Privacy

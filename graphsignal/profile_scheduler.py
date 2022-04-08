@@ -12,7 +12,7 @@ _profiling_lock = Lock()
 _schedulers = {}
 
 
-class SpanScheduler(object):
+class ProfileScheduler(object):
     __slots__ = [
         '_total_span_count',
         '_ensured_span_count',
@@ -29,7 +29,7 @@ class SpanScheduler(object):
         self._ensured_span_count = 0
         self._last_interval_ts = 0
         self._span_filter = {
-            span: True for span in SpanScheduler.DEFAULT_SPANS}
+            span: True for span in ProfileScheduler.DEFAULT_SPANS}
 
     def lock(self, ensure=False):
         self._total_span_count += 1
@@ -39,7 +39,7 @@ class SpanScheduler(object):
 
         if ensure:
             self._ensured_span_count += 1
-            if self._ensured_span_count > SpanScheduler.MAX_ENSURED_SPANS:
+            if self._ensured_span_count > ProfileScheduler.MAX_ENSURED_SPANS:
                 return False
         else:
             # check if span index matches default span indexes
@@ -63,15 +63,15 @@ class SpanScheduler(object):
         _profiling_lock.release()
 
 
-def select_scheduler(span_name):
-    if span_name is None:
-        span_name = ''
+def select_scheduler(run_phase):
+    if run_phase is None:
+        run_phase = 0
 
-    if span_name in _schedulers:
-        return _schedulers[span_name]
+    if run_phase in _schedulers:
+        return _schedulers[run_phase]
     else:
         if len(_schedulers) < MAX_SCHEDULERS:
-            scheduler = _schedulers[span_name] = SpanScheduler()
+            scheduler = _schedulers[run_phase] = ProfileScheduler()
             return scheduler
         else:
             return random.choice(list(_schedulers.values()))

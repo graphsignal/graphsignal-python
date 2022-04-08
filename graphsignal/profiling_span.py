@@ -6,7 +6,8 @@ import traceback
 import graphsignal
 from graphsignal import system_info
 from graphsignal.proto import profiles_pb2
-from graphsignal.span_scheduler import select_scheduler
+from graphsignal.profile_scheduler import select_scheduler
+from graphsignal.span_counter import get_span_stats, update_span_stats
 
 logger = logging.getLogger('graphsignal')
 
@@ -18,17 +19,19 @@ class ProfilingSpan(object):
         '_is_scheduled',
         '_is_profiling',
         '_profile',
-        '_metadata',
-        '_stop_lock'
+        '_stop_lock',
+        '_run_phase',
+        '_start_us',
+        '_is_batch',
+        '_is_step'
     ]
 
-    def __init__(self, framework_profiler=None, span_name=None, span_type=None, ensure_profile=False):
-        self._scheduler = select_scheduler(str(span_type))
+    def __init__(self, run_phase=None, is_batch=False, is_step=False, ensure_profile=False, framework_profiler=None):
+        self._scheduler = select_scheduler(run_phase)
         self._framework_profiler = framework_profiler
         self._is_scheduled = False
         self._is_profiling = False
         self._profile = None
-        self._metadata = None
         self._stop_lock = Lock()
 
         if self._scheduler.lock(ensure=ensure_profile):
@@ -37,10 +40,8 @@ class ProfilingSpan(object):
             self._profile.workload_name = graphsignal._agent.workload_name
             self._profile.run_id = graphsignal._agent.run_id
             self._profile.run_start_ms = graphsignal._agent.run_start_ms
-            if span_name:
-                self._profile.span.name = span_name
-            if span_type:
-                self._profile.span.type = span_type
+            if run_phase:
+                self._profile.run_phase = run_phase
             self._profile.run_env.CopyFrom(system_info.cached_run_env)
 
             if self._framework_profiler:
@@ -55,30 +56,34 @@ class ProfilingSpan(object):
 
             self._profile.start_us = _timestamp_us()
 
+        self._run_phase = run_phase
+        self._is_batch = is_batch
+        self._is_step = is_step
+        self._start_us = _timestamp_us()
+
     def __enter__(self):
         return self
 
     def __exit__(self, *exc):
         self.stop()
 
-    def set_name(self, name):
-        if self._is_scheduled:
-            if name:
-                self._profile.span_name = name
-
-    def add_metadata(self, key, value):
-        if self._is_scheduled:
-            if self._metadata is None:
-                self._metadata = {}
-            self._metadata[key] = value
-
     def stop(self):
         with self._stop_lock:
+            span_stats = update_span_stats(self._run_phase, _timestamp_us() - self._start_us)
+
             if self._is_scheduled:
                 self._profile.end_us = _timestamp_us()
-                self._profile.span.duration_us = self._profile.end_us - self._profile.start_us
-                if self._metadata is not None:
-                    for key, value in self._metadata.items():
+
+                if self._is_batch:
+                    self._profile.batch_stats.count = span_stats.count
+                    self._profile.batch_stats.total_time_us = span_stats.total_time_us
+                
+                if self._is_step:
+                    self._profile.step_stats.count = span_stats.count
+                    self._profile.step_stats.total_time_us = span_stats.total_time_us
+
+                if graphsignal._agent.metadata is not None:
+                    for key, value in graphsignal._agent.metadata.items():
                         entry = self._profile.metadata.add()
                         entry.key = str(key)
                         entry.value = str(value)
