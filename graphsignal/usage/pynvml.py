@@ -1710,6 +1710,22 @@ def nvmlDeviceGetTopologyCommonAncestor(device1, device2):
 
 # Added to pynvml.py 
 
+nvmlDeviceArchitecture_t = c_uint
+NVML_DEVICE_ARCH_KEPLER  = 2
+NVML_DEVICE_ARCH_MAXWELL = 3
+NVML_DEVICE_ARCH_PASCAL  = 4
+NVML_DEVICE_ARCH_VOLTA   = 5
+NVML_DEVICE_ARCH_TURING  = 6
+NVML_DEVICE_ARCH_AMPERE  = 7
+NVML_DEVICE_ARCH_UNKNOWN = 0
+
+def nvmlDeviceGetArchitecture(device):
+    c_arch = nvmlDeviceArchitecture_t()
+    fn = _nvmlGetFunctionPointer("nvmlDeviceGetArchitecture")
+    ret = fn(device, byref(c_arch))
+    _nvmlCheckReturn(ret)
+    return c_arch.value
+
 def nvmlDeviceGetCudaComputeCapability(device):
     c_major = c_int()
     c_minor = c_int()
@@ -1717,7 +1733,6 @@ def nvmlDeviceGetCudaComputeCapability(device):
     ret = fn(device, byref(c_major), byref(c_minor))
     _nvmlCheckReturn(ret)
     return c_major.value, c_minor.value
-
 
 
 

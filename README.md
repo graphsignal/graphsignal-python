@@ -75,7 +75,7 @@ To ensure optimal statistics and low overhead, the profiler automatically profil
 ```python
 from graphsignal.profilers.tensorflow import profile_batch
 
-with profile_batch() as span:
+with profile_batch():
     # training batch, prediction, etc.
 ```
 
@@ -93,7 +93,7 @@ model.fit(..., callbacks=[GraphsignalCallback()])
 ```python
 from graphsignal.profilers.pytorch import profile_batch
 
-with profile_batch() as span:
+with profile_batch():
     # training batch, prediction, etc.
 ```
 

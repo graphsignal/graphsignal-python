@@ -40,6 +40,7 @@ class NvmlReaderTest(unittest.TestCase):
             self.assertNotEqual(device_usage.hostname, '')
             self.assertNotEqual(device_usage.device_id, '')
             self.assertNotEqual(device_usage.device_name, '')
+            self.assertNotEqual(device_usage.architecture, '')
             self.assertTrue(device_usage.compute_capability.major > 0)
             self.assertTrue(device_usage.compute_capability.minor > 0)
             self.assertTrue(device_usage.mem_total > 0)

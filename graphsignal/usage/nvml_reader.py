@@ -66,6 +66,23 @@ class NvmlReader():
                 log_nvml_error(err)
 
             try:
+                arch = nvmlDeviceGetArchitecture(handle)
+                if arch == NVML_DEVICE_ARCH_KEPLER:
+                    device_usage.architecture = 'Kepler'
+                elif arch == NVML_DEVICE_ARCH_MAXWELL:
+                    device_usage.architecture = 'Maxwell'
+                elif arch == NVML_DEVICE_ARCH_PASCAL:
+                    device_usage.architecture = 'Pascal'
+                elif arch == NVML_DEVICE_ARCH_VOLTA:
+                    device_usage.architecture = 'Volta'
+                elif arch == NVML_DEVICE_ARCH_TURING:
+                    device_usage.architecture = 'Turing'
+                elif arch == NVML_DEVICE_ARCH_AMPERE:
+                    device_usage.architecture = 'Ampere'
+            except NVMLError as err:
+                log_nvml_error(err)
+
+            try:
                 cc_major, cc_minor = nvmlDeviceGetCudaComputeCapability(handle)
                 device_usage.compute_capability.major = cc_major
                 device_usage.compute_capability.minor = cc_minor
