@@ -7,12 +7,14 @@
 
 Graphsignal is a machine learning profiler. It helps data scientists and ML engineers make model training and inference faster and more efficient. 
 
-* Optimize machine learning by analyzing performance summaries, resource usage and operation level statistics.
+* Optimize training and inference by analyzing performance summaries, resource usage and operation level statistics.
 * Start profiling notebooks, scripts and model serving automatically by adding a few lines of code.
 * Use the profiler in local, remote or cloud environment without installing any additional software or opening inbound ports.
 * Keep data private; no code or data is sent to Graphsignal cloud, only run statistics and metadata.
 
-[![Data Analysis](https://graphsignal.com/external/profile-dashboard.png)](https://graphsignal.com)
+**[Watch 2-minute introduction](https://www.youtube.com/watch?v=NHKmiRDarUw)**.
+
+[![Profile Analysis](https://graphsignal.com/external/profile-dashboard.png)](https://www.youtube.com/watch?v=NHKmiRDarUw)
 
 Learn more at [graphsignal.com](https://graphsignal.com).
 
@@ -118,7 +120,7 @@ trainer = Trainer(..., callbacks=[GraphsignalPTCallback()])
 
 ### 4. Dashboards
 
-After profiling is setup, [sign in](https://app.graphsignal.com/signin) to Graphsignal to analyze recorded profiles.
+After profiling is setup, [open](https://app.graphsignal.com/) to Graphsignal to analyze recorded profiles.
 
 
 ## Example
