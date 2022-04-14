@@ -40,8 +40,6 @@ class ProfilingSpanTest(unittest.TestCase):
 
         span = ProfilingSpan(
             run_phase=profiles_pb2.RunPhase.TRAINING,
-            is_batch=True,
-            is_step=True,
             ensure_profile=True,
             framework_profiler=TensorflowProfiler())
         span.stop()
@@ -55,8 +53,6 @@ class ProfilingSpanTest(unittest.TestCase):
         self.assertEqual(profile.run_phase, profiles_pb2.RunPhase.TRAINING)
         self.assertTrue(profile.start_us > 0)
         self.assertTrue(profile.end_us > 0)
-        self.assertTrue(profile.batch_stats.count > 0)
-        self.assertTrue(profile.batch_stats.total_time_us >= 0)
         self.assertTrue(profile.step_stats.count > 0)
         self.assertTrue(profile.step_stats.total_time_us >= 0)
         self.assertEqual(profile.metadata[0].key, 'k1')

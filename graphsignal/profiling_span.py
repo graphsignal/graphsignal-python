@@ -21,12 +21,10 @@ class ProfilingSpan(object):
         '_profile',
         '_stop_lock',
         '_run_phase',
-        '_start_us',
-        '_is_batch',
-        '_is_step'
+        '_start_us'
     ]
 
-    def __init__(self, run_phase=None, is_batch=False, is_step=False, ensure_profile=False, framework_profiler=None):
+    def __init__(self, run_phase=None, ensure_profile=False, framework_profiler=None):
         self._scheduler = select_scheduler(run_phase)
         self._framework_profiler = framework_profiler
         self._is_scheduled = False
@@ -57,8 +55,6 @@ class ProfilingSpan(object):
             self._profile.start_us = _timestamp_us()
 
         self._run_phase = run_phase
-        self._is_batch = is_batch
-        self._is_step = is_step
         self._start_us = _timestamp_us()
 
     def __enter__(self):
@@ -74,13 +70,8 @@ class ProfilingSpan(object):
             if self._is_scheduled:
                 self._profile.end_us = _timestamp_us()
 
-                if self._is_batch:
-                    self._profile.batch_stats.count = span_stats.count
-                    self._profile.batch_stats.total_time_us = span_stats.total_time_us
-                
-                if self._is_step:
-                    self._profile.step_stats.count = span_stats.count
-                    self._profile.step_stats.total_time_us = span_stats.total_time_us
+                self._profile.step_stats.count = span_stats.count
+                self._profile.step_stats.total_time_us = span_stats.total_time_us
 
                 if graphsignal._agent.metadata is not None:
                     for key, value in graphsignal._agent.metadata.items():

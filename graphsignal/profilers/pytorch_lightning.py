@@ -25,7 +25,6 @@ class GraphsignalCallback(Callback):
         if not self._span:
             self._span = ProfilingSpan(
                 run_phase=run_phase,
-                is_batch=True,
                 framework_profiler=self._profiler)
 
     def _stop_profiler(self):

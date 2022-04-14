@@ -7,8 +7,9 @@ from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
-from graphsignal.profilers.tensorflow import TensorflowProfiler
+from graphsignal.profilers.tensorflow import profile_batch
 from graphsignal.proto import profiles_pb2
+from graphsignal.uploader import Uploader
 
 logger = logging.getLogger('graphsignal')
 
@@ -25,9 +26,8 @@ class TensorflowProfilerTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    def test_start_stop(self):
-        profiler = TensorflowProfiler()
-
+    @patch.object(Uploader, 'upload_profile')
+    def test_profile_batch(self, mocked_upload_profile):
         @tf.function
         def f(x):
             while tf.reduce_sum(x) > 1:
@@ -35,10 +35,10 @@ class TensorflowProfilerTest(unittest.TestCase):
                 x = tf.tanh(x)
             return x
 
-        profiler.start()
-        f(tf.random.uniform([5]))
-        profile = profiles_pb2.MLProfile()
-        profiler.stop(profile)
+        with profile_batch(ensure_profile=True):
+            f(tf.random.uniform([5]))
+
+        profile = mocked_upload_profile.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(profile))
@@ -46,6 +46,9 @@ class TensorflowProfilerTest(unittest.TestCase):
         self.assertEqual(
             profile.run_env.ml_framework,
             profiles_pb2.RunEnvironment.MLFramework.TENSORFLOW)
+
+        self.assertTrue(profile.step_stats.count > 0)
+        self.assertTrue(profile.step_stats.total_time_us > 0)
 
         test_op_stats = None
         for op_stats in profile.op_stats:

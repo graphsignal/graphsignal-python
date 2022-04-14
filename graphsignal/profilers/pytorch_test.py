@@ -7,8 +7,9 @@ from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
-from graphsignal.profilers.pytorch import PyTorchProfiler
+from graphsignal.profilers.pytorch import profile_batch
 from graphsignal.proto import profiles_pb2
+from graphsignal.uploader import Uploader
 
 logger = logging.getLogger('graphsignal')
 
@@ -27,9 +28,8 @@ class PyTorchProfilerTest(unittest.TestCase):
             torch.cuda.empty_cache()
         graphsignal.shutdown()
 
-    def test_start_stop(self):
-        profiler = PyTorchProfiler()
-
+    @patch.object(Uploader, 'upload_profile')
+    def test_profile_batch(self, mocked_upload_profile):
         x = torch.arange(-5, 5, 0.1).view(-1, 1)
         y = -5 * x + 0.1 * torch.randn(x.size())
         model = torch.nn.Linear(1, 1)
@@ -40,16 +40,14 @@ class PyTorchProfilerTest(unittest.TestCase):
         criterion = torch.nn.MSELoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
 
-        profiler.start()
+        with profile_batch(ensure_profile=True):
+            y1 = model(x)
+            loss = criterion(y1, y)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-        y1 = model(x)
-        loss = criterion(y1, y)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        profile = profiles_pb2.MLProfile()
-        profiler.stop(profile)
+        profile = mocked_upload_profile.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(profile))
@@ -57,6 +55,9 @@ class PyTorchProfilerTest(unittest.TestCase):
         self.assertEqual(
             profile.run_env.ml_framework,
             profiles_pb2.RunEnvironment.MLFramework.PYTORCH)
+
+        self.assertTrue(profile.step_stats.count > 0)
+        self.assertTrue(profile.step_stats.total_time_us > 0)
 
         test_op_stats = None
         for op_stats in profile.op_stats:

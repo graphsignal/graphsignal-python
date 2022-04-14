@@ -77,6 +77,9 @@ class PyTorchLightningTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(profile))
 
+        self.assertTrue(profile.step_stats.count > 0)
+        self.assertTrue(profile.step_stats.total_time_us > 0)
+
         test_op_stats = None
         for op_stats in profile.op_stats:
             if op_stats.op_name == 'aten::addmm':

@@ -128,6 +128,5 @@ def profile_batch(ensure_profile=False):
     graphsignal._check_configured()
 
     return ProfilingSpan(
-        is_batch=True,
         ensure_profile=ensure_profile,
         framework_profiler=_profiler)
