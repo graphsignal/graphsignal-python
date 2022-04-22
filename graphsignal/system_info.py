@@ -9,6 +9,10 @@ from graphsignal.proto import profiles_pb2
 
 logger = logging.getLogger('graphsignal')
 
+OS_LINUX = (sys.platform.startswith('linux'))
+OS_DARWIN = (sys.platform == 'darwin')
+OS_WIN = (sys.platform == 'win32')
+
 version_regexp = re.compile('^(\\d+)\\.?(\\d+)?\\.?(\\d+)?')
 
 
@@ -18,8 +22,9 @@ def _read_run_env():
     try:
         run_env.platform = sys.platform
         run_env.machine = platform.machine()
-        run_env.os_name = os.uname().sysname
-        run_env.os_version = os.uname().release
+        if not OS_WIN:
+            run_env.os_name = os.uname().sysname
+            run_env.os_version = os.uname().release
         run_env.runtime = profiles_pb2.RunEnvironment.Runtime.PYTHON
         run_env.runtime_version.major = sys.version_info.major
         run_env.runtime_version.minor = sys.version_info.minor

@@ -27,8 +27,6 @@ class KerasCallbackTest(unittest.TestCase):
     @patch.object(Uploader, 'upload_profile')
     def test_callback(self, mocked_upload_profile):
         import tensorflow as tf
-        if len(tf.config.list_physical_devices('GPU')) == 0:
-            return
         import tensorflow_datasets as tfds
         tfds.disable_progress_bar()
 
@@ -82,7 +80,7 @@ class KerasCallbackTest(unittest.TestCase):
 
         test_op_stats = None
         for op_stats in profile.op_stats:
-            if op_stats.op_type == 'MatMul':
+            if 'MatMul' in op_stats.op_type:
                 test_op_stats = op_stats
                 break
         self.assertIsNotNone(test_op_stats)

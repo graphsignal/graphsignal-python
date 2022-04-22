@@ -39,7 +39,8 @@ class ProcessReaderTest(unittest.TestCase):
 
         self.assertNotEqual(profile.process_usage[0].hostname, '')
         self.assertNotEqual(profile.process_usage[0].process_id, '')
-        self.assertTrue(profile.process_usage[0].cpu_usage_percent > 0)
-        self.assertTrue(profile.process_usage[0].max_rss > 0)
-        self.assertTrue(profile.process_usage[0].current_rss > 0)
-        self.assertTrue(profile.process_usage[0].vm_size > 0)
+        if sys.platform != 'win32':
+            self.assertTrue(profile.process_usage[0].cpu_usage_percent > 0)
+            self.assertTrue(profile.process_usage[0].max_rss > 0)
+            self.assertTrue(profile.process_usage[0].current_rss > 0)
+            self.assertTrue(profile.process_usage[0].vm_size > 0)

@@ -3,10 +3,13 @@ import logging
 import os
 import sys
 import time
-import resource
 import re
 import multiprocessing
 import socket
+try:
+    import resource
+except ImportError:
+    pass
 
 import graphsignal
 from graphsignal.proto import profiles_pb2
