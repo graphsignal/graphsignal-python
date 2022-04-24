@@ -37,17 +37,17 @@ def configure(api_key, workload_name, debug_mode=False):
     else:
         logger.setLevel(logging.WARNING)
 
-    if not api_key:
-        raise ValueError('Missing argument: api_key')
+    if not api_key or not isinstance(api_key, str):
+        raise ValueError('Missing or invalid argument: api_key')
 
-    if not workload_name:
-        raise ValueError('Missing argument: workload_name')
+    if not workload_name or not isinstance(workload_name, str):
+        raise ValueError('Missing or invalid argument: workload_name')
 
     _agent = Agent()
     _agent.api_key = api_key
     _agent.run_id = _uuid_sha1(size=12)
     _agent.run_start_ms = int(time.time() * 1e3)
-    _agent.workload_name = workload_name
+    _agent.workload_name = workload_name[:250]
     _agent.debug_mode = debug_mode
     _agent.uploader = Uploader()
     _agent.uploader.configure()
@@ -61,16 +61,19 @@ def configure(api_key, workload_name, debug_mode=False):
     logger.debug('Graphsignal profiler configured')
 
 
-def add_metadata(key, value):
+def add_parameter(name, value):
     _check_configured()
 
-    if key is None or value is None:
-        raise ValueError('Missing argument: api_key')
+    if name is None or not isinstance(name, str):
+        raise ValueError('Missing or invalid argument: name')
+
+    if value is None:
+        raise ValueError('Missing argument: value')
 
     global _agent
-    if _agent.metadata is None:
-        _agent.metadata = {}
-    _agent.metadata[key] = value
+    if _agent.params is None:
+        _agent.params = {}
+    _agent.params[name[:250]] = str(value)[:1000]
 
 
 def shutdown():

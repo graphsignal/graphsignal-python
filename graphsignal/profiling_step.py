@@ -73,11 +73,11 @@ class ProfilingStep(object):
                 self._profile.step_stats.count = step_stats.count
                 self._profile.step_stats.total_time_us = step_stats.total_time_us
 
-                if graphsignal._agent.metadata is not None:
-                    for key, value in graphsignal._agent.metadata.items():
-                        entry = self._profile.metadata.add()
-                        entry.key = str(key)
-                        entry.value = str(value)
+                if graphsignal._agent.params is not None:
+                    for name, value in graphsignal._agent.params.items():
+                        entry = self._profile.params.add()
+                        entry.name = name
+                        entry.value = value
 
                 if self._framework_profiler:
                     try:

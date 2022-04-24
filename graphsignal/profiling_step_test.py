@@ -34,9 +34,9 @@ class ProfilingStepTest(unittest.TestCase):
     @patch.object(Uploader, 'upload_profile')
     def test_start_stop(self, mocked_upload_profile, mocked_nvml_read, mocked_host_read,
                         mocked_stop, mocked_start):
-        graphsignal.add_metadata('k1', 'v1')
-        graphsignal.add_metadata('k1', 'v2')
-        graphsignal.add_metadata('k3', 'v3')
+        graphsignal.add_parameter('n1', 'v1')
+        graphsignal.add_parameter('n1', 'v2')
+        graphsignal.add_parameter('n3', 'v3')
 
         step = ProfilingStep(
             run_phase=profiles_pb2.RunPhase.TRAINING,
@@ -55,10 +55,10 @@ class ProfilingStepTest(unittest.TestCase):
         self.assertTrue(profile.end_us > 0)
         self.assertTrue(profile.step_stats.count > 0)
         self.assertTrue(profile.step_stats.total_time_us >= 0)
-        self.assertEqual(profile.metadata[0].key, 'k1')
-        self.assertEqual(profile.metadata[0].value, 'v2')
-        self.assertEqual(profile.metadata[1].key, 'k3')
-        self.assertEqual(profile.metadata[1].value, 'v3')
+        self.assertEqual(profile.params[0].name, 'n1')
+        self.assertEqual(profile.params[0].value, 'v2')
+        self.assertEqual(profile.params[1].name, 'n3')
+        self.assertEqual(profile.params[1].value, 'v3')
 
     @patch.object(TensorflowProfiler, 'start', return_value=True)
     @patch.object(TensorflowProfiler, 'stop', return_value=True)
