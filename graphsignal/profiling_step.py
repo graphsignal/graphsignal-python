@@ -7,12 +7,12 @@ import graphsignal
 from graphsignal import system_info
 from graphsignal.proto import profiles_pb2
 from graphsignal.profile_scheduler import select_scheduler
-from graphsignal.span_counter import get_span_stats, update_span_stats
+from graphsignal.step_counter import get_step_stats, update_step_stats
 
 logger = logging.getLogger('graphsignal')
 
 
-class ProfilingSpan(object):
+class ProfilingStep(object):
     __slots__ = [
         '_scheduler',
         '_framework_profiler',
@@ -65,13 +65,13 @@ class ProfilingSpan(object):
 
     def stop(self):
         with self._stop_lock:
-            span_stats = update_span_stats(self._run_phase, _timestamp_us() - self._start_us)
+            step_stats = update_step_stats(self._run_phase, _timestamp_us() - self._start_us)
 
             if self._is_scheduled:
                 self._profile.end_us = _timestamp_us()
 
-                self._profile.step_stats.count = span_stats.count
-                self._profile.step_stats.total_time_us = span_stats.total_time_us
+                self._profile.step_stats.count = step_stats.count
+                self._profile.step_stats.total_time_us = step_stats.total_time_us
 
                 if graphsignal._agent.metadata is not None:
                     for key, value in graphsignal._agent.metadata.items():

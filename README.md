@@ -5,7 +5,7 @@
 [![SaaS Status](https://img.shields.io/uptimerobot/status/m787882560-d6b932eb0068e8e4ade7f40c?label=SaaS%20status)](https://stats.uptimerobot.com/gMBNpCqqqJ)
 
 
-Graphsignal is a machine learning profiler. It helps data scientists and ML engineers make model training and inference faster and more efficient. 
+Graphsignal is a machine learning profiler. It helps data scientists and ML engineers make model training and inference faster and more efficient. It is built for real-world use cases and allows ML practitioners to:
 
 * Optimize training and inference by benchmarking and analyzing performance summaries, resource usage and ML operations.
 * Start profiling notebooks, scripts and model serving automatically by adding a few lines of code.
@@ -73,9 +73,9 @@ To ensure optimal statistics and low overhead, the profiler automatically profil
 #### TensorFlow
 
 ```python
-from graphsignal.profilers.tensorflow import profile_batch
+from graphsignal.profilers.tensorflow import profile_step
 
-with profile_batch():
+with profile_step():
     # training batch, prediction, etc.
 ```
 
@@ -91,9 +91,9 @@ model.fit(..., callbacks=[GraphsignalCallback()])
 #### PyTorch
 
 ```python
-from graphsignal.profilers.pytorch import profile_batch
+from graphsignal.profilers.pytorch import profile_step
 
-with profile_batch():
+with profile_step():
     # training batch, prediction, etc.
 ```
 
@@ -140,7 +140,7 @@ model.fit(..., callbacks=[GraphsignalCallback()])
 
 ## Overhead
 
-Although profiling may add some overhead to applications, Graphsignal Profiler only profiles certain spans, e.g. training batches or predictions, automatically limiting the overhead.
+Although profiling may add some overhead to applications, Graphsignal Profiler only profiles certain steps, e.g. training batches or predictions, automatically limiting the overhead.
 
 
 ## Security and Privacy

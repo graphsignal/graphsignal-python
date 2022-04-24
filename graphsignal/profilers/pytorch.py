@@ -11,7 +11,7 @@ from torch.autograd import DeviceType
 import graphsignal
 from graphsignal.system_info import parse_semver
 from graphsignal.proto import profiles_pb2
-from graphsignal.profiling_span import ProfilingSpan
+from graphsignal.profiling_step import ProfilingStep
 from graphsignal.profilers.framework_profiler import FrameworkProfiler
 
 logger = logging.getLogger('graphsignal')
@@ -124,9 +124,9 @@ class PyTorchProfiler(FrameworkProfiler):
 
 _profiler = PyTorchProfiler()
 
-def profile_batch(ensure_profile=False):
+def profile_step(ensure_profile=False):
     graphsignal._check_configured()
 
-    return ProfilingSpan(
+    return ProfilingStep(
         ensure_profile=ensure_profile,
         framework_profiler=_profiler)

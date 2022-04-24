@@ -6,7 +6,7 @@ from unittest.mock import patch, Mock
 
 import graphsignal
 from graphsignal.proto import profiles_pb2
-from graphsignal.profiling_span import ProfilingSpan
+from graphsignal.profiling_step import ProfilingStep
 from graphsignal.profilers.tensorflow import TensorflowProfiler
 from graphsignal.usage.process_reader import ProcessReader
 from graphsignal.usage.nvml_reader import NvmlReader
@@ -15,7 +15,7 @@ from graphsignal.uploader import Uploader
 logger = logging.getLogger('graphsignal')
 
 
-class ProfilingSpanTest(unittest.TestCase):
+class ProfilingStepTest(unittest.TestCase):
     def setUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -38,11 +38,11 @@ class ProfilingSpanTest(unittest.TestCase):
         graphsignal.add_metadata('k1', 'v2')
         graphsignal.add_metadata('k3', 'v3')
 
-        span = ProfilingSpan(
+        step = ProfilingStep(
             run_phase=profiles_pb2.RunPhase.TRAINING,
             ensure_profile=True,
             framework_profiler=TensorflowProfiler())
-        span.stop()
+        step.stop()
 
         mocked_start.assert_called_once()
         mocked_stop.assert_called_once()
@@ -68,10 +68,10 @@ class ProfilingSpanTest(unittest.TestCase):
     def test_start_exception(self, mocked_upload_profile, mocked_nvml_read, mocked_host_read,
                              mocked_stop, mocked_start):
         mocked_start.side_effect = Exception('ex1')
-        span = ProfilingSpan(
+        step = ProfilingStep(
             ensure_profile=True,
             framework_profiler=TensorflowProfiler())
-        span.stop()
+        step.stop()
 
         mocked_start.assert_called_once()
         mocked_stop.assert_not_called()
@@ -92,10 +92,10 @@ class ProfilingSpanTest(unittest.TestCase):
     def test_stop_exception(self, mocked_upload_profile, mocked_nvml_read, mocked_host_read,
                             mocked_stop, mocked_start):
         mocked_stop.side_effect = Exception('ex1')
-        span = ProfilingSpan(
+        step = ProfilingStep(
             ensure_profile=True,
             framework_profiler=TensorflowProfiler())
-        span.stop()
+        step.stop()
 
         mocked_start.assert_called_once()
         mocked_stop.assert_called_once()

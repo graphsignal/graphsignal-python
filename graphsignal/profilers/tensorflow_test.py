@@ -7,7 +7,7 @@ from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
-from graphsignal.profilers.tensorflow import profile_batch
+from graphsignal.profilers.tensorflow import profile_step
 from graphsignal.proto import profiles_pb2
 from graphsignal.uploader import Uploader
 
@@ -27,7 +27,7 @@ class TensorflowProfilerTest(unittest.TestCase):
         graphsignal.shutdown()
 
     @patch.object(Uploader, 'upload_profile')
-    def test_profile_batch(self, mocked_upload_profile):
+    def test_profile_step(self, mocked_upload_profile):
         @tf.function
         def f(x):
             while tf.reduce_sum(x) > 1:
@@ -35,7 +35,7 @@ class TensorflowProfilerTest(unittest.TestCase):
                 x = tf.tanh(x)
             return x
 
-        with profile_batch(ensure_profile=True):
+        with profile_step(ensure_profile=True):
             f(tf.random.uniform([5]))
 
         profile = mocked_upload_profile.call_args[0][0]

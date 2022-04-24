@@ -14,9 +14,9 @@ _schedulers = {}
 
 class ProfileScheduler(object):
     __slots__ = [
-        '_total_span_count',
-        '_ensured_span_count',
-        '_span_filter',
+        '_total_step_count',
+        '_ensured_step_count',
+        '_step_filter',
         '_last_interval_ts'
     ]
 
@@ -25,30 +25,30 @@ class ProfileScheduler(object):
     MIN_SPAN_INTERVAL_SEC = 20
 
     def __init__(self):
-        self._total_span_count = 0
-        self._ensured_span_count = 0
+        self._total_step_count = 0
+        self._ensured_step_count = 0
         self._last_interval_ts = 0
-        self._span_filter = {
-            span: True for span in ProfileScheduler.DEFAULT_SPANS}
+        self._step_filter = {
+            step: True for step in ProfileScheduler.DEFAULT_SPANS}
 
     def lock(self, ensure=False):
-        self._total_span_count += 1
+        self._total_step_count += 1
 
         if _profiling_lock.locked():
             return False
 
         if ensure:
-            self._ensured_span_count += 1
-            if self._ensured_span_count > ProfileScheduler.MAX_ENSURED_SPANS:
+            self._ensured_step_count += 1
+            if self._ensured_step_count > ProfileScheduler.MAX_ENSURED_SPANS:
                 return False
         else:
-            # check if span index matches default span indexes
-            if self._total_span_count not in self._span_filter:
-                # skip first span
-                if self._total_span_count == 1:
+            # check if step index matches default step indexes
+            if self._total_step_count not in self._step_filter:
+                # skip first step
+                if self._total_step_count == 1:
                     return False
 
-                # comply with interval between spans
+                # comply with interval between steps
                 if self._last_interval_ts > time.time() - \
                         self.MIN_SPAN_INTERVAL_SEC:
                     return False

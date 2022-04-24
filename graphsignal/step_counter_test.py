@@ -4,12 +4,12 @@ import sys
 from unittest.mock import patch, Mock
 
 import graphsignal
-from graphsignal.span_counter import reset_span_stats, get_span_stats, update_span_stats
+from graphsignal.step_counter import reset_step_stats, get_step_stats, update_step_stats
 
 logger = logging.getLogger('graphsignal')
 
 
-class SpanCounterTest(unittest.TestCase):
+class StepCounterTest(unittest.TestCase):
     def setUp(self):
         graphsignal.configure(
             api_key='k1',
@@ -20,17 +20,17 @@ class SpanCounterTest(unittest.TestCase):
         graphsignal.shutdown()
 
     def test_update(self):
-        reset_span_stats()
+        reset_step_stats()
         
-        ss = get_span_stats(1)
+        ss = get_step_stats(1)
         self.assertEqual(ss.count, 0)
         self.assertEqual(ss.total_time_us, 0)
 
-        ss = update_span_stats(1, 100)
-        ss = update_span_stats(1, 200)
+        ss = update_step_stats(1, 100)
+        ss = update_step_stats(1, 200)
         self.assertEqual(ss.count, 2)
         self.assertEqual(ss.total_time_us, 300)
 
-        ss = get_span_stats(2)
+        ss = get_step_stats(2)
         self.assertEqual(ss.count, 0)
         self.assertEqual(ss.total_time_us, 0)

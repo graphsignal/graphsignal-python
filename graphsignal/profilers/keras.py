@@ -4,7 +4,7 @@ from tensorflow.keras.callbacks import Callback
 
 from graphsignal.proto import profiles_pb2
 from graphsignal.profilers.tensorflow import TensorflowProfiler
-from graphsignal.profiling_span import ProfilingSpan
+from graphsignal.profiling_step import ProfilingStep
 
 logger = logging.getLogger('graphsignal')
 
@@ -12,23 +12,23 @@ logger = logging.getLogger('graphsignal')
 class GraphsignalCallback(Callback):
     __slots__ = [
         '_profiler',
-        '_span'
+        '_step'
     ]
 
     def __init__(self):
         self._profiler = TensorflowProfiler()
-        self._span = None
+        self._step = None
 
     def _start_profiler(self, run_phase):
-        if not self._span:
-            self._span = ProfilingSpan(
+        if not self._step:
+            self._step = ProfilingStep(
                 run_phase=run_phase,
                 framework_profiler=self._profiler)
 
     def _stop_profiler(self):
-        if self._span:
-            self._span.stop()
-            self._span = None
+        if self._step:
+            self._step.stop()
+            self._step = None
 
     def on_train_batch_begin(self, batch, logs=None):
         self._start_profiler(profiles_pb2.RunPhase.TRAINING)

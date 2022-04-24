@@ -7,7 +7,7 @@ from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
-from graphsignal.profilers.pytorch import profile_batch
+from graphsignal.profilers.pytorch import profile_step
 from graphsignal.proto import profiles_pb2
 from graphsignal.uploader import Uploader
 
@@ -29,7 +29,7 @@ class PyTorchProfilerTest(unittest.TestCase):
         graphsignal.shutdown()
 
     @patch.object(Uploader, 'upload_profile')
-    def test_profile_batch(self, mocked_upload_profile):
+    def test_profile_step(self, mocked_upload_profile):
         x = torch.arange(-5, 5, 0.1).view(-1, 1)
         y = -5 * x + 0.1 * torch.randn(x.size())
         model = torch.nn.Linear(1, 1)
@@ -40,7 +40,7 @@ class PyTorchProfilerTest(unittest.TestCase):
         criterion = torch.nn.MSELoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
 
-        with profile_batch(ensure_profile=True):
+        with profile_step(ensure_profile=True):
             y1 = model(x)
             loss = criterion(y1, y)
             optimizer.zero_grad()
