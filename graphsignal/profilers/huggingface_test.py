@@ -73,6 +73,8 @@ class HuggingFacePTCallbackTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(profile))
 
+        self.assertTrue(len(profile.params) > 0)
+
         self.assertTrue(profile.step_stats.count > 0)
         self.assertTrue(profile.step_stats.total_time_us > 0)
         #self.assertTrue(profile.step_stats.total_flops > 0)

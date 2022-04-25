@@ -115,6 +115,16 @@ trainer = Trainer(..., callbacks=[GraphsignalPTCallback()])
 # or trainer.add_callback(GraphsignalPTCallback())
 ```
 
+#### Other frameworks
+
+ML operation and kernel statistics are not supported by generic profiler.
+
+```python
+from graphsignal.profilers.generic import profile_step
+
+with profile_step():
+    # training batch, prediction, etc.
+```
 
 ### 4. Dashboards
 
