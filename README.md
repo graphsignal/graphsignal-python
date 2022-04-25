@@ -12,7 +12,7 @@ Graphsignal is a machine learning profiler. It helps data scientists and ML engi
 * Use the profiler in local, remote or cloud environment without installing any additional software or opening inbound ports.
 * Keep data private; no code or data is sent to Graphsignal cloud, only run statistics and metadata.
 
-[![Profile Analysis](https://graphsignal.com/external/profile-dashboard.png)](https://graphsignal.com/)
+[![Dashboards](https://graphsignal.com/external/screencast-dashboards.gif)](https://graphsignal.com/)
 
 Learn more at [graphsignal.com](https://graphsignal.com).
 
