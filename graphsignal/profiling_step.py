@@ -21,10 +21,17 @@ class ProfilingStep(object):
         '_profile',
         '_stop_lock',
         '_run_phase',
+        '_effective_batch_size',
         '_start_us'
     ]
 
-    def __init__(self, run_phase=None, ensure_profile=False, framework_profiler=None):
+    def __init__(self, run_phase=None, effective_batch_size=None, ensure_profile=False, framework_profiler=None):
+        self._run_phase = run_phase
+
+        if effective_batch_size is not None and not isinstance(effective_batch_size, int):
+            raise Exception('Invalid effective_batch_size')
+        self._effective_batch_size = effective_batch_size
+
         self._scheduler = select_scheduler(run_phase)
         self._framework_profiler = framework_profiler
         self._is_scheduled = False
@@ -54,7 +61,6 @@ class ProfilingStep(object):
 
             self._profile.start_us = _timestamp_us()
 
-        self._run_phase = run_phase
         self._start_us = _timestamp_us()
 
     def __enter__(self):
@@ -65,12 +71,16 @@ class ProfilingStep(object):
 
     def stop(self):
         with self._stop_lock:
-            step_stats = update_step_stats(self._run_phase, _timestamp_us() - self._start_us)
+            step_stats = update_step_stats(
+                self._run_phase, 
+                _timestamp_us() - self._start_us, 
+                effective_batch_size=self._effective_batch_size)
 
             if self._is_scheduled:
                 self._profile.end_us = _timestamp_us()
 
-                self._profile.step_stats.count = step_stats.count
+                self._profile.step_stats.step_count = step_stats.step_count
+                self._profile.step_stats.sample_count = step_stats.sample_count
                 self._profile.step_stats.total_time_us = step_stats.total_time_us
 
                 if graphsignal._agent.params is not None:
@@ -99,6 +109,11 @@ class ProfilingStep(object):
                 self._is_profiling = False
                 self._profile = None
                 self._scheduler.unlock()
+
+    def set_effective_batch_size(self, effective_batch_size):
+        if not isinstance(effective_batch_size, int):
+            raise Exception('Invalid effective_batch_size')
+        self._effective_batch_size = effective_batch_size
 
 
 def _add_exception(profile, exc):

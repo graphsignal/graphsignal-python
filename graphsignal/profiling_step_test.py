@@ -40,8 +40,10 @@ class ProfilingStepTest(unittest.TestCase):
 
         step = ProfilingStep(
             run_phase=profiles_pb2.RunPhase.TRAINING,
+            effective_batch_size=128,
             ensure_profile=True,
             framework_profiler=TensorflowProfiler())
+        step.set_effective_batch_size(256)
         step.stop()
 
         mocked_start.assert_called_once()
@@ -53,8 +55,9 @@ class ProfilingStepTest(unittest.TestCase):
         self.assertEqual(profile.run_phase, profiles_pb2.RunPhase.TRAINING)
         self.assertTrue(profile.start_us > 0)
         self.assertTrue(profile.end_us > 0)
-        self.assertTrue(profile.step_stats.count > 0)
+        self.assertEqual(profile.step_stats.step_count, 1)
         self.assertTrue(profile.step_stats.total_time_us >= 0)
+        self.assertEqual(profile.step_stats.sample_count, 256)
         self.assertEqual(profile.params[0].name, 'n1')
         self.assertEqual(profile.params[0].value, 'v2')
         self.assertEqual(profile.params[1].name, 'n3')

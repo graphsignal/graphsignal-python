@@ -75,7 +75,8 @@ class HuggingFacePTCallbackTest(unittest.TestCase):
 
         self.assertTrue(len(profile.params) > 0)
 
-        self.assertTrue(profile.step_stats.count > 0)
+        self.assertTrue(profile.step_stats.step_count > 0)
+        self.assertTrue(profile.step_stats.sample_count > 0)
         self.assertTrue(profile.step_stats.total_time_us > 0)
         #self.assertTrue(profile.step_stats.total_flops > 0)
         self.assertTrue(profile.step_stats.batch_size > 0)

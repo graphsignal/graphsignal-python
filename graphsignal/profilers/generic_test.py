@@ -36,5 +36,5 @@ class GenericProfilerTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(profile))
 
-        self.assertTrue(profile.step_stats.count > 0)
+        self.assertTrue(profile.step_stats.step_count > 0)
         self.assertTrue(profile.step_stats.total_time_us > 0)

@@ -40,7 +40,7 @@ class PyTorchProfilerTest(unittest.TestCase):
         criterion = torch.nn.MSELoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
 
-        with profile_step(ensure_profile=True):
+        with profile_step(effective_batch_size=128, ensure_profile=True):
             y1 = model(x)
             loss = criterion(y1, y)
             optimizer.zero_grad()
@@ -56,8 +56,9 @@ class PyTorchProfilerTest(unittest.TestCase):
             profile.run_env.ml_framework,
             profiles_pb2.RunEnvironment.MLFramework.PYTORCH)
 
-        self.assertTrue(profile.step_stats.count > 0)
+        self.assertEqual(profile.step_stats.step_count, 1)
         self.assertTrue(profile.step_stats.total_time_us > 0)
+        self.assertEqual(profile.step_stats.sample_count, 128)
 
         test_op_stats = None
         for op_stats in profile.op_stats:

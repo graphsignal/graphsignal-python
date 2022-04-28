@@ -46,6 +46,7 @@ class PyTorchLightningTest(unittest.TestCase):
         class MNISTModel(LightningModule):
             def __init__(self):
                 super().__init__()
+                self.batch_size = BATCH_SIZE
                 self.l1 = torch.nn.Linear(28 * 28, 10)
 
             def forward(self, x):
@@ -55,30 +56,40 @@ class PyTorchLightningTest(unittest.TestCase):
                 x, y = batch
                 loss = F.cross_entropy(self(x), y)
                 return loss
+            
+            def train_dataloader(self):
+                train_ds = MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
+                train_loader = DataLoader(train_ds, batch_size=self.batch_size)
+                return train_loader
 
             def configure_optimizers(self):
                 return torch.optim.Adam(self.parameters(), lr=0.02)
 
         mnist_model = MNISTModel()
 
-        train_ds = MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
-        train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE)
-
         trainer = Trainer(
-            gpus=AVAIL_GPUS,
+            accumulate_grad_batches=1,
+            #auto_scale_batch_size=True,
+            accelerator='gpu',
+            devices=AVAIL_GPUS,
             max_epochs=3,
-            callbacks=[GraphsignalCallback()]
+            callbacks=[GraphsignalCallback(effective_batch_size=mnist_model.batch_size)]
         )
 
-        trainer.fit(mnist_model, train_loader)
+        trainer.tune(mnist_model)
+
+        trainer.fit(mnist_model)
 
         profile = mocked_upload_profile.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(profile))
 
-        self.assertTrue(profile.step_stats.count > 0)
+        self.assertTrue(profile.step_stats.step_count > 0)
+        self.assertTrue(profile.step_stats.sample_count > 0)
         self.assertTrue(profile.step_stats.total_time_us > 0)
+        self.assertTrue(profile.step_stats.sample_count > 0)
+        self.assertEqual(profile.step_stats.gradient_accumulation_steps, 1)
 
         test_op_stats = None
         for op_stats in profile.op_stats:
