@@ -34,9 +34,9 @@ class ProfilingStepTest(unittest.TestCase):
     @patch.object(Uploader, 'upload_profile')
     def test_start_stop(self, mocked_upload_profile, mocked_nvml_read, mocked_host_read,
                         mocked_stop, mocked_start):
-        graphsignal.add_parameter('n1', 'v1')
-        graphsignal.add_parameter('n1', 'v2')
-        graphsignal.add_parameter('n3', 'v3')
+        graphsignal.log_parameter('n1', 'v1')
+        graphsignal.log_parameter('n1', 'v2')
+        graphsignal.log_parameter('n3', 'v3')
 
         step = ProfilingStep(
             run_phase=profiles_pb2.RunPhase.TRAINING,

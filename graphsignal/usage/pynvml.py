@@ -1675,7 +1675,6 @@ def nvmlSystemGetTopologyGpuSet(cpuNumber):
 
     if ret != NVML_SUCCESS:
         raise NVMLError(ret)
-    print(c_count.value)
     # call again with a buffer
     device_array = c_nvmlDevice_t * c_count.value
     c_devices = device_array()

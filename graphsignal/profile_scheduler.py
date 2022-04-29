@@ -20,16 +20,16 @@ class ProfileScheduler(object):
         '_last_interval_ts'
     ]
 
-    DEFAULT_SPANS = [10, 100, 1000]
-    MAX_ENSURED_SPANS = 10
-    MIN_SPAN_INTERVAL_SEC = 20
+    DEFAULT_STEPS = [10, 25, 50, 100, 250, 500, 1000]
+    MAX_ENSURED_STEPS = 10
+    MIN_STEP_INTERVAL_SEC = 20
 
     def __init__(self):
         self._total_step_count = 0
         self._ensured_step_count = 0
-        self._last_interval_ts = 0
+        self._last_interval_ts = None
         self._step_filter = {
-            step: True for step in ProfileScheduler.DEFAULT_SPANS}
+            step: True for step in ProfileScheduler.DEFAULT_STEPS}
 
     def lock(self, ensure=False):
         self._total_step_count += 1
@@ -39,7 +39,7 @@ class ProfileScheduler(object):
 
         if ensure:
             self._ensured_step_count += 1
-            if self._ensured_step_count > ProfileScheduler.MAX_ENSURED_SPANS:
+            if self._ensured_step_count > ProfileScheduler.MAX_ENSURED_STEPS:
                 return False
         else:
             # check if step index matches default step indexes
@@ -49,8 +49,7 @@ class ProfileScheduler(object):
                     return False
 
                 # comply with interval between steps
-                if self._last_interval_ts > time.time() - \
-                        self.MIN_SPAN_INTERVAL_SEC:
+                if not self._last_interval_ts or self._last_interval_ts > time.time() - self.MIN_STEP_INTERVAL_SEC:
                     return False
 
         # set global lock

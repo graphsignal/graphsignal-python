@@ -61,7 +61,7 @@ def configure(api_key, workload_name, debug_mode=False):
     logger.debug('Graphsignal profiler configured')
 
 
-def add_parameter(name, value):
+def log_parameter(name, value):
     _check_configured()
 
     if name is None or not isinstance(name, str):

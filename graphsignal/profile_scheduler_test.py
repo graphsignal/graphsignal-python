@@ -19,18 +19,9 @@ class ProfileSchedulerTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    def test_automatic(self):
-        scheduler = ProfileScheduler()
-        self.assertFalse(scheduler.lock())
-        scheduler.unlock()
-        self.assertTrue(scheduler.lock())
-        scheduler.unlock()
-        self.assertFalse(scheduler.lock())
-        scheduler.unlock()
-
     def test_default(self):
         scheduler = ProfileScheduler()
-        for _ in range(scheduler.DEFAULT_SPANS[0] - 1):
+        for _ in range(scheduler.DEFAULT_STEPS[0] - 1):
             scheduler.lock()
             scheduler.unlock()
         self.assertTrue(scheduler.lock())

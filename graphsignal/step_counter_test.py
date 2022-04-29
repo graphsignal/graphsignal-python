@@ -1,10 +1,11 @@
 import unittest
 import logging
 import sys
+import time
 from unittest.mock import patch, Mock
 
 import graphsignal
-from graphsignal.step_counter import reset_step_stats, get_step_stats, update_step_stats
+from graphsignal.step_counter import reset_all_step_stats, get_step_stats, update_step_stats
 
 logger = logging.getLogger('graphsignal')
 
@@ -20,16 +21,17 @@ class StepCounterTest(unittest.TestCase):
         graphsignal.shutdown()
 
     def test_update(self):
-        reset_step_stats()
+        reset_all_step_stats()
         
         ss = get_step_stats(1)
         self.assertEqual(ss.step_count, 0)
         self.assertEqual(ss.total_time_us, 0)
 
-        ss = update_step_stats(1, 100, effective_batch_size=128)
-        ss = update_step_stats(1, 200, effective_batch_size=128)
+        ss = update_step_stats(1, effective_batch_size=128)
+        time.sleep(0.01)
+        ss = update_step_stats(1, effective_batch_size=128)
         self.assertEqual(ss.step_count, 2)
-        self.assertEqual(ss.total_time_us, 300)
+        self.assertTrue(ss.total_time_us > 0)
         self.assertEqual(ss.sample_count, 2 * 128)
 
         ss = get_step_stats(2)

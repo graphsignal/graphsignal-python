@@ -81,7 +81,6 @@ class HuggingFacePTCallbackTest(unittest.TestCase):
         #self.assertTrue(profile.step_stats.total_flops > 0)
         self.assertTrue(profile.step_stats.batch_size > 0)
         self.assertTrue(profile.step_stats.device_batch_size > 0)
-        self.assertEqual(profile.step_stats.gradient_accumulation_steps, 1)
 
         test_op_stats = None
         for op_stats in profile.op_stats:

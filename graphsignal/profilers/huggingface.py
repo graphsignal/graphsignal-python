@@ -4,6 +4,7 @@ from transformers import TrainerCallback
 import graphsignal
 from graphsignal.proto import profiles_pb2
 from graphsignal.profiling_step import ProfilingStep
+from graphsignal import step_counter
 
 logger = logging.getLogger('graphsignal')
 
@@ -72,7 +73,11 @@ class GraphsignalTFCallback(TrainerCallback):
             self._step = None
 
     def on_train_begin(elf, args, state, control, **kwarg):
+        step_counter.init_step_stats(profiles_pb2.RunPhase.TRAINING)
         _add_parameters_from_args(args)
+
+    def on_train_end(elf, args, state, control, **kwarg):
+        step_counter.reset_step_stats(profiles_pb2.RunPhase.TRAINING)
 
     def on_step_begin(self, args, state, control, **kwarg):
         self._start_profiler(profiles_pb2.RunPhase.TRAINING, args, state)
@@ -92,10 +97,9 @@ def _fill_step_stats(step, args, state):
     step_stats.total_flops = state.total_flos
     step_stats.batch_size = args.train_batch_size
     step_stats.device_batch_size = args.per_device_train_batch_size
-    step_stats.gradient_accumulation_steps = args.gradient_accumulation_steps
 
 
 def _add_parameters_from_args(args):
     for name, value in vars(args).items():
         if not name.startswith('_') and name not in EXCLUDE_ARGS and isinstance(value, (str, int, float, bool)):
-            graphsignal.add_parameter(name, value)
+            graphsignal.log_parameter(name, value)
