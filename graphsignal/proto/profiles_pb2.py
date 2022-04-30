@@ -15,7 +15,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0eprofiles.proto\x12\x14graphsignal.profiles\"X\n\rUploadRequest\x12\x34\n\x0bml_profiles\x18\x01 \x03(\x0b\x32\x1f.graphsignal.profiles.MLProfile\x12\x11\n\tupload_ms\x18\x02 \x01(\x04\"\x10\n\x0eUploadResponse\"\x9a\x01\n\rProfileRecord\x12\x0f\n\x07\x64\x61ta_id\x18\x01 \x01(\t\x12\x13\n\x0bworkload_id\x18\x02 \x01(\t\x12\x12\n\nprofile_id\x18\x03 \x01(\t\x12\x33\n\nml_profile\x18\x04 \x01(\x0b\x32\x1f.graphsignal.profiles.MLProfile\x12\x1a\n\x12\x64\x61ta_retention_sec\x18\x05 \x01(\x04\"\x8d\x05\n\tMLProfile\x12\x15\n\rworkload_name\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x02 \x01(\t\x12\x14\n\x0crun_start_ms\x18\x03 \x01(\x04\x12\x31\n\trun_phase\x18\x14 \x01(\x0e\x32\x1e.graphsignal.profiles.RunPhase\x12\x10\n\x08start_us\x18\x05 \x01(\x04\x12\x0e\n\x06\x65nd_us\x18\x06 \x01(\x04\x12+\n\x06params\x18\x16 \x03(\x0b\x32\x1b.graphsignal.profiles.Param\x12\x35\n\x07run_env\x18\t \x01(\x0b\x32$.graphsignal.profiles.RunEnvironment\x12\x39\n\x07summary\x18\n \x01(\x0b\x32(.graphsignal.profiles.PerformanceSummary\x12\x33\n\nstep_stats\x18\x15 \x01(\x0b\x32\x1f.graphsignal.profiles.StepStats\x12/\n\x08op_stats\x18\x0b \x03(\x0b\x32\x1d.graphsignal.profiles.OpStats\x12\x37\n\x0ckernel_stats\x18\x0c \x03(\x0b\x32!.graphsignal.profiles.KernelStats\x12\x39\n\rprocess_usage\x18\x11 \x03(\x0b\x32\".graphsignal.profiles.ProcessUsage\x12\x37\n\x0c\x64\x65vice_usage\x18\x12 \x03(\x0b\x32!.graphsignal.profiles.DeviceUsage\x12<\n\x0fprofiler_errors\x18\x07 \x03(\x0b\x32#.graphsignal.profiles.ProfilerError\"\x90\x01\n\tStepStats\x12\x12\n\nstep_count\x18\x01 \x01(\x04\x12\x14\n\x0csample_count\x18\x07 \x01(\x04\x12\x15\n\rtotal_time_us\x18\x02 \x01(\x04\x12\x13\n\x0btotal_flops\x18\x03 \x01(\x04\x12\x12\n\nbatch_size\x18\x04 \x01(\x04\x12\x19\n\x11\x64\x65vice_batch_size\x18\x05 \x01(\x04\"$\n\x05Param\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\x96\x04\n\x0eRunEnvironment\x12\x10\n\x08platform\x18\x02 \x01(\t\x12\x0f\n\x07machine\x18\x03 \x01(\t\x12\x0f\n\x07os_name\x18\x04 \x01(\t\x12\x12\n\nos_version\x18\x05 \x01(\t\x12=\n\x07runtime\x18\x06 \x01(\x0e\x32,.graphsignal.profiles.RunEnvironment.Runtime\x12\x35\n\x0fruntime_version\x18\x07 \x01(\x0b\x32\x1c.graphsignal.profiles.SemVer\x12\x14\n\x0cruntime_impl\x18\x08 \x01(\t\x12\x46\n\x0cml_framework\x18\t \x01(\x0e\x32\x30.graphsignal.profiles.RunEnvironment.MLFramework\x12:\n\x14ml_framework_version\x18\n \x01(\x0b\x32\x1c.graphsignal.profiles.SemVer\x12\x36\n\x10profiler_version\x18\x0b \x01(\x0b\x32\x1c.graphsignal.profiles.SemVer\",\n\x07Runtime\x12\x15\n\x11RUNTIME_UNDEFINED\x10\x00\x12\n\n\x06PYTHON\x10\x01\"F\n\x0bMLFramework\x12\x1a\n\x16ML_FRAMEWORK_UNDEFINED\x10\x00\x12\x0e\n\nTENSORFLOW\x10\x01\x12\x0b\n\x07PYTORCH\x10\x02\"5\n\x06SemVer\x12\r\n\x05major\x18\x01 \x01(\x05\x12\r\n\x05minor\x18\x02 \x01(\x05\x12\r\n\x05patch\x18\x03 \x01(\x05\"\x86\x01\n\x0cProcessUsage\x12\x10\n\x08hostname\x18\x10 \x01(\t\x12\x12\n\nprocess_id\x18\x05 \x01(\t\x12\x19\n\x11\x63pu_usage_percent\x18\x01 \x01(\x01\x12\x0f\n\x07max_rss\x18\x02 \x01(\x04\x12\x13\n\x0b\x63urrent_rss\x18\x03 \x01(\x04\x12\x0f\n\x07vm_size\x18\x04 \x01(\x04\"\xe6\x03\n\x0b\x44\x65viceUsage\x12\x10\n\x08hostname\x18\x10 \x01(\t\x12\x35\n\x0b\x64\x65vice_type\x18\x0b \x01(\x0e\x32 .graphsignal.profiles.DeviceType\x12\x11\n\tdevice_id\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65vice_name\x18\x02 \x01(\t\x12\x14\n\x0c\x61rchitecture\x18\x11 \x01(\t\x12\x38\n\x12\x63ompute_capability\x18\x0f \x01(\x0b\x32\x1c.graphsignal.profiles.SemVer\x12\x11\n\tmem_total\x18\x03 \x01(\x04\x12\x10\n\x08mem_used\x18\x04 \x01(\x04\x12\x10\n\x08mem_free\x18\x05 \x01(\x04\x12\x1f\n\x17gpu_utilization_percent\x18\x06 \x01(\x01\x12\x1f\n\x17mem_utilization_percent\x18\x07 \x01(\x01\x12\x1a\n\x12pcie_throughput_tx\x18\r \x01(\x01\x12\x1a\n\x12pcie_throughput_rx\x18\x0e \x01(\x01\x12\x12\n\ngpu_temp_c\x18\x08 \x01(\x01\x12\x15\n\rpower_usage_w\x18\t \x01(\x01\x12\x19\n\x11\x66\x61n_speed_percent\x18\n \x01(\x01\x12\x1f\n\x17mxu_utilization_percent\x18\x0c \x01(\x01\"\x94\x02\n\x12PerformanceSummary\x12\x1b\n\x13\x64\x65vice_idle_percent\x18\x01 \x01(\x01\x12\x19\n\x11host_idle_percent\x18\x02 \x01(\x01\x12$\n\x1c\x64\x65vice_compute_16bit_percent\x18\x03 \x01(\x01\x12$\n\x1c\x64\x65vice_compute_32bit_percent\x18\x04 \x01(\x01\x12\x17\n\x0fhost_op_percent\x18\x06 \x01(\x01\x12\x19\n\x11\x64\x65vice_op_percent\x18\x07 \x01(\x01\x12\x17\n\x0fmxu_utilization\x18\x08 \x01(\x01\x12\x15\n\rinput_percent\x18\t \x01(\x01\x12\x16\n\x0eoutput_percent\x18\n \x01(\x01\"\xd3\x03\n\x07OpStats\x12\x35\n\x0b\x64\x65vice_type\x18\x01 \x01(\x0e\x32 .graphsignal.profiles.DeviceType\x12\x11\n\tdevice_id\x18\x02 \x01(\t\x12\x0f\n\x07op_type\x18\x03 \x01(\t\x12\x0f\n\x07op_name\x18\x04 \x01(\t\x12\r\n\x05\x63ount\x18\x05 \x01(\x04\x12\x1a\n\x12total_host_time_us\x18\x06 \x01(\x04\x12\x1c\n\x14total_device_time_us\x18\x07 \x01(\x04\x12\x19\n\x11self_host_time_us\x18\x08 \x01(\x04\x12\x1b\n\x13self_device_time_us\x18\t \x01(\x04\x12\x19\n\x11total_host_memory\x18\n \x01(\x04\x12\x1b\n\x13total_device_memory\x18\x0b \x01(\x04\x12\x18\n\x10self_host_memory\x18\x0c \x01(\x04\x12\x1a\n\x12self_device_memory\x18\r \x01(\x04\x12\x1d\n\x15self_host_memory_rate\x18\x0e \x01(\x04\x12\x1f\n\x17self_device_memory_rate\x18\x0f \x01(\x04\x12\r\n\x05\x66lops\x18\x10 \x01(\x04\x12\x1e\n\x16tensorcore_utilization\x18\x11 \x01(\x01\"\xbe\x01\n\x0bKernelStats\x12\x35\n\x0b\x64\x65vice_type\x18\x01 \x01(\x0e\x32 .graphsignal.profiles.DeviceType\x12\x11\n\tdevice_id\x18\x02 \x01(\t\x12\x0f\n\x07op_name\x18\x03 \x01(\t\x12\x13\n\x0bkernel_name\x18\x04 \x01(\t\x12\r\n\x05\x63ount\x18\x05 \x01(\x04\x12\x13\n\x0b\x64uration_ns\x18\x06 \x01(\x04\x12\x1b\n\x13is_using_tensorcore\x18\x07 \x01(\x08\"5\n\rProfilerError\x12\x0f\n\x07message\x18\x01 \x01(\t\x12\x13\n\x0bstack_trace\x18\x02 \x01(\t*[\n\x08RunPhase\x12\x17\n\x13RUN_PHASE_UNDEFINED\x10\x00\x12\x0c\n\x08TRAINING\x10\x01\x12\x0e\n\nVALIDATION\x10\x02\x12\x08\n\x04TEST\x10\x03\x12\x0e\n\nPREDICTION\x10\x04*B\n\nDeviceType\x12\x19\n\x15\x44\x45VICE_TYPE_UNDEFINED\x10\x00\x12\x07\n\x03\x43PU\x10\x01\x12\x07\n\x03GPU\x10\x02\x12\x07\n\x03TPU\x10\x03\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0eprofiles.proto\x12\x14graphsignal.profiles\"X\n\rUploadRequest\x12\x34\n\x0bml_profiles\x18\x01 \x03(\x0b\x32\x1f.graphsignal.profiles.MLProfile\x12\x11\n\tupload_ms\x18\x02 \x01(\x04\"\x10\n\x0eUploadResponse\"\xb0\x01\n\rProfileRecord\x12\x0f\n\x07\x64\x61ta_id\x18\x01 \x01(\t\x12\x13\n\x0bworkload_id\x18\x02 \x01(\t\x12\x12\n\nprofile_id\x18\x03 \x01(\t\x12\x33\n\nml_profile\x18\x04 \x01(\x0b\x32\x1f.graphsignal.profiles.MLProfile\x12\x1a\n\x12\x64\x61ta_retention_sec\x18\x05 \x01(\x04\x12\x14\n\x0ctime_skew_ms\x18\x06 \x01(\x12\"\x8b\x05\n\tMLProfile\x12\x15\n\rworkload_name\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x02 \x01(\t\x12\x14\n\x0crun_start_ms\x18\x03 \x01(\x04\x12\x31\n\trun_phase\x18\x14 \x01(\x0e\x32\x1e.graphsignal.profiles.RunPhase\x12\x10\n\x08start_us\x18\x05 \x01(\x04\x12\x0e\n\x06\x65nd_us\x18\x06 \x01(\x04\x12\x39\n\x07summary\x18\n \x01(\x0b\x32(.graphsignal.profiles.PerformanceSummary\x12+\n\x06params\x18\x16 \x03(\x0b\x32\x1b.graphsignal.profiles.Param\x12\x33\n\nstep_stats\x18\x15 \x01(\x0b\x32\x1f.graphsignal.profiles.StepStats\x12\x33\n\nnode_usage\x18\x17 \x03(\x0b\x32\x1f.graphsignal.profiles.NodeUsage\x12\x39\n\rprocess_usage\x18\x11 \x03(\x0b\x32\".graphsignal.profiles.ProcessUsage\x12\x37\n\x0c\x64\x65vice_usage\x18\x12 \x03(\x0b\x32!.graphsignal.profiles.DeviceUsage\x12/\n\x08op_stats\x18\x0b \x03(\x0b\x32\x1d.graphsignal.profiles.OpStats\x12\x37\n\x0ckernel_stats\x18\x0c \x03(\x0b\x32!.graphsignal.profiles.KernelStats\x12<\n\x0fprofiler_errors\x18\x07 \x03(\x0b\x32#.graphsignal.profiles.ProfilerError\"5\n\x06SemVer\x12\r\n\x05major\x18\x01 \x01(\x05\x12\r\n\x05minor\x18\x02 \x01(\x05\x12\r\n\x05patch\x18\x03 \x01(\x05\"\x94\x02\n\x12PerformanceSummary\x12\x1b\n\x13\x64\x65vice_idle_percent\x18\x01 \x01(\x01\x12\x19\n\x11host_idle_percent\x18\x02 \x01(\x01\x12$\n\x1c\x64\x65vice_compute_16bit_percent\x18\x03 \x01(\x01\x12$\n\x1c\x64\x65vice_compute_32bit_percent\x18\x04 \x01(\x01\x12\x17\n\x0fhost_op_percent\x18\x06 \x01(\x01\x12\x19\n\x11\x64\x65vice_op_percent\x18\x07 \x01(\x01\x12\x17\n\x0fmxu_utilization\x18\x08 \x01(\x01\x12\x15\n\rinput_percent\x18\t \x01(\x01\x12\x16\n\x0eoutput_percent\x18\n \x01(\x01\"$\n\x05Param\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\x90\x01\n\tStepStats\x12\x12\n\nstep_count\x18\x01 \x01(\x04\x12\x14\n\x0csample_count\x18\x07 \x01(\x04\x12\x15\n\rtotal_time_us\x18\x02 \x01(\x04\x12\x13\n\x0btotal_flops\x18\x03 \x01(\x04\x12\x12\n\nbatch_size\x18\x04 \x01(\x04\x12\x19\n\x11\x64\x65vice_batch_size\x18\x05 \x01(\x04\"z\n\tNodeUsage\x12\x10\n\x08hostname\x18\x01 \x01(\t\x12\x10\n\x08platform\x18\x02 \x01(\t\x12\x0f\n\x07machine\x18\x03 \x01(\t\x12\x0f\n\x07os_name\x18\x04 \x01(\t\x12\x12\n\nos_version\x18\x05 \x01(\t\x12\x13\n\x0bnum_devices\x18\x06 \x01(\x05\"\xc0\x04\n\x0cProcessUsage\x12\x10\n\x08hostname\x18\x10 \x01(\t\x12\x12\n\nprocess_id\x18\x05 \x01(\t\x12\x19\n\x11\x63pu_usage_percent\x18\x01 \x01(\x01\x12\x0f\n\x07max_rss\x18\x02 \x01(\x04\x12\x13\n\x0b\x63urrent_rss\x18\x03 \x01(\x04\x12\x0f\n\x07vm_size\x18\x04 \x01(\x04\x12;\n\x07runtime\x18\x06 \x01(\x0e\x32*.graphsignal.profiles.ProcessUsage.Runtime\x12\x35\n\x0fruntime_version\x18\x07 \x01(\x0b\x32\x1c.graphsignal.profiles.SemVer\x12\x14\n\x0cruntime_impl\x18\x08 \x01(\t\x12\x44\n\x0cml_framework\x18\t \x01(\x0e\x32..graphsignal.profiles.ProcessUsage.MLFramework\x12:\n\x14ml_framework_version\x18\n \x01(\x0b\x32\x1c.graphsignal.profiles.SemVer\x12\x36\n\x10profiler_version\x18\x0b \x01(\x0b\x32\x1c.graphsignal.profiles.SemVer\",\n\x07Runtime\x12\x15\n\x11RUNTIME_UNDEFINED\x10\x00\x12\n\n\x06PYTHON\x10\x01\"F\n\x0bMLFramework\x12\x1a\n\x16ML_FRAMEWORK_UNDEFINED\x10\x00\x12\x0e\n\nTENSORFLOW\x10\x01\x12\x0b\n\x07PYTORCH\x10\x02\"\xe6\x03\n\x0b\x44\x65viceUsage\x12\x10\n\x08hostname\x18\x10 \x01(\t\x12\x35\n\x0b\x64\x65vice_type\x18\x0b \x01(\x0e\x32 .graphsignal.profiles.DeviceType\x12\x11\n\tdevice_id\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65vice_name\x18\x02 \x01(\t\x12\x14\n\x0c\x61rchitecture\x18\x11 \x01(\t\x12\x38\n\x12\x63ompute_capability\x18\x0f \x01(\x0b\x32\x1c.graphsignal.profiles.SemVer\x12\x11\n\tmem_total\x18\x03 \x01(\x04\x12\x10\n\x08mem_used\x18\x04 \x01(\x04\x12\x10\n\x08mem_free\x18\x05 \x01(\x04\x12\x1f\n\x17gpu_utilization_percent\x18\x06 \x01(\x01\x12\x1f\n\x17mem_utilization_percent\x18\x07 \x01(\x01\x12\x1a\n\x12pcie_throughput_tx\x18\r \x01(\x01\x12\x1a\n\x12pcie_throughput_rx\x18\x0e \x01(\x01\x12\x12\n\ngpu_temp_c\x18\x08 \x01(\x01\x12\x15\n\rpower_usage_w\x18\t \x01(\x01\x12\x19\n\x11\x66\x61n_speed_percent\x18\n \x01(\x01\x12\x1f\n\x17mxu_utilization_percent\x18\x0c \x01(\x01\"\xd3\x03\n\x07OpStats\x12\x35\n\x0b\x64\x65vice_type\x18\x01 \x01(\x0e\x32 .graphsignal.profiles.DeviceType\x12\x11\n\tdevice_id\x18\x02 \x01(\t\x12\x0f\n\x07op_type\x18\x03 \x01(\t\x12\x0f\n\x07op_name\x18\x04 \x01(\t\x12\r\n\x05\x63ount\x18\x05 \x01(\x04\x12\x1a\n\x12total_host_time_us\x18\x06 \x01(\x04\x12\x1c\n\x14total_device_time_us\x18\x07 \x01(\x04\x12\x19\n\x11self_host_time_us\x18\x08 \x01(\x04\x12\x1b\n\x13self_device_time_us\x18\t \x01(\x04\x12\x19\n\x11total_host_memory\x18\n \x01(\x04\x12\x1b\n\x13total_device_memory\x18\x0b \x01(\x04\x12\x18\n\x10self_host_memory\x18\x0c \x01(\x04\x12\x1a\n\x12self_device_memory\x18\r \x01(\x04\x12\x1d\n\x15self_host_memory_rate\x18\x0e \x01(\x04\x12\x1f\n\x17self_device_memory_rate\x18\x0f \x01(\x04\x12\r\n\x05\x66lops\x18\x10 \x01(\x04\x12\x1e\n\x16tensorcore_utilization\x18\x11 \x01(\x01\"\xbe\x01\n\x0bKernelStats\x12\x35\n\x0b\x64\x65vice_type\x18\x01 \x01(\x0e\x32 .graphsignal.profiles.DeviceType\x12\x11\n\tdevice_id\x18\x02 \x01(\t\x12\x0f\n\x07op_name\x18\x03 \x01(\t\x12\x13\n\x0bkernel_name\x18\x04 \x01(\t\x12\r\n\x05\x63ount\x18\x05 \x01(\x04\x12\x13\n\x0b\x64uration_ns\x18\x06 \x01(\x04\x12\x1b\n\x13is_using_tensorcore\x18\x07 \x01(\x08\"5\n\rProfilerError\x12\x0f\n\x07message\x18\x01 \x01(\t\x12\x13\n\x0bstack_trace\x18\x02 \x01(\t*[\n\x08RunPhase\x12\x17\n\x13RUN_PHASE_UNDEFINED\x10\x00\x12\x0c\n\x08TRAINING\x10\x01\x12\x0e\n\nVALIDATION\x10\x02\x12\x08\n\x04TEST\x10\x03\x12\x0e\n\nPREDICTION\x10\x04*B\n\nDeviceType\x12\x19\n\x15\x44\x45VICE_TYPE_UNDEFINED\x10\x00\x12\x07\n\x03\x43PU\x10\x01\x12\x07\n\x03GPU\x10\x02\x12\x07\n\x03TPU\x10\x03\x62\x06proto3')
 
 _RUNPHASE = DESCRIPTOR.enum_types_by_name['RunPhase']
 RunPhase = enum_type_wrapper.EnumTypeWrapper(_RUNPHASE)
@@ -36,18 +36,18 @@ _UPLOADREQUEST = DESCRIPTOR.message_types_by_name['UploadRequest']
 _UPLOADRESPONSE = DESCRIPTOR.message_types_by_name['UploadResponse']
 _PROFILERECORD = DESCRIPTOR.message_types_by_name['ProfileRecord']
 _MLPROFILE = DESCRIPTOR.message_types_by_name['MLProfile']
-_STEPSTATS = DESCRIPTOR.message_types_by_name['StepStats']
-_PARAM = DESCRIPTOR.message_types_by_name['Param']
-_RUNENVIRONMENT = DESCRIPTOR.message_types_by_name['RunEnvironment']
 _SEMVER = DESCRIPTOR.message_types_by_name['SemVer']
+_PERFORMANCESUMMARY = DESCRIPTOR.message_types_by_name['PerformanceSummary']
+_PARAM = DESCRIPTOR.message_types_by_name['Param']
+_STEPSTATS = DESCRIPTOR.message_types_by_name['StepStats']
+_NODEUSAGE = DESCRIPTOR.message_types_by_name['NodeUsage']
 _PROCESSUSAGE = DESCRIPTOR.message_types_by_name['ProcessUsage']
 _DEVICEUSAGE = DESCRIPTOR.message_types_by_name['DeviceUsage']
-_PERFORMANCESUMMARY = DESCRIPTOR.message_types_by_name['PerformanceSummary']
 _OPSTATS = DESCRIPTOR.message_types_by_name['OpStats']
 _KERNELSTATS = DESCRIPTOR.message_types_by_name['KernelStats']
 _PROFILERERROR = DESCRIPTOR.message_types_by_name['ProfilerError']
-_RUNENVIRONMENT_RUNTIME = _RUNENVIRONMENT.enum_types_by_name['Runtime']
-_RUNENVIRONMENT_MLFRAMEWORK = _RUNENVIRONMENT.enum_types_by_name['MLFramework']
+_PROCESSUSAGE_RUNTIME = _PROCESSUSAGE.enum_types_by_name['Runtime']
+_PROCESSUSAGE_MLFRAMEWORK = _PROCESSUSAGE.enum_types_by_name['MLFramework']
 UploadRequest = _reflection.GeneratedProtocolMessageType('UploadRequest', (_message.Message,), {
   'DESCRIPTOR' : _UPLOADREQUEST,
   '__module__' : 'profiles_pb2'
@@ -76,12 +76,19 @@ MLProfile = _reflection.GeneratedProtocolMessageType('MLProfile', (_message.Mess
   })
 _sym_db.RegisterMessage(MLProfile)
 
-StepStats = _reflection.GeneratedProtocolMessageType('StepStats', (_message.Message,), {
-  'DESCRIPTOR' : _STEPSTATS,
+SemVer = _reflection.GeneratedProtocolMessageType('SemVer', (_message.Message,), {
+  'DESCRIPTOR' : _SEMVER,
   '__module__' : 'profiles_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.profiles.StepStats)
+  # @@protoc_insertion_point(class_scope:graphsignal.profiles.SemVer)
   })
-_sym_db.RegisterMessage(StepStats)
+_sym_db.RegisterMessage(SemVer)
+
+PerformanceSummary = _reflection.GeneratedProtocolMessageType('PerformanceSummary', (_message.Message,), {
+  'DESCRIPTOR' : _PERFORMANCESUMMARY,
+  '__module__' : 'profiles_pb2'
+  # @@protoc_insertion_point(class_scope:graphsignal.profiles.PerformanceSummary)
+  })
+_sym_db.RegisterMessage(PerformanceSummary)
 
 Param = _reflection.GeneratedProtocolMessageType('Param', (_message.Message,), {
   'DESCRIPTOR' : _PARAM,
@@ -90,19 +97,19 @@ Param = _reflection.GeneratedProtocolMessageType('Param', (_message.Message,), {
   })
 _sym_db.RegisterMessage(Param)
 
-RunEnvironment = _reflection.GeneratedProtocolMessageType('RunEnvironment', (_message.Message,), {
-  'DESCRIPTOR' : _RUNENVIRONMENT,
+StepStats = _reflection.GeneratedProtocolMessageType('StepStats', (_message.Message,), {
+  'DESCRIPTOR' : _STEPSTATS,
   '__module__' : 'profiles_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.profiles.RunEnvironment)
+  # @@protoc_insertion_point(class_scope:graphsignal.profiles.StepStats)
   })
-_sym_db.RegisterMessage(RunEnvironment)
+_sym_db.RegisterMessage(StepStats)
 
-SemVer = _reflection.GeneratedProtocolMessageType('SemVer', (_message.Message,), {
-  'DESCRIPTOR' : _SEMVER,
+NodeUsage = _reflection.GeneratedProtocolMessageType('NodeUsage', (_message.Message,), {
+  'DESCRIPTOR' : _NODEUSAGE,
   '__module__' : 'profiles_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.profiles.SemVer)
+  # @@protoc_insertion_point(class_scope:graphsignal.profiles.NodeUsage)
   })
-_sym_db.RegisterMessage(SemVer)
+_sym_db.RegisterMessage(NodeUsage)
 
 ProcessUsage = _reflection.GeneratedProtocolMessageType('ProcessUsage', (_message.Message,), {
   'DESCRIPTOR' : _PROCESSUSAGE,
@@ -117,13 +124,6 @@ DeviceUsage = _reflection.GeneratedProtocolMessageType('DeviceUsage', (_message.
   # @@protoc_insertion_point(class_scope:graphsignal.profiles.DeviceUsage)
   })
 _sym_db.RegisterMessage(DeviceUsage)
-
-PerformanceSummary = _reflection.GeneratedProtocolMessageType('PerformanceSummary', (_message.Message,), {
-  'DESCRIPTOR' : _PERFORMANCESUMMARY,
-  '__module__' : 'profiles_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.profiles.PerformanceSummary)
-  })
-_sym_db.RegisterMessage(PerformanceSummary)
 
 OpStats = _reflection.GeneratedProtocolMessageType('OpStats', (_message.Message,), {
   'DESCRIPTOR' : _OPSTATS,
@@ -149,40 +149,40 @@ _sym_db.RegisterMessage(ProfilerError)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
-  _RUNPHASE._serialized_start=3361
-  _RUNPHASE._serialized_end=3452
-  _DEVICETYPE._serialized_start=3454
-  _DEVICETYPE._serialized_end=3520
+  _RUNPHASE._serialized_start=3410
+  _RUNPHASE._serialized_end=3501
+  _DEVICETYPE._serialized_start=3503
+  _DEVICETYPE._serialized_end=3569
   _UPLOADREQUEST._serialized_start=40
   _UPLOADREQUEST._serialized_end=128
   _UPLOADRESPONSE._serialized_start=130
   _UPLOADRESPONSE._serialized_end=146
   _PROFILERECORD._serialized_start=149
-  _PROFILERECORD._serialized_end=303
-  _MLPROFILE._serialized_start=306
-  _MLPROFILE._serialized_end=959
-  _STEPSTATS._serialized_start=962
-  _STEPSTATS._serialized_end=1106
-  _PARAM._serialized_start=1108
-  _PARAM._serialized_end=1144
-  _RUNENVIRONMENT._serialized_start=1147
-  _RUNENVIRONMENT._serialized_end=1681
-  _RUNENVIRONMENT_RUNTIME._serialized_start=1565
-  _RUNENVIRONMENT_RUNTIME._serialized_end=1609
-  _RUNENVIRONMENT_MLFRAMEWORK._serialized_start=1611
-  _RUNENVIRONMENT_MLFRAMEWORK._serialized_end=1681
-  _SEMVER._serialized_start=1683
-  _SEMVER._serialized_end=1736
-  _PROCESSUSAGE._serialized_start=1739
-  _PROCESSUSAGE._serialized_end=1873
-  _DEVICEUSAGE._serialized_start=1876
-  _DEVICEUSAGE._serialized_end=2362
-  _PERFORMANCESUMMARY._serialized_start=2365
-  _PERFORMANCESUMMARY._serialized_end=2641
-  _OPSTATS._serialized_start=2644
-  _OPSTATS._serialized_end=3111
-  _KERNELSTATS._serialized_start=3114
-  _KERNELSTATS._serialized_end=3304
-  _PROFILERERROR._serialized_start=3306
-  _PROFILERERROR._serialized_end=3359
+  _PROFILERECORD._serialized_end=325
+  _MLPROFILE._serialized_start=328
+  _MLPROFILE._serialized_end=979
+  _SEMVER._serialized_start=981
+  _SEMVER._serialized_end=1034
+  _PERFORMANCESUMMARY._serialized_start=1037
+  _PERFORMANCESUMMARY._serialized_end=1313
+  _PARAM._serialized_start=1315
+  _PARAM._serialized_end=1351
+  _STEPSTATS._serialized_start=1354
+  _STEPSTATS._serialized_end=1498
+  _NODEUSAGE._serialized_start=1500
+  _NODEUSAGE._serialized_end=1622
+  _PROCESSUSAGE._serialized_start=1625
+  _PROCESSUSAGE._serialized_end=2201
+  _PROCESSUSAGE_RUNTIME._serialized_start=2085
+  _PROCESSUSAGE_RUNTIME._serialized_end=2129
+  _PROCESSUSAGE_MLFRAMEWORK._serialized_start=2131
+  _PROCESSUSAGE_MLFRAMEWORK._serialized_end=2201
+  _DEVICEUSAGE._serialized_start=2204
+  _DEVICEUSAGE._serialized_end=2690
+  _OPSTATS._serialized_start=2693
+  _OPSTATS._serialized_end=3160
+  _KERNELSTATS._serialized_start=3163
+  _KERNELSTATS._serialized_end=3353
+  _PROFILERERROR._serialized_start=3355
+  _PROFILERERROR._serialized_end=3408
 # @@protoc_insertion_point(module_scope)

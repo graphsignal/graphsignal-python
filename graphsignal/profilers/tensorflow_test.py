@@ -44,8 +44,8 @@ class TensorflowProfilerTest(unittest.TestCase):
         #pp.pprint(MessageToJson(profile))
 
         self.assertEqual(
-            profile.run_env.ml_framework,
-            profiles_pb2.RunEnvironment.MLFramework.TENSORFLOW)
+            profile.process_usage[0].ml_framework,
+            profiles_pb2.ProcessUsage.MLFramework.TENSORFLOW)
 
         self.assertEqual(profile.step_stats.step_count, 1)
         self.assertTrue(profile.step_stats.total_time_us > 0)

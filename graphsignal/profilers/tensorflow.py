@@ -17,7 +17,7 @@ from graphsignal.profilers.tensorflow_proto import kernel_stats_pb2
 from graphsignal.profilers.tensorflow_proto import memory_profile_pb2
 
 import graphsignal
-from graphsignal.system_info import parse_semver, compare_semver
+from graphsignal.proto_utils import parse_semver, compare_semver
 from graphsignal.proto import profiles_pb2
 from graphsignal.profiling_step import ProfilingStep
 from graphsignal.profilers.framework_profiler import FrameworkProfiler
@@ -29,13 +29,15 @@ class TensorflowProfiler(FrameworkProfiler):
     __slots__ = [
         '_is_initialized',
         '_log_dir',
-        '_run_env'
+        '_ml_framework',
+        '_ml_framework_version'
     ]
 
     def __init__(self):
         self._is_initialized = False
         self._log_dir = None
-        self._run_env = None
+        self._ml_framework = None
+        self._ml_framework_version = None
 
     def start(self):
         logger.debug('Activating TensorFlow profiler')
@@ -47,7 +49,12 @@ class TensorflowProfiler(FrameworkProfiler):
             tf.profiler.experimental.stop(save=False)
             logger.debug('Finished warming up')
 
-            self._read_run_env()
+            self._ml_framework = profiles_pb2.ProcessUsage.MLFramework.TENSORFLOW
+            self._ml_framework_version = profiles_pb2.SemVer()
+            parse_semver(self._ml_framework_version, tf.__version__)
+            if compare_semver(self._ml_framework_version, (2, 2, 0)) == -1:
+                raise Exception(
+                    'TensorFlow profiling is not supported for versions <=2.2')
 
         try:
             self._create_log_dir()
@@ -67,7 +74,6 @@ class TensorflowProfiler(FrameworkProfiler):
         try:
             tf.profiler.experimental.stop()
 
-            self._copy_run_env(profile)
             self._convert_to_profile(profile)
         except Exception as e:
             raise e
@@ -83,20 +89,11 @@ class TensorflowProfiler(FrameworkProfiler):
         shutil.rmtree(self._log_dir)
         logger.debug('Removed temporary log directory %s', self._log_dir)
 
-    def _read_run_env(self):
-        self._run_env = profiles_pb2.RunEnvironment()
-        self._run_env.ml_framework = profiles_pb2.RunEnvironment.MLFramework.TENSORFLOW
-        parse_semver(self._run_env.ml_framework_version, tf.__version__)
-        if compare_semver(self._run_env.ml_framework_version, (2, 2, 0)) == -1:
-            raise Exception(
-                'TensorFlow profiling is not supported for versions <=2.2')
-
-    def _copy_run_env(self, profile):
-        profile.run_env.ml_framework = self._run_env.ml_framework
-        profile.run_env.ml_framework_version.CopyFrom(
-            self._run_env.ml_framework_version)
-
     def _convert_to_profile(self, profile):
+        profile.process_usage[0].ml_framework = self._ml_framework
+        profile.process_usage[0].ml_framework_version.CopyFrom(
+            self._ml_framework_version)
+
         overview_page_data = self._find_and_read(
             'plugins/profile/*/*overview_page.pb')
         if overview_page_data:

@@ -2,6 +2,7 @@
 import logging
 import os
 import sys
+import platform
 import time
 import re
 import multiprocessing
@@ -13,6 +14,8 @@ except ImportError:
 
 import graphsignal
 from graphsignal.proto import profiles_pb2
+from graphsignal.proto_utils import parse_semver
+from graphsignal import version
 
 logger = logging.getLogger('graphsignal')
 
@@ -44,14 +47,10 @@ class ProcessReader():
     def read(self, profile):
         pid = str(os.getpid())
 
-        process_usage = None
-        for pu in profile.process_usage:
-            if pu.process_id == pid:
-                process_usage = pu
+        node_usage = profile.node_usage[0]
+        process_usage = profile.process_usage[0]
 
-        if not process_usage:
-            process_usage = profile.process_usage.add()
-            process_usage.process_id = pid
+        process_usage.process_id = pid
 
         try:
             process_usage.hostname = socket.gethostname()
@@ -88,6 +87,26 @@ class ProcessReader():
             vm_size = _read_vm_size()
             if vm_size is not None:
                 process_usage.vm_size = vm_size
+
+        try:
+            node_usage.hostname = process_usage.hostname
+            node_usage.platform = sys.platform
+            node_usage.machine = platform.machine()
+            if not OS_WIN:
+                node_usage.os_name = os.uname().sysname
+                node_usage.os_version = os.uname().release
+        except BaseException:
+            logger.error('Error reading node information', exc_info=True)
+
+        try:
+            process_usage.runtime = profiles_pb2.ProcessUsage.Runtime.PYTHON
+            process_usage.runtime_version.major = sys.version_info.major
+            process_usage.runtime_version.minor = sys.version_info.minor
+            process_usage.runtime_version.patch = sys.version_info.micro
+            process_usage.runtime_impl = platform.python_implementation()
+            parse_semver(process_usage.profiler_version, version.__version__)
+        except BaseException:
+            logger.error('Error reading process information', exc_info=True)
 
 
 def _read_cpu_time():

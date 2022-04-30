@@ -9,7 +9,7 @@ import torch
 from torch.autograd import DeviceType
 
 import graphsignal
-from graphsignal.system_info import parse_semver
+from graphsignal.proto_utils import parse_semver
 from graphsignal.proto import profiles_pb2
 from graphsignal.profiling_step import ProfilingStep
 from graphsignal.profilers.framework_profiler import FrameworkProfiler
@@ -20,12 +20,14 @@ logger = logging.getLogger('graphsignal')
 class PyTorchProfiler(FrameworkProfiler):
     __slots__ = [
         '_torch_prof',
-        '_run_env'
+        '_ml_framework',
+        '_ml_framework_version'
     ]
 
     def __init__(self):
         self._torch_prof = None
-        self._run_env = None
+        self._ml_framework = None
+        self._ml_framework_version = None
 
     def start(self):
         logger.debug('Activating PyTorch profiler')
@@ -45,7 +47,9 @@ class PyTorchProfiler(FrameworkProfiler):
             self._torch_prof.stop()
             logger.debug('Finished warming up')
 
-            self._read_run_env()
+            self._ml_framework = profiles_pb2.ProcessUsage.MLFramework.Value('PYTORCH')
+            self._ml_framework_version = profiles_pb2.SemVer()
+            parse_semver(self._ml_framework_version, torch.__version__)
 
         self._torch_prof.start()
 
@@ -54,20 +58,13 @@ class PyTorchProfiler(FrameworkProfiler):
 
         self._torch_prof.stop()
 
-        self._copy_run_env(profile)
         self._convert_to_profile(profile)
 
-    def _read_run_env(self):
-        self._run_env = profiles_pb2.RunEnvironment()
-        self._run_env.ml_framework = profiles_pb2.RunEnvironment.MLFramework.Value('PYTORCH')
-        parse_semver(self._run_env.ml_framework_version, torch.__version__)
-
-    def _copy_run_env(self, profile):
-        profile.run_env.ml_framework = self._run_env.ml_framework
-        profile.run_env.ml_framework_version.CopyFrom(
-            self._run_env.ml_framework_version)
-
     def _convert_to_profile(self, profile):
+        profile.process_usage[0].ml_framework = self._ml_framework
+        profile.process_usage[0].ml_framework_version.CopyFrom(
+            self._ml_framework_version)
+
         for event_avg in self._torch_prof.key_averages():
             if event_avg.key and event_avg.key.startswith('ProfilerStep'):
                 continue

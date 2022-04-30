@@ -28,6 +28,8 @@ class ProcessReaderTest(unittest.TestCase):
 
     def test_read(self):
         profile = profiles_pb2.MLProfile()
+        profile.node_usage.add()
+        profile.process_usage.add()
         reader = graphsignal._agent.process_reader
         reader.read(profile)
         ProcessReader.MIN_CPU_READ_INTERVAL = 0

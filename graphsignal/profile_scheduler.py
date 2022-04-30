@@ -44,10 +44,6 @@ class ProfileScheduler(object):
         else:
             # check if step index matches default step indexes
             if self._total_step_count not in self._step_filter:
-                # skip first step
-                if self._total_step_count == 1:
-                    return False
-
                 # comply with interval between steps
                 if not self._last_interval_ts or self._last_interval_ts > time.time() - self.MIN_STEP_INTERVAL_SEC:
                     return False

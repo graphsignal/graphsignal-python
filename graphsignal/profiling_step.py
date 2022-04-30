@@ -4,7 +4,6 @@ from threading import Lock
 import traceback
 
 import graphsignal
-from graphsignal import system_info
 from graphsignal.proto import profiles_pb2
 from graphsignal.profile_scheduler import select_scheduler
 from graphsignal.step_counter import get_step_stats, update_step_stats
@@ -47,7 +46,8 @@ class ProfilingStep(object):
             self._profile.run_start_ms = graphsignal._agent.run_start_ms
             if run_phase:
                 self._profile.run_phase = run_phase
-            self._profile.run_env.CopyFrom(system_info.cached_run_env)
+            self._profile.node_usage.add() # for current node
+            self._profile.process_usage.add() # for current process
 
             if self._framework_profiler:
                 try:
