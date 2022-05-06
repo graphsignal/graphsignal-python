@@ -9,7 +9,8 @@ from graphsignal import step_counter
 logger = logging.getLogger('graphsignal')
 
 EXCLUDE_ARGS = {
-    'logging_dir'
+    'logging_dir',
+    'local_rank'
 }
 
 class GraphsignalPTCallback(TrainerCallback):
@@ -23,6 +24,19 @@ class GraphsignalPTCallback(TrainerCallback):
         self._profiler = PyTorchProfiler()
         self._step = None
 
+    def on_train_begin(elf, args, state, control, **kwarg):
+        step_counter.init_step_stats(profiles_pb2.RunPhase.TRAINING)
+        _configure_profiler(args)
+
+    def on_train_end(elf, args, state, control, **kwarg):
+        step_counter.reset_step_stats(profiles_pb2.RunPhase.TRAINING)
+
+    def on_step_begin(self, args, state, control, **kwarg):
+        self._start_profiler(profiles_pb2.RunPhase.TRAINING, args, state)
+
+    def on_step_end(self, args, state, control, **kwarg):
+        self._stop_profiler(args, state)
+
     def _start_profiler(self, run_phase, args, state):
         if not self._step:
             self._step = ProfilingStep(
@@ -36,15 +50,6 @@ class GraphsignalPTCallback(TrainerCallback):
                 _fill_step_stats(self._step, args, state)
             self._step.stop()
             self._step = None
-
-    def on_train_begin(elf, args, state, control, **kwarg):
-        _add_parameters_from_args(args)
-
-    def on_step_begin(self, args, state, control, **kwarg):
-        self._start_profiler(profiles_pb2.RunPhase.TRAINING, args, state)
-
-    def on_step_end(self, args, state, control, **kwarg):
-        self._stop_profiler(args, state)
 
 
 class GraphsignalTFCallback(TrainerCallback):
@@ -58,6 +63,19 @@ class GraphsignalTFCallback(TrainerCallback):
         self._profiler = TensorflowProfiler()
         self._step = None
 
+    def on_train_begin(elf, args, state, control, **kwarg):
+        step_counter.init_step_stats(profiles_pb2.RunPhase.TRAINING)
+        _configure_profiler(args)
+
+    def on_train_end(elf, args, state, control, **kwarg):
+        step_counter.reset_step_stats(profiles_pb2.RunPhase.TRAINING)
+
+    def on_step_begin(self, args, state, control, **kwarg):
+        self._start_profiler(profiles_pb2.RunPhase.TRAINING, args, state)
+
+    def on_step_end(self, args, state, control, **kwarg):
+        self._stop_profiler(args, state)
+
     def _start_profiler(self, run_phase, args, state):
         if not self._step:
             self._step = ProfilingStep(
@@ -71,19 +89,6 @@ class GraphsignalTFCallback(TrainerCallback):
                 _fill_step_stats(self._step, args, state)
             self._step.stop()
             self._step = None
-
-    def on_train_begin(elf, args, state, control, **kwarg):
-        step_counter.init_step_stats(profiles_pb2.RunPhase.TRAINING)
-        _add_parameters_from_args(args)
-
-    def on_train_end(elf, args, state, control, **kwarg):
-        step_counter.reset_step_stats(profiles_pb2.RunPhase.TRAINING)
-
-    def on_step_begin(self, args, state, control, **kwarg):
-        self._start_profiler(profiles_pb2.RunPhase.TRAINING, args, state)
-
-    def on_step_end(self, args, state, control, **kwarg):
-        self._stop_profiler(args, state)
 
 
 def _get_effective_batch_size(args):
@@ -99,7 +104,19 @@ def _fill_step_stats(step, args, state):
     step_stats.device_batch_size = args.per_device_train_batch_size
 
 
-def _add_parameters_from_args(args):
+def _configure_profiler(args):
+    if args.local_rank >= 0:
+        graphsignal._agent.local_rank = args.local_rank
+
+    if args.world_size > 0:
+        graphsignal.log_parameter('world_size', args.world_size)
+
     for name, value in vars(args).items():
         if not name.startswith('_') and name not in EXCLUDE_ARGS and isinstance(value, (str, int, float, bool)):
             graphsignal.log_parameter(name, value)
+
+
+def _log_args_prop(args, prop):
+    value = getattr(args, prop, None)
+    if isinstance(value, (str, int, float, bool)):
+        graphsignal.log_parameter(prop, value)

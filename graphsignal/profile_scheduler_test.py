@@ -21,7 +21,7 @@ class ProfileSchedulerTest(unittest.TestCase):
 
     def test_default(self):
         scheduler = ProfileScheduler()
-        for _ in range(scheduler.DEFAULT_STEPS[0] - 1):
+        for _ in range(next(iter(scheduler._step_filter)) - 1):
             scheduler.lock()
             scheduler.unlock()
         self.assertTrue(scheduler.lock())

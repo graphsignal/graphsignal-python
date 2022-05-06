@@ -28,8 +28,6 @@ class ProcessReaderTest(unittest.TestCase):
 
     def test_read(self):
         profile = profiles_pb2.MLProfile()
-        profile.node_usage.add()
-        profile.process_usage.add()
         reader = graphsignal._agent.process_reader
         reader.read(profile)
         ProcessReader.MIN_CPU_READ_INTERVAL = 0
@@ -39,10 +37,11 @@ class ProcessReaderTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         # pp.pprint(MessageToJson(profile))
 
-        self.assertNotEqual(profile.process_usage[0].hostname, '')
-        self.assertNotEqual(profile.process_usage[0].process_id, '')
+        self.assertNotEqual(profile.node_usage.hostname, '')
+        self.assertNotEqual(profile.node_usage.ip_address, '')
+        self.assertNotEqual(profile.process_usage.process_id, '')
         if sys.platform != 'win32':
-            self.assertTrue(profile.process_usage[0].cpu_usage_percent > 0)
-            self.assertTrue(profile.process_usage[0].max_rss > 0)
-            self.assertTrue(profile.process_usage[0].current_rss > 0)
-            self.assertTrue(profile.process_usage[0].vm_size > 0)
+            self.assertTrue(profile.process_usage.cpu_usage_percent > 0)
+            self.assertTrue(profile.process_usage.max_rss > 0)
+            self.assertTrue(profile.process_usage.current_rss > 0)
+            self.assertTrue(profile.process_usage.vm_size > 0)

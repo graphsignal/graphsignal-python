@@ -24,44 +24,30 @@ class GraphsignalCallback(Callback):
         self._batch_size = batch_size
         super().__init__()
 
-    def _start_profiler(self, run_phase, trainer):
-        if not self._step:
-            self._step = ProfilingStep(
-                run_phase=run_phase,
-                effective_batch_size=self._batch_size,
-                framework_profiler=self._profiler)
-
-    def _stop_profiler(self, trainer):
-        if self._step:
-            if self._step._is_scheduled:
-                self._fill_step_stats(trainer)
-            self._step.stop()
-            self._step = None
-
     def on_train_start(self, trainer, pl_module):
         step_counter.init_step_stats(profiles_pb2.RunPhase.TRAINING)
-        self._log_parameters(trainer)
+        self._configure_profiler(trainer)
 
     def on_train_end(self, trainer, pl_module):
         step_counter.reset_step_stats(profiles_pb2.RunPhase.TRAINING)
 
     def on_validation_start(self, trainer, pl_module):
         step_counter.init_step_stats(profiles_pb2.RunPhase.VALIDATION)
-        self._log_parameters(trainer)
+        self._configure_profiler(trainer)
 
     def on_validation_end(self, trainer, pl_module):
         step_counter.reset_step_stats(profiles_pb2.RunPhase.VALIDATION)
 
     def on_test_start(self, trainer, pl_module):
         step_counter.init_step_stats(profiles_pb2.RunPhase.TEST)
-        self._log_parameters(trainer)
+        self._configure_profiler(trainer)
 
     def on_test_end(self, trainer, pl_module):
         step_counter.reset_step_stats(profiles_pb2.RunPhase.TEST)
 
     def on_predict_start(self, trainer, pl_module):
         step_counter.init_step_stats(profiles_pb2.RunPhase.PREDICTION)
-        self._log_parameters(trainer)
+        self._configure_profiler(trainer)
 
     def on_predict_end(self, trainer, pl_module):
         step_counter.reset_step_stats(profiles_pb2.RunPhase.PREDICTION)
@@ -91,8 +77,46 @@ class GraphsignalCallback(Callback):
     def on_predict_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
         self._stop_profiler(trainer)
 
-    def _fill_step_stats(self, trainer):
+    def _configure_profiler(self, trainer):
+        if self._check_param(trainer, 'node_rank') and trainer.node_rank >= 0:
+            graphsignal._agent.node_rank = trainer.node_rank
+        if self._check_param(trainer, 'local_rank') and trainer.local_rank >= 0:
+            graphsignal._agent.local_rank = trainer.local_rank
+        if self._check_param(trainer, 'global_rank') and trainer.global_rank >= 0:
+            graphsignal._agent.world_rank = trainer.global_rank
+
+        if self._batch_size:
+            graphsignal.log_parameter('batch_size', self._batch_size)
+
+        self._log_basic_param(trainer, 'auto_scale_batch_size')
+        self._log_basic_param(trainer, 'accumulate_grad_batches')
+        self._log_basic_param(trainer, 'world_size')
+        self._log_basic_param(trainer, 'num_nodes')
+        self._log_basic_param(trainer, 'num_devices')
+        self._log_basic_param(trainer, 'precision')
+        self._log_basic_param(trainer, 'data_parallel')
+        self._log_basic_param(trainer, 'max_epochs')
+        self._log_basic_param(trainer, 'min_epochs')
+        self._log_basic_param(trainer, 'max_steps')
+        self._log_basic_param(trainer, 'min_steps')
+
+    def _start_profiler(self, run_phase, trainer):
+        if not self._step:
+            self._step = ProfilingStep(
+                run_phase=run_phase,
+                effective_batch_size=self._batch_size,
+                framework_profiler=self._profiler)
+
+    def _stop_profiler(self, trainer):
+        if self._step:
+            if self._step._is_scheduled:
+                self._update_profile(trainer)
+            self._step.stop()
+            self._step = None
+
+    def _update_profile(self, trainer):
         step_stats = self._step._profile.step_stats
+
         if self._batch_size:
             step_stats.batch_size = self._batch_size
             strategy = getattr(trainer, 'strategy', None)
@@ -106,23 +130,14 @@ class GraphsignalCallback(Callback):
                 except:
                     logger.warning('Error recording per-device batch size', exc_info=True)
 
-    def _log_parameters(self, trainer):
-        if self._batch_size:
-            graphsignal.log_parameter('batch_size', self._batch_size)
-
-        self._log_basic_param(trainer, 'auto_scale_batch_size')
-        self._log_basic_param(trainer, 'accumulate_grad_batches')
-        self._log_basic_param(trainer, 'num_nodes')
-        self._log_basic_param(trainer, 'num_devices')
-        self._log_basic_param(trainer, 'precision')
-        self._log_basic_param(trainer, 'data_parallel')
-        self._log_basic_param(trainer, 'is_global_zero')
-        self._log_basic_param(trainer, 'max_epochs')
-        self._log_basic_param(trainer, 'min_epochs')
-        self._log_basic_param(trainer, 'max_steps')
-        self._log_basic_param(trainer, 'min_steps')
+        if self._check_param(trainer, 'world_size'):
+            step_stats.world_size = trainer.world_size
 
     def _log_basic_param(self, trainer, param):
         value = getattr(trainer, param, None)
         if isinstance(value, (str, int, float, bool)):
             graphsignal.log_parameter(param, value)
+
+    def _check_param(self, trainer, param):
+        value = getattr(trainer, param, None)
+        return isinstance(value, (str, int, float, bool))

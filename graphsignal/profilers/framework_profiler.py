@@ -1,7 +1,7 @@
 
 
 class FrameworkProfiler():
-    def start(self):
+    def start(self, profile):
         raise NotImplementedError()
 
     def stop(self, profile):

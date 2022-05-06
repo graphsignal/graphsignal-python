@@ -20,17 +20,6 @@ class GraphsignalCallback(Callback):
         self._profiler = TensorflowProfiler()
         self._step = None
 
-    def _start_profiler(self, run_phase):
-        if not self._step:
-            self._step = ProfilingStep(
-                run_phase=run_phase,
-                framework_profiler=self._profiler)
-
-    def _stop_profiler(self):
-        if self._step:
-            self._step.stop()
-            self._step = None
-
     def on_train_begin(self, logs=None):
         step_counter.init_step_stats(profiles_pb2.RunPhase.TRAINING)
 
@@ -66,3 +55,14 @@ class GraphsignalCallback(Callback):
 
     def on_predict_batch_end(self, batch, logs=None):
         self._stop_profiler()
+
+    def _start_profiler(self, run_phase):
+        if not self._step:
+            self._step = ProfilingStep(
+                run_phase=run_phase,
+                framework_profiler=self._profiler)
+
+    def _stop_profiler(self):
+        if self._step:
+            self._step.stop()
+            self._step = None

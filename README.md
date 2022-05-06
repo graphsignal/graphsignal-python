@@ -66,7 +66,7 @@ To get an API key, sign up for a free account at [graphsignal.com](https://graph
 
 ### 3. Profiling
 
-Use the the following minimal examples to integrate Graphsignal into your machine learning script. See [profiling API reference](/docs/profiler/api-reference/) for full reference.
+Use the the following minimal examples to integrate Graphsignal into your machine learning script. See [profiling API reference](https://graphsignal.com/docs/profiler/api-reference/) for full reference.
 
 To ensure optimal statistics and low overhead, the profiler automatically profiles only certain training batches and/or predictions. 
 
@@ -125,6 +125,11 @@ from graphsignal.profilers.generic import profile_step
 with profile_step():
     # training batch, prediction, etc.
 ```
+
+#### Distributed workloads
+
+Graphsignal has a built-in support for distributed training and inference, e.g. multi-node and multi-gpu training. See [Distributed Workloads](https://graphsignal.com/docs/profiler/distributed-workloads/) section for more information.
+
 
 ### 4. Dashboards
 

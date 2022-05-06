@@ -22,6 +22,9 @@ class ProfilingStepTest(unittest.TestCase):
         graphsignal.configure(
             api_key='k1',
             workload_name='w1',
+            run_id='r1',
+            local_rank=1,
+            world_rank=1,
             debug_mode=True)
 
     def tearDown(self):
@@ -51,7 +54,8 @@ class ProfilingStepTest(unittest.TestCase):
         profile = mocked_upload_profile.call_args[0][0]
 
         self.assertEqual(profile.workload_name, 'w1')
-        self.assertTrue(profile.run_id != '')
+        self.assertTrue(profile.worker_id != '')
+        self.assertEqual(profile.run_id, '5573e39b6600')
         self.assertEqual(profile.run_phase, profiles_pb2.RunPhase.TRAINING)
         self.assertTrue(profile.start_us > 0)
         self.assertTrue(profile.end_us > 0)
@@ -62,6 +66,10 @@ class ProfilingStepTest(unittest.TestCase):
         self.assertEqual(profile.params[0].value, 'v2')
         self.assertEqual(profile.params[1].name, 'n3')
         self.assertEqual(profile.params[1].value, 'v3')
+        self.assertEqual(profile.node_usage.node_rank, -1)
+        self.assertTrue(profile.process_usage.start_ms > 0)
+        self.assertEqual(profile.process_usage.local_rank, 1)
+        self.assertEqual(profile.process_usage.world_rank, 1)
 
     @patch.object(TensorflowProfiler, 'start', return_value=True)
     @patch.object(TensorflowProfiler, 'stop', return_value=True)
@@ -81,7 +89,7 @@ class ProfilingStepTest(unittest.TestCase):
         profile = mocked_upload_profile.call_args[0][0]
 
         self.assertEqual(profile.workload_name, 'w1')
-        self.assertTrue(profile.run_id != '')
+        self.assertTrue(profile.worker_id != '')
         self.assertTrue(profile.start_us > 0)
         self.assertTrue(profile.end_us > 0)
         self.assertEqual(profile.profiler_errors[0].message, 'ex1')
@@ -105,7 +113,7 @@ class ProfilingStepTest(unittest.TestCase):
         profile = mocked_upload_profile.call_args[0][0]
 
         self.assertEqual(profile.workload_name, 'w1')
-        self.assertTrue(profile.run_id != '')
+        self.assertTrue(profile.worker_id != '')
         self.assertTrue(profile.start_us > 0)
         self.assertTrue(profile.end_us > 0)
         self.assertEqual(profile.profiler_errors[0].message, 'ex1')

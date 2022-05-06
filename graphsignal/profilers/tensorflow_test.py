@@ -44,7 +44,7 @@ class TensorflowProfilerTest(unittest.TestCase):
         #pp.pprint(MessageToJson(profile))
 
         self.assertEqual(
-            profile.process_usage[0].ml_framework,
+            profile.process_usage.ml_framework,
             profiles_pb2.ProcessUsage.MLFramework.TENSORFLOW)
 
         self.assertEqual(profile.step_stats.step_count, 1)

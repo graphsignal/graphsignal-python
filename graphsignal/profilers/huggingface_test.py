@@ -55,8 +55,11 @@ class HuggingFacePTCallbackTest(unittest.TestCase):
             "bert-base-cased", num_labels=2)
 
         from transformers import TrainingArguments
-        training_args = TrainingArguments("test_trainer")
-
+        training_args = TrainingArguments("test_trainer", 
+            fp16=True,
+            per_device_train_batch_size=1, 
+            gradient_accumulation_steps=4)
+            
         from transformers import Trainer
         from graphsignal.profilers.huggingface import GraphsignalPTCallback
         trainer = Trainer(

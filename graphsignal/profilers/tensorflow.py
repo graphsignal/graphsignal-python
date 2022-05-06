@@ -39,9 +39,10 @@ class TensorflowProfiler(FrameworkProfiler):
         self._ml_framework = None
         self._ml_framework_version = None
 
-    def start(self):
+    def start(self, profile):
         logger.debug('Activating TensorFlow profiler')
 
+        # Initialization
         if not self._is_initialized:
             logger.debug('Warming up TensorFlow profiler before first use')
             self._is_initialized = True
@@ -55,6 +56,11 @@ class TensorflowProfiler(FrameworkProfiler):
             if compare_semver(self._ml_framework_version, (2, 2, 0)) == -1:
                 raise Exception(
                     'TensorFlow profiling is not supported for versions <=2.2')
+
+        # Process info
+        profile.process_usage.ml_framework = self._ml_framework
+        profile.process_usage.ml_framework_version.CopyFrom(
+            self._ml_framework_version)
 
         try:
             self._create_log_dir()
@@ -90,10 +96,7 @@ class TensorflowProfiler(FrameworkProfiler):
         logger.debug('Removed temporary log directory %s', self._log_dir)
 
     def _convert_to_profile(self, profile):
-        profile.process_usage[0].ml_framework = self._ml_framework
-        profile.process_usage[0].ml_framework_version.CopyFrom(
-            self._ml_framework_version)
-
+        # Summary
         overview_page_data = self._find_and_read(
             'plugins/profile/*/*overview_page.pb')
         if overview_page_data:
@@ -108,6 +111,7 @@ class TensorflowProfiler(FrameworkProfiler):
             profile.summary.input_percent = input_analysis.input_percent
             profile.summary.output_percent = input_analysis.output_percent
 
+        # Operation stats
         host_idle_time_us = 0
         device_idle_time_us = 0
         tf_stats_data = self._find_and_read(
@@ -118,28 +122,29 @@ class TensorflowProfiler(FrameworkProfiler):
             for tf_stats_record in tf_stats_db.with_idle.tf_stats_record:
                 if tf_stats_record.op_type == 'IDLE':
                     if tf_stats_record.host_or_device == 'Host':
-                        host_idle_time_us += int(tf_stats_record.total_self_time_in_us)
+                        host_idle_time_us += _uint(tf_stats_record.total_self_time_in_us)
                     else:
-                        device_idle_time_us += int(tf_stats_record.total_self_time_in_us)
+                        device_idle_time_us += _uint(tf_stats_record.total_self_time_in_us)
                     continue
                 op_stats = profile.op_stats.add()
                 if tf_stats_record.host_or_device == 'Host':
                     op_stats.device_type = profiles_pb2.DeviceType.CPU
-                    op_stats.total_host_time_us = int(tf_stats_record.total_time_in_us)
-                    op_stats.self_host_time_us = int(tf_stats_record.total_self_time_in_us)
-                    op_stats.self_host_memory_rate = int(tf_stats_record.measured_memory_bw)
+                    op_stats.total_host_time_us = _uint(tf_stats_record.total_time_in_us)
+                    op_stats.self_host_time_us = _uint(tf_stats_record.total_self_time_in_us)
+                    op_stats.self_host_memory_rate = _uint(tf_stats_record.measured_memory_bw)
                 else:
                     op_stats.device_type = profiles_pb2.DeviceType.GPU
-                    op_stats.total_device_time_us = int(tf_stats_record.total_time_in_us)
-                    op_stats.self_device_time_us = int(tf_stats_record.total_self_time_in_us)
-                    op_stats.self_device_memory_rate = int(tf_stats_record.measured_memory_bw)
+                    op_stats.total_device_time_us = _uint(tf_stats_record.total_time_in_us)
+                    op_stats.self_device_time_us = _uint(tf_stats_record.total_self_time_in_us)
+                    op_stats.self_device_memory_rate = _uint(tf_stats_record.measured_memory_bw)
                     op_stats.tensorcore_utilization = tf_stats_record.gpu_tensorcore_utilization
                 op_stats.op_type = tf_stats_record.op_type
                 op_stats.op_name = tf_stats_record.op_name
-                op_stats.count = int(tf_stats_record.occurrences)
+                op_stats.count = _uint(tf_stats_record.occurrences)
         else:
             logger.debug('No operation data found in TensorFlow log directory')
 
+        # Kernel stats
         kernel_stats_data = self._find_and_read(
             'plugins/profile/*/*kernel_stats.pb')
         if kernel_stats_data:
@@ -150,12 +155,13 @@ class TensorflowProfiler(FrameworkProfiler):
                 kernel_stats.device_type = profiles_pb2.DeviceType.GPU
                 kernel_stats.op_name = kernel_report.op_name
                 kernel_stats.kernel_name = kernel_report.name
-                kernel_stats.count = int(kernel_report.occurrences)
-                kernel_stats.duration_ns = int(kernel_report.total_duration_ns)
+                kernel_stats.count = _uint(kernel_report.occurrences)
+                kernel_stats.duration_ns = _uint(kernel_report.total_duration_ns)
                 kernel_stats.is_using_tensorcore = kernel_report.is_kernel_using_tensor_core
         else:
             logger.debug('No kernel data found in TensorFlow log directory')
 
+        # Summary
         sum_host_op_time_us = 0
         sum_device_op_time_us = 0
         for op_stats in profile.op_stats:
@@ -193,6 +199,10 @@ class TensorflowProfiler(FrameworkProfiler):
         last_file.close()
 
         return data
+
+
+def _uint(val):
+    return max(int(val), 0)
 
 
 _profiler = TensorflowProfiler()

@@ -47,15 +47,10 @@ class ProcessReader():
     def read(self, profile):
         pid = str(os.getpid())
 
-        node_usage = profile.node_usage[0]
-        process_usage = profile.process_usage[0]
+        node_usage = profile.node_usage
+        process_usage = profile.process_usage
 
         process_usage.process_id = pid
-
-        try:
-            process_usage.hostname = socket.gethostname()
-        except BaseException:
-            logger.debug('Error reading hostname', exc_info=True)
 
         if not OS_WIN:
             cpu_time_ns = _read_cpu_time()
@@ -88,8 +83,15 @@ class ProcessReader():
             if vm_size is not None:
                 process_usage.vm_size = vm_size
 
+
         try:
-            node_usage.hostname = process_usage.hostname
+            node_usage.hostname = socket.gethostname()
+            if node_usage.hostname:
+                node_usage.ip_address = socket.gethostbyname(node_usage.hostname)
+        except BaseException:
+            logger.debug('Error reading hostname', exc_info=True)
+
+        try:
             node_usage.platform = sys.platform
             node_usage.machine = platform.machine()
             if not OS_WIN:

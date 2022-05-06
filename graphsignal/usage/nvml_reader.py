@@ -43,16 +43,18 @@ class NvmlReader():
             return
 
         device_count = nvmlDeviceGetCount()
+
+        profile.node_usage.num_devices = device_count
+
         for i in range(0, device_count):
-            handle = nvmlDeviceGetHandleByIndex(i)
+            try:
+                handle = nvmlDeviceGetHandleByIndex(i)
+            except NVMLError as err:
+                log_nvml_error(err)
+                continue
 
             device_usage = profile.device_usage.add()
             device_usage.device_type = profiles_pb2.DeviceType.GPU
-
-            try:
-                device_usage.hostname = socket.gethostname()
-            except BaseException:
-                logger.debug('Error reading hostname', exc_info=True)
 
             try:
                 pci_info = nvmlDeviceGetPciInfo(handle)

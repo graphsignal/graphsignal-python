@@ -20,7 +20,7 @@ class ProfileScheduler(object):
         '_last_interval_ts'
     ]
 
-    DEFAULT_STEPS = [10, 25, 50, 100, 250, 500, 1000]
+    DEFAULT_STEPS = [5, 25, 50, 100, 250, 500, 1000]
     MAX_ENSURED_STEPS = 10
     MIN_STEP_INTERVAL_SEC = 20
 
@@ -28,8 +28,11 @@ class ProfileScheduler(object):
         self._total_step_count = 0
         self._ensured_step_count = 0
         self._last_interval_ts = None
+
+        # Avoid profiling at the same time with workers
+        step_shift = random.randint(0, 10)
         self._step_filter = {
-            step: True for step in ProfileScheduler.DEFAULT_STEPS}
+            step + step_shift for step in ProfileScheduler.DEFAULT_STEPS}
 
     def lock(self, ensure=False):
         self._total_step_count += 1

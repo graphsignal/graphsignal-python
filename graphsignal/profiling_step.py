@@ -42,16 +42,18 @@ class ProfilingStep(object):
             self._is_scheduled = True
             self._profile = profiles_pb2.MLProfile()
             self._profile.workload_name = graphsignal._agent.workload_name
+            self._profile.worker_id = graphsignal._agent.worker_id
             self._profile.run_id = graphsignal._agent.run_id
-            self._profile.run_start_ms = graphsignal._agent.run_start_ms
             if run_phase:
                 self._profile.run_phase = run_phase
-            self._profile.node_usage.add() # for current node
-            self._profile.process_usage.add() # for current process
+            self._profile.node_usage.node_rank = graphsignal._agent.node_rank 
+            self._profile.process_usage.local_rank = graphsignal._agent.local_rank 
+            self._profile.process_usage.world_rank = graphsignal._agent.world_rank 
+            self._profile.process_usage.start_ms = graphsignal._agent.start_ms
 
             if self._framework_profiler:
                 try:
-                    self._framework_profiler.start()
+                    self._framework_profiler.start(self._profile)
                     self._is_profiling = True
                 except Exception as exc:
                     self._scheduler.unlock()
