@@ -19,19 +19,26 @@ class ProfilingStep(object):
         '_is_profiling',
         '_profile',
         '_stop_lock',
-        '_run_phase',
+        '_phase_name',
         '_effective_batch_size',
         '_start_us'
     ]
 
-    def __init__(self, run_phase=None, effective_batch_size=None, ensure_profile=False, framework_profiler=None):
-        self._run_phase = run_phase
+    def __init__(self, 
+            phase_name=None, 
+            effective_batch_size=None, ensure_profile=False, 
+            framework_profiler=None):
+        if phase_name is not None:
+            if not isinstance(phase_name, str):
+                raise ValueError('Invalid phase_name')
+            phase_name = phase_name[:50]
+        self._phase_name = phase_name
 
         if effective_batch_size is not None and not isinstance(effective_batch_size, int):
-            raise Exception('Invalid effective_batch_size')
+                raise ValueError('Invalid effective_batch_size')
         self._effective_batch_size = effective_batch_size
 
-        self._scheduler = select_scheduler(run_phase)
+        self._scheduler = select_scheduler(phase_name)
         self._framework_profiler = framework_profiler
         self._is_scheduled = False
         self._is_profiling = False
@@ -44,8 +51,8 @@ class ProfilingStep(object):
             self._profile.workload_name = graphsignal._agent.workload_name
             self._profile.worker_id = graphsignal._agent.worker_id
             self._profile.run_id = graphsignal._agent.run_id
-            if run_phase:
-                self._profile.run_phase = run_phase
+            if phase_name:
+                self._profile.phase_name = phase_name
             self._profile.node_usage.node_rank = graphsignal._agent.node_rank 
             self._profile.process_usage.local_rank = graphsignal._agent.local_rank 
             self._profile.process_usage.world_rank = graphsignal._agent.world_rank 
@@ -74,7 +81,7 @@ class ProfilingStep(object):
     def stop(self):
         with self._stop_lock:
             step_stats = update_step_stats(
-                self._run_phase,
+                self._phase_name,
                 effective_batch_size=self._effective_batch_size)
 
             if self._is_scheduled:

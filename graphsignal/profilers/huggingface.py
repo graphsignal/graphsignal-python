@@ -8,6 +8,8 @@ from graphsignal import step_counter
 
 logger = logging.getLogger('graphsignal')
 
+PHASE_TRAINING = 'training'
+
 EXCLUDE_ARGS = {
     'logging_dir',
     'local_rank'
@@ -25,22 +27,22 @@ class GraphsignalPTCallback(TrainerCallback):
         self._step = None
 
     def on_train_begin(elf, args, state, control, **kwarg):
-        step_counter.init_step_stats(profiles_pb2.RunPhase.TRAINING)
+        step_counter.init_step_stats(PHASE_TRAINING)
         _configure_profiler(args)
 
     def on_train_end(elf, args, state, control, **kwarg):
-        step_counter.reset_step_stats(profiles_pb2.RunPhase.TRAINING)
+        step_counter.reset_step_stats(PHASE_TRAINING)
 
     def on_step_begin(self, args, state, control, **kwarg):
-        self._start_profiler(profiles_pb2.RunPhase.TRAINING, args, state)
+        self._start_profiler(PHASE_TRAINING, args, state)
 
     def on_step_end(self, args, state, control, **kwarg):
         self._stop_profiler(args, state)
 
-    def _start_profiler(self, run_phase, args, state):
+    def _start_profiler(self, phase_name, args, state):
         if not self._step:
             self._step = ProfilingStep(
-                run_phase=run_phase,
+                phase_name=phase_name,
                 effective_batch_size=_get_effective_batch_size(args),
                 framework_profiler=self._profiler)
 
@@ -64,22 +66,22 @@ class GraphsignalTFCallback(TrainerCallback):
         self._step = None
 
     def on_train_begin(elf, args, state, control, **kwarg):
-        step_counter.init_step_stats(profiles_pb2.RunPhase.TRAINING)
+        step_counter.init_step_stats(PHASE_TRAINING)
         _configure_profiler(args)
 
     def on_train_end(elf, args, state, control, **kwarg):
-        step_counter.reset_step_stats(profiles_pb2.RunPhase.TRAINING)
+        step_counter.reset_step_stats(PHASE_TRAINING)
 
     def on_step_begin(self, args, state, control, **kwarg):
-        self._start_profiler(profiles_pb2.RunPhase.TRAINING, args, state)
+        self._start_profiler(PHASE_TRAINING, args, state)
 
     def on_step_end(self, args, state, control, **kwarg):
         self._stop_profiler(args, state)
 
-    def _start_profiler(self, run_phase, args, state):
+    def _start_profiler(self, phase_name, args, state):
         if not self._step:
             self._step = ProfilingStep(
-                run_phase=run_phase,
+                phase_name=phase_name,
                 effective_batch_size=_get_effective_batch_size(args),
                 framework_profiler=self._profiler)
 

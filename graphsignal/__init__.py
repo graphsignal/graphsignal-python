@@ -12,6 +12,7 @@ from graphsignal.agent import Agent
 from graphsignal.uploader import Uploader
 from graphsignal.usage.process_reader import ProcessReader
 from graphsignal.usage.nvml_reader import NvmlReader
+from graphsignal.proto import profiles_pb2
 
 logger = logging.getLogger('graphsignal')
 
@@ -89,7 +90,7 @@ def configure(api_key=None, workload_name=None, run_id=None,
     _agent.worker_id = _uuid_sha1(size=12)
     _agent.start_ms = int(time.time() * 1e3)
     _agent.api_key = api_key
-    _agent.workload_name = workload_name[:250]
+    _agent.workload_name = workload_name[:50]
     _agent.run_id = _sha1(run_id, size=12)
     _agent.node_rank = node_rank if node_rank is not None else -1
     _agent.local_rank = local_rank if local_rank is not None else -1

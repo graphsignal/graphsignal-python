@@ -35,7 +35,7 @@ class TensorflowProfilerTest(unittest.TestCase):
                 x = tf.tanh(x)
             return x
 
-        with profile_step(effective_batch_size=128, ensure_profile=True):
+        with profile_step(phase_name='training', effective_batch_size=128, ensure_profile=True):
             f(tf.random.uniform([5]))
 
         profile = mocked_upload_profile.call_args[0][0]
@@ -47,6 +47,7 @@ class TensorflowProfilerTest(unittest.TestCase):
             profile.process_usage.ml_framework,
             profiles_pb2.ProcessUsage.MLFramework.TENSORFLOW)
 
+        self.assertEqual(profile.phase_name, 'training')
         self.assertEqual(profile.step_stats.step_count, 1)
         self.assertTrue(profile.step_stats.total_time_us > 0)
         self.assertEqual(profile.step_stats.sample_count, 128)

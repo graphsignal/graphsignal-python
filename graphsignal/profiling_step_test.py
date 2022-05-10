@@ -42,7 +42,7 @@ class ProfilingStepTest(unittest.TestCase):
         graphsignal.log_parameter('n3', 'v3')
 
         step = ProfilingStep(
-            run_phase=profiles_pb2.RunPhase.TRAINING,
+            phase_name='training',
             effective_batch_size=128,
             ensure_profile=True,
             framework_profiler=TensorflowProfiler())
@@ -56,7 +56,7 @@ class ProfilingStepTest(unittest.TestCase):
         self.assertEqual(profile.workload_name, 'w1')
         self.assertTrue(profile.worker_id != '')
         self.assertEqual(profile.run_id, '5573e39b6600')
-        self.assertEqual(profile.run_phase, profiles_pb2.RunPhase.TRAINING)
+        self.assertEqual(profile.phase_name, 'training')
         self.assertTrue(profile.start_us > 0)
         self.assertTrue(profile.end_us > 0)
         self.assertEqual(profile.step_stats.step_count, 1)

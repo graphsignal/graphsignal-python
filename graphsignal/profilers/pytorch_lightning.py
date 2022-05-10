@@ -10,6 +10,11 @@ from graphsignal import step_counter
 
 logger = logging.getLogger('graphsignal')
 
+PHASE_TRAINING = 'training'
+PHASE_VALIDATION = 'validation'
+PHASE_TEST = 'test'
+PHASE_PREDICTION = 'prediction'
+
 
 class GraphsignalCallback(Callback):
     __slots__ = [
@@ -25,54 +30,54 @@ class GraphsignalCallback(Callback):
         super().__init__()
 
     def on_train_start(self, trainer, pl_module):
-        step_counter.init_step_stats(profiles_pb2.RunPhase.TRAINING)
+        step_counter.init_step_stats(PHASE_TRAINING)
         self._configure_profiler(trainer)
 
     def on_train_end(self, trainer, pl_module):
-        step_counter.reset_step_stats(profiles_pb2.RunPhase.TRAINING)
+        step_counter.reset_step_stats(PHASE_TRAINING)
 
     def on_validation_start(self, trainer, pl_module):
-        step_counter.init_step_stats(profiles_pb2.RunPhase.VALIDATION)
+        step_counter.init_step_stats(PHASE_VALIDATION)
         self._configure_profiler(trainer)
 
     def on_validation_end(self, trainer, pl_module):
-        step_counter.reset_step_stats(profiles_pb2.RunPhase.VALIDATION)
+        step_counter.reset_step_stats(PHASE_VALIDATION)
 
     def on_test_start(self, trainer, pl_module):
-        step_counter.init_step_stats(profiles_pb2.RunPhase.TEST)
+        step_counter.init_step_stats(PHASE_TEST)
         self._configure_profiler(trainer)
 
     def on_test_end(self, trainer, pl_module):
-        step_counter.reset_step_stats(profiles_pb2.RunPhase.TEST)
+        step_counter.reset_step_stats(PHASE_TEST)
 
     def on_predict_start(self, trainer, pl_module):
-        step_counter.init_step_stats(profiles_pb2.RunPhase.PREDICTION)
+        step_counter.init_step_stats(PHASE_PREDICTION)
         self._configure_profiler(trainer)
 
     def on_predict_end(self, trainer, pl_module):
-        step_counter.reset_step_stats(profiles_pb2.RunPhase.PREDICTION)
+        step_counter.reset_step_stats(PHASE_PREDICTION)
 
     def on_train_batch_start(self, trainer, pl_module, batch, batch_idx):
-        self._start_profiler(profiles_pb2.RunPhase.TRAINING, trainer)
+        self._start_profiler(PHASE_TRAINING, trainer)
 
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
         self._stop_profiler(trainer)
-        step_stats = step_counter.get_step_stats(profiles_pb2.RunPhase.TRAINING)
+        step_stats = step_counter.get_step_stats(PHASE_TRAINING)
 
     def on_validation_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx):
-        self._start_profiler(profiles_pb2.RunPhase.VALIDATION, trainer)
+        self._start_profiler(PHASE_VALIDATION, trainer)
 
     def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
         self._stop_profiler(trainer)
 
     def on_test_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx):
-        self._start_profiler(profiles_pb2.RunPhase.TEST, trainer)
+        self._start_profiler(PHASE_TEST, trainer)
 
     def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
         self._stop_profiler(trainer)
 
     def on_predict_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx):
-        self._start_profiler(profiles_pb2.RunPhase.PREDICTION, trainer)
+        self._start_profiler(PHASE_PREDICTION, trainer)
 
     def on_predict_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
         self._stop_profiler(trainer)
@@ -100,10 +105,10 @@ class GraphsignalCallback(Callback):
         self._log_basic_param(trainer, 'max_steps')
         self._log_basic_param(trainer, 'min_steps')
 
-    def _start_profiler(self, run_phase, trainer):
+    def _start_profiler(self, phase_name, trainer):
         if not self._step:
             self._step = ProfilingStep(
-                run_phase=run_phase,
+                phase_name=phase_name,
                 effective_batch_size=self._batch_size,
                 framework_profiler=self._profiler)
 

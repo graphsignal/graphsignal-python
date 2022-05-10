@@ -61,15 +61,15 @@ class ProfileScheduler(object):
         _profiling_lock.release()
 
 
-def select_scheduler(run_phase):
-    if run_phase is None:
-        run_phase = 0
+def select_scheduler(scope):
+    if scope is None:
+        scope = 0
 
-    if run_phase in _schedulers:
-        return _schedulers[run_phase]
+    if scope in _schedulers:
+        return _schedulers[scope]
     else:
         if len(_schedulers) < MAX_SCHEDULERS:
-            scheduler = _schedulers[run_phase] = ProfileScheduler()
+            scheduler = _schedulers[scope] = ProfileScheduler()
             return scheduler
         else:
             return random.choice(list(_schedulers.values()))
