@@ -69,12 +69,13 @@ class PyTorchProfiler(FrameworkProfiler):
         profile.process_usage.ml_framework = self._ml_framework
         profile.process_usage.ml_framework_version.CopyFrom(
             self._ml_framework_version)
-        if self._world_rank and self._world_rank >= 0:
+        if self._world_rank is not None and self._world_rank >= 0:
             profile.process_usage.world_rank = self._world_rank
 
         # Step stats
-        if self._world_size and self._world_size > 0:
+        if self._world_size is not None and self._world_size > 0:
             profile.step_stats.world_size = self._world_size
+            graphsignal.log_parameter('world_size', self._world_size)
 
         # Communication info
         if self._comm_backend:
