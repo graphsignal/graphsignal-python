@@ -41,6 +41,10 @@ class ProfilingStepTest(unittest.TestCase):
         graphsignal.log_parameter('n1', 'v2')
         graphsignal.log_parameter('n3', 'v3')
 
+        graphsignal.log_metric('m1', 1)
+        graphsignal.log_metric('m1', 2.2)
+        graphsignal.log_metric('m3', 3)
+
         step = ProfilingStep(
             phase_name='training',
             effective_batch_size=128,
@@ -66,6 +70,10 @@ class ProfilingStepTest(unittest.TestCase):
         self.assertEqual(profile.params[0].value, 'v2')
         self.assertEqual(profile.params[1].name, 'n3')
         self.assertEqual(profile.params[1].value, 'v3')
+        self.assertEqual(profile.metrics[0].name, 'm1')
+        self.assertEqual(profile.metrics[0].value, 2.2)
+        self.assertEqual(profile.metrics[1].name, 'm3')
+        self.assertEqual(profile.metrics[1].value, 3)
         self.assertEqual(profile.node_usage.node_rank, -1)
         self.assertTrue(profile.process_usage.start_ms > 0)
         self.assertEqual(profile.process_usage.local_rank, 1)

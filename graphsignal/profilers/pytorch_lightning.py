@@ -23,7 +23,7 @@ class GraphsignalCallback(Callback):
         '_batch_size'
     ]
 
-    def __init__(self, batch_size=None):
+    def __init__(self, batch_size: Optional[int] = None):
         self._profiler = PyTorchProfiler()
         self._step = None
         self._batch_size = batch_size

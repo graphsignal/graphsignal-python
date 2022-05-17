@@ -14,3 +14,4 @@ class Agent(object):
         self.process_reader = None
         self.nvml_reader = None
         self.params = None
+        self.metrics = None

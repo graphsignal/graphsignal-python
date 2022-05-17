@@ -78,7 +78,7 @@ class ProfilingStep(object):
     def __exit__(self, *exc):
         self.stop()
 
-    def stop(self):
+    def stop(self) -> None:
         with self._stop_lock:
             step_stats = update_step_stats(
                 self._phase_name,
@@ -93,9 +93,15 @@ class ProfilingStep(object):
 
                 if graphsignal._agent.params is not None:
                     for name, value in graphsignal._agent.params.items():
-                        entry = self._profile.params.add()
-                        entry.name = name
-                        entry.value = value
+                        param = self._profile.params.add()
+                        param.name = name
+                        param.value = value
+
+                if graphsignal._agent.metrics is not None:
+                    for name, value in graphsignal._agent.metrics.items():
+                        metric = self._profile.metrics.add()
+                        metric.name = name
+                        metric.value = value
 
                 if self._framework_profiler:
                     try:
@@ -118,7 +124,7 @@ class ProfilingStep(object):
                 self._profile = None
                 self._scheduler.unlock()
 
-    def set_effective_batch_size(self, effective_batch_size):
+    def set_effective_batch_size(self, effective_batch_size: int) -> None:
         if not isinstance(effective_batch_size, int):
             raise Exception('Invalid effective_batch_size')
         self._effective_batch_size = effective_batch_size

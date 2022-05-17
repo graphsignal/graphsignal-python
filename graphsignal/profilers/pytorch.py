@@ -1,3 +1,4 @@
+from typing import Optional
 import logging
 import os
 import sys
@@ -159,7 +160,9 @@ def _uint(val):
 _profiler = PyTorchProfiler()
 
 def profile_step(
-        phase_name=None, effective_batch_size=None, ensure_profile=False):
+        phase_name: Optional[str] = None,
+        effective_batch_size: Optional[int] = None,
+        ensure_profile: Optional[bool] = False) -> ProfilingStep:
     graphsignal._check_configured()
 
     return ProfilingStep(

@@ -66,11 +66,11 @@ To get an API key, sign up for a free account at [graphsignal.com](https://graph
 
 ### 3. Profiling
 
-Use the the following minimal examples to integrate Graphsignal into your machine learning script. See [profiling API reference](https://graphsignal.com/docs/profiler/api-reference/) for full reference.
+Use the following minimal examples to integrate Graphsignal into your machine learning script. See integration documentation and  [profiling API reference](https://graphsignal.com/docs/profiler/api-reference/) for full reference.
 
-To ensure optimal statistics and low overhead, the profiler automatically profiles only certain training batches and/or predictions. 
+To ensure optimal statistics and low overhead, the profiler automatically profiles only certain training steps and/or predictions. 
 
-#### TensorFlow
+#### [TensorFlow](https://graphsignal.com/docs/integrations/tensorflow/)
 
 ```python
 from graphsignal.profilers.tensorflow import profile_step
@@ -79,7 +79,7 @@ with profile_step():
     # training batch, prediction, etc.
 ```
 
-#### Keras
+#### [Keras](https://graphsignal.com/docs/integrations/keras/)
 
 ```python
 from graphsignal.profilers.keras import GraphsignalCallback
@@ -88,7 +88,7 @@ model.fit(..., callbacks=[GraphsignalCallback()])
 # or model.predict(..., callbacks=[GraphsignalCallback()])
 ```
 
-#### PyTorch
+#### [PyTorch](https://graphsignal.com/docs/integrations/pytorch/)
 
 ```python
 from graphsignal.profilers.pytorch import profile_step
@@ -97,7 +97,7 @@ with profile_step():
     # training batch, prediction, etc.
 ```
 
-#### PyTorch Lightning
+#### [PyTorch Lightning](https://graphsignal.com/docs/integrations/pytorch-lightning/)
 
 ```python
 from graphsignal.profilers.pytorch_lightning import GraphsignalCallback
@@ -105,7 +105,7 @@ from graphsignal.profilers.pytorch_lightning import GraphsignalCallback
 trainer = Trainer(..., callbacks=[GraphsignalCallback()])
 ```
 
-#### Hugging Face
+#### [Hugging Face](https://graphsignal.com/docs/integrations/hugging-face/)
 
 ```python
 from graphsignal.profilers.huggingface import GraphsignalPTCallback

@@ -1,3 +1,4 @@
+from typing import Any, Union, Optional
 import time
 import sys
 import os
@@ -26,7 +27,8 @@ def _check_configured():
             'Graphsignal profiler not configured, call graphsignal.configure() first')
 
 
-def _check_and_set_arg(name, value, is_str=False, is_int=False, is_bool=False, required=True):
+def _check_and_set_arg(
+        name, value, is_str=False, is_int=False, is_bool=False, required=True):
     env_name = 'GRAPHSIGNAL_{0}'.format(name.upper())
 
     if not value and env_name in os.environ:
@@ -57,9 +59,14 @@ def _check_and_set_arg(name, value, is_str=False, is_int=False, is_bool=False, r
     return value
 
 
-def configure(api_key=None, workload_name=None, run_id=None, 
-        node_rank=None, local_rank=None, world_rank=None, 
-        debug_mode=False):
+def configure(
+        api_key: str = None,
+        workload_name: str = None,
+        run_id: Optional[str] = None,
+        node_rank: Optional[int] = None,
+        local_rank: Optional[int] = None,
+        world_rank: Optional[int] = None,
+        debug_mode: Optional[bool] = False) -> None:
     global _agent
 
     if _agent:
@@ -108,7 +115,7 @@ def configure(api_key=None, workload_name=None, run_id=None,
     logger.debug('Graphsignal profiler configured')
 
 
-def log_parameter(name, value):
+def log_parameter(name: str, value: Any) -> None:
     _check_configured()
 
     if name is None or not isinstance(name, str):
@@ -123,7 +130,22 @@ def log_parameter(name, value):
     _agent.params[name[:250]] = str(value)[:1000]
 
 
-def shutdown():
+def log_metric(name: str, value: Union[int, float]) -> None:
+    _check_configured()
+
+    if name is None or not isinstance(name, str):
+        raise ValueError('Missing or invalid argument: name')
+
+    if value is None or not isinstance(value, (int, float)):
+        raise ValueError('Missing argument: value')
+
+    global _agent
+    if _agent.metrics is None:
+        _agent.metrics = {}
+    _agent.metrics[name[:250]] = value
+
+
+def shutdown() -> None:
     _check_configured()
 
     global _agent
@@ -136,7 +158,7 @@ def shutdown():
     logger.debug('Graphsignal profiler shutdown')
 
 
-def generate_uuid():
+def generate_uuid() -> None:
     return _uuid_sha1()    
 
 
