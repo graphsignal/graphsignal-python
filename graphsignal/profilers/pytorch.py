@@ -102,10 +102,6 @@ class PyTorchProfiler(FrameworkProfiler):
             if event_avg.key and event_avg.key.startswith('ProfilerStep'):
                 continue
             op_stats = profile.op_stats.add()
-            if event_avg.device_type == DeviceType.CUDA:
-                op_stats.device_type = profiles_pb2.DeviceType.GPU
-            else:
-                op_stats.device_type = profiles_pb2.DeviceType.CPU
             op_stats.op_name = event_avg.key
             op_stats.count = _uint(event_avg.count)
             op_stats.total_host_time_us = _uint(event_avg.cpu_time_total)
@@ -117,6 +113,10 @@ class PyTorchProfiler(FrameworkProfiler):
             op_stats.self_host_memory = _uint(event_avg.self_cpu_memory_usage)
             op_stats.self_device_memory = _uint(event_avg.self_cuda_memory_usage)
             op_stats.flops = _uint(event_avg.flops)
+            if event_avg.device_type in (DeviceType.CUDA, DeviceType.HIP)  or op_stats.self_device_time_us > 0:
+                op_stats.device_type = profiles_pb2.DeviceType.GPU
+            else:
+                op_stats.device_type = profiles_pb2.DeviceType.CPU
 
         # Kernel stats
         kernel_index = {}
@@ -138,17 +138,6 @@ class PyTorchProfiler(FrameworkProfiler):
 
         for kernel_stats in kernel_index.values():
             profile.kernel_stats.append(kernel_stats)
-
-        # Summary
-        sum_host_op_time_us = 0
-        sum_device_op_time_us = 0
-        for op_stats in profile.op_stats:
-            sum_host_op_time_us += op_stats.self_host_time_us
-            sum_device_op_time_us += op_stats.self_device_time_us
-        sum_op_time_us = sum_host_op_time_us + sum_device_op_time_us
-        if sum_op_time_us > 0:
-            profile.summary.host_op_percent = sum_host_op_time_us / sum_op_time_us * 100
-            profile.summary.device_op_percent = sum_device_op_time_us / sum_op_time_us * 100
 
         logger.debug(
             'Converted %d PyTorch operation statistics', len(profile.op_stats))

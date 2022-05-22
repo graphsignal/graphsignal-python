@@ -2,7 +2,7 @@
 
 [![License](http://img.shields.io/github/license/graphsignal/graphsignal)](https://github.com/graphsignal/graphsignal/blob/main/LICENSE)
 [![Version](https://img.shields.io/github/v/tag/graphsignal/graphsignal?label=version)](https://github.com/graphsignal/graphsignal)
-[![SaaS Status](https://img.shields.io/uptimerobot/status/m787882560-d6b932eb0068e8e4ade7f40c?label=SaaS%20status)](https://stats.uptimerobot.com/gMBNpCqqqJ)
+[![Status](https://img.shields.io/uptimerobot/status/m787882560-d6b932eb0068e8e4ade7f40c?label=SaaS%20status)](https://stats.uptimerobot.com/gMBNpCqqqJ)
 
 
 Graphsignal is a machine learning profiler. It helps data scientists and ML engineers make model training and inference faster and more efficient. It is built for real-world use cases and allows ML practitioners to:
@@ -53,7 +53,7 @@ For GPU profiling, make sure the [NVIDIA® CUDA® Profiling Tools Interface](htt
 
 ### 2. Configuration
 
-Configure the profiler by specifying your API key.
+Configure the profiler by specifying your API key and workload name directly or via environment variables.
 
 ```python
 graphsignal.configure(api_key='my_api_key', workload_name='job1')
@@ -151,6 +151,8 @@ graphsignal.configure(api_key='my_key', workload_name='training_example')
 # 3. Add profiler callback or use profiler API
 model.fit(..., callbacks=[GraphsignalCallback()])
 ```
+
+More integration examples are available in [`examples`](https://github.com/graphsignal/examples) repo.
 
 
 ## Overhead

@@ -24,6 +24,8 @@ OS_DARWIN = (sys.platform == 'darwin')
 OS_WIN = (sys.platform == 'win32')
 VM_RSS_REGEXP = re.compile('VmRSS:\\s+(\\d+)\\s+kB')
 VM_SIZE_REGEXP = re.compile('VmSize:\\s+(\\d+)\\s+kB')
+MEM_TOTAL_REGEXP = re.compile('MemTotal:\\s+(\\d+)\\s+kB')
+MEM_FREE_REGEXP = re.compile('MemFree:\\s+(\\d+)\\s+kB')
 
 
 class ProcessReader():
@@ -83,13 +85,19 @@ class ProcessReader():
             if vm_size is not None:
                 process_usage.vm_size = vm_size
 
-
         try:
             node_usage.hostname = socket.gethostname()
             if node_usage.hostname:
                 node_usage.ip_address = socket.gethostbyname(node_usage.hostname)
         except BaseException:
             logger.debug('Error reading hostname', exc_info=True)
+
+        mem_total = _read_mem_total()
+        if mem_total is not None:
+            node_usage.mem_total = mem_total
+            mem_free = _read_mem_free()
+            if mem_free is not None:
+                node_usage.mem_used = mem_total - mem_free
 
         try:
             node_usage.platform = sys.platform
@@ -155,6 +163,36 @@ def _read_vm_size():
         return None
 
     match = VM_SIZE_REGEXP.search(output)
+    if match:
+        return int(float(match.group(1)) * 1e3)
+
+    return None
+
+def _read_mem_total():
+    output = None
+    try:
+        f = open('/proc/meminfo')
+        output = f.read()
+        f.close()
+    except Exception:
+        return None
+
+    match = MEM_TOTAL_REGEXP.search(output)
+    if match:
+        return int(float(match.group(1)) * 1e3)
+
+    return None
+
+def _read_mem_free():
+    output = None
+    try:
+        f = open('/proc/meminfo')
+        output = f.read()
+        f.close()
+    except Exception:
+        return None
+
+    match = MEM_FREE_REGEXP.search(output)
     if match:
         return int(float(match.group(1)) * 1e3)
 

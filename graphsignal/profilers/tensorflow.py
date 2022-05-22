@@ -97,36 +97,13 @@ class TensorflowProfiler(FrameworkProfiler):
         logger.debug('Removed temporary log directory %s', self._log_dir)
 
     def _convert_to_profile(self, profile):
-        # Summary
-        overview_page_data = self._find_and_read(
-            'plugins/profile/*/*overview_page.pb')
-        if overview_page_data:
-            overview_page = overview_page_pb2.OverviewPage()
-            overview_page.ParseFromString(overview_page_data)
-            analysis = overview_page.analysis
-            profile.summary.device_compute_16bit_percent = analysis.device_compute_16bit_percent
-            profile.summary.device_compute_32bit_percent = analysis.device_compute_32bit_percent
-            profile.summary.mxu_utilization = analysis.mxu_utilization_percent
-
-            input_analysis = overview_page.input_analysis
-            profile.summary.input_percent = input_analysis.input_percent
-            profile.summary.output_percent = input_analysis.output_percent
-
         # Operation stats
-        host_idle_time_us = 0
-        device_idle_time_us = 0
         tf_stats_data = self._find_and_read(
             'plugins/profile/*/*tensorflow_stats.pb')
         if tf_stats_data:
             tf_stats_db = tf_stats_pb2.TfStatsDatabase()
             tf_stats_db.ParseFromString(tf_stats_data)
-            for tf_stats_record in tf_stats_db.with_idle.tf_stats_record:
-                if tf_stats_record.op_type == 'IDLE':
-                    if tf_stats_record.host_or_device == 'Host':
-                        host_idle_time_us += _uint(tf_stats_record.total_self_time_in_us)
-                    else:
-                        device_idle_time_us += _uint(tf_stats_record.total_self_time_in_us)
-                    continue
+            for tf_stats_record in tf_stats_db.without_idle.tf_stats_record:
                 op_stats = profile.op_stats.add()
                 if tf_stats_record.host_or_device == 'Host':
                     op_stats.device_type = profiles_pb2.DeviceType.CPU
@@ -161,26 +138,6 @@ class TensorflowProfiler(FrameworkProfiler):
                 kernel_stats.is_using_tensorcore = kernel_report.is_kernel_using_tensor_core
         else:
             logger.debug('No kernel data found in TensorFlow log directory')
-
-        # Summary
-        sum_host_op_time_us = 0
-        sum_device_op_time_us = 0
-        for op_stats in profile.op_stats:
-            sum_host_op_time_us += op_stats.self_host_time_us
-            sum_device_op_time_us += op_stats.self_device_time_us
-        sum_op_time_us = sum_host_op_time_us + sum_device_op_time_us
-        if sum_op_time_us > 0:
-            profile.summary.host_op_percent = sum_host_op_time_us / sum_op_time_us * 100
-            profile.summary.device_op_percent = sum_device_op_time_us / sum_op_time_us * 100
-
-        if host_idle_time_us > 0:
-            sum_host_op_time_us_with_idle = sum_host_op_time_us + host_idle_time_us
-            if sum_host_op_time_us_with_idle > 0:
-                profile.summary.host_idle_percent = host_idle_time_us / sum_host_op_time_us_with_idle * 100
-        if device_idle_time_us > 0:
-            sum_device_op_time_us_with_idle = sum_device_op_time_us + device_idle_time_us
-            if sum_device_op_time_us_with_idle > 0:
-                profile.summary.device_idle_percent = device_idle_time_us / sum_device_op_time_us_with_idle * 100
 
 
     def _find_and_read(self, file_pattern):

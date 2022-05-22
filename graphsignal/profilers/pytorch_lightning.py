@@ -1,3 +1,4 @@
+from typing import Optional
 import logging
 
 from pytorch_lightning.callbacks.base import Callback

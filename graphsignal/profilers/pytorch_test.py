@@ -71,8 +71,6 @@ class PyTorchProfilerTest(unittest.TestCase):
         if torch.cuda.is_available():
             self.assertTrue(test_op_stats.total_device_time_us >= 1)
             self.assertTrue(test_op_stats.self_device_time_us >= 1)
-            self.assertTrue(profile.summary.device_op_percent > 0)
         else:
             self.assertTrue(test_op_stats.total_host_time_us >= 1)
             self.assertTrue(test_op_stats.self_host_time_us >= 1)
-            self.assertEqual(profile.summary.host_op_percent, 100)

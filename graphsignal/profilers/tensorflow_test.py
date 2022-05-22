@@ -60,12 +60,8 @@ class TensorflowProfilerTest(unittest.TestCase):
         self.assertIsNotNone(test_op_stats)
         self.assertTrue(test_op_stats.count >= 1)
         if len(tf.config.list_physical_devices('GPU')) > 0:
-            self.assertTrue(profile.summary.device_idle_percent > 0)
-            self.assertTrue(profile.summary.device_op_percent > 0)
             self.assertTrue(test_op_stats.total_device_time_us >= 1)
             self.assertTrue(test_op_stats.self_device_time_us >= 1)
         else:
-            self.assertTrue(profile.summary.host_idle_percent > 0)
-            self.assertTrue(profile.summary.host_op_percent > 0)
             self.assertTrue(test_op_stats.total_host_time_us >= 1)
             self.assertTrue(test_op_stats.self_host_time_us >= 1)
