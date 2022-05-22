@@ -94,14 +94,14 @@ class GraphsignalTFCallback(TrainerCallback):
 
 
 def _get_effective_batch_size(args):
-    world_size = args.world_size if args.world_size > 0 else 1
     gradient_accumulation_steps = args.gradient_accumulation_steps if args.gradient_accumulation_steps > 0 else 1
-    return args.train_batch_size * args.gradient_accumulation_steps * world_size
+    return args.train_batch_size * args.gradient_accumulation_steps
 
 
 def _fill_step_stats(step, args, state):
     step_stats = step._profile.step_stats
-    step_stats.total_flops = state.total_flos
+    if args.local_rank == -1 or args.local_rank == 0:
+        step_stats.flop_count = state.total_flos
     step_stats.batch_size = args.train_batch_size
     step_stats.device_batch_size = args.per_device_train_batch_size
 

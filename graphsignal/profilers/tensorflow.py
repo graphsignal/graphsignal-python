@@ -119,6 +119,7 @@ class TensorflowProfiler(FrameworkProfiler):
                 op_stats.op_type = tf_stats_record.op_type
                 op_stats.op_name = tf_stats_record.op_name
                 op_stats.count = _uint(tf_stats_record.occurrences)
+                op_stats.flops_per_sec = tf_stats_record.measured_flop_rate
         else:
             logger.debug('No operation data found in TensorFlow log directory')
 
