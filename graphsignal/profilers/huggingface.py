@@ -4,7 +4,6 @@ from transformers import TrainerCallback
 import graphsignal
 from graphsignal.proto import profiles_pb2
 from graphsignal.profiling_step import ProfilingStep
-from graphsignal import step_counter
 
 logger = logging.getLogger('graphsignal')
 
@@ -26,18 +25,18 @@ class GraphsignalPTCallback(TrainerCallback):
         self._profiler = PyTorchProfiler()
         self._step = None
 
-    def on_train_begin(elf, args, state, control, **kwarg):
-        step_counter.init_step_stats(PHASE_TRAINING)
+    def on_train_begin(self, args, state, control, **kwarg):
         _configure_profiler(args)
 
-    def on_train_end(elf, args, state, control, **kwarg):
-        step_counter.reset_step_stats(PHASE_TRAINING)
+    def on_train_end(self, args, state, control, **kwarg):
+        self._stop_profiler(args, state)
 
     def on_step_begin(self, args, state, control, **kwarg):
+        self._stop_profiler(args, state)
         self._start_profiler(PHASE_TRAINING, args, state)
 
     def on_step_end(self, args, state, control, **kwarg):
-        self._stop_profiler(args, state)
+        pass
 
     def _start_profiler(self, phase_name, args, state):
         if not self._step:
@@ -65,18 +64,18 @@ class GraphsignalTFCallback(TrainerCallback):
         self._profiler = TensorflowProfiler()
         self._step = None
 
-    def on_train_begin(elf, args, state, control, **kwarg):
-        step_counter.init_step_stats(PHASE_TRAINING)
+    def on_train_begin(self, args, state, control, **kwarg):
         _configure_profiler(args)
 
-    def on_train_end(elf, args, state, control, **kwarg):
-        step_counter.reset_step_stats(PHASE_TRAINING)
+    def on_train_end(self, args, state, control, **kwarg):
+        self._stop_profiler(args, state)
 
     def on_step_begin(self, args, state, control, **kwarg):
+        self._stop_profiler(args, state)
         self._start_profiler(PHASE_TRAINING, args, state)
 
     def on_step_end(self, args, state, control, **kwarg):
-        self._stop_profiler(args, state)
+        pass
 
     def _start_profiler(self, phase_name, args, state):
         if not self._step:

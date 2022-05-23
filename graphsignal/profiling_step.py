@@ -79,13 +79,15 @@ class ProfilingStep(object):
         self.stop()
 
     def stop(self) -> None:
+        stop_us = _timestamp_us()
         with self._stop_lock:
             step_stats = update_step_stats(
                 self._phase_name,
+                stop_us - self._start_us,
                 effective_batch_size=self._effective_batch_size)
 
             if self._is_scheduled:
-                self._profile.end_us = _timestamp_us()
+                self._profile.end_us = stop_us
 
                 self._profile.step_stats.step_count = step_stats.step_count
                 self._profile.step_stats.sample_count = step_stats.sample_count

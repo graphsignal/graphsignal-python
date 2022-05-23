@@ -1,13 +1,12 @@
 from typing import Optional
 import logging
-
+import time
 from pytorch_lightning.callbacks.base import Callback
 
 import graphsignal
 from graphsignal.proto import profiles_pb2
 from graphsignal.profilers.pytorch import PyTorchProfiler
 from graphsignal.profiling_step import ProfilingStep
-from graphsignal import step_counter
 
 logger = logging.getLogger('graphsignal')
 
@@ -31,57 +30,56 @@ class GraphsignalCallback(Callback):
         super().__init__()
 
     def on_train_start(self, trainer, pl_module):
-        step_counter.init_step_stats(PHASE_TRAINING)
         self._configure_profiler(trainer)
 
     def on_train_end(self, trainer, pl_module):
-        step_counter.reset_step_stats(PHASE_TRAINING)
+        self._stop_profiler(trainer)
 
     def on_validation_start(self, trainer, pl_module):
-        step_counter.init_step_stats(PHASE_VALIDATION)
         self._configure_profiler(trainer)
 
     def on_validation_end(self, trainer, pl_module):
-        step_counter.reset_step_stats(PHASE_VALIDATION)
+        self._stop_profiler(trainer)
 
     def on_test_start(self, trainer, pl_module):
-        step_counter.init_step_stats(PHASE_TEST)
         self._configure_profiler(trainer)
 
     def on_test_end(self, trainer, pl_module):
-        step_counter.reset_step_stats(PHASE_TEST)
+        self._stop_profiler(trainer)
 
     def on_predict_start(self, trainer, pl_module):
-        step_counter.init_step_stats(PHASE_PREDICTION)
         self._configure_profiler(trainer)
 
     def on_predict_end(self, trainer, pl_module):
-        step_counter.reset_step_stats(PHASE_PREDICTION)
+        self._stop_profiler(trainer)
 
     def on_train_batch_start(self, trainer, pl_module, batch, batch_idx):
+        self._stop_profiler(trainer)
         self._start_profiler(PHASE_TRAINING, trainer)
 
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
-        self._stop_profiler(trainer)
-        step_stats = step_counter.get_step_stats(PHASE_TRAINING)
+        pass
 
     def on_validation_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx):
+        self._stop_profiler(trainer)
         self._start_profiler(PHASE_VALIDATION, trainer)
 
     def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
-        self._stop_profiler(trainer)
+        pass
 
     def on_test_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx):
+        self._stop_profiler(trainer)
         self._start_profiler(PHASE_TEST, trainer)
 
     def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
-        self._stop_profiler(trainer)
+        pass
 
     def on_predict_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx):
+        self._stop_profiler(trainer)
         self._start_profiler(PHASE_PREDICTION, trainer)
 
     def on_predict_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
-        self._stop_profiler(trainer)
+        pass
 
     def _configure_profiler(self, trainer):
         if self._check_param(trainer, 'node_rank') and trainer.node_rank >= 0:

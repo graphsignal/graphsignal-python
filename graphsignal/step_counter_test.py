@@ -27,11 +27,10 @@ class StepCounterTest(unittest.TestCase):
         self.assertEqual(ss.step_count, 0)
         self.assertEqual(ss.total_time_us, 0)
 
-        ss = update_step_stats(1, effective_batch_size=128)
-        time.sleep(0.01)
-        ss = update_step_stats(1, effective_batch_size=128)
+        ss = update_step_stats(1, 10, effective_batch_size=128)
+        ss = update_step_stats(1, 20, effective_batch_size=128)
         self.assertEqual(ss.step_count, 2)
-        self.assertTrue(ss.total_time_us > 0)
+        self.assertEqual(ss.total_time_us, 30)
         self.assertEqual(ss.sample_count, 2 * 128)
 
         ss = get_step_stats(2)
