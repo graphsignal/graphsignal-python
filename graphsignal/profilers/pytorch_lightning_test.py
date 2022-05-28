@@ -88,7 +88,6 @@ class PyTorchLightningTest(unittest.TestCase):
         self.assertTrue(profile.step_stats.step_count > 0)
         self.assertTrue(profile.step_stats.sample_count > 0)
         self.assertTrue(profile.step_stats.total_time_us > 0)
-        self.assertTrue(profile.step_stats.sample_count > 0)
         self.assertEqual(profile.step_stats.batch_size, mnist_model.batch_size)
 
         test_op_stats = None

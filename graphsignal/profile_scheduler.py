@@ -12,14 +12,7 @@ _profiling_lock = Lock()
 _schedulers = {}
 
 
-class ProfileScheduler(object):
-    __slots__ = [
-        '_total_step_count',
-        '_ensured_step_count',
-        '_step_filter',
-        '_last_interval_ts'
-    ]
-
+class ProfileScheduler:
     DEFAULT_STEPS = [5, 25, 50, 100, 250, 500, 1000]
     MAX_ENSURED_STEPS = 10
     MIN_STEP_INTERVAL_SEC = 20

@@ -11,7 +11,7 @@ from graphsignal.step_counter import get_step_stats, update_step_stats
 logger = logging.getLogger('graphsignal')
 
 
-class ProfilingStep(object):
+class ProfilingStep:
     __slots__ = [
         '_scheduler',
         '_framework_profiler',
@@ -54,8 +54,8 @@ class ProfilingStep(object):
             if phase_name:
                 self._profile.phase_name = phase_name
             self._profile.node_usage.node_rank = graphsignal._agent.node_rank 
+            self._profile.process_usage.global_rank = graphsignal._agent.global_rank 
             self._profile.process_usage.local_rank = graphsignal._agent.local_rank 
-            self._profile.process_usage.world_rank = graphsignal._agent.world_rank 
             self._profile.process_usage.start_ms = graphsignal._agent.start_ms
 
             if self._framework_profiler:

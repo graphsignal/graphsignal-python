@@ -19,7 +19,7 @@ from graphsignal.proto import profiles_pb2
 logger = logging.getLogger('graphsignal')
 
 
-class Uploader(object):
+class Uploader:
     MAX_BUFFER_SIZE = 2500
 
     def __init__(self):

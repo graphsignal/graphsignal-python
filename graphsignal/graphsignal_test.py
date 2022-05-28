@@ -19,7 +19,7 @@ class GraphsignalTest(unittest.TestCase):
             run_id='r1',
             node_rank=1,
             local_rank=2,
-            world_rank=3,
+            global_rank=3,
             debug_mode=True)
 
     def tearDown(self):
@@ -59,5 +59,5 @@ class GraphsignalTest(unittest.TestCase):
         self.assertEqual(graphsignal._agent.workload_name, 'w1')
         self.assertEqual(graphsignal._agent.node_rank, 1)
         self.assertEqual(graphsignal._agent.local_rank, 2)
-        self.assertEqual(graphsignal._agent.world_rank, 3)
+        self.assertEqual(graphsignal._agent.global_rank, 3)
         self.assertEqual(graphsignal._agent.debug_mode, True)

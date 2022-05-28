@@ -63,9 +63,9 @@ def configure(
         api_key: str = None,
         workload_name: str = None,
         run_id: Optional[str] = None,
+        global_rank: Optional[int] = None,
         node_rank: Optional[int] = None,
         local_rank: Optional[int] = None,
-        world_rank: Optional[int] = None,
         debug_mode: Optional[bool] = False) -> None:
     global _agent
 
@@ -81,9 +81,9 @@ def configure(
     api_key = _check_and_set_arg('api_key', api_key, is_str=True, required=True)
     workload_name = _check_and_set_arg('workload_name', workload_name,  is_str=True, required=True)
     run_id = _check_and_set_arg('run_id', run_id, is_str=True, required=False)
+    global_rank = _check_and_set_arg('global_rank', global_rank, is_int=True, required=False)
     node_rank = _check_and_set_arg('node_rank', node_rank, is_int=True, required=False)
     local_rank = _check_and_set_arg('local_rank', local_rank, is_int=True, required=False)
-    world_rank = _check_and_set_arg('world_rank', world_rank, is_int=True, required=False)
 
     if not run_id:
         run_id = _uuid_sha1()
@@ -101,7 +101,7 @@ def configure(
     _agent.run_id = _sha1(run_id, size=12)
     _agent.node_rank = node_rank if node_rank is not None else -1
     _agent.local_rank = local_rank if local_rank is not None else -1
-    _agent.world_rank = world_rank if world_rank is not None else -1
+    _agent.global_rank = global_rank if global_rank is not None else -1
     _agent.debug_mode = debug_mode
     _agent.uploader = Uploader()
     _agent.uploader.configure()

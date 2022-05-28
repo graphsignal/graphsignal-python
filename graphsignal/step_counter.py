@@ -1,7 +1,7 @@
 
 _step_stats = {}
 
-class StepStats(object):
+class StepStats:
     __slots__ = [
         'step_count',
         'sample_count',

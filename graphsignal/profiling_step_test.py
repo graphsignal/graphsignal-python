@@ -24,7 +24,7 @@ class ProfilingStepTest(unittest.TestCase):
             workload_name='w1',
             run_id='r1',
             local_rank=1,
-            world_rank=1,
+            global_rank=1,
             debug_mode=True)
 
     def tearDown(self):
@@ -77,7 +77,7 @@ class ProfilingStepTest(unittest.TestCase):
         self.assertEqual(profile.node_usage.node_rank, -1)
         self.assertTrue(profile.process_usage.start_ms > 0)
         self.assertEqual(profile.process_usage.local_rank, 1)
-        self.assertEqual(profile.process_usage.world_rank, 1)
+        self.assertEqual(profile.process_usage.global_rank, 1)
 
     @patch.object(TensorflowProfiler, 'start', return_value=True)
     @patch.object(TensorflowProfiler, 'stop', return_value=True)

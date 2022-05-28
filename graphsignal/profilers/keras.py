@@ -1,7 +1,9 @@
+from typing import Optional
 import logging
 
 from tensorflow.keras.callbacks import Callback
 
+import graphsignal
 from graphsignal.proto import profiles_pb2
 from graphsignal.profilers.tensorflow import TensorflowProfiler
 from graphsignal.profiling_step import ProfilingStep
@@ -14,29 +16,26 @@ PHASE_PREDICTION = 'prediction'
 
 
 class GraphsignalCallback(Callback):
-    __slots__ = [
-        '_profiler',
-        '_step'
-    ]
-
-    def __init__(self):
+    def __init__(self, batch_size: Optional[int] = None):
+        super().__init__()
         self._profiler = TensorflowProfiler()
         self._step = None
+        self._batch_size = batch_size
 
     def on_train_begin(self, logs=None):
-        pass
+        self._configure_profiler()
 
     def on_train_end(self, logs=None):
         self._stop_profiler()
 
     def on_test_begin(self, logs=None):
-        pass
+        self._configure_profiler()
 
     def on_test_end(self, logs=None):
         self._stop_profiler()
 
     def on_predict_begin(self, logs=None):
-        pass
+        self._configure_profiler()
 
     def on_predict_end(self, logs=None):
         self._stop_profiler()
@@ -62,13 +61,26 @@ class GraphsignalCallback(Callback):
     def on_predict_batch_end(self, batch, logs=None):
         pass
 
+    def _configure_profiler(self):
+        if self._batch_size:
+            graphsignal.log_parameter('batch_size', self._batch_size)
+
     def _start_profiler(self, phase_name):
         if not self._step:
             self._step = ProfilingStep(
                 phase_name=phase_name,
+                effective_batch_size=self._batch_size,
                 framework_profiler=self._profiler)
 
     def _stop_profiler(self):
         if self._step:
+            if self._step._is_scheduled:
+                self._update_profile()
             self._step.stop()
             self._step = None
+
+    def _update_profile(self):
+        profile = self._step._profile
+
+        if self._batch_size:
+            profile.step_stats.batch_size = self._batch_size

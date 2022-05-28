@@ -20,19 +20,11 @@ logger = logging.getLogger('graphsignal')
 
 
 class PyTorchProfiler(FrameworkProfiler):
-    __slots__ = [
-        '_torch_prof',
-        '_ml_framework',
-        '_ml_framework_version',
-        '_world_size',
-        '_comm_backend'
-    ]
-
     def __init__(self):
         self._torch_prof = None
         self._ml_framework = None
         self._ml_framework_version = None
-        self._world_rank = None
+        self._global_rank = None
         self._world_size = None
         self._comm_backend = None
 
@@ -62,7 +54,7 @@ class PyTorchProfiler(FrameworkProfiler):
 
             if torch.distributed.is_available():
                 if torch.distributed.is_initialized():
-                    self._world_rank = torch.distributed.get_rank()
+                    self._global_rank = torch.distributed.get_rank()
                     self._world_size = torch.distributed.get_world_size()
                     self._comm_backend = torch.distributed.get_backend()
 
@@ -70,8 +62,9 @@ class PyTorchProfiler(FrameworkProfiler):
         profile.process_usage.ml_framework = self._ml_framework
         profile.process_usage.ml_framework_version.CopyFrom(
             self._ml_framework_version)
-        if self._world_rank is not None and self._world_rank >= 0:
-            profile.process_usage.world_rank = self._world_rank
+        if self._global_rank is not None and self._global_rank >= 0:
+            if graphsignal._agent.global_rank == -1:
+                profile.process_usage.global_rank = self._global_rank
 
         # Step stats
         if self._world_size is not None and self._world_size > 0:

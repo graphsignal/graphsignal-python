@@ -7,6 +7,7 @@ import tempfile
 import gzip
 import shutil
 import glob
+import json
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 from google.protobuf.json_format import Parse
@@ -27,18 +28,13 @@ logger = logging.getLogger('graphsignal')
 
 
 class TensorflowProfiler(FrameworkProfiler):
-    __slots__ = [
-        '_is_initialized',
-        '_log_dir',
-        '_ml_framework',
-        '_ml_framework_version'
-    ]
-
     def __init__(self):
         self._is_initialized = False
         self._log_dir = None
         self._ml_framework = None
         self._ml_framework_version = None
+        self._global_rank = None
+        self._world_size = None
 
     def start(self, profile):
         logger.debug('Activating TensorFlow profiler')
@@ -58,10 +54,30 @@ class TensorflowProfiler(FrameworkProfiler):
                 raise Exception(
                     'TensorFlow profiling is not supported for versions <=2.2')
 
+            if 'TF_CONFIG' in os.environ:
+                try:
+                    tf_config = json.loads(os.environ['TF_CONFIG'])
+                    self._world_size = 0
+                    if 'chief' in tf_config['cluster']:
+                        self._world_size += len(tf_config['cluster']['chief'])
+                    if 'worker' in tf_config['cluster']:
+                        self._world_size += len(tf_config['cluster']['worker'])
+                    self._global_rank = tf_config['task']['index']
+                except:
+                    logger.warning('Error parsing TF_CONFIG', exc_info=True)
+
         # Process info
         profile.process_usage.ml_framework = self._ml_framework
         profile.process_usage.ml_framework_version.CopyFrom(
             self._ml_framework_version)
+        if self._global_rank is not None and self._global_rank >= 0:
+            if graphsignal._agent.global_rank == -1:
+                profile.process_usage.global_rank = self._global_rank
+
+        # Step stats
+        if self._world_size is not None and self._world_size > 0:
+            profile.step_stats.world_size = self._world_size
+            graphsignal.log_parameter('world_size', self._world_size)
 
         try:
             self._create_log_dir()
@@ -119,7 +135,7 @@ class TensorflowProfiler(FrameworkProfiler):
                 op_stats.op_type = tf_stats_record.op_type
                 op_stats.op_name = tf_stats_record.op_name
                 op_stats.count = _uint(tf_stats_record.occurrences)
-                op_stats.flops_per_sec = tf_stats_record.measured_flop_rate
+                op_stats.flops_per_sec = _uint(tf_stats_record.measured_flop_rate)
         else:
             logger.debug('No operation data found in TensorFlow log directory')
 

@@ -1,6 +1,8 @@
 import unittest
 import logging
 import sys
+import os
+import json
 from unittest.mock import patch, Mock
 import tensorflow as tf
 from google.protobuf.json_format import MessageToJson
@@ -28,6 +30,14 @@ class TensorflowProfilerTest(unittest.TestCase):
 
     @patch.object(Uploader, 'upload_profile')
     def test_profile_step(self, mocked_upload_profile):
+        os.environ["TF_CONFIG"] = json.dumps({
+            "cluster": {
+                "chief": ["host1:port"],
+                "worker": ["host1:port", "host2:port"]
+            },
+            "task": {"type": "worker", "index": 1}
+        })
+
         @tf.function
         def f(x):
             while tf.reduce_sum(x) > 1:
@@ -46,11 +56,13 @@ class TensorflowProfilerTest(unittest.TestCase):
         self.assertEqual(
             profile.process_usage.ml_framework,
             profiles_pb2.ProcessUsage.MLFramework.TENSORFLOW)
+        self.assertEqual(profile.process_usage.global_rank, 1)
 
         self.assertEqual(profile.phase_name, 'training')
         self.assertEqual(profile.step_stats.step_count, 1)
         self.assertTrue(profile.step_stats.total_time_us > 0)
         self.assertEqual(profile.step_stats.sample_count, 128)
+        self.assertEqual(profile.step_stats.world_size, 3)
 
         test_op_stats = None
         for op_stats in profile.op_stats:
