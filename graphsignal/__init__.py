@@ -66,7 +66,8 @@ def configure(
         global_rank: Optional[int] = None,
         node_rank: Optional[int] = None,
         local_rank: Optional[int] = None,
-        debug_mode: Optional[bool] = False) -> None:
+        debug_mode: Optional[bool] = False,
+        disable_fwk_profiler: Optional[bool] = False) -> None:
     global _agent
 
     if _agent:
@@ -84,6 +85,7 @@ def configure(
     global_rank = _check_and_set_arg('global_rank', global_rank, is_int=True, required=False)
     node_rank = _check_and_set_arg('node_rank', node_rank, is_int=True, required=False)
     local_rank = _check_and_set_arg('local_rank', local_rank, is_int=True, required=False)
+    disable_fwk_profiler = _check_and_set_arg('disable_fwk_profiler', disable_fwk_profiler, is_bool=True, required=False)
 
     if not run_id:
         run_id = _uuid_sha1()
@@ -115,6 +117,18 @@ def configure(
     logger.debug('Graphsignal profiler configured')
 
 
+def add_tag(tag: str) -> None:
+    _check_configured()
+
+    if tag is None or not isinstance(tag, str):
+        raise ValueError('Missing or invalid argument: tag')
+
+    global _agent
+    if _agent.tags is None:
+        _agent.tags = {}
+    _agent.tags[tag[:50]] = True
+
+
 def log_parameter(name: str, value: Any) -> None:
     _check_configured()
 
@@ -139,7 +153,6 @@ def log_metric(name: str, value: Union[int, float]) -> None:
     if value is None or not isinstance(value, (int, float)):
         raise ValueError('Missing argument: value')
 
-    global _agent
     if _agent.metrics is None:
         _agent.metrics = {}
     _agent.metrics[name[:250]] = value

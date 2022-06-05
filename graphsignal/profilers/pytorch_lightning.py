@@ -1,6 +1,7 @@
 from typing import Optional
 import logging
 import time
+from torch import Tensor
 from pytorch_lightning.callbacks.base import Callback
 
 import graphsignal
@@ -55,28 +56,28 @@ class GraphsignalCallback(Callback):
         self._start_profiler(PHASE_TRAINING, trainer)
 
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
-        pass
+        self._log_metrics(trainer.logged_metrics)
 
     def on_validation_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx):
         self._stop_profiler(trainer)
         self._start_profiler(PHASE_VALIDATION, trainer)
 
     def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
-        pass
+        self._log_metrics(trainer.logged_metrics)
 
     def on_test_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx):
         self._stop_profiler(trainer)
         self._start_profiler(PHASE_TEST, trainer)
 
     def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
-        pass
+        self._log_metrics(trainer.logged_metrics)
 
     def on_predict_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx):
         self._stop_profiler(trainer)
         self._start_profiler(PHASE_PREDICTION, trainer)
 
     def on_predict_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
-        pass
+        self._log_metrics(trainer.logged_metrics)
 
     def _configure_profiler(self, trainer):
         if self._check_param(trainer, 'node_rank') and trainer.node_rank >= 0:
@@ -149,3 +150,12 @@ class GraphsignalCallback(Callback):
     def _check_param(self, trainer, param):
         value = getattr(trainer, param, None)
         return isinstance(value, (str, int, float, bool))
+
+    def _log_metrics(self, logged_metrics):
+        if logged_metrics:
+            for key, value in logged_metrics.items():
+                if isinstance(key, str):
+                    if isinstance(value, (int, float)):
+                        graphsignal.log_metric(key, value)
+                    elif isinstance(value, Tensor):
+                        graphsignal.log_metric(key, value.item())

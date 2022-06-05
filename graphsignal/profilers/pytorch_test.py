@@ -74,3 +74,5 @@ class PyTorchProfilerTest(unittest.TestCase):
         else:
             self.assertTrue(test_op_stats.total_host_time_us >= 1)
             self.assertTrue(test_op_stats.self_host_time_us >= 1)
+
+        self.assertNotEqual(profile.trace_data, '')

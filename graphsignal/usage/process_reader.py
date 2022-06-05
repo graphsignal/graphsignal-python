@@ -22,10 +22,10 @@ logger = logging.getLogger('graphsignal')
 OS_LINUX = (sys.platform.startswith('linux'))
 OS_DARWIN = (sys.platform == 'darwin')
 OS_WIN = (sys.platform == 'win32')
-VM_RSS_REGEXP = re.compile('VmRSS:\\s+(\\d+)\\s+kB')
-VM_SIZE_REGEXP = re.compile('VmSize:\\s+(\\d+)\\s+kB')
-MEM_TOTAL_REGEXP = re.compile('MemTotal:\\s+(\\d+)\\s+kB')
-MEM_FREE_REGEXP = re.compile('MemFree:\\s+(\\d+)\\s+kB')
+VM_RSS_REGEXP = re.compile(r'VmRSS:\s+(\d+)\s+kB')
+VM_SIZE_REGEXP = re.compile(r'VmSize:\s+(\d+)\s+kB')
+MEM_TOTAL_REGEXP = re.compile(r'MemTotal:\s+(\d+)\s+kB')
+MEM_FREE_REGEXP = re.compile(r'MemFree:\s+(\d+)\s+kB')
 
 
 class ProcessReader():

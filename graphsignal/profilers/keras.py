@@ -45,21 +45,21 @@ class GraphsignalCallback(Callback):
         self._start_profiler(PHASE_TRAINING)
 
     def on_train_batch_end(self, batch, logs=None):
-        pass
+        self._log_metrics(logs)
 
     def on_test_batch_begin(self, batch, logs=None):
         self._stop_profiler()
         self._start_profiler(PHASE_TEST)
 
     def on_test_batch_end(self, batch, logs=None):
-        pass
+        self._log_metrics(logs)
 
     def on_predict_batch_begin(self, batch, logs=None):
         self._stop_profiler()
         self._start_profiler(PHASE_PREDICTION)
 
     def on_predict_batch_end(self, batch, logs=None):
-        pass
+        self._log_metrics(logs)
 
     def _configure_profiler(self):
         if self._batch_size:
@@ -84,3 +84,9 @@ class GraphsignalCallback(Callback):
 
         if self._batch_size:
             profile.step_stats.batch_size = self._batch_size
+
+    def _log_metrics(self, logs):
+        if logs:
+            for key, value in logs.items():
+                if isinstance(key, str) and isinstance(value, (int, float)):
+                    graphsignal.log_metric(key, value)

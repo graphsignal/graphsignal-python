@@ -28,8 +28,6 @@ class PyTorchLightningTest(unittest.TestCase):
     @patch.object(Uploader, 'upload_profile')
     def test_callback(self, mocked_upload_profile):
         import torch
-        if not torch.cuda.is_available():
-            return
         from pytorch_lightning import LightningModule, Trainer
         from torch import nn
         from torch.nn import functional as F
@@ -48,15 +46,19 @@ class PyTorchLightningTest(unittest.TestCase):
                 super().__init__()
                 self.batch_size = BATCH_SIZE
                 self.l1 = torch.nn.Linear(28 * 28, 10)
+                self.train_acc = Accuracy()
 
             def forward(self, x):
                 return torch.relu(self.l1(x.view(x.size(0), -1)))
 
             def training_step(self, batch, batch_nb):
                 x, y = batch
-                loss = F.cross_entropy(self(x), y)
+                preds = self(x)
+                loss = F.cross_entropy(preds, y)
+                self.train_acc(preds, y)
+                self.log('train_acc', self.train_acc, on_step=True, on_epoch=False)
                 return loss
-            
+
             def train_dataloader(self):
                 train_ds = MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
                 train_loader = DataLoader(train_ds, batch_size=self.batch_size)
@@ -68,9 +70,9 @@ class PyTorchLightningTest(unittest.TestCase):
         mnist_model = MNISTModel()
 
         trainer = Trainer(
-            accumulate_grad_batches=1,
+            #accumulate_grad_batches=1,
             #auto_scale_batch_size=True,
-            accelerator='gpu',
+            accelerator='gpu' if torch.cuda.is_available() else 'cpu',
             devices=AVAIL_GPUS,
             max_epochs=3,
             callbacks=[GraphsignalCallback(batch_size=mnist_model.batch_size)]
@@ -89,6 +91,9 @@ class PyTorchLightningTest(unittest.TestCase):
         self.assertTrue(profile.step_stats.sample_count > 0)
         self.assertTrue(profile.step_stats.total_time_us > 0)
         self.assertEqual(profile.step_stats.batch_size, mnist_model.batch_size)
+
+        self.assertEqual(profile.metrics[0].name, 'train_acc')
+        self.assertTrue(profile.metrics[0].value > 0)
 
         test_op_stats = None
         for op_stats in profile.op_stats:

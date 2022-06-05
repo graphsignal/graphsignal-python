@@ -81,6 +81,9 @@ class KerasCallbackTest(unittest.TestCase):
         self.assertTrue(profile.step_stats.total_time_us > 0)
         self.assertEqual(profile.step_stats.batch_size, 128)
 
+        self.assertTrue(profile.metrics[0].name in ('accuracy', 'loss'))
+        self.assertTrue(profile.metrics[0].value > 0)
+
         test_op_stats = None
         for op_stats in profile.op_stats:
             if 'MatMul' in op_stats.op_type:

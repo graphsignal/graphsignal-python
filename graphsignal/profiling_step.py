@@ -1,3 +1,4 @@
+from typing import Union
 import logging
 import time
 from threading import Lock
@@ -21,7 +22,8 @@ class ProfilingStep:
         '_stop_lock',
         '_phase_name',
         '_effective_batch_size',
-        '_start_us'
+        '_start_us',
+        '_metrics'
     ]
 
     def __init__(self, 
@@ -44,6 +46,7 @@ class ProfilingStep:
         self._is_profiling = False
         self._profile = None
         self._stop_lock = Lock()
+        self._metrics = None
 
         if self._scheduler.lock(ensure=ensure_profile):
             self._is_scheduled = True
@@ -58,7 +61,7 @@ class ProfilingStep:
             self._profile.process_usage.local_rank = graphsignal._agent.local_rank 
             self._profile.process_usage.start_ms = graphsignal._agent.start_ms
 
-            if self._framework_profiler:
+            if not graphsignal._agent.disable_fwk_profiler and self._framework_profiler:
                 try:
                     self._framework_profiler.start(self._profile)
                     self._is_profiling = True
@@ -93,6 +96,11 @@ class ProfilingStep:
                 self._profile.step_stats.sample_count = step_stats.sample_count
                 self._profile.step_stats.total_time_us = step_stats.total_time_us
 
+                if graphsignal._agent.tags is not None:
+                    for value in graphsignal._agent.tags.keys():
+                        tag = self._profile.tags.add()
+                        tag.value = value
+
                 if graphsignal._agent.params is not None:
                     for name, value in graphsignal._agent.params.items():
                         param = self._profile.params.add()
@@ -105,10 +113,9 @@ class ProfilingStep:
                         metric.name = name
                         metric.value = value
 
-                if self._framework_profiler:
+                if self._is_profiling:
                     try:
-                        if self._is_profiling:
-                            self._framework_profiler.stop(self._profile)
+                        self._framework_profiler.stop(self._profile)
                     except Exception as exc:
                         logger.error('Error stopping profiler', exc_info=True)
                         _add_exception(self._profile, exc)
@@ -128,7 +135,7 @@ class ProfilingStep:
 
     def set_effective_batch_size(self, effective_batch_size: int) -> None:
         if not isinstance(effective_batch_size, int):
-            raise Exception('Invalid effective_batch_size')
+            raise ValueError('Invalid effective_batch_size')
         self._effective_batch_size = effective_batch_size
 
 

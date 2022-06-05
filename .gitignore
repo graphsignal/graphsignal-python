@@ -20,3 +20,6 @@ venv*
 .vscode
 .python-version
 README.rst
+MNIST
+lightning_logs
+test_trainer

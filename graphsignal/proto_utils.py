@@ -9,7 +9,7 @@ from graphsignal.proto import profiles_pb2
 
 logger = logging.getLogger('graphsignal')
 
-version_regexp = re.compile('^(\\d+)\\.?(\\d+)?\\.?(\\d+)?')
+version_regexp = re.compile(r'^(\d+)\.?(\d+)?\.?(\d+)?')
 
 
 def parse_semver(semver_proto, version):

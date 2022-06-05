@@ -4,6 +4,7 @@ import os
 import sys
 import time
 import tempfile
+import gzip
 import shutil
 import glob
 import torch
@@ -22,6 +23,7 @@ logger = logging.getLogger('graphsignal')
 class PyTorchProfiler(FrameworkProfiler):
     def __init__(self):
         self._torch_prof = None
+        self._log_dir = None
         self._ml_framework = None
         self._ml_framework_version = None
         self._global_rank = None
@@ -87,9 +89,30 @@ class PyTorchProfiler(FrameworkProfiler):
 
         self._torch_prof.stop()
 
-        self._convert_to_profile(profile)
+        self._convert_operations(profile)
 
-    def _convert_to_profile(self, profile):
+        # Chrome trace
+        try:
+            self._create_log_dir()
+            trace_path = os.path.join(self._log_dir, 'trace.json')
+            self._torch_prof.export_chrome_trace(trace_path)
+            with open(trace_path) as f:
+                trace_json = f.read()
+                profile.trace_data = gzip.compress(trace_json.encode())
+        except Exception as e:
+            logger.error('Error exporting Chrome trace', exc_info=True)
+        finally:
+            self._remove_log_dir()
+
+    def _create_log_dir(self):
+        self._log_dir = tempfile.mkdtemp(prefix='graphsignal-')
+        logger.debug('Created temporary log directory %s', self._log_dir)
+
+    def _remove_log_dir(self):
+        shutil.rmtree(self._log_dir)
+        logger.debug('Removed temporary log directory %s', self._log_dir)
+
+    def _convert_operations(self, profile):
         # Operation stats
         for event_avg in self._torch_prof.key_averages():
             if event_avg.key and event_avg.key.startswith('ProfilerStep'):

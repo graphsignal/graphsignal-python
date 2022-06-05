@@ -97,12 +97,16 @@ class TensorflowProfiler(FrameworkProfiler):
         try:
             tf.profiler.experimental.stop()
 
-            self._convert_to_profile(profile)
+            self._convert_operations(profile)
+
+            trace_json_gz = self._find_and_read(
+                'plugins/profile/*/*trace.json.gz',
+                decompress=False)
+            profile.trace_data = trace_json_gz
         except Exception as e:
             raise e
         finally:
             self._remove_log_dir()
-
 
     def _create_log_dir(self):
         self._log_dir = tempfile.mkdtemp(prefix='graphsignal-')
@@ -112,7 +116,7 @@ class TensorflowProfiler(FrameworkProfiler):
         shutil.rmtree(self._log_dir)
         logger.debug('Removed temporary log directory %s', self._log_dir)
 
-    def _convert_to_profile(self, profile):
+    def _convert_operations(self, profile):
         # Operation stats
         tf_stats_data = self._find_and_read(
             'plugins/profile/*/*tensorflow_stats.pb')
@@ -156,8 +160,7 @@ class TensorflowProfiler(FrameworkProfiler):
         else:
             logger.debug('No kernel data found in TensorFlow log directory')
 
-
-    def _find_and_read(self, file_pattern):
+    def _find_and_read(self, file_pattern, decompress=True):
         file_paths = glob.glob(os.path.join(self._log_dir, file_pattern))
         if len(file_paths) == 0:
             raise Exception(
@@ -166,7 +169,7 @@ class TensorflowProfiler(FrameworkProfiler):
                         self._log_dir,
                         file_pattern)))
 
-        if file_paths[-1].endswith('.gz'):
+        if decompress and file_paths[-1].endswith('.gz'):
             last_file = gzip.open(file_paths[-1], "rb")
         else:
             last_file = open(file_paths[-1], "rb")

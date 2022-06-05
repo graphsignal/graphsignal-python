@@ -56,7 +56,7 @@ class HuggingFacePTCallbackTest(unittest.TestCase):
 
         from transformers import TrainingArguments
         training_args = TrainingArguments("test_trainer", 
-            fp16=True,
+            #fp16=True,
             per_device_train_batch_size=1, 
             gradient_accumulation_steps=4)
             

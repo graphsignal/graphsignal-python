@@ -37,6 +37,10 @@ class ProfilingStepTest(unittest.TestCase):
     @patch.object(Uploader, 'upload_profile')
     def test_start_stop(self, mocked_upload_profile, mocked_nvml_read, mocked_host_read,
                         mocked_stop, mocked_start):
+        graphsignal.add_tag('t1')
+        graphsignal.add_tag('t1')
+        graphsignal.add_tag('t2')
+
         graphsignal.log_parameter('n1', 'v1')
         graphsignal.log_parameter('n1', 'v2')
         graphsignal.log_parameter('n3', 'v3')
@@ -66,6 +70,9 @@ class ProfilingStepTest(unittest.TestCase):
         self.assertEqual(profile.step_stats.step_count, 1)
         self.assertTrue(profile.step_stats.total_time_us >= 0)
         self.assertEqual(profile.step_stats.sample_count, 256)
+        self.assertEqual(len(profile.tags), 2)
+        self.assertEqual(profile.tags[0].value, 't1')
+        self.assertEqual(profile.tags[1].value, 't2')
         self.assertEqual(profile.params[0].name, 'n1')
         self.assertEqual(profile.params[0].value, 'v2')
         self.assertEqual(profile.params[1].name, 'n3')

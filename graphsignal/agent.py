@@ -12,8 +12,10 @@ class Agent:
     node_rank: int = None
     local_rank: int = None
     debug_mode: bool = None
+    disable_fwk_profiler: bool = False
     uploader: Uploader = None
     process_reader: ProcessReader = None
     nvml_reader: NvmlReader = None
+    tags: dict = None
     params: dict = None
     metrics: dict = None
