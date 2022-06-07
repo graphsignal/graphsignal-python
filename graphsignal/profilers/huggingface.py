@@ -56,7 +56,7 @@ class GraphsignalCallback(TrainerCallback):
         profile = self._step._profile
 
         if args.local_rank == -1 or args.local_rank == 0:
-            profile.step_stats.flop_count = state.total_flos
+            profile.step_stats.flop_count = _uint(state.total_flos)
         profile.step_stats.batch_size = args.train_batch_size
         profile.step_stats.device_batch_size = args.per_device_train_batch_size
 
@@ -73,6 +73,10 @@ class GraphsignalCallback(TrainerCallback):
         for name, value in vars(args).items():
             if not name.startswith('_') and name not in EXCLUDE_ARGS and isinstance(value, (str, int, float, bool)):
                 graphsignal.log_parameter(name, value)
+
+
+def _uint(val):
+    return max(int(val), 0)
 
 
 class GraphsignalPTCallback(GraphsignalCallback):
