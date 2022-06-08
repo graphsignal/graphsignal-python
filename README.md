@@ -63,6 +63,8 @@ To get an API key, sign up for a free account at [graphsignal.com](https://graph
 
 `workload_name` identifies the job, application or service that is being profiled.
 
+One workload can be run multiple times, e.g. to benchmark different parameters. To tag each run, use `graphsignal.add_tag('mytag')`.
+
 
 ### 3. Profiling
 
