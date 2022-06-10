@@ -53,7 +53,7 @@ class ProfilingStepTest(unittest.TestCase):
             phase_name='training',
             effective_batch_size=128,
             ensure_profile=True,
-            framework_profiler=TensorflowProfiler())
+            operation_profiler=TensorflowProfiler())
         step.set_effective_batch_size(256)
         step.stop()
 
@@ -96,7 +96,7 @@ class ProfilingStepTest(unittest.TestCase):
         mocked_start.side_effect = Exception('ex1')
         step = ProfilingStep(
             ensure_profile=True,
-            framework_profiler=TensorflowProfiler())
+            operation_profiler=TensorflowProfiler())
         step.stop()
 
         mocked_start.assert_called_once()
@@ -120,7 +120,7 @@ class ProfilingStepTest(unittest.TestCase):
         mocked_stop.side_effect = Exception('ex1')
         step = ProfilingStep(
             ensure_profile=True,
-            framework_profiler=TensorflowProfiler())
+            operation_profiler=TensorflowProfiler())
         step.stop()
 
         mocked_start.assert_called_once()

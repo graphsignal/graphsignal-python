@@ -22,17 +22,16 @@ import graphsignal
 from graphsignal.proto_utils import parse_semver, compare_semver
 from graphsignal.proto import profiles_pb2
 from graphsignal.profiling_step import ProfilingStep
-from graphsignal.profilers.framework_profiler import FrameworkProfiler
+from graphsignal.profilers.operation_profiler import OperationProfiler
 
 logger = logging.getLogger('graphsignal')
 
 
-class TensorflowProfiler(FrameworkProfiler):
+class TensorflowProfiler(OperationProfiler):
     def __init__(self):
         self._is_initialized = False
         self._log_dir = None
-        self._ml_framework = None
-        self._ml_framework_version = None
+        self._tensorflow_version = None
         self._global_rank = None
         self._world_size = None
 
@@ -47,10 +46,9 @@ class TensorflowProfiler(FrameworkProfiler):
             tf.profiler.experimental.stop(save=False)
             logger.debug('Finished warming up')
 
-            self._ml_framework = profiles_pb2.ProcessUsage.MLFramework.TENSORFLOW
-            self._ml_framework_version = profiles_pb2.SemVer()
-            parse_semver(self._ml_framework_version, tf.__version__)
-            if compare_semver(self._ml_framework_version, (2, 2, 0)) == -1:
+            self._tensorflow_version = profiles_pb2.SemVer()
+            parse_semver(self._tensorflow_version, tf.__version__)
+            if compare_semver(self._tensorflow_version, (2, 2, 0)) == -1:
                 raise Exception(
                     'TensorFlow profiling is not supported for versions <=2.2')
 
@@ -66,10 +64,15 @@ class TensorflowProfiler(FrameworkProfiler):
                 except:
                     logger.warning('Error parsing TF_CONFIG', exc_info=True)
 
+        # Profiler info
+        profile.profiler_info.operation_profiler_type = profiles_pb2.ProfilerInfo.ProfilerType.TENSORFLOW_PROFILER
+
+        # Framework info
+        framework = profile.frameworks.add()
+        framework.type = profiles_pb2.FrameworkInfo.FrameworkType.TENSORFLOW_FRAMEWORK
+        framework.version.CopyFrom(self._tensorflow_version)
+
         # Process info
-        profile.process_usage.ml_framework = self._ml_framework
-        profile.process_usage.ml_framework_version.CopyFrom(
-            self._ml_framework_version)
         if self._global_rank is not None and self._global_rank >= 0:
             if graphsignal._agent.global_rank == -1:
                 profile.process_usage.global_rank = self._global_rank
@@ -195,4 +198,4 @@ def profile_step(
         phase_name=phase_name,
         effective_batch_size=effective_batch_size,
         ensure_profile=ensure_profile,
-        framework_profiler=_profiler)
+        operation_profiler=_profiler)

@@ -53,8 +53,8 @@ class PyTorchProfilerTest(unittest.TestCase):
         #pp.pprint(MessageToJson(profile))
 
         self.assertEqual(
-            profile.process_usage.ml_framework,
-            profiles_pb2.ProcessUsage.MLFramework.PYTORCH)
+            profile.frameworks[0].type,
+            profiles_pb2.FrameworkInfo.FrameworkType.PYTORCH_FRAMEWORK)
 
         self.assertEqual(profile.phase_name, 'training')
         self.assertEqual(profile.step_stats.step_count, 1)

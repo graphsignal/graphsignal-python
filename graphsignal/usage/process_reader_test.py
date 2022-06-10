@@ -47,3 +47,4 @@ class ProcessReaderTest(unittest.TestCase):
             self.assertTrue(profile.process_usage.max_rss > 0)
             self.assertTrue(profile.process_usage.current_rss > 0)
             self.assertTrue(profile.process_usage.vm_size > 0)
+        self.assertTrue(profile.profiler_info.version.major > 0 or profile.profiler_info.version.minor > 0)

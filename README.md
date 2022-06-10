@@ -38,24 +38,14 @@ git clone https://github.com/graphsignal/graphsignal.git
 python setup.py install
 ```
 
-Import the module in your application:
-
-```python
-import graphsignal
-```
-
-For GPU profiling, make sure the [NVIDIA® CUDA® Profiling Tools Interface](https://developer.nvidia.com/cupti) (CUPTI) is installed by running:
-
-```console
-/sbin/ldconfig -p | grep libcupti
-```
-
 
 ### 2. Configuration
 
 Configure the profiler by specifying your API key and workload name directly or via environment variables.
 
 ```python
+import graphsignal
+
 graphsignal.configure(api_key='my_api_key', workload_name='job1')
 ```
 
@@ -117,7 +107,8 @@ trainer = Trainer(..., callbacks=[GraphsignalPTCallback()])
 # or trainer.add_callback(GraphsignalPTCallback())
 ```
 
-#### Other frameworks
+#### [Other frameworks](https://graphsignal.com/docs/integrations/other-frameworks/)
+
 
 ML operation and kernel statistics are not supported by generic profiler.
 
@@ -174,3 +165,9 @@ No code or data is sent to Graphsignal cloud, only run statistics and metadata.
 To enable debug logging, add `debug_mode=True` to `configure()`. If the debug log doesn't give you any hints on how to fix a problem, please report it to our support team via your account.
 
 In case of connection issues, please make sure outgoing connections to `https://profile-api.graphsignal.com` are allowed.
+
+For GPU profiling, if `libcupti` library is failing to load, make sure the [NVIDIA® CUDA® Profiling Tools Interface](https://developer.nvidia.com/cupti) (CUPTI) is installed by running:
+
+```console
+/sbin/ldconfig -p | grep libcupti
+```

@@ -114,7 +114,7 @@ class ProcessReader():
             process_usage.runtime_version.minor = sys.version_info.minor
             process_usage.runtime_version.patch = sys.version_info.micro
             process_usage.runtime_impl = platform.python_implementation()
-            parse_semver(process_usage.profiler_version, version.__version__)
+            parse_semver(profile.profiler_info.version, version.__version__)
         except BaseException:
             logger.error('Error reading process information', exc_info=True)
 

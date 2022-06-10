@@ -85,6 +85,15 @@ class HuggingFacePTCallbackTest(unittest.TestCase):
         self.assertTrue(profile.step_stats.batch_size > 0)
         self.assertTrue(profile.step_stats.device_batch_size > 0)
 
+        self.assertTrue(
+            profile.profiler_info.framework_profiler_type, 
+            profiles_pb2.ProfilerInfo.ProfilerType.HUGGING_FACE_PROFILER)
+
+        self.assertEqual(
+            profile.frameworks[-1].type,
+            profiles_pb2.FrameworkInfo.FrameworkType.HUGGING_FACE_FRAMEWORK)
+        self.assertTrue(profile.frameworks[-1].version.major > 0)
+
         test_op_stats = None
         for op_stats in profile.op_stats:
             if op_stats.op_name == 'aten::mm':

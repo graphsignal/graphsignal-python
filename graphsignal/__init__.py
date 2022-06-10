@@ -67,7 +67,7 @@ def configure(
         node_rank: Optional[int] = None,
         local_rank: Optional[int] = None,
         debug_mode: Optional[bool] = False,
-        disable_fwk_profiler: Optional[bool] = False) -> None:
+        disable_op_profiler: Optional[bool] = False) -> None:
     global _agent
 
     if _agent:
@@ -85,7 +85,7 @@ def configure(
     global_rank = _check_and_set_arg('global_rank', global_rank, is_int=True, required=False)
     node_rank = _check_and_set_arg('node_rank', node_rank, is_int=True, required=False)
     local_rank = _check_and_set_arg('local_rank', local_rank, is_int=True, required=False)
-    disable_fwk_profiler = _check_and_set_arg('disable_fwk_profiler', disable_fwk_profiler, is_bool=True, required=False)
+    disable_op_profiler = _check_and_set_arg('disable_op_profiler', disable_op_profiler, is_bool=True, required=False)
 
     if not run_id:
         run_id = _uuid_sha1()

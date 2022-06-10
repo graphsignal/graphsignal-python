@@ -79,7 +79,16 @@ class KerasCallbackTest(unittest.TestCase):
         self.assertTrue(profile.step_stats.step_count > 0)
         self.assertTrue(profile.step_stats.sample_count > 0)
         self.assertTrue(profile.step_stats.total_time_us > 0)
-        self.assertEqual(profile.step_stats.batch_size, 128)
+        self.assertTrue(profile.step_stats.step_count > 0)
+
+        self.assertTrue(
+            profile.profiler_info.framework_profiler_type, 
+            profiles_pb2.ProfilerInfo.ProfilerType.KERAS_PROFILER)
+
+        self.assertEqual(
+            profile.frameworks[-1].type,
+            profiles_pb2.FrameworkInfo.FrameworkType.KERAS_FRAMEWORK)
+        self.assertTrue(profile.frameworks[-1].version.major > 0)
 
         self.assertTrue(profile.metrics[0].name in ('accuracy', 'loss'))
         self.assertTrue(profile.metrics[0].value > 0)

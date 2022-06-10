@@ -1,6 +1,6 @@
 
 
-class FrameworkProfiler():
+class OperationProfiler():
     def start(self, profile):
         raise NotImplementedError()
 

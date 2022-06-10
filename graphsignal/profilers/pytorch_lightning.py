@@ -2,10 +2,12 @@ from typing import Optional
 import logging
 import time
 from torch import Tensor
+import pytorch_lightning
 from pytorch_lightning.callbacks.base import Callback
 
 import graphsignal
 from graphsignal.proto import profiles_pb2
+from graphsignal.proto_utils import parse_semver
 from graphsignal.profilers.pytorch import PyTorchProfiler
 from graphsignal.profiling_step import ProfilingStep
 
@@ -20,6 +22,7 @@ PHASE_PREDICTION = 'prediction'
 class GraphsignalCallback(Callback):
     def __init__(self, batch_size: Optional[int] = None):
         super().__init__()
+        self._pl_version = None
         self._profiler = PyTorchProfiler()
         self._step = None
         self._batch_size = batch_size
@@ -80,34 +83,40 @@ class GraphsignalCallback(Callback):
         self._log_metrics(trainer.logged_metrics)
 
     def _configure_profiler(self, trainer):
-        if self._check_param(trainer, 'node_rank') and trainer.node_rank >= 0:
-            self._node_rank = trainer.node_rank
-        if self._check_param(trainer, 'local_rank') and trainer.local_rank >= 0:
-             self._local_rank = trainer.local_rank
-        if self._check_param(trainer, 'global_rank') and trainer.global_rank >= 0:
-             self._global_rank = trainer.global_rank
+        try: 
+            self._pl_version = profiles_pb2.SemVer()
+            parse_semver(self._pl_version, pytorch_lightning.__version__)
 
-        if self._batch_size:
-            graphsignal.log_parameter('batch_size', self._batch_size)
+            if self._check_param(trainer, 'node_rank') and trainer.node_rank >= 0:
+                self._node_rank = trainer.node_rank
+            if self._check_param(trainer, 'local_rank') and trainer.local_rank >= 0:
+                self._local_rank = trainer.local_rank
+            if self._check_param(trainer, 'global_rank') and trainer.global_rank >= 0:
+                self._global_rank = trainer.global_rank
 
-        self._log_basic_param(trainer, 'auto_scale_batch_size')
-        self._log_basic_param(trainer, 'accumulate_grad_batches')
-        self._log_basic_param(trainer, 'world_size')
-        self._log_basic_param(trainer, 'num_nodes')
-        self._log_basic_param(trainer, 'num_devices')
-        self._log_basic_param(trainer, 'precision')
-        self._log_basic_param(trainer, 'data_parallel')
-        self._log_basic_param(trainer, 'max_epochs')
-        self._log_basic_param(trainer, 'min_epochs')
-        self._log_basic_param(trainer, 'max_steps')
-        self._log_basic_param(trainer, 'min_steps')
+            if self._batch_size:
+                graphsignal.log_parameter('batch_size', self._batch_size)
+
+            self._log_basic_param(trainer, 'auto_scale_batch_size')
+            self._log_basic_param(trainer, 'accumulate_grad_batches')
+            self._log_basic_param(trainer, 'world_size')
+            self._log_basic_param(trainer, 'num_nodes')
+            self._log_basic_param(trainer, 'num_devices')
+            self._log_basic_param(trainer, 'precision')
+            self._log_basic_param(trainer, 'data_parallel')
+            self._log_basic_param(trainer, 'max_epochs')
+            self._log_basic_param(trainer, 'min_epochs')
+            self._log_basic_param(trainer, 'max_steps')
+            self._log_basic_param(trainer, 'min_steps')
+        except Exception:
+            logger.error('Error configuring PyTorch Lightning profiler', exc_info=True)
 
     def _start_profiler(self, phase_name, trainer):
         if not self._step:
             self._step = ProfilingStep(
                 phase_name=phase_name,
                 effective_batch_size=self._batch_size,
-                framework_profiler=self._profiler)
+                operation_profiler=self._profiler)
 
     def _stop_profiler(self, trainer):
         if self._step:
@@ -117,30 +126,39 @@ class GraphsignalCallback(Callback):
             self._step = None
 
     def _update_profile(self, trainer):
-        profile = self._step._profile
+        try:
+            profile = self._step._profile
 
-        if self._batch_size:
-            profile.step_stats.batch_size = self._batch_size
-            strategy = getattr(trainer, 'strategy', None)
-            if strategy:
-                try:
-                    from pytorch_lightning.strategies import DataParallelStrategy, DDP2Strategy
-                    if isinstance(strategy, (DataParallelStrategy, DDP2Strategy)):
-                        num_devices = getattr(trainer, 'num_devices', 1)
-                        if isinstance(num_devices, int) and num_devices > 1:
-                            profile.step_stats.device_batch_size = int(self._batch_size / num_devices)
-                except:
-                    logger.warning('Error recording per-device batch size', exc_info=True)
+            profile.profiler_info.framework_profiler_type = profiles_pb2.ProfilerInfo.ProfilerType.PYTORCH_LIGHTNING_PROFILER
 
-        if self._check_param(trainer, 'world_size'):
-            profile.step_stats.world_size = trainer.world_size
+            framework = profile.frameworks.add()
+            framework.type = profiles_pb2.FrameworkInfo.FrameworkType.PYTORCH_LIGHTNING_FRAMEWORK
+            framework.version.CopyFrom(self._pl_version)
 
-        if self._node_rank >= 0 and graphsignal._agent.node_rank == -1:
-            profile.node_usage.node_rank = self._node_rank
-        if self._global_rank >= 0 and graphsignal._agent.global_rank == -1:
-            profile.process_usage.global_rank = self._global_rank
-        if self._local_rank >= 0 and graphsignal._agent.local_rank == -1:
-            profile.process_usage.local_rank = self._local_rank
+            if self._batch_size:
+                profile.step_stats.batch_size = self._batch_size
+                strategy = getattr(trainer, 'strategy', None)
+                if strategy:
+                    try:
+                        from pytorch_lightning.strategies import DataParallelStrategy, DDP2Strategy
+                        if isinstance(strategy, (DataParallelStrategy, DDP2Strategy)):
+                            num_devices = getattr(trainer, 'num_devices', 1)
+                            if isinstance(num_devices, int) and num_devices > 1:
+                                profile.step_stats.device_batch_size = int(self._batch_size / num_devices)
+                    except:
+                        logger.warning('Error recording per-device batch size', exc_info=True)
+
+            if self._check_param(trainer, 'world_size'):
+                profile.step_stats.world_size = trainer.world_size
+
+            if self._node_rank >= 0 and graphsignal._agent.node_rank == -1:
+                profile.node_usage.node_rank = self._node_rank
+            if self._global_rank >= 0 and graphsignal._agent.global_rank == -1:
+                profile.process_usage.global_rank = self._global_rank
+            if self._local_rank >= 0 and graphsignal._agent.local_rank == -1:
+                profile.process_usage.local_rank = self._local_rank
+        except Exception as exc:
+            self._step._add_profiler_exception(exc)
 
     def _log_basic_param(self, trainer, param):
         value = getattr(trainer, param, None)

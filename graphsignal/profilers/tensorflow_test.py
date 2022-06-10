@@ -54,8 +54,8 @@ class TensorflowProfilerTest(unittest.TestCase):
         #pp.pprint(MessageToJson(profile))
 
         self.assertEqual(
-            profile.process_usage.ml_framework,
-            profiles_pb2.ProcessUsage.MLFramework.TENSORFLOW)
+            profile.frameworks[0].type,
+            profiles_pb2.FrameworkInfo.FrameworkType.TENSORFLOW_FRAMEWORK)
         self.assertEqual(profile.process_usage.global_rank, 1)
 
         self.assertEqual(profile.phase_name, 'training')
