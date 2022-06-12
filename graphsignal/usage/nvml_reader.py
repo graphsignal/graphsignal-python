@@ -12,9 +12,7 @@ logger = logging.getLogger('graphsignal')
 
 
 class NvmlReader():
-    __slots__ = [
-        '_is_initialized'
-    ]
+    MIN_SAMPLE_READ_INTERVAL_US = int(10 * 1e6)
 
     def __init__(self):
         self._is_initialized = False
@@ -41,6 +39,8 @@ class NvmlReader():
     def read(self, profile):
         if not self._is_initialized:
             return
+
+        now_us = int(time.time() * 1e6)
 
         device_count = nvmlDeviceGetCount()
 
@@ -99,10 +99,17 @@ class NvmlReader():
             except NVMLError as err:
                 log_nvml_error(err)
 
+
             try:
-                util_rates = nvmlDeviceGetUtilizationRates(handle)
-                device_usage.gpu_utilization_percent = util_rates.gpu
-                device_usage.mem_utilization_percent = util_rates.memory
+                last_read_us = max(
+                    int(graphsignal._agent.start_ms * 1e3),
+                    now_us - NvmlReader.MIN_SAMPLE_READ_INTERVAL_US)
+
+                sample_value_type, gpu_samples = nvmlDeviceGetSamples(handle, NVML_GPU_UTILIZATION_SAMPLES, last_read_us)
+                device_usage.gpu_utilization_percent = _avg_sample_value(sample_value_type, gpu_samples)
+
+                sample_value_type, mem_samples = nvmlDeviceGetSamples(handle, NVML_MEMORY_UTILIZATION_SAMPLES, last_read_us)
+                device_usage.mem_access_percent = _avg_sample_value(sample_value_type, mem_samples)
             except NVMLError as err:
                 log_nvml_error(err)
 
@@ -133,8 +140,29 @@ class NvmlReader():
                 log_nvml_error(err)
 
 
+def _avg_sample_value(sample_value_type, samples):
+    if not samples:
+        return 0
+
+    sample_values = []
+
+    if sample_value_type == NVML_VALUE_TYPE_DOUBLE:
+        sample_values = [sample.sampleValue.dVal for sample in samples]
+    if sample_value_type == NVML_VALUE_TYPE_UNSIGNED_INT:
+        sample_values = [sample.sampleValue.uiVal for sample in samples]
+    if sample_value_type == NVML_VALUE_TYPE_UNSIGNED_LONG:
+        sample_values = [sample.sampleValue.ulVal for sample in samples]
+    if sample_value_type == NVML_VALUE_TYPE_UNSIGNED_LONG_LONG:
+        sample_values = [sample.sampleValue.ullVal for sample in samples]
+
+    if len(sample_values) > 0:
+        return sum(sample_values) / len(sample_values)
+
+    return 0
+
+
 def log_nvml_error(err):
     if (err.value == NVML_ERROR_NOT_SUPPORTED):
-        logger.debug('NVML call not supported')
+        logger.debug('NVML call not supported', exc_info=True)
     else:
         logger.error('Error calling NVML', exc_info=True)

@@ -126,7 +126,7 @@ Graphsignal has a built-in support for distributed training and inference, e.g. 
 
 ### 4. Dashboards
 
-After profiling is setup, [open](https://app.graphsignal.com/) to Graphsignal to analyze recorded profiles.
+After profiling is setup, [open](https://app.graphsignal.com/) Graphsignal to analyze recorded profiles.
 
 
 ## Example
