@@ -7,7 +7,7 @@
 
 Graphsignal is a machine learning profiler. It helps data scientists and ML engineers make model training and inference faster and more efficient. It is built for real-world use cases and allows ML practitioners to:
 
-* Optimize training and inference by benchmarking and analyzing speed, compute and operation statistics.
+* Optimize training and inference by benchmarking speed, analyzing execution trace, operation-level statistics and compute utilization.
 * Start profiling scripts and notebooks automatically by adding a few lines of code.
 * Use the profiler in local, remote or cloud environment without installing any additional software or opening inbound ports.
 * Keep data private; no code or data is sent to Graphsignal cloud, only run statistics and metadata.
@@ -107,10 +107,15 @@ trainer = Trainer(..., callbacks=[GraphsignalPTCallback()])
 # or trainer.add_callback(GraphsignalPTCallback())
 ```
 
+#### [XGBoost](https://graphsignal.com/docs/integrations/xgboost/)
+
+```python
+from graphsignal.profilers.xgboost import GraphsignalCallback
+
+bst = xgb.train(..., callbacks=[GraphsignalCallback()])
+```
+
 #### [Other frameworks](https://graphsignal.com/docs/integrations/other-frameworks/)
-
-
-ML operation and kernel statistics are not supported by generic profiler.
 
 ```python
 from graphsignal.profilers.generic import profile_step
@@ -119,9 +124,10 @@ with profile_step():
     # training batch, prediction, etc.
 ```
 
+
 #### Distributed workloads
 
-Graphsignal has a built-in support for distributed training and inference, e.g. multi-node and multi-gpu training. See [Distributed Workloads](https://graphsignal.com/docs/profiler/distributed-workloads/) section for more information.
+Graphsignal has a built-in support for distributed training and inference, e.g. multi-node and multi-GPU training. See [Distributed Workloads](https://graphsignal.com/docs/profiler/distributed-workloads/) section for more information.
 
 
 ### 4. Dashboards

@@ -1,5 +1,6 @@
 import os
-from setuptools import setup, find_packages
+import sys
+from setuptools import setup, find_packages, Extension
 
 def read(fname):
   return open(os.path.join(os.path.dirname(__file__), fname)).read()
@@ -22,17 +23,17 @@ setup(
     'machine learning',
     'deep learning',
     'data science',
-    'MLOps',
     'machine learning profiler',
     'deep learning profiler',
-    'machine learning performance',
+    'tensorflow profiler',
+    'keras profiler',
+    'pytorch profiler',
     'training profiling',
     'inference profiling'
   ],
   classifiers = [
     'Development Status :: 5 - Production/Stable',
-    'Environment :: Web Environment',
-    'Environment :: Console',
+    'Intended Audience :: Science/Research',
     'Intended Audience :: Developers',
     'License :: OSI Approved :: Apache Software License',
     'Operating System :: OS Independent',
@@ -47,7 +48,6 @@ setup(
   install_requires=[
     'protobuf>3.0'
   ],
-  
   packages = find_packages(exclude=[
     '*.sh', '*_test.py'])
 )

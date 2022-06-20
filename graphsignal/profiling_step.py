@@ -83,7 +83,16 @@ class ProfilingStep:
 
     def stop(self) -> None:
         stop_us = _timestamp_us()
+
         with self._stop_lock:
+            if self._is_scheduled:
+                if self._is_profiling:
+                    try:
+                        self._operation_profiler.stop(self._profile)
+                    except Exception as exc:
+                        logger.error('Error stopping profiler', exc_info=True)
+                        self._add_profiler_exception(exc)
+
             step_stats = update_step_stats(
                 self._phase_name,
                 stop_us - self._start_us,
@@ -112,13 +121,6 @@ class ProfilingStep:
                         metric = self._profile.metrics.add()
                         metric.name = name
                         metric.value = value
-
-                if self._is_profiling:
-                    try:
-                        self._operation_profiler.stop(self._profile)
-                    except Exception as exc:
-                        logger.error('Error stopping profiler', exc_info=True)
-                        self._add_profiler_exception(exc)
 
                 try:
                     graphsignal._agent.process_reader.read(self._profile)

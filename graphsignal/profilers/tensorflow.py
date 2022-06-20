@@ -26,7 +26,6 @@ from graphsignal.profilers.operation_profiler import OperationProfiler
 
 logger = logging.getLogger('graphsignal')
 
-
 class TensorflowProfiler(OperationProfiler):
     def __init__(self):
         self._is_initialized = False
@@ -104,7 +103,8 @@ class TensorflowProfiler(OperationProfiler):
 
             trace_json_gz = self._find_and_read(
                 'plugins/profile/*/*trace.json.gz',
-                decompress=False)
+                decompress=False,
+                max_size=5 * 1e6)
             profile.trace_data = trace_json_gz
         except Exception as e:
             raise e
@@ -163,7 +163,7 @@ class TensorflowProfiler(OperationProfiler):
         else:
             logger.debug('No kernel data found in TensorFlow log directory')
 
-    def _find_and_read(self, file_pattern, decompress=True):
+    def _find_and_read(self, file_pattern, decompress=True, max_size=None):
         file_paths = glob.glob(os.path.join(self._log_dir, file_pattern))
         if len(file_paths) == 0:
             raise Exception(
@@ -172,10 +172,16 @@ class TensorflowProfiler(OperationProfiler):
                         self._log_dir,
                         file_pattern)))
 
-        if decompress and file_paths[-1].endswith('.gz'):
-            last_file = gzip.open(file_paths[-1], "rb")
+        found_path = file_paths[-1]
+
+        if max_size:
+            if os.path.getsize(found_path) > max_size:
+                raise Exception('File too big: {0}'.format())
+
+        if decompress and found_path.endswith('.gz'):
+            last_file = gzip.open(found_path, "rb")
         else:
-            last_file = open(file_paths[-1], "rb")
+            last_file = open(found_path, "rb")
         data = last_file.read()
         last_file.close()
 

@@ -94,18 +94,7 @@ class PyTorchProfiler(OperationProfiler):
 
         self._convert_operations(profile)
 
-        # Chrome trace
-        try:
-            self._create_log_dir()
-            trace_path = os.path.join(self._log_dir, 'trace.json')
-            self._torch_prof.export_chrome_trace(trace_path)
-            with open(trace_path) as f:
-                trace_json = f.read()
-                profile.trace_data = gzip.compress(trace_json.encode())
-        except Exception as e:
-            logger.error('Error exporting Chrome trace', exc_info=True)
-        finally:
-            self._remove_log_dir()
+        self._read_chrome_trace(profile)
 
     def _create_log_dir(self):
         self._log_dir = tempfile.mkdtemp(prefix='graphsignal-')
@@ -160,6 +149,24 @@ class PyTorchProfiler(OperationProfiler):
 
         logger.debug(
             'Converted %d PyTorch operation statistics', len(profile.op_stats))
+
+    def _read_chrome_trace(self, profile):
+        try:
+            self._create_log_dir()
+
+            trace_path = os.path.join(self._log_dir, 'trace.json')
+            self._torch_prof.export_chrome_trace(trace_path)
+
+            if os.path.getsize(trace_path) > 25 * 1e6:
+                raise Exception('Trace file too big')
+
+            with open(trace_path) as f:
+                trace_json = f.read()
+                profile.trace_data = gzip.compress(trace_json.encode())
+        except Exception as e:
+            logger.error('Error exporting Chrome trace', exc_info=True)
+        finally:
+            self._remove_log_dir()
 
 def _uint(val):
     return max(int(val), 0)

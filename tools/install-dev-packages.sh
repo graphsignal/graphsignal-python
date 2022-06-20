@@ -28,4 +28,6 @@ pip install torchmetrics
 pip install torchvision
 pip install transformers
 pip install datasets
+pip install sklearn
+pip install xgboost
 deactivate

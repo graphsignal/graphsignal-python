@@ -1,6 +1,7 @@
 import unittest
 import logging
 import sys
+import time
 from unittest.mock import patch, Mock
 
 import graphsignal
@@ -19,21 +20,33 @@ class ProfileSchedulerTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    def test_default(self):
+    def test_ensured(self):
         scheduler = ProfileScheduler()
-        for _ in range(next(iter(scheduler._step_filter)) - 1):
-            scheduler.lock()
+        for _ in range(ProfileScheduler.MAX_ENSURED_STEPS):
+            self.assertTrue(scheduler.lock(ensure=True))
+            scheduler.unlock()
+        scheduler.unlock()
+
+    def test_predefined(self):
+        scheduler = ProfileScheduler()
+        first_step = next(iter(scheduler._step_filter))
+        for _ in range(first_step - 1):
+            self.assertFalse(scheduler.lock())
             scheduler.unlock()
         self.assertTrue(scheduler.lock())
         scheduler.unlock()
 
-    def test_ensured(self):
+    def test_interval(self):
         scheduler = ProfileScheduler()
-        self.assertTrue(scheduler.lock(ensure=True))
-        scheduler.unlock()
-        self.assertFalse(scheduler.lock(ensure=False))
-        scheduler.unlock()
-        self.assertTrue(scheduler.lock(ensure=True))
+        scheduler._step_filter = {}
+        scheduler._last_profiled_ts = time.time()
+        scheduler._current_step = 5
+        scheduler._last_profiled_step = 5
+        for _ in range(ProfileScheduler.MIN_INTERVAL_STEPS):
+            self.assertFalse(scheduler.lock())
+            scheduler.unlock()
+        scheduler._last_profiled_ts = time.time() - ProfileScheduler.MIN_INTERVAL_SEC - 1
+        self.assertTrue(scheduler.lock())
         scheduler.unlock()
 
     def test_concurrent(self):
