@@ -49,7 +49,7 @@ import graphsignal
 graphsignal.configure(api_key='my_api_key', workload_name='job1')
 ```
 
-To get an API key, sign up for a free account at [graphsignal.com](https://graphsignal.com). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.com/settings/api_keys) page.
+To get an API key, sign up for a free account at [graphsignal.com](https://graphsignal.com). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.com/settings/api-keys) page.
 
 `workload_name` identifies the job, application or service that is being profiled.
 
@@ -113,6 +113,15 @@ trainer = Trainer(..., callbacks=[GraphsignalPTCallback()])
 from graphsignal.profilers.xgboost import GraphsignalCallback
 
 bst = xgb.train(..., callbacks=[GraphsignalCallback()])
+```
+
+#### [JAX](https://graphsignal.com/docs/integrations/jax/)
+
+```python
+from graphsignal.profilers.jax import profile_step
+
+with profile_step():
+    # training batch, prediction, etc.
 ```
 
 #### [Other frameworks](https://graphsignal.com/docs/integrations/other-frameworks/)

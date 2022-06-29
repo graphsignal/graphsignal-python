@@ -4,6 +4,7 @@ set -e
 
 python3 -m venv venv
 source venv/bin/activate
+pip install --upgrade pip
 pip install --upgrade setuptools
 pip install wheel
 pip install protobuf
@@ -17,17 +18,14 @@ else
     pip install tensorflow
 fi
 pip install tensorflow_datasets
-if [ `uname -m` = "aarch64" ]; then
-    pip install torch
-else
-    #pip install torch
-    pip install torch==1.11.0+cu115 -f https://download.pytorch.org/whl/torch_stable.html
-fi
+pip install torch
 pip install pytorch_lightning
-pip install torchmetrics
-pip install torchvision
 pip install transformers
 pip install datasets
 pip install sklearn
 pip install xgboost
+if [ `uname -m` = "x86_64" ]; then
+    pip install torch==1.11.0+cu115 -f https://download.pytorch.org/whl/torch_stable.html
+    pip install jax[cuda] -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+fi
 deactivate

@@ -49,6 +49,9 @@ class ProfilingStep:
         self._metrics = None
 
         if self._scheduler.lock(ensure=ensure_profile):
+            if logger.isEnabledFor(logging.DEBUG):
+                profiling_start_ts = time.time()
+
             self._is_scheduled = True
             self._profile = profiles_pb2.MLProfile()
             self._profile.workload_name = graphsignal._agent.workload_name
@@ -72,6 +75,9 @@ class ProfilingStep:
                     logger.error('Error starting profiler', exc_info=True)
 
             self._profile.start_us = _timestamp_us()
+
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug('Profiling start took: %fs', time.time() - profiling_start_ts)
 
         self._start_us = _timestamp_us()
 
@@ -99,6 +105,9 @@ class ProfilingStep:
                 effective_batch_size=self._effective_batch_size)
 
             if self._is_scheduled:
+                if logger.isEnabledFor(logging.DEBUG):
+                    profiling_stop_ts = time.time()
+
                 self._profile.end_us = stop_us
 
                 self._profile.step_stats.step_count = step_stats.step_count
@@ -136,6 +145,9 @@ class ProfilingStep:
                 self._is_profiling = False
                 self._profile = None
                 self._scheduler.unlock()
+
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug('Profiling stop took: %fs', time.time() - profiling_stop_ts)
 
     def set_effective_batch_size(self, effective_batch_size: int) -> None:
         if not isinstance(effective_batch_size, int):

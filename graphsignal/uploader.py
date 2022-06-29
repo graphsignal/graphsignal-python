@@ -57,20 +57,17 @@ class Uploader:
                 upload_request = profiles_pb2.UploadRequest()
                 upload_request.ml_profiles.extend(outgoing)
                 upload_request.upload_ms = int(time.time() * 1e3)
-                resp = self._post(
-                    'profiles', upload_request.SerializeToString())
+                payload = upload_request.SerializeToString()
+                resp = self._post('profiles', payload)
                 upload_response = profiles_pb2.UploadResponse()
                 upload_response.ParseFromString(resp)
-                logger.debug(
-                    'Upload took %.3f sec', time.time() - upload_start)
+                logger.debug('Upload took %.3f sec (%dB)', time.time() - upload_start, len(payload))
             except URLError:
-                logger.debug(
-                    'Failed uploading profiles, will retry', exc_info=True)
+                logger.debug('Failed uploading profiles, will retry', exc_info=True)
                 with self.buffer_lock:
                     self.buffer[:0] = outgoing
             except Exception:
-                logger.error(
-                    'Error uploading profiles', exc_info=True)
+                logger.error('Error uploading profiles', exc_info=True)
 
     def _post(self, endpoint, data):
         logger.debug('Posting data to %s/%s',

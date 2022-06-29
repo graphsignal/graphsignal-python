@@ -3,10 +3,7 @@ import logging
 import os
 import sys
 import time
-import tempfile
 import gzip
-import shutil
-import glob
 import torch
 from torch.autograd import DeviceType
 import torch.distributed
@@ -16,6 +13,7 @@ from graphsignal.proto_utils import parse_semver
 from graphsignal.proto import profiles_pb2
 from graphsignal.profiling_step import ProfilingStep
 from graphsignal.profilers.operation_profiler import OperationProfiler
+from graphsignal.profilers.profiler_utils import create_log_dir, remove_log_dir
 
 logger = logging.getLogger('graphsignal')
 
@@ -34,8 +32,6 @@ class PyTorchProfiler(OperationProfiler):
 
         if not self._torch_prof:
             # Initialization
-            logger.debug('Warming up PyTorch profiler before first use')
-
             def _schedule_func(step):
                 return torch.profiler.ProfilerAction.RECORD
 
@@ -45,9 +41,6 @@ class PyTorchProfiler(OperationProfiler):
                 profile_memory=True,
                 with_stack=False,
                 with_flops=True)
-            self._torch_prof.start()
-            self._torch_prof.stop()
-            logger.debug('Finished warming up')
 
             self._pytorch_version = profiles_pb2.SemVer()
             parse_semver(self._pytorch_version, torch.__version__)
@@ -95,14 +88,6 @@ class PyTorchProfiler(OperationProfiler):
         self._convert_operations(profile)
 
         self._read_chrome_trace(profile)
-
-    def _create_log_dir(self):
-        self._log_dir = tempfile.mkdtemp(prefix='graphsignal-')
-        logger.debug('Created temporary log directory %s', self._log_dir)
-
-    def _remove_log_dir(self):
-        shutil.rmtree(self._log_dir)
-        logger.debug('Removed temporary log directory %s', self._log_dir)
 
     def _convert_operations(self, profile):
         # Operation stats
@@ -152,12 +137,12 @@ class PyTorchProfiler(OperationProfiler):
 
     def _read_chrome_trace(self, profile):
         try:
-            self._create_log_dir()
+            self._log_dir = create_log_dir()
 
             trace_path = os.path.join(self._log_dir, 'trace.json')
             self._torch_prof.export_chrome_trace(trace_path)
 
-            if os.path.getsize(trace_path) > 25 * 1e6:
+            if os.path.getsize(trace_path) > 50 * 1e6:
                 raise Exception('Trace file too big')
 
             with open(trace_path) as f:
@@ -166,7 +151,7 @@ class PyTorchProfiler(OperationProfiler):
         except Exception as e:
             logger.error('Error exporting Chrome trace', exc_info=True)
         finally:
-            self._remove_log_dir()
+            remove_log_dir(self._log_dir)
 
 def _uint(val):
     return max(int(val), 0)

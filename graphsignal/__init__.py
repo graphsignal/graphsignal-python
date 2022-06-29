@@ -104,6 +104,7 @@ def configure(
     _agent.node_rank = node_rank if node_rank is not None else -1
     _agent.local_rank = local_rank if local_rank is not None else -1
     _agent.global_rank = global_rank if global_rank is not None else -1
+    _agent.disable_op_profiler = disable_op_profiler
     _agent.debug_mode = debug_mode
     _agent.uploader = Uploader()
     _agent.uploader.configure()
