@@ -7,7 +7,6 @@ import traceback
 import graphsignal
 from graphsignal.proto import profiles_pb2
 from graphsignal.profile_scheduler import select_scheduler
-from graphsignal.step_counter import get_step_stats, update_step_stats
 
 logger = logging.getLogger('graphsignal')
 
@@ -56,13 +55,13 @@ class ProfilingStep:
             self._profile = profiles_pb2.MLProfile()
             self._profile.workload_name = graphsignal._agent.workload_name
             self._profile.worker_id = graphsignal._agent.worker_id
-            self._profile.run_id = graphsignal._agent.run_id
+            self._profile.run_id = graphsignal._agent.current_run.run_id
             if phase_name:
                 self._profile.phase_name = phase_name
             self._profile.node_usage.node_rank = graphsignal._agent.node_rank 
             self._profile.process_usage.global_rank = graphsignal._agent.global_rank 
             self._profile.process_usage.local_rank = graphsignal._agent.local_rank 
-            self._profile.process_usage.start_ms = graphsignal._agent.start_ms
+            self._profile.process_usage.start_ms = graphsignal._agent.current_run.start_ms
 
             if not graphsignal._agent.disable_op_profiler and self._operation_profiler:
                 try:
@@ -99,7 +98,9 @@ class ProfilingStep:
                         logger.error('Error stopping profiler', exc_info=True)
                         self._add_profiler_exception(exc)
 
-            step_stats = update_step_stats(
+            current_run = graphsignal._agent.current_run
+
+            step_stats = current_run.update_step_stats(
                 self._phase_name,
                 stop_us - self._start_us,
                 effective_batch_size=self._effective_batch_size)
@@ -114,19 +115,17 @@ class ProfilingStep:
                 self._profile.step_stats.sample_count = step_stats.sample_count
                 self._profile.step_stats.total_time_us = step_stats.total_time_us
 
-                if graphsignal._agent.tags is not None:
-                    for value in graphsignal._agent.tags.keys():
+                if current_run.tags is not None:
+                    for value in current_run.tags.keys():
                         tag = self._profile.tags.add()
                         tag.value = value
-
-                if graphsignal._agent.params is not None:
-                    for name, value in graphsignal._agent.params.items():
+                if current_run.params is not None:
+                    for name, value in current_run.params.items():
                         param = self._profile.params.add()
                         param.name = name
                         param.value = value
-
-                if graphsignal._agent.metrics is not None:
-                    for name, value in graphsignal._agent.metrics.items():
+                if current_run.metrics is not None:
+                    for name, value in current_run.metrics.items():
                         metric = self._profile.metrics.add()
                         metric.name = name
                         metric.value = value

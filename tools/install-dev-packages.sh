@@ -18,14 +18,19 @@ else
     pip install tensorflow
 fi
 pip install tensorflow_datasets
-pip install torch
+if [ `uname -m` = "x86_64" ]; then
+    pip install torch==1.12.0+cu113 -f https://download.pytorch.org/whl/torch_stable.html
+else
+    pip install torch
+fi
+pip install torchvision
+pip install torchmetrics
 pip install pytorch_lightning
 pip install transformers
 pip install datasets
 pip install sklearn
 pip install xgboost
 if [ `uname -m` = "x86_64" ]; then
-    pip install torch==1.11.0+cu115 -f https://download.pytorch.org/whl/torch_stable.html
     pip install jax[cuda] -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 fi
 deactivate

@@ -10,6 +10,7 @@ import atexit
 
 from graphsignal import version
 from graphsignal.agent import Agent
+from graphsignal.workload_run import WorkloadRun
 from graphsignal.uploader import Uploader
 from graphsignal.usage.process_reader import ProcessReader
 from graphsignal.usage.nvml_reader import NvmlReader
@@ -97,10 +98,8 @@ def configure(
 
     _agent = Agent()
     _agent.worker_id = _uuid_sha1(size=12)
-    _agent.start_ms = int(time.time() * 1e3)
     _agent.api_key = api_key
     _agent.workload_name = workload_name[:50]
-    _agent.run_id = _sha1(run_id, size=12)
     _agent.node_rank = node_rank if node_rank is not None else -1
     _agent.local_rank = local_rank if local_rank is not None else -1
     _agent.global_rank = global_rank if global_rank is not None else -1
@@ -113,50 +112,23 @@ def configure(
     _agent.nvml_reader = NvmlReader()
     _agent.nvml_reader.setup()
 
+    _agent.current_run = WorkloadRun()
+    _agent.current_run.start_ms = int(time.time() * 1e3)
+    _agent.current_run.run_id = _sha1(run_id, size=12)
+
     atexit.register(shutdown)
 
     logger.debug('Graphsignal profiler configured')
 
 
-def add_tag(tag: str) -> None:
+def end_run() -> None:
     _check_configured()
 
-    if tag is None or not isinstance(tag, str):
-        raise ValueError('Missing or invalid argument: tag')
+    _agent.current_run = WorkloadRun()
+    _agent.current_run.start_ms = int(time.time() * 1e3)
+    _agent.current_run.run_id = _uuid_sha1(size=12)
 
-    global _agent
-    if _agent.tags is None:
-        _agent.tags = {}
-    _agent.tags[tag[:50]] = True
-
-
-def log_parameter(name: str, value: Any) -> None:
-    _check_configured()
-
-    if name is None or not isinstance(name, str):
-        raise ValueError('Missing or invalid argument: name')
-
-    if value is None:
-        raise ValueError('Missing argument: value')
-
-    global _agent
-    if _agent.params is None:
-        _agent.params = {}
-    _agent.params[name[:250]] = str(value)[:1000]
-
-
-def log_metric(name: str, value: Union[int, float]) -> None:
-    _check_configured()
-
-    if name is None or not isinstance(name, str):
-        raise ValueError('Missing or invalid argument: name')
-
-    if value is None or not isinstance(value, (int, float)):
-        raise ValueError('Missing argument: value')
-
-    if _agent.metrics is None:
-        _agent.metrics = {}
-    _agent.metrics[name[:250]] = value
+    logger.debug('Graphsignal profiler run ended')
 
 
 def shutdown() -> None:
@@ -170,6 +142,45 @@ def shutdown() -> None:
     _agent = None
 
     logger.debug('Graphsignal profiler shutdown')
+
+
+def add_tag(tag: str) -> None:
+    _check_configured()
+
+    if tag is None or not isinstance(tag, str):
+        raise ValueError('Missing or invalid argument: tag')
+
+    if _agent.current_run.tags is None:
+        _agent.current_run.tags = {}
+    _agent.current_run.tags[tag[:50]] = True
+
+
+def log_parameter(name: str, value: Any) -> None:
+    _check_configured()
+
+    if name is None or not isinstance(name, str):
+        raise ValueError('Missing or invalid argument: name')
+
+    if value is None:
+        raise ValueError('Missing argument: value')
+
+    if _agent.current_run.params is None:
+        _agent.current_run.params = {}
+    _agent.current_run.params[name[:250]] = str(value)[:1000]
+
+
+def log_metric(name: str, value: Union[int, float]) -> None:
+    _check_configured()
+
+    if name is None or not isinstance(name, str):
+        raise ValueError('Missing or invalid argument: name')
+
+    if value is None or not isinstance(value, (int, float)):
+        raise ValueError('Missing argument: value')
+
+    if _agent.current_run.metrics is None:
+        _agent.current_run.metrics = {}
+    _agent.current_run.metrics[name[:250]] = value
 
 
 def generate_uuid() -> None:

@@ -52,9 +52,9 @@ class GraphsignalTest(unittest.TestCase):
 
 
     def test_configure(self):
-        self.assertTrue(graphsignal._agent.start_ms > 0)
+        self.assertTrue(graphsignal._agent.current_run.start_ms > 0)
+        self.assertEqual(graphsignal._agent.current_run.run_id, '5573e39b6600')
         self.assertIsNotNone(graphsignal._agent.worker_id)
-        self.assertEqual(graphsignal._agent.run_id, '5573e39b6600')
         self.assertEqual(graphsignal._agent.api_key, 'k1')
         self.assertEqual(graphsignal._agent.workload_name, 'w1')
         self.assertEqual(graphsignal._agent.node_rank, 1)
