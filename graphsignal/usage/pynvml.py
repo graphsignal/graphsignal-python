@@ -1719,6 +1719,24 @@ NVML_DEVICE_ARCH_TURING  = 6
 NVML_DEVICE_ARCH_AMPERE  = 7
 NVML_DEVICE_ARCH_UNKNOWN = 0
 
+c_nvmlValueType_t = c_uint
+
+NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_RX = 139
+NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_TX = 138
+NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_RX = 141
+NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_TX = 140
+
+class c_nvmlFieldValue_t(_PrintableStructure):
+    _fields_ = [
+        ('fieldId', c_uint),
+        ('scopeId', c_uint),
+        ('timestamp', c_longlong),
+        ('latencyUsec', c_longlong),
+        ('valueType', c_nvmlValueType_t),
+        ('nvmlReturn', _nvmlReturn_t),
+        ('value', c_nvmlValue_t)
+    ]
+
 def nvmlDeviceGetArchitecture(device):
     c_arch = nvmlDeviceArchitecture_t()
     fn = _nvmlGetFunctionPointer("nvmlDeviceGetArchitecture")
@@ -1734,7 +1752,20 @@ def nvmlDeviceGetCudaComputeCapability(device):
     _nvmlCheckReturn(ret)
     return c_major.value, c_minor.value
 
+def nvmlDeviceGetFieldValues(device, field_ids):
+    c_value_count = c_uint(len(field_ids))
+    value_array = c_value_count.value * c_nvmlFieldValue_t
+    c_values = value_array()
+    for i in range(c_value_count.value):
+        c_values[i].fieldId = field_ids[i]
+        c_values[i].scopeId = c_uint(-1)
 
+    fn = _nvmlGetFunctionPointer("nvmlDeviceGetFieldValues")
 
+    ret = fn(device, c_value_count, c_values)
 
+    if (ret != NVML_SUCCESS):
+        raise NVMLError(ret)
+
+    return c_values
 

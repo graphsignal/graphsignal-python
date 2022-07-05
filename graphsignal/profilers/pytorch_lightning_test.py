@@ -74,7 +74,7 @@ class PyTorchLightningTest(unittest.TestCase):
             #auto_scale_batch_size=True,
             accelerator='gpu' if torch.cuda.is_available() else 'cpu',
             devices=AVAIL_GPUS,
-            max_epochs=3,
+            max_epochs=2,
             callbacks=[GraphsignalCallback(batch_size=mnist_model.batch_size)]
         )
 

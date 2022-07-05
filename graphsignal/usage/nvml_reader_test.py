@@ -42,6 +42,10 @@ class NvmlReaderTest(unittest.TestCase):
         reader = graphsignal._agent.nvml_reader
         reader.read(profile)
 
+        time.sleep(0.2)
+
+        reader.read(profile)
+
         #pp = pprint.PrettyPrinter()
         # pp.pprint(MessageToJson(profile))
 
