@@ -12,7 +12,7 @@ from graphsignal.uploader import Uploader
 logger = logging.getLogger('graphsignal')
 
 
-class HuggingFacePTCallbackTest(unittest.TestCase):
+class HuggingFaceSubclassTest(unittest.TestCase):
     def setUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -25,7 +25,7 @@ class HuggingFacePTCallbackTest(unittest.TestCase):
         graphsignal.shutdown()
 
     @patch.object(Uploader, 'upload_profile')
-    def test_callback(self, mocked_upload_profile):
+    def test_subclass(self, mocked_upload_profile):
         import torch
         if not torch.cuda.is_available():
             return
@@ -43,10 +43,10 @@ class HuggingFacePTCallbackTest(unittest.TestCase):
 
         small_train_dataset = tokenized_datasets["train"].shuffle(
             seed=42).select(
-            range(100))
+            range(10))
         small_eval_dataset = tokenized_datasets["test"].shuffle(
             seed=42).select(
-            range(100))
+            range(10))
         full_train_dataset = tokenized_datasets["train"]
         full_eval_dataset = tokenized_datasets["test"]
 
@@ -56,48 +56,43 @@ class HuggingFacePTCallbackTest(unittest.TestCase):
 
         from transformers import TrainingArguments
         training_args = TrainingArguments("test_trainer",
-            num_train_epochs=2,
-            #fp16=True,
-            per_device_train_batch_size=1, 
-            gradient_accumulation_steps=4)
+            num_train_epochs=1)
             
         from transformers import Trainer
-        from graphsignal.profilers.huggingface import GraphsignalPTCallback
-        trainer = Trainer(
+        from graphsignal.profilers.pytorch import profile_inference
+
+        class MyTrainer(Trainer):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+            
+            def prediction_step(self, *args, **kwargs):
+                with profile_inference(batch_size=training_args.eval_batch_size):
+                    return super().prediction_step(*args, **kwargs)
+
+        trainer = MyTrainer(
             model=model,
             args=training_args,
             train_dataset=small_train_dataset,
             eval_dataset=small_eval_dataset)
-        trainer.add_callback(GraphsignalPTCallback())
 
         trainer.train()
 
+        trainer.evaluate()
+
+        graphsignal.upload()
         profile = mocked_upload_profile.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(profile))
 
-        self.assertTrue(len(profile.params) > 0)
-
-        self.assertTrue(profile.step_stats.step_count > 0)
-        self.assertTrue(profile.step_stats.sample_count > 0)
-        self.assertTrue(profile.step_stats.total_time_us > 0)
-        #self.assertTrue(profile.step_stats.flop_count > 0)
-        self.assertTrue(profile.step_stats.batch_size > 0)
-        self.assertTrue(profile.step_stats.device_batch_size > 0)
-
-        self.assertTrue(
-            profile.profiler_info.framework_profiler_type, 
-            profiles_pb2.ProfilerInfo.ProfilerType.HUGGING_FACE_PROFILER)
-
-        self.assertEqual(
-            profile.frameworks[-1].type,
-            profiles_pb2.FrameworkInfo.FrameworkType.HUGGING_FACE_FRAMEWORK)
-        self.assertTrue(profile.frameworks[-1].version.major > 0)
+        self.assertTrue(profile.inference_stats.inference_count > 0)
+        self.assertTrue(profile.inference_stats.sample_count > 0)
+        self.assertTrue(profile.inference_stats.total_time_us > 0)
+        self.assertTrue(profile.inference_stats.batch_size > 0)
 
         test_op_stats = None
         for op_stats in profile.op_stats:
-            if op_stats.op_name == 'aten::mm':
+            if 'sgemm' in op_stats.op_name:
                 test_op_stats = op_stats
                 break
         self.assertIsNotNone(test_op_stats)

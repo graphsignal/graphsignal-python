@@ -20,20 +20,11 @@ class WorkloadRunTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    def test_update(self):
+    def test_update_inference_stats(self):
         wr = WorkloadRun()
 
-        ss = wr.get_step_stats(1)
-        self.assertEqual(ss.step_count, 0)
-        self.assertEqual(ss.total_time_us, 0)
-
-        ss = wr.update_step_stats(1, 10, effective_batch_size=128)
-        ss = wr.update_step_stats(1, 20, effective_batch_size=128)
-        self.assertEqual(ss.step_count, 2)
-        self.assertEqual(ss.total_time_us, 30)
-        self.assertEqual(ss.sample_count, 2 * 128)
-
-        ss = wr.get_step_stats(2)
-        self.assertEqual(ss.step_count, 0)
-        self.assertEqual(ss.total_time_us, 0)
-        self.assertEqual(ss.sample_count, 0)
+        wr.update_inference_stats(10, batch_size=128)
+        wr.update_inference_stats(20, batch_size=128)
+        self.assertEqual(wr.inference_count, 2)
+        self.assertEqual(wr.total_time_us, 30)
+        self.assertEqual(wr.sample_count, 2 * 128)

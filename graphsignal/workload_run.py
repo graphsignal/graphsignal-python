@@ -1,39 +1,66 @@
+import logging
+import threading
 
+import graphsignal
+from graphsignal.profile_scheduler import ProfileScheduler
 
-class StepStats:
-    def __init__(self):
-        self.step_count = 0
-        self.sample_count = 0
-        self.total_time_us = 0
+logger = logging.getLogger('graphsignal')
 
 
 class WorkloadRun:
+    MAX_PROFILES = 25
+
     def __init__(self):
         self.start_ms = None
         self.run_id = None
         self.tags = None
         self.params = None
         self.metrics = None
-        self.step_stats = {}
+        self.inference_count = 0
+        self.sample_count = 0
+        self.total_time_us = 0
+        self.profile_scheduler = ProfileScheduler()
+        self.profiles = []
+        self._update_lock = threading.Lock()
 
-    def init_step_stats(self, key):
-        self.get_step_stats(key)
+    def update_inference_stats(self, duration_us, batch_size=None):
+        with self._update_lock:
+            self.inference_count += 1
+            if batch_size:
+                self.sample_count += batch_size
+            self.total_time_us += duration_us
 
-    def reset_step_stats(self, key):
-        del self.step_stats[key]
+    def add_profile(self, profile):
+        with self._update_lock:
+            del self.profiles[0:-WorkloadRun.MAX_PROFILES]
+            self.profiles.append(profile)
 
-    def get_step_stats(self, key):
-        if key in self.step_stats:
-            return self.step_stats[key]
+    def upload(self, block=False):
+        with self._update_lock:
+            if len(self.profiles) == 0:
+                return
+            outgoing_profiles = self.profiles
+            self.profiles = []
+
+        for profile in outgoing_profiles:
+            if self.tags is not None:
+                for value in self.tags.keys():
+                    tag = profile.tags.add()
+                    tag.value = value
+            if self.params is not None:
+                for name, value in self.params.items():
+                    param = profile.params.add()
+                    param.name = name
+                    param.value = value
+            if self.metrics is not None:
+                for name, value in self.metrics.items():
+                    metric = profile.metrics.add()
+                    metric.name = name
+                    metric.value = value            
+
+            graphsignal._agent.uploader.upload_profile(profile)
+
+        if block:
+            graphsignal._agent.uploader.flush()
         else:
-            stats = self.step_stats[key] = StepStats()
-            return stats
-
-    def update_step_stats(self, key, duration_us, effective_batch_size=None):
-        stats = self.get_step_stats(key)
-        stats.step_count += 1
-        if effective_batch_size:
-            stats.sample_count += effective_batch_size
-        stats.total_time_us += duration_us
-
-        return stats
+            graphsignal._agent.uploader.flush_in_thread()

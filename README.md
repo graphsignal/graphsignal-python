@@ -5,9 +5,9 @@
 [![Status](https://img.shields.io/uptimerobot/status/m787882560-d6b932eb0068e8e4ade7f40c?label=SaaS%20status)](https://stats.uptimerobot.com/gMBNpCqqqJ)
 
 
-Graphsignal is a machine learning profiler. It helps data scientists and ML engineers make model training and inference faster and more efficient. It is built for real-world use cases and allows ML practitioners to:
+Graphsignal is a machine learning profiler. It helps data scientists and ML engineers make model inference faster and more efficient. It is built for real-world use cases and allows ML practitioners to:
 
-* Optimize training and inference by benchmarking speed, analyzing execution trace, operation-level statistics and compute utilization.
+* Optimize inference by benchmarking speed, analyzing execution trace, operation-level statistics and compute utilization.
 * Start profiling scripts and notebooks automatically by adding a few lines of code.
 * Use the profiler in local, remote or cloud environment without installing any additional software or opening inbound ports.
 * Keep data private; no code or data is sent to Graphsignal cloud, only run statistics and metadata.
@@ -62,15 +62,15 @@ In case of multiple subsequent runs/experiments executed within a single script 
 
 Use the following minimal examples to integrate Graphsignal into your machine learning script. See integration documentation and  [profiling API reference](https://graphsignal.com/docs/profiler/api-reference/) for full reference.
 
-To ensure optimal statistics and low overhead, the profiler automatically profiles only certain training steps and/or predictions. 
+To ensure optimal statistics and low overhead, the profiler automatically profiles only certain iterations, e.g. prediction calls.
 
 #### [TensorFlow](https://graphsignal.com/docs/integrations/tensorflow/)
 
 ```python
-from graphsignal.profilers.tensorflow import profile_step
+from graphsignal.profilers.tensorflow import profile_inference
 
-with profile_step():
-    # training batch, prediction, etc.
+with profile_inference():
+    # single or batch prediction
 ```
 
 #### [Keras](https://graphsignal.com/docs/integrations/keras/)
@@ -78,17 +78,17 @@ with profile_step():
 ```python
 from graphsignal.profilers.keras import GraphsignalCallback
 
-model.fit(..., callbacks=[GraphsignalCallback()])
-# or model.predict(..., callbacks=[GraphsignalCallback()])
+model.predict(..., callbacks=[GraphsignalCallback()])
+# or model.evaluate(..., callbacks=[GraphsignalCallback()])
 ```
 
 #### [PyTorch](https://graphsignal.com/docs/integrations/pytorch/)
 
 ```python
-from graphsignal.profilers.pytorch import profile_step
+from graphsignal.profilers.pytorch import profile_inference
 
-with profile_step():
-    # training batch, prediction, etc.
+with profile_inference():
+    # single or batch prediction
 ```
 
 #### [PyTorch Lightning](https://graphsignal.com/docs/integrations/pytorch-lightning/)
@@ -97,48 +97,44 @@ with profile_step():
 from graphsignal.profilers.pytorch_lightning import GraphsignalCallback
 
 trainer = Trainer(..., callbacks=[GraphsignalCallback()])
+trainer.predict() # or trainer.validate() or trainer.test()
 ```
 
 #### [Hugging Face](https://graphsignal.com/docs/integrations/hugging-face/)
 
 ```python
-from graphsignal.profilers.huggingface import GraphsignalPTCallback
-# or GraphsignalTFCallback for TensorFlow
+from transformers import pipeline
+from graphsignal.profilers.pytorch import profile_inference
+# or from graphsignal.profilers.tensorflow import profile_inference
 
-trainer = Trainer(..., callbacks=[GraphsignalPTCallback()])
-# or trainer.add_callback(GraphsignalPTCallback())
-```
+generator = pipeline(task="text-generation")
 
-#### [XGBoost](https://graphsignal.com/docs/integrations/xgboost/)
-
-```python
-from graphsignal.profilers.xgboost import GraphsignalCallback
-
-bst = xgb.train(..., callbacks=[GraphsignalCallback()])
+with profile_inference():
+    output = generator('some text')
 ```
 
 #### [JAX](https://graphsignal.com/docs/integrations/jax/)
 
 ```python
-from graphsignal.profilers.jax import profile_step
+from graphsignal.profilers.jax import profile_inference
 
-with profile_step():
-    # training batch, prediction, etc.
+with profile_inference():
+    # single or batch prediction
 ```
 
 #### [Other frameworks](https://graphsignal.com/docs/integrations/other-frameworks/)
 
 ```python
-from graphsignal.profilers.generic import profile_step
+from graphsignal.profilers.generic import profile_inference
 
-with profile_step():
-    # training batch, prediction, etc.
+with profile_inference():
+    # single or batch prediction
 ```
 
 
 #### Distributed workloads
 
-Graphsignal has a built-in support for distributed training and inference, e.g. multi-node and multi-GPU training. See [Distributed Workloads](https://graphsignal.com/docs/profiler/distributed-workloads/) section for more information.
+Graphsignal has a built-in support for distributed inference. See [Distributed Workloads](https://graphsignal.com/docs/profiler/distributed-workloads/) section for more information.
 
 
 ### 4. Dashboards
@@ -151,15 +147,16 @@ After profiling is setup, [open](https://app.graphsignal.com/) Graphsignal to an
 ```python
 # 1. Import Graphsignal modules
 import graphsignal
-from graphsignal.profilers.keras import GraphsignalCallback
+from graphsignal.profilers.pytorch import profile_inference
 
 # 2. Configure
-graphsignal.configure(api_key='my_key', workload_name='training_example')
+graphsignal.configure(api_key='my_key', workload_name='my_gpu_inference')
 
 ....
 
-# 3. Add profiler callback or use profiler API
-model.fit(..., callbacks=[GraphsignalCallback()])
+# 3. Use profile method or profiler callback
+with profile_inference():
+  y = model(x)
 ```
 
 More integration examples are available in [`examples`](https://github.com/graphsignal/examples) repo.
@@ -167,7 +164,7 @@ More integration examples are available in [`examples`](https://github.com/graph
 
 ## Overhead
 
-Although profiling may add some overhead to applications, Graphsignal Profiler only profiles certain steps, e.g. training batches or predictions, automatically limiting the overhead.
+Although profiling may add some overhead to applications, Graphsignal Profiler only profiles certain iterations, automatically limiting the overhead.
 
 
 ## Security and Privacy

@@ -9,7 +9,7 @@ from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
-from graphsignal.profilers.tensorflow import profile_step
+from graphsignal.profilers.tensorflow import profile_inference
 from graphsignal.proto import profiles_pb2
 from graphsignal.uploader import Uploader
 
@@ -29,7 +29,7 @@ class TensorflowProfilerTest(unittest.TestCase):
         graphsignal.shutdown()
 
     @patch.object(Uploader, 'upload_profile')
-    def test_profile_step(self, mocked_upload_profile):
+    def test_profile_inference(self, mocked_upload_profile):
         os.environ["TF_CONFIG"] = json.dumps({
             "cluster": {
                 "chief": ["host1:port"],
@@ -45,9 +45,10 @@ class TensorflowProfilerTest(unittest.TestCase):
                 x = tf.tanh(x)
             return x
 
-        with profile_step(phase_name='training', effective_batch_size=128, ensure_profile=True):
+        with profile_inference(batch_size=128):
             f(tf.random.uniform([5]))
 
+        graphsignal.upload()
         profile = mocked_upload_profile.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
@@ -58,11 +59,10 @@ class TensorflowProfilerTest(unittest.TestCase):
             profiles_pb2.FrameworkInfo.FrameworkType.TENSORFLOW_FRAMEWORK)
         self.assertEqual(profile.process_usage.global_rank, 1)
 
-        self.assertEqual(profile.phase_name, 'training')
-        self.assertEqual(profile.step_stats.step_count, 1)
-        self.assertTrue(profile.step_stats.total_time_us > 0)
-        self.assertEqual(profile.step_stats.sample_count, 128)
-        self.assertEqual(profile.step_stats.world_size, 3)
+        self.assertEqual(profile.inference_stats.inference_count, 1)
+        self.assertTrue(profile.inference_stats.total_time_us > 0)
+        self.assertEqual(profile.inference_stats.sample_count, 128)
+        self.assertEqual(profile.inference_stats.world_size, 3)
 
         test_op_stats = None
         for op_stats in profile.op_stats:

@@ -41,6 +41,7 @@ class ProcessReaderTest(unittest.TestCase):
         self.assertNotEqual(profile.node_usage.ip_address, '')
         self.assertNotEqual(profile.process_usage.process_id, '')
         if sys.platform != 'win32':
+            self.assertTrue(profile.process_usage.cpu_name != '')
             self.assertTrue(profile.node_usage.mem_total > 0)
             self.assertTrue(profile.node_usage.mem_used > 0)
             self.assertTrue(profile.process_usage.cpu_usage_percent > 0)

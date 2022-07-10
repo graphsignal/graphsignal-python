@@ -124,6 +124,8 @@ def configure(
 def end_run() -> None:
     _check_configured()
 
+    _agent.current_run.upload()
+
     _agent.current_run = WorkloadRun()
     _agent.current_run.start_ms = int(time.time() * 1e3)
     _agent.current_run.run_id = _uuid_sha1(size=12)
@@ -131,12 +133,18 @@ def end_run() -> None:
     logger.debug('Graphsignal profiler run ended')
 
 
+def upload(block=False) -> None:
+    _check_configured()
+
+    _agent.current_run.upload(block=block)
+
+
 def shutdown() -> None:
     _check_configured()
 
     global _agent
     atexit.unregister(shutdown)
-    _agent.uploader.flush()
+    _agent.current_run.upload(block=True)
     _agent.process_reader.shutdown()
     _agent.nvml_reader.shutdown()
     _agent = None

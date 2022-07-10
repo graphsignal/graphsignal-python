@@ -4,14 +4,14 @@ import os
 import cProfile, pstats
 
 import graphsignal
-from graphsignal.profiling_step import ProfilingStep
+from graphsignal.inference_span import InferenceSpan
 
 logger = logging.getLogger('graphsignal')
 
 
 import graphsignal
 from graphsignal.proto import profiles_pb2
-from graphsignal.profiling_step import ProfilingStep
+from graphsignal.inference_span import InferenceSpan
 from graphsignal.profilers.operation_profiler import OperationProfiler
 
 logger = logging.getLogger('graphsignal')
@@ -64,14 +64,12 @@ def _to_us(sec):
 _profiler = GenericProfiler()
 
 
-def profile_step(
-        phase_name: Optional[str] = None,
-        effective_batch_size: Optional[int] = None,
-        ensure_profile: Optional[bool] = False) -> ProfilingStep:
+def profile_inference(
+        batch_size: Optional[int] = None,
+        ensure_profile: Optional[bool] = False) -> InferenceSpan:
     graphsignal._check_configured()
 
-    return ProfilingStep(
-        phase_name=phase_name,
-        effective_batch_size=effective_batch_size,
+    return InferenceSpan(
+        batch_size=batch_size,
         ensure_profile=ensure_profile,
         operation_profiler=_profiler)

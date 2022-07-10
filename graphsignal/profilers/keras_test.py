@@ -68,7 +68,10 @@ class KerasCallbackTest(unittest.TestCase):
         model.fit(ds_train,
             batch_size=128,
             epochs=2,
-            validation_data=ds_test,
+            validation_data=ds_test)
+
+        model.evaluate(ds_test,
+            batch_size=128,
             callbacks=[GraphsignalCallback(batch_size=128)])
 
         profile = mocked_upload_profile.call_args[0][0]
@@ -76,10 +79,10 @@ class KerasCallbackTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(profile))
 
-        self.assertTrue(profile.step_stats.step_count > 0)
-        self.assertTrue(profile.step_stats.sample_count > 0)
-        self.assertTrue(profile.step_stats.total_time_us > 0)
-        self.assertTrue(profile.step_stats.step_count > 0)
+        self.assertTrue(profile.inference_stats.inference_count > 0)
+        self.assertTrue(profile.inference_stats.sample_count > 0)
+        self.assertTrue(profile.inference_stats.total_time_us > 0)
+        self.assertTrue(profile.inference_stats.inference_count > 0)
 
         self.assertTrue(
             profile.profiler_info.framework_profiler_type, 

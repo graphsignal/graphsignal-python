@@ -28,7 +28,7 @@ class JaxProfilerTest(unittest.TestCase):
         graphsignal.shutdown()
 
     @patch.object(Uploader, 'upload_profile')
-    def test_profile_step(self, mocked_upload_profile):
+    def test_profile_inference(self, mocked_upload_profile):
         try:
             import jax
             import jax.numpy as jnp
@@ -38,15 +38,16 @@ class JaxProfilerTest(unittest.TestCase):
             logger.info('Not testing JAX profiler, package not found.')
             return
 
-        from graphsignal.profilers.jax import profile_step
+        from graphsignal.profilers.jax import profile_inference
 
-        with profile_step(phase_name='training', ensure_profile=True):
+        with profile_inference():
             key = random.PRNGKey(0)
             x = random.normal(key, (10,))
             size = 100
             x = random.normal(key, (size, size), dtype=jnp.float32)
             jnp.dot(x, x.T).block_until_ready()
 
+        graphsignal.upload()
         profile = mocked_upload_profile.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
@@ -56,9 +57,8 @@ class JaxProfilerTest(unittest.TestCase):
             profile.frameworks[0].type,
             profiles_pb2.FrameworkInfo.FrameworkType.JAX_FRAMEWORK)
 
-        self.assertEqual(profile.phase_name, 'training')
-        self.assertEqual(profile.step_stats.step_count, 1)
-        self.assertTrue(profile.step_stats.total_time_us > 0)
+        self.assertEqual(profile.inference_stats.inference_count, 1)
+        self.assertTrue(profile.inference_stats.total_time_us > 0)
 
         test_op_stats = None
         for op_stats in profile.op_stats:

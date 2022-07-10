@@ -6,6 +6,7 @@ import platform
 import time
 import re
 import multiprocessing
+import subprocess
 import socket
 try:
     import resource
@@ -22,6 +23,8 @@ logger = logging.getLogger('graphsignal')
 OS_LINUX = (sys.platform.startswith('linux'))
 OS_DARWIN = (sys.platform == 'darwin')
 OS_WIN = (sys.platform == 'win32')
+CPU_NAME_REGEXP = re.compile(r'Model name:\s+(.+)$', flags=re.MULTILINE)
+CPU_NAME_MAC_REGEXP = re.compile(r'machdep\.cpu\.brand_string:\s+(.+)$', flags=re.MULTILINE)
 VM_RSS_REGEXP = re.compile(r'VmRSS:\s+(\d+)\s+kB')
 VM_SIZE_REGEXP = re.compile(r'VmSize:\s+(\d+)\s+kB')
 MEM_TOTAL_REGEXP = re.compile(r'MemTotal:\s+(\d+)\s+kB')
@@ -29,8 +32,6 @@ MEM_FREE_REGEXP = re.compile(r'MemFree:\s+(\d+)\s+kB')
 
 
 class ProcessReader():
-    MIN_CPU_READ_INTERVAL_SEC = 10
-
     def __init__(self):
         self._last_read_sec = None
         self._last_cpu_time_ns = None
@@ -41,6 +42,9 @@ class ProcessReader():
     def shutdown(self):
         pass
 
+    def start(self):
+        self.read(profiles_pb2.MLProfile())
+
     def read(self, profile):
         now = time.time()
         pid = str(os.getpid())
@@ -49,6 +53,15 @@ class ProcessReader():
         process_usage = profile.process_usage
 
         process_usage.process_id = pid
+
+        if OS_LINUX:
+            cpu_name = _read_cpu_name()
+            if cpu_name:
+                process_usage.cpu_name = cpu_name
+        elif OS_DARWIN:
+            cpu_name = _read_cpu_name_mac()
+            if cpu_name:
+                process_usage.cpu_name = cpu_name
 
         if not OS_WIN:
             cpu_time_ns = _read_cpu_time()
@@ -63,8 +76,7 @@ class ProcessReader():
                         pass
                     process_usage.cpu_usage_percent = cpu_usage
 
-                if (self._last_read_sec is None or
-                        now - self._last_read_sec > ProcessReader.MIN_CPU_READ_INTERVAL_SEC):
+                if (self._last_read_sec is None or now - self._last_read_sec > 0):
                     self._last_read_sec = now
                     self._last_cpu_time_ns = cpu_time_ns
 
@@ -116,6 +128,34 @@ class ProcessReader():
             logger.error('Error reading process information', exc_info=True)
 
 
+def _read_cpu_name():
+    try:
+        result = subprocess.run(['lscpu'], stdout=subprocess.PIPE)
+        output = result.stdout.decode()
+    except Exception:
+        return None
+
+    match = CPU_NAME_REGEXP.search(output)
+    if match:
+        return match.group(1)
+
+    return None
+
+
+def _read_cpu_name_mac():
+    try:
+        result = subprocess.run(['sysctl', '-a'], stdout=subprocess.PIPE)
+        output = result.stdout.decode()
+    except Exception:
+        return None
+
+    match = CPU_NAME_MAC_REGEXP.search(output)
+    if match:
+        return match.group(1)
+
+    return None
+
+
 def _read_cpu_time():
     rusage = resource.getrusage(resource.RUSAGE_SELF)
     return int((rusage.ru_utime + rusage.ru_stime) * 1e9)  # ns
@@ -133,7 +173,6 @@ def _read_max_rss():
 def _read_current_rss():
     pid = os.getpid()
 
-    output = None
     try:
         f = open('/proc/{0}/status'.format(os.getpid()))
         output = f.read()
@@ -151,7 +190,6 @@ def _read_current_rss():
 def _read_vm_size():
     pid = os.getpid()
 
-    output = None
     try:
         f = open('/proc/{0}/status'.format(os.getpid()))
         output = f.read()
@@ -166,7 +204,6 @@ def _read_vm_size():
     return None
 
 def _read_mem_total():
-    output = None
     try:
         f = open('/proc/meminfo')
         output = f.read()
@@ -181,7 +218,6 @@ def _read_mem_total():
     return None
 
 def _read_mem_free():
-    output = None
     try:
         f = open('/proc/meminfo')
         output = f.read()

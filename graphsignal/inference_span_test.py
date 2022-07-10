@@ -6,7 +6,7 @@ from unittest.mock import patch, Mock
 
 import graphsignal
 from graphsignal.proto import profiles_pb2
-from graphsignal.profiling_step import ProfilingStep
+from graphsignal.inference_span import InferenceSpan
 from graphsignal.profilers.tensorflow import TensorflowProfiler
 from graphsignal.usage.process_reader import ProcessReader
 from graphsignal.usage.nvml_reader import NvmlReader
@@ -15,7 +15,7 @@ from graphsignal.uploader import Uploader
 logger = logging.getLogger('graphsignal')
 
 
-class ProfilingStepTest(unittest.TestCase):
+class InferenceSpanTest(unittest.TestCase):
     def setUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -49,14 +49,14 @@ class ProfilingStepTest(unittest.TestCase):
         graphsignal.log_metric('m1', 2.2)
         graphsignal.log_metric('m3', 3)
 
-        step = ProfilingStep(
-            phase_name='training',
-            effective_batch_size=128,
+        span = InferenceSpan(
+            batch_size=128,
             ensure_profile=True,
             operation_profiler=TensorflowProfiler())
-        step.set_effective_batch_size(256)
-        step.stop()
-
+        span.set_batch_size(256)
+        span.stop()
+        
+        graphsignal.upload()
         mocked_start.assert_called_once()
         mocked_stop.assert_called_once()
         profile = mocked_upload_profile.call_args[0][0]
@@ -64,12 +64,12 @@ class ProfilingStepTest(unittest.TestCase):
         self.assertEqual(profile.workload_name, 'w1')
         self.assertTrue(profile.worker_id != '')
         self.assertEqual(profile.run_id, '5573e39b6600')
-        self.assertEqual(profile.phase_name, 'training')
         self.assertTrue(profile.start_us > 0)
         self.assertTrue(profile.end_us > 0)
-        self.assertEqual(profile.step_stats.step_count, 1)
-        self.assertTrue(profile.step_stats.total_time_us >= 0)
-        self.assertEqual(profile.step_stats.sample_count, 256)
+        self.assertEqual(profile.inference_stats.inference_count, 1)
+        self.assertTrue(profile.inference_stats.total_time_us >= 0)
+        self.assertEqual(profile.inference_stats.sample_count, 256)
+        self.assertEqual(profile.inference_stats.batch_size, 256)
         self.assertEqual(len(profile.tags), 2)
         self.assertEqual(profile.tags[0].value, 't1')
         self.assertEqual(profile.tags[1].value, 't2')
@@ -94,11 +94,12 @@ class ProfilingStepTest(unittest.TestCase):
     def test_start_exception(self, mocked_upload_profile, mocked_nvml_read, mocked_host_read,
                              mocked_stop, mocked_start):
         mocked_start.side_effect = Exception('ex1')
-        step = ProfilingStep(
+        span = InferenceSpan(
             ensure_profile=True,
             operation_profiler=TensorflowProfiler())
-        step.stop()
+        span.stop()
 
+        graphsignal.upload()
         mocked_start.assert_called_once()
         mocked_stop.assert_not_called()
         profile = mocked_upload_profile.call_args[0][0]
@@ -118,11 +119,12 @@ class ProfilingStepTest(unittest.TestCase):
     def test_stop_exception(self, mocked_upload_profile, mocked_nvml_read, mocked_host_read,
                             mocked_stop, mocked_start):
         mocked_stop.side_effect = Exception('ex1')
-        step = ProfilingStep(
+        span = InferenceSpan(
             ensure_profile=True,
             operation_profiler=TensorflowProfiler())
-        step.stop()
+        span.stop()
 
+        graphsignal.upload()
         mocked_start.assert_called_once()
         mocked_stop.assert_called_once()
         profile = mocked_upload_profile.call_args[0][0]

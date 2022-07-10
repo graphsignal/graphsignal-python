@@ -6,40 +6,30 @@ import traceback
 
 import graphsignal
 from graphsignal.proto import profiles_pb2
-from graphsignal.profile_scheduler import select_scheduler
 
 logger = logging.getLogger('graphsignal')
 
 
-class ProfilingStep:
+class InferenceSpan:
     __slots__ = [
-        '_scheduler',
         '_operation_profiler',
         '_is_scheduled',
         '_is_profiling',
         '_profile',
         '_stop_lock',
-        '_phase_name',
-        '_effective_batch_size',
+        '_batch_size',
         '_start_us',
         '_metrics'
     ]
 
     def __init__(self, 
-            phase_name=None, 
-            effective_batch_size=None, ensure_profile=False, 
+            batch_size=None, 
+            ensure_profile=False, 
             operation_profiler=None):
-        if phase_name is not None:
-            if not isinstance(phase_name, str):
-                raise ValueError('Invalid phase_name')
-            phase_name = phase_name[:50]
-        self._phase_name = phase_name
+        if batch_size is not None and not isinstance(batch_size, int):
+                raise ValueError('Invalid batch_size')
+        self._batch_size = batch_size
 
-        if effective_batch_size is not None and not isinstance(effective_batch_size, int):
-                raise ValueError('Invalid effective_batch_size')
-        self._effective_batch_size = effective_batch_size
-
-        self._scheduler = select_scheduler(phase_name)
         self._operation_profiler = operation_profiler
         self._is_scheduled = False
         self._is_profiling = False
@@ -47,7 +37,9 @@ class ProfilingStep:
         self._stop_lock = Lock()
         self._metrics = None
 
-        if self._scheduler.lock(ensure=ensure_profile):
+        current_run = graphsignal._agent.current_run
+
+        if current_run.profile_scheduler.lock(ensure=ensure_profile):
             if logger.isEnabledFor(logging.DEBUG):
                 profiling_start_ts = time.time()
 
@@ -56,19 +48,24 @@ class ProfilingStep:
             self._profile.workload_name = graphsignal._agent.workload_name
             self._profile.worker_id = graphsignal._agent.worker_id
             self._profile.run_id = graphsignal._agent.current_run.run_id
-            if phase_name:
-                self._profile.phase_name = phase_name
             self._profile.node_usage.node_rank = graphsignal._agent.node_rank 
             self._profile.process_usage.global_rank = graphsignal._agent.global_rank 
             self._profile.process_usage.local_rank = graphsignal._agent.local_rank 
             self._profile.process_usage.start_ms = graphsignal._agent.current_run.start_ms
+
+            try:
+                graphsignal._agent.process_reader.start()
+                graphsignal._agent.nvml_reader.start()
+            except Exception as exc:
+                logger.error('Error starting usage readers', exc_info=True)
+                self._add_profiler_exception(exc)
 
             if not graphsignal._agent.disable_op_profiler and self._operation_profiler:
                 try:
                     self._operation_profiler.start(self._profile)
                     self._is_profiling = True
                 except Exception as exc:
-                    self._scheduler.unlock()
+                    current_run.profile_scheduler.unlock()
                     self._is_profiling = False
                     self._add_profiler_exception(exc)
                     logger.error('Error starting profiler', exc_info=True)
@@ -100,10 +97,9 @@ class ProfilingStep:
 
             current_run = graphsignal._agent.current_run
 
-            step_stats = current_run.update_step_stats(
-                self._phase_name,
+            current_run.update_inference_stats(
                 stop_us - self._start_us,
-                effective_batch_size=self._effective_batch_size)
+                batch_size=self._batch_size)
 
             if self._is_scheduled:
                 if logger.isEnabledFor(logging.DEBUG):
@@ -111,24 +107,11 @@ class ProfilingStep:
 
                 self._profile.end_us = stop_us
 
-                self._profile.step_stats.step_count = step_stats.step_count
-                self._profile.step_stats.sample_count = step_stats.sample_count
-                self._profile.step_stats.total_time_us = step_stats.total_time_us
-
-                if current_run.tags is not None:
-                    for value in current_run.tags.keys():
-                        tag = self._profile.tags.add()
-                        tag.value = value
-                if current_run.params is not None:
-                    for name, value in current_run.params.items():
-                        param = self._profile.params.add()
-                        param.name = name
-                        param.value = value
-                if current_run.metrics is not None:
-                    for name, value in current_run.metrics.items():
-                        metric = self._profile.metrics.add()
-                        metric.name = name
-                        metric.value = value
+                self._profile.inference_stats.inference_count = current_run.inference_count
+                self._profile.inference_stats.sample_count = current_run.sample_count
+                self._profile.inference_stats.total_time_us = current_run.total_time_us
+                if self._batch_size:
+                    self._profile.inference_stats.batch_size = self._batch_size
 
                 try:
                     graphsignal._agent.process_reader.read(self._profile)
@@ -137,21 +120,20 @@ class ProfilingStep:
                     logger.error('Error reading usage information', exc_info=True)
                     self._add_profiler_exception(exc)
 
-                graphsignal._agent.uploader.upload_profile(self._profile)
-                graphsignal._agent.uploader.flush_in_thread()
+                current_run.add_profile(self._profile)
 
                 self._is_scheduled = False
                 self._is_profiling = False
                 self._profile = None
-                self._scheduler.unlock()
+                current_run.profile_scheduler.unlock()
 
                 if logger.isEnabledFor(logging.DEBUG):
                     logger.debug('Profiling stop took: %fs', time.time() - profiling_stop_ts)
 
-    def set_effective_batch_size(self, effective_batch_size: int) -> None:
-        if not isinstance(effective_batch_size, int):
-            raise ValueError('Invalid effective_batch_size')
-        self._effective_batch_size = effective_batch_size
+    def set_batch_size(self, batch_size: int) -> None:
+        if not isinstance(batch_size, int):
+            raise ValueError('Invalid batch_size')
+        self._batch_size = batch_size
 
     def _add_profiler_exception(self, exc):
         if self._profile:

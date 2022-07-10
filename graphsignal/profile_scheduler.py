@@ -5,28 +5,24 @@ from threading import Lock
 
 logger = logging.getLogger('graphsignal')
 
-MAX_SCHEDULERS = 10
-
 # global profiling lock
 _profiling_lock = Lock()
-_schedulers = {}
-
 
 class ProfileScheduler:
-    MAX_ENSURED_STEPS = 10
-    PREDEFINED_STEPS = [1, 5, 10, 25, 100, 250, 1000]
+    MAX_ENSURED_SPANS = 10
+    PREDEFINED_SPANS = [1, 5, 10, 25, 100, 250, 1000]
     MIN_INTERVAL_SEC = 60
-    MIN_INTERVAL_STEPS = 20
+    MIN_INTERVAL_SPANS = 20
 
     def __init__(self):
-        self._current_step = -1
-        self._ensured_step_count = 0
+        self._current_span = -1
+        self._ensured_inference_count = 0
         self._last_profiled_ts = None
-        self._last_profiled_step = None
-        self._step_filter = {step for step in ProfileScheduler.PREDEFINED_STEPS}
+        self._last_profiled_span = None
+        self._span_filter = {span for span in ProfileScheduler.PREDEFINED_SPANS}
 
     def lock(self, ensure=False):
-        self._current_step += 1
+        self._current_span += 1
 
         if _profiling_lock.locked():
             return False
@@ -34,18 +30,18 @@ class ProfileScheduler:
         should_acquire = False
 
         if ensure:
-            self._ensured_step_count += 1
-            if self._ensured_step_count <= ProfileScheduler.MAX_ENSURED_STEPS:
+            self._ensured_inference_count += 1
+            if self._ensured_inference_count <= ProfileScheduler.MAX_ENSURED_SPANS:
                 should_acquire = True
 
-        if self._current_step + 1 in self._step_filter:
+        if self._current_span + 1 in self._span_filter:
             should_acquire = True
 
         if self._last_profiled_ts:
             last_interval_sec = time.time() - self._last_profiled_ts
-            last_interval_steps = self._current_step - self._last_profiled_step
-            if last_interval_sec > self.MIN_INTERVAL_SEC and last_interval_steps > self.MIN_INTERVAL_STEPS:
-                self._step_filter = {} # switch to interval-based profiling
+            last_interval_spans = self._current_span - self._last_profiled_span
+            if last_interval_sec > self.MIN_INTERVAL_SEC and last_interval_spans > self.MIN_INTERVAL_SPANS:
+                self._span_filter = {} # switch to interval-based profiling
                 should_acquire = True
 
         if should_acquire:
@@ -58,19 +54,5 @@ class ProfileScheduler:
         if not _profiling_lock.locked():
             return
         self._last_profiled_ts = time.time()
-        self._last_profiled_step = self._current_step
+        self._last_profiled_span = self._current_span
         _profiling_lock.release()
-
-
-def select_scheduler(scope):
-    if scope is None:
-        scope = 0
-
-    if scope in _schedulers:
-        return _schedulers[scope]
-    else:
-        if len(_schedulers) < MAX_SCHEDULERS:
-            scheduler = _schedulers[scope] = ProfileScheduler()
-            return scheduler
-        else:
-            return random.choice(list(_schedulers.values()))

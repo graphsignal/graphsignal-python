@@ -1,20 +1,18 @@
 import unittest
 import logging
 import sys
-import time
 from unittest.mock import patch, Mock
 from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
-from graphsignal.profilers.generic import profile_inference
 from graphsignal.proto import profiles_pb2
 from graphsignal.uploader import Uploader
 
 logger = logging.getLogger('graphsignal')
 
 
-class GenericProfilerTest(unittest.TestCase):
+class HuggingFaceGeneratorTest(unittest.TestCase):
     def setUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -27,14 +25,14 @@ class GenericProfilerTest(unittest.TestCase):
         graphsignal.shutdown()
 
     @patch.object(Uploader, 'upload_profile')
-    def test_profile_inference(self, mocked_upload_profile):
-        def slow_method():
-            time.sleep(0.1)
+    def test_generator(self, mocked_upload_profile):
+        from transformers import pipeline
+        from graphsignal.profilers.pytorch import profile_inference
 
-        graphsignal.profilers.generic._profiler._exclude_path = 'donotmatchpath'
+        generator = pipeline(task="text-generation")
+
         with profile_inference():
-            slow_method()
-            slow_method()
+            output = generator('some text')
 
         graphsignal.upload()
         profile = mocked_upload_profile.call_args[0][0]
@@ -45,9 +43,12 @@ class GenericProfilerTest(unittest.TestCase):
         self.assertTrue(profile.inference_stats.inference_count > 0)
         self.assertTrue(profile.inference_stats.total_time_us > 0)
 
-        foundOp = False
+        test_op_stats = None
         for op_stats in profile.op_stats:
-            if op_stats.op_name.startswith('slow_method') and op_stats.count == 2 and op_stats.total_host_time_us > 200000:
-                foundOp = True
+            if op_stats.op_name == 'aten::mm':
+                test_op_stats = op_stats
                 break
-        self.assertTrue(foundOp)
+        self.assertIsNotNone(test_op_stats)
+        self.assertTrue(test_op_stats.count >= 1)
+        self.assertTrue(test_op_stats.total_host_time_us >= 1)
+        self.assertTrue(test_op_stats.self_host_time_us >= 1)

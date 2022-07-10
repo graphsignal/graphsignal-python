@@ -5,7 +5,7 @@ import time
 from unittest.mock import patch, Mock
 
 import graphsignal
-from graphsignal.profile_scheduler import ProfileScheduler, select_scheduler
+from graphsignal.profile_scheduler import ProfileScheduler
 
 logger = logging.getLogger('graphsignal')
 
@@ -22,15 +22,15 @@ class ProfileSchedulerTest(unittest.TestCase):
 
     def test_ensured(self):
         scheduler = ProfileScheduler()
-        for _ in range(ProfileScheduler.MAX_ENSURED_STEPS):
+        for _ in range(ProfileScheduler.MAX_ENSURED_SPANS):
             self.assertTrue(scheduler.lock(ensure=True))
             scheduler.unlock()
         scheduler.unlock()
 
     def test_predefined(self):
         scheduler = ProfileScheduler()
-        first_step = next(iter(scheduler._step_filter))
-        for _ in range(first_step - 1):
+        first_span = next(iter(scheduler._span_filter))
+        for _ in range(first_span - 1):
             self.assertFalse(scheduler.lock())
             scheduler.unlock()
         self.assertTrue(scheduler.lock())
@@ -38,11 +38,11 @@ class ProfileSchedulerTest(unittest.TestCase):
 
     def test_interval(self):
         scheduler = ProfileScheduler()
-        scheduler._step_filter = {}
+        scheduler._span_filter = {}
         scheduler._last_profiled_ts = time.time()
-        scheduler._current_step = 5
-        scheduler._last_profiled_step = 5
-        for _ in range(ProfileScheduler.MIN_INTERVAL_STEPS):
+        scheduler._current_span = 5
+        scheduler._last_profiled_span = 5
+        for _ in range(ProfileScheduler.MIN_INTERVAL_SPANS):
             self.assertFalse(scheduler.lock())
             scheduler.unlock()
         scheduler._last_profiled_ts = time.time() - ProfileScheduler.MIN_INTERVAL_SEC - 1
@@ -58,21 +58,3 @@ class ProfileSchedulerTest(unittest.TestCase):
         self.assertTrue(scheduler.lock(ensure=True))
         scheduler.unlock()
 
-    def test_select_scheduler(self):
-        s1 = select_scheduler(None)
-        s2 = select_scheduler(None)
-        self.assertTrue(s1 == s2)
-
-        s1 = select_scheduler('a')
-        s2 = select_scheduler('a')
-        self.assertTrue(s1 == s2)
-
-        s1 = select_scheduler('b')
-        s2 = select_scheduler('c')
-        self.assertTrue(s1 != s2)
-
-        for i in range(10):
-            select_scheduler(str(i))
-
-        sX = select_scheduler('x')
-        self.assertIsNotNone(sX)

@@ -47,6 +47,7 @@ class PyTorchLightningTest(unittest.TestCase):
                 self.batch_size = BATCH_SIZE
                 self.l1 = torch.nn.Linear(28 * 28, 10)
                 self.train_acc = Accuracy()
+                self.test_acc = Accuracy()
 
             def forward(self, x):
                 return torch.relu(self.l1(x.view(x.size(0), -1)))
@@ -59,10 +60,23 @@ class PyTorchLightningTest(unittest.TestCase):
                 self.log('train_acc', self.train_acc, on_step=True, on_epoch=False)
                 return loss
 
+            def test_step(self, batch, batch_nb):
+                x, y = batch
+                preds = self(x)
+                loss = F.cross_entropy(preds, y)
+                self.test_acc(preds, y)
+                self.log('test_acc', self.test_acc, on_step=True, on_epoch=False)
+                return loss
+
             def train_dataloader(self):
                 train_ds = MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
                 train_loader = DataLoader(train_ds, batch_size=self.batch_size)
                 return train_loader
+
+            def test_dataloader(self):
+                test_ds = MNIST(PATH_DATASETS, train=False, download=True, transform=transforms.ToTensor())
+                test_loader = DataLoader(test_ds, batch_size=self.batch_size)
+                return test_loader
 
             def configure_optimizers(self):
                 return torch.optim.Adam(self.parameters(), lr=0.02)
@@ -70,8 +84,6 @@ class PyTorchLightningTest(unittest.TestCase):
         mnist_model = MNISTModel()
 
         trainer = Trainer(
-            #accumulate_grad_batches=1,
-            #auto_scale_batch_size=True,
             accelerator='gpu' if torch.cuda.is_available() else 'cpu',
             devices=AVAIL_GPUS,
             max_epochs=2,
@@ -82,15 +94,17 @@ class PyTorchLightningTest(unittest.TestCase):
 
         trainer.fit(mnist_model)
 
+        trainer.test(mnist_model)
+
         profile = mocked_upload_profile.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(profile))
 
-        self.assertTrue(profile.step_stats.step_count > 0)
-        self.assertTrue(profile.step_stats.sample_count > 0)
-        self.assertTrue(profile.step_stats.total_time_us > 0)
-        self.assertEqual(profile.step_stats.batch_size, mnist_model.batch_size)
+        self.assertTrue(profile.inference_stats.inference_count > 0)
+        self.assertTrue(profile.inference_stats.sample_count > 0)
+        self.assertTrue(profile.inference_stats.total_time_us > 0)
+        self.assertEqual(profile.inference_stats.batch_size, mnist_model.batch_size)
 
         self.assertTrue(
             profile.profiler_info.framework_profiler_type, 
@@ -101,7 +115,7 @@ class PyTorchLightningTest(unittest.TestCase):
             profiles_pb2.FrameworkInfo.FrameworkType.PYTORCH_LIGHTNING_FRAMEWORK)
         self.assertTrue(profile.frameworks[-1].version.major > 0)
 
-        self.assertEqual(profile.metrics[0].name, 'train_acc')
+        self.assertEqual(profile.metrics[0].name, 'test_acc')
         self.assertTrue(profile.metrics[0].value > 0)
 
         test_op_stats = None

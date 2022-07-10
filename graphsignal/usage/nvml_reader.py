@@ -37,6 +37,9 @@ class NvmlReader():
         except BaseException:
             logger.error('Error shutting down NVML', exc_info=True)
 
+    def start(self):
+        self.read(profiles_pb2.MLProfile())
+
     def read(self, profile):
         if not self._is_initialized:
             return

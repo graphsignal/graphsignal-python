@@ -9,7 +9,7 @@ import tensorflow as tf
 import graphsignal
 from graphsignal.proto_utils import parse_semver, compare_semver
 from graphsignal.proto import profiles_pb2
-from graphsignal.profiling_step import ProfilingStep
+from graphsignal.inference_span import InferenceSpan
 from graphsignal.profilers.operation_profiler import OperationProfiler
 from graphsignal.profilers.profiler_utils import create_log_dir, remove_log_dir, convert_tensorflow_profile
 
@@ -63,7 +63,7 @@ class TensorflowProfiler(OperationProfiler):
 
         # Step stats
         if self._world_size is not None and self._world_size > 0:
-            profile.step_stats.world_size = self._world_size
+            profile.inference_stats.world_size = self._world_size
             graphsignal.log_parameter('world_size', self._world_size)
 
         try:
@@ -93,14 +93,12 @@ class TensorflowProfiler(OperationProfiler):
 
 _profiler = TensorflowProfiler()
 
-def profile_step(
-        phase_name: Optional[str] = None,
-        effective_batch_size: Optional[int] = None,
-        ensure_profile: Optional[bool] = False) -> ProfilingStep:
+def profile_inference(
+        batch_size: Optional[int] = None,
+        ensure_profile: Optional[bool] = False) -> InferenceSpan:
     graphsignal._check_configured()
 
-    return ProfilingStep(
-        phase_name=phase_name,
-        effective_batch_size=effective_batch_size,
+    return InferenceSpan(
+        batch_size=batch_size,
         ensure_profile=ensure_profile,
         operation_profiler=_profiler)

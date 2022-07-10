@@ -28,7 +28,6 @@ setup(
     'tensorflow profiler',
     'keras profiler',
     'pytorch profiler',
-    'training profiling',
     'inference profiling'
   ],
   classifiers = [
