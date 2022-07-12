@@ -27,7 +27,7 @@ class PyTorchProfiler(OperationProfiler):
         self._world_size = None
         self._comm_backend = None
 
-    def start(self, profile):
+    def start(self, profile, context):
         logger.debug('Activating PyTorch profiler')
 
         if not self._torch_prof:
@@ -80,7 +80,7 @@ class PyTorchProfiler(OperationProfiler):
 
         self._torch_prof.start()
 
-    def stop(self, profile):
+    def stop(self, profile, context):
         logger.debug('Deactivating PyTorch profiler')
 
         self._torch_prof.stop()

@@ -13,6 +13,7 @@ logger = logging.getLogger('graphsignal')
 class InferenceSpan:
     __slots__ = [
         '_operation_profiler',
+        '_context',
         '_is_scheduled',
         '_is_profiling',
         '_profile',
@@ -25,12 +26,14 @@ class InferenceSpan:
     def __init__(self, 
             batch_size=None, 
             ensure_profile=False, 
-            operation_profiler=None):
+            operation_profiler=None,
+            context=None):
         if batch_size is not None and not isinstance(batch_size, int):
                 raise ValueError('Invalid batch_size')
         self._batch_size = batch_size
 
         self._operation_profiler = operation_profiler
+        self._context = context
         self._is_scheduled = False
         self._is_profiling = False
         self._profile = None
@@ -62,7 +65,7 @@ class InferenceSpan:
 
             if not graphsignal._agent.disable_op_profiler and self._operation_profiler:
                 try:
-                    self._operation_profiler.start(self._profile)
+                    self._operation_profiler.start(self._profile, self._context)
                     self._is_profiling = True
                 except Exception as exc:
                     current_run.profile_scheduler.unlock()
@@ -90,7 +93,7 @@ class InferenceSpan:
             if self._is_scheduled:
                 if self._is_profiling:
                     try:
-                        self._operation_profiler.stop(self._profile)
+                        self._operation_profiler.stop(self._profile, self._context)
                     except Exception as exc:
                         logger.error('Error stopping profiler', exc_info=True)
                         self._add_profiler_exception(exc)

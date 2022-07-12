@@ -23,7 +23,7 @@ class TensorflowProfiler(OperationProfiler):
         self._global_rank = None
         self._world_size = None
 
-    def start(self, profile):
+    def start(self, profile, context):
         logger.debug('Activating TensorFlow profiler')
 
         # Initialization
@@ -78,7 +78,7 @@ class TensorflowProfiler(OperationProfiler):
             remove_log_dir(self._log_dir)
             raise e
 
-    def stop(self, profile):
+    def stop(self, profile, context):
         logger.debug('Deactivating TensorFlow profiler')
 
         try:

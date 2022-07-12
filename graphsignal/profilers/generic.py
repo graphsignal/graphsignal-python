@@ -21,7 +21,7 @@ class GenericProfiler(OperationProfiler):
         self._profiler = None
         self._exclude_path = os.path.dirname(os.path.realpath(graphsignal.__file__))
 
-    def start(self, profile):
+    def start(self, profile, context):
         logger.debug('Activating generic profiler')
 
         # Profiler info
@@ -30,7 +30,7 @@ class GenericProfiler(OperationProfiler):
         self._profiler = cProfile.Profile()
         self._profiler.enable()
 
-    def stop(self, profile):
+    def stop(self, profile, context):
         logger.debug('Deactivating generic profiler')
 
         self._profiler.disable()

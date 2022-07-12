@@ -21,7 +21,7 @@ class JaxProfiler(OperationProfiler):
         self._log_dir = None
         self._jax_version = None
 
-    def start(self, profile):
+    def start(self, profile, context):
         logger.debug('Activating JAX profiler')
 
         # Initialization
@@ -47,7 +47,7 @@ class JaxProfiler(OperationProfiler):
             remove_log_dir(self._log_dir)
             raise e
 
-    def stop(self, profile):
+    def stop(self, profile, context):
         logger.debug('Deactivating JAX profiler')
 
         try:

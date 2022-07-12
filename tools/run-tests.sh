@@ -13,4 +13,5 @@ python -m unittest graphsignal/profilers/pytorch_lightning_test.py
 python -m unittest graphsignal/profilers/huggingface_subclass_test.py
 python -m unittest graphsignal/profilers/huggingface_generator_test.py
 python -m unittest graphsignal/profilers/jax_test.py
+python -m unittest graphsignal/profilers/onnxruntime_test.py
 deactivate

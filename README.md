@@ -62,7 +62,8 @@ In case of multiple subsequent runs/experiments executed within a single script 
 
 Use the following minimal examples to integrate Graphsignal into your machine learning script. See integration documentation and  [profiling API reference](https://graphsignal.com/docs/profiler/api-reference/) for full reference.
 
-To ensure optimal statistics and low overhead, the profiler automatically profiles only certain iterations, e.g. prediction calls.
+All inferences will be measured, but only a few will be profiled to ensure low overhead.
+
 
 #### [TensorFlow](https://graphsignal.com/docs/integrations/tensorflow/)
 
@@ -122,6 +123,20 @@ with profile_inference():
     # single or batch prediction
 ```
 
+#### [ONNX Runtime](https://graphsignal.com/docs/integrations/onnx-runtime/)
+
+```python
+import onnxruntime
+from graphsignal.profilers.onnxruntime import initialize_profiler, profile_inference
+
+sess_options = onnxruntime.SessionOptions()
+initialize_profiler(sess_options)
+
+session = onnxruntime.InferenceSession('my_model_path', sess_options)
+with profile_inference(session):
+    session.run(...)
+```
+
 #### [Other frameworks](https://graphsignal.com/docs/integrations/other-frameworks/)
 
 ```python
@@ -164,7 +179,7 @@ More integration examples are available in [`examples`](https://github.com/graph
 
 ## Overhead
 
-Although profiling may add some overhead to applications, Graphsignal Profiler only profiles certain iterations, automatically limiting the overhead.
+Although profiling may add some overhead to applications, Graphsignal Profiler only profiles certain inferences, automatically limiting the overhead.
 
 
 ## Security and Privacy

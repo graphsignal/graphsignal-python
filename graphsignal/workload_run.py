@@ -11,6 +11,8 @@ class WorkloadRun:
     MAX_PROFILES = 25
 
     def __init__(self):
+        self._update_lock = threading.Lock()
+        self._profiles = []
         self.start_ms = None
         self.run_id = None
         self.tags = None
@@ -20,8 +22,6 @@ class WorkloadRun:
         self.sample_count = 0
         self.total_time_us = 0
         self.profile_scheduler = ProfileScheduler()
-        self.profiles = []
-        self._update_lock = threading.Lock()
 
     def update_inference_stats(self, duration_us, batch_size=None):
         with self._update_lock:
@@ -32,15 +32,15 @@ class WorkloadRun:
 
     def add_profile(self, profile):
         with self._update_lock:
-            del self.profiles[0:-WorkloadRun.MAX_PROFILES]
-            self.profiles.append(profile)
+            del self._profiles[0:-WorkloadRun.MAX_PROFILES]
+            self._profiles.append(profile)
 
     def upload(self, block=False):
         with self._update_lock:
-            if len(self.profiles) == 0:
+            if len(self._profiles) == 0:
                 return
-            outgoing_profiles = self.profiles
-            self.profiles = []
+            outgoing_profiles = self._profiles
+            self._profiles = []
 
         for profile in outgoing_profiles:
             if self.tags is not None:
@@ -60,7 +60,12 @@ class WorkloadRun:
 
             graphsignal._agent.uploader.upload_profile(profile)
 
+        logger.debug('Uploading %d profiles', len(outgoing_profiles))
+
         if block:
             graphsignal._agent.uploader.flush()
         else:
             graphsignal._agent.uploader.flush_in_thread()
+
+    def end(self, block=False):
+        self.upload(block=block)

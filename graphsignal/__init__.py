@@ -124,7 +124,7 @@ def configure(
 def end_run() -> None:
     _check_configured()
 
-    _agent.current_run.upload()
+    _agent.current_run.end()
 
     _agent.current_run = WorkloadRun()
     _agent.current_run.start_ms = int(time.time() * 1e3)
@@ -144,7 +144,7 @@ def shutdown() -> None:
 
     global _agent
     atexit.unregister(shutdown)
-    _agent.current_run.upload(block=True)
+    _agent.current_run.end(block=True)
     _agent.process_reader.shutdown()
     _agent.nvml_reader.shutdown()
     _agent = None
@@ -156,7 +156,7 @@ def add_tag(tag: str) -> None:
     _check_configured()
 
     if tag is None or not isinstance(tag, str):
-        raise ValueError('Missing or invalid argument: tag')
+        raise ValueError('add_tag: missing or invalid argument: tag')
 
     if _agent.current_run.tags is None:
         _agent.current_run.tags = {}
@@ -167,10 +167,10 @@ def log_parameter(name: str, value: Any) -> None:
     _check_configured()
 
     if name is None or not isinstance(name, str):
-        raise ValueError('Missing or invalid argument: name')
+        raise ValueError('log_parameter: missing or invalid argument: name')
 
     if value is None:
-        raise ValueError('Missing argument: value')
+        raise ValueError('log_parameter: missing argument: value')
 
     if _agent.current_run.params is None:
         _agent.current_run.params = {}
@@ -181,10 +181,10 @@ def log_metric(name: str, value: Union[int, float]) -> None:
     _check_configured()
 
     if name is None or not isinstance(name, str):
-        raise ValueError('Missing or invalid argument: name')
+        raise ValueError('log_metric: missing or invalid argument: name')
 
     if value is None or not isinstance(value, (int, float)):
-        raise ValueError('Missing argument: value')
+        raise ValueError('log_metric: invalid argument type: {0}, accepted types: (int, float)'.format(type(value)))
 
     if _agent.current_run.metrics is None:
         _agent.current_run.metrics = {}
