@@ -5,6 +5,7 @@ import sys
 import time
 import gzip
 import atexit
+import threading
 import onnxruntime
 
 import graphsignal
@@ -22,6 +23,7 @@ class ONNXRuntimeProfiler(OperationProfiler):
         self._is_initialized = None
         self._onnx_version = None
         self._first_trace_path = None
+        self._end_lock = threading.Lock()
 
     def reset(self):
         self._first_trace_path = None
@@ -55,8 +57,9 @@ class ONNXRuntimeProfiler(OperationProfiler):
 
         # end profiling after first inference and use first trace data 
         # in all other profiles for the current inference session
-        if not self._first_trace_path:
-            self._first_trace_path = onnx_session.end_profiling()
+        with self._end_lock:
+            if not self._first_trace_path:
+                self._first_trace_path = onnx_session.end_profiling()
 
         if self._first_trace_path:
             try:
@@ -99,8 +102,8 @@ def initialize_profiler(session_options: onnxruntime.SessionOptions):
     if _profiling_session:
         _profiler.reset()
         _profiling_session.cleanup()
-        graphsignal.end_run()
-        
+        graphsignal.next_run()
+
     _profiling_session = ONNXRuntimeProfilingSession()
 
     session_options.enable_profiling = True

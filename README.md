@@ -55,7 +55,7 @@ To get an API key, sign up for a free account at [graphsignal.com](https://graph
 
 One workload can be run multiple times, e.g. to benchmark different parameters. To tag each run, use `graphsignal.add_tag('mytag')`.
 
-In case of multiple subsequent runs/experiments executed within a single script or notebook, call `graphsignal.end_run()` to end current run and start a new one.
+In case of multiple subsequent runs/experiments executed within a single script or notebook, call `graphsignal.next_run()` to end current run and start a new one.
 
 
 ### 3. Profiling
@@ -171,7 +171,7 @@ graphsignal.configure(api_key='my_key', workload_name='my_gpu_inference')
 
 # 3. Use profile method or profiler callback
 with profile_inference():
-  y = model(x)
+  preds = model(x)
 ```
 
 More integration examples are available in [`examples`](https://github.com/graphsignal/examples) repo.

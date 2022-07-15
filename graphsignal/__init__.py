@@ -121,7 +121,7 @@ def configure(
     logger.debug('Graphsignal profiler configured')
 
 
-def end_run() -> None:
+def next_run() -> None:
     _check_configured()
 
     _agent.current_run.end()
@@ -130,7 +130,7 @@ def end_run() -> None:
     _agent.current_run.start_ms = int(time.time() * 1e3)
     _agent.current_run.run_id = _uuid_sha1(size=12)
 
-    logger.debug('Graphsignal profiler run ended')
+    logger.debug('Graphsignal run reset')
 
 
 def upload(block=False) -> None:
