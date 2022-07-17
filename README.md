@@ -1,13 +1,13 @@
-# Graphsignal Profiler
+# Graphsignal: Inference Profiler
 
 [![License](http://img.shields.io/github/license/graphsignal/graphsignal)](https://github.com/graphsignal/graphsignal/blob/main/LICENSE)
 [![Version](https://img.shields.io/github/v/tag/graphsignal/graphsignal?label=version)](https://github.com/graphsignal/graphsignal)
 [![Status](https://img.shields.io/uptimerobot/status/m787882560-d6b932eb0068e8e4ade7f40c?label=SaaS%20status)](https://stats.uptimerobot.com/gMBNpCqqqJ)
 
 
-Graphsignal is a machine learning profiler. It helps data scientists and ML engineers make model inference faster and more efficient. It is built for real-world use cases and allows ML practitioners to:
+Graphsignal is a machine learning inference profiler. It helps data scientists and ML engineers make model inference faster and more efficient. It is built for real-world use cases and allows ML practitioners to:
 
-* Optimize inference by benchmarking speed, analyzing execution trace, operation-level statistics and compute utilization.
+* Optimize inference by benchmarking latency and throughput, analyzing execution trace, operation-level statistics and compute utilization.
 * Start profiling scripts and notebooks automatically by adding a few lines of code.
 * Use the profiler in local, remote or cloud environment without installing any additional software or opening inbound ports.
 * Keep data private; no code or data is sent to Graphsignal cloud, only run statistics and metadata.

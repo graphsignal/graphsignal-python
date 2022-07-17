@@ -121,6 +121,12 @@ def configure(
     logger.debug('Graphsignal profiler configured')
 
 
+def current_run() -> WorkloadRun:
+    _check_configured()
+
+    return _agent.current_run
+
+
 def next_run() -> None:
     _check_configured()
 
@@ -158,23 +164,19 @@ def add_tag(tag: str) -> None:
     if tag is None or not isinstance(tag, str):
         raise ValueError('add_tag: missing or invalid argument: tag')
 
-    if _agent.current_run.tags is None:
-        _agent.current_run.tags = {}
-    _agent.current_run.tags[tag[:50]] = True
+    _agent.current_run.add_tag(tag)
 
 
-def log_parameter(name: str, value: Any) -> None:
+def log_param(name: str, value: Any) -> None:
     _check_configured()
 
     if name is None or not isinstance(name, str):
-        raise ValueError('log_parameter: missing or invalid argument: name')
+        raise ValueError('log_param: missing or invalid argument: name')
 
     if value is None:
-        raise ValueError('log_parameter: missing argument: value')
+        raise ValueError('log_param: missing argument: value')
 
-    if _agent.current_run.params is None:
-        _agent.current_run.params = {}
-    _agent.current_run.params[name[:250]] = str(value)[:1000]
+    _agent.current_run.add_param(name, value)
 
 
 def log_metric(name: str, value: Union[int, float]) -> None:
@@ -186,9 +188,7 @@ def log_metric(name: str, value: Union[int, float]) -> None:
     if value is None or not isinstance(value, (int, float)):
         raise ValueError('log_metric: invalid argument type: {0}, accepted types: (int, float)'.format(type(value)))
 
-    if _agent.current_run.metrics is None:
-        _agent.current_run.metrics = {}
-    _agent.current_run.metrics[name[:250]] = value
+    _agent.current_run.add_metric(name, value)
 
 
 def generate_uuid() -> None:

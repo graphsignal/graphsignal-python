@@ -67,7 +67,7 @@ class PyTorchProfiler(OperationProfiler):
         # Step stats
         if self._world_size is not None and self._world_size > 0:
             profile.inference_stats.world_size = self._world_size
-            graphsignal.log_parameter('world_size', self._world_size)
+            graphsignal.log_param('world_size', self._world_size)
 
         # Communication info
         if self._comm_backend:

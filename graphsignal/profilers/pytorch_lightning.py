@@ -77,7 +77,7 @@ class GraphsignalCallback(Callback):
                 self._global_rank = trainer.global_rank
 
             if self._batch_size:
-                graphsignal.log_parameter('batch_size', self._batch_size)
+                graphsignal.log_param('batch_size', self._batch_size)
 
             self._log_basic_param(trainer, 'world_size')
             self._log_basic_param(trainer, 'num_nodes')
@@ -124,7 +124,7 @@ class GraphsignalCallback(Callback):
     def _log_basic_param(self, trainer, param):
         value = getattr(trainer, param, None)
         if isinstance(value, (str, int, float, bool)):
-            graphsignal.log_parameter(param, value)
+            graphsignal.log_param(param, value)
 
     def _check_param(self, trainer, param):
         value = getattr(trainer, param, None)

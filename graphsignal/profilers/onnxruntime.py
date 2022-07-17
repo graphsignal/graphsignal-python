@@ -102,7 +102,6 @@ def initialize_profiler(session_options: onnxruntime.SessionOptions):
     if _profiling_session:
         _profiler.reset()
         _profiling_session.cleanup()
-        graphsignal.next_run()
 
     _profiling_session = ONNXRuntimeProfilingSession()
 

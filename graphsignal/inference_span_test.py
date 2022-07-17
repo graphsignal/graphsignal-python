@@ -41,9 +41,9 @@ class InferenceSpanTest(unittest.TestCase):
         graphsignal.add_tag('t1')
         graphsignal.add_tag('t2')
 
-        graphsignal.log_parameter('n1', 'v1')
-        graphsignal.log_parameter('n1', 'v2')
-        graphsignal.log_parameter('n3', 'v3')
+        graphsignal.log_param('n1', 'v1')
+        graphsignal.log_param('n1', 'v2')
+        graphsignal.log_param('n3', 'v3')
 
         graphsignal.log_metric('m1', 1)
         graphsignal.log_metric('m1', 2.2)

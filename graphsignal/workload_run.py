@@ -1,5 +1,6 @@
 import logging
 import threading
+import os
 
 import graphsignal
 from graphsignal.profile_scheduler import ProfileScheduler
@@ -22,6 +23,38 @@ class WorkloadRun:
         self.sample_count = 0
         self.total_time_us = 0
         self.profile_scheduler = ProfileScheduler()
+
+        if 'GRAPHSIGNAL_TAGS' in os.environ:
+            env_tags = os.environ['GRAPHSIGNAL_TAGS']
+            if env_tags:
+                for tag in env_tags.split(','):
+                    self.add_tag(tag.strip())
+
+        if 'GRAPHSIGNAL_PARAMS' in os.environ:
+            env_params = os.environ['GRAPHSIGNAL_PARAMS']
+            if env_params:
+                for param in env_params.split(','):
+                    pair = param.split(':')
+                    if pair[0] and pair[1]:
+                        self.add_param(pair[0].strip(), pair[1].strip())
+
+    def add_tag(self, tag):
+        if tag is None or not isinstance(tag, str):
+            raise ValueError('add_tag: missing or invalid argument: tag')
+
+        if self.tags is None:
+            self.tags = {}
+        self.tags[tag[:50]] = True
+
+    def add_param(self, name, value):
+        if self.params is None:
+            self.params = {}
+        self.params[name[:250]] = str(value)[:1000]
+
+    def add_metric(self, name, value):
+        if self.metrics is None:
+            self.metrics = {}
+        self.metrics[name[:250]] = value
 
     def update_inference_stats(self, duration_us, batch_size=None):
         with self._update_lock:

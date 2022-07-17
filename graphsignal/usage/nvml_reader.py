@@ -106,7 +106,7 @@ class NvmlReader():
 
             try:
                 last_read_us = max(
-                    int(graphsignal._agent.current_run.start_ms * 1e3),
+                    int(graphsignal.current_run().start_ms * 1e3),
                     now_us - NvmlReader.MIN_SAMPLE_READ_INTERVAL_US)
 
                 sample_value_type, gpu_samples = nvmlDeviceGetSamples(handle, NVML_GPU_UTILIZATION_SAMPLES, last_read_us)

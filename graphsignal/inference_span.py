@@ -40,7 +40,7 @@ class InferenceSpan:
         self._stop_lock = Lock()
         self._metrics = None
 
-        current_run = graphsignal._agent.current_run
+        current_run = graphsignal.current_run()
 
         if current_run.profile_scheduler.lock(ensure=ensure_profile):
             if logger.isEnabledFor(logging.DEBUG):
@@ -50,11 +50,11 @@ class InferenceSpan:
             self._profile = profiles_pb2.MLProfile()
             self._profile.workload_name = graphsignal._agent.workload_name
             self._profile.worker_id = graphsignal._agent.worker_id
-            self._profile.run_id = graphsignal._agent.current_run.run_id
+            self._profile.run_id = graphsignal.current_run().run_id
             self._profile.node_usage.node_rank = graphsignal._agent.node_rank 
             self._profile.process_usage.global_rank = graphsignal._agent.global_rank 
             self._profile.process_usage.local_rank = graphsignal._agent.local_rank 
-            self._profile.process_usage.start_ms = graphsignal._agent.current_run.start_ms
+            self._profile.process_usage.start_ms = graphsignal.current_run().start_ms
 
             try:
                 graphsignal._agent.process_reader.start()
@@ -98,7 +98,7 @@ class InferenceSpan:
                         logger.error('Error stopping profiler', exc_info=True)
                         self._add_profiler_exception(exc)
 
-            current_run = graphsignal._agent.current_run
+            current_run = graphsignal.current_run()
 
             current_run.update_inference_stats(
                 stop_us - self._start_us,

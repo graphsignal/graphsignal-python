@@ -53,7 +53,7 @@ class GraphsignalCallback(Callback):
             parse_semver(self._keras_version, keras.__version__)
 
             if self._batch_size:
-                graphsignal.log_parameter('batch_size', self._batch_size)
+                graphsignal.log_param('batch_size', self._batch_size)
         except Exception:
             logger.error('Error configuring Keras profiler', exc_info=True)
 

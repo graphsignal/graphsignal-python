@@ -1,6 +1,7 @@
 import unittest
 import logging
 import sys
+import os
 import time
 from unittest.mock import patch, Mock
 
@@ -20,6 +21,27 @@ class WorkloadRunTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
+
+    def test_env_tags(self):
+        os.environ["GRAPHSIGNAL_TAGS"] = "t1,t 2"
+
+        wr = WorkloadRun()
+
+        self.assertEqual(wr.tags, {
+            't1': True,
+            't 2': True
+        })
+
+    def test_env_params(self):
+        os.environ["GRAPHSIGNAL_PARAMS"] = "p1: v1, p2 : 2 "
+
+        wr = WorkloadRun()
+
+        self.assertEqual(wr.params, {
+            'p1': 'v1',
+            'p2': '2'
+        })
+
     def test_update_inference_stats(self):
         wr = WorkloadRun()
 
@@ -28,3 +50,4 @@ class WorkloadRunTest(unittest.TestCase):
         self.assertEqual(wr.inference_count, 2)
         self.assertEqual(wr.total_time_us, 30)
         self.assertEqual(wr.sample_count, 2 * 128)
+
