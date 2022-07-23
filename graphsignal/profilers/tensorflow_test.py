@@ -59,9 +59,6 @@ class TensorflowProfilerTest(unittest.TestCase):
             profiles_pb2.FrameworkInfo.FrameworkType.TENSORFLOW_FRAMEWORK)
         self.assertEqual(profile.process_usage.global_rank, 1)
 
-        self.assertEqual(profile.inference_stats.inference_count, 1)
-        self.assertTrue(profile.inference_stats.total_time_us > 0)
-        self.assertEqual(profile.inference_stats.sample_count, 128)
         self.assertEqual(profile.inference_stats.world_size, 3)
 
         test_op_stats = None

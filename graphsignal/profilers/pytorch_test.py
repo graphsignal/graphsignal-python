@@ -51,10 +51,6 @@ class PyTorchProfilerTest(unittest.TestCase):
             profile.frameworks[0].type,
             profiles_pb2.FrameworkInfo.FrameworkType.PYTORCH_FRAMEWORK)
 
-        self.assertEqual(profile.inference_stats.inference_count, 1)
-        self.assertTrue(profile.inference_stats.total_time_us > 0)
-        self.assertEqual(profile.inference_stats.sample_count, 128)
-
         test_op_stats = None
         for op_stats in profile.op_stats:
             if op_stats.op_name == 'aten::addmm':

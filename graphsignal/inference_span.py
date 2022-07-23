@@ -51,10 +51,10 @@ class InferenceSpan:
             self._profile.workload_name = graphsignal._agent.workload_name
             self._profile.worker_id = graphsignal._agent.worker_id
             self._profile.run_id = graphsignal.current_run().run_id
+            self._profile.run_start_ms = graphsignal.current_run().start_ms
             self._profile.node_usage.node_rank = graphsignal._agent.node_rank 
             self._profile.process_usage.global_rank = graphsignal._agent.global_rank 
             self._profile.process_usage.local_rank = graphsignal._agent.local_rank 
-            self._profile.process_usage.start_ms = graphsignal.current_run().start_ms
 
             try:
                 graphsignal._agent.process_reader.start()
@@ -100,9 +100,13 @@ class InferenceSpan:
 
             current_run = graphsignal.current_run()
 
-            current_run.update_inference_stats(
-                stop_us - self._start_us,
-                batch_size=self._batch_size)
+            current_run.inc_total_inference_count()
+
+            # only measure if not profiling to exclude spans with profiler overhead
+            if not self._is_profiling:
+                current_run.update_inference_stats(
+                    stop_us - self._start_us,
+                    batch_size=self._batch_size)
 
             if self._is_scheduled:
                 if logger.isEnabledFor(logging.DEBUG):
@@ -110,11 +114,15 @@ class InferenceSpan:
 
                 self._profile.end_us = stop_us
 
-                self._profile.inference_stats.inference_count = current_run.inference_count
-                self._profile.inference_stats.sample_count = current_run.sample_count
-                self._profile.inference_stats.total_time_us = current_run.total_time_us
+                self._profile.inference_stats.inference_count = current_run.total_inference_count
+                stats = current_run.inference_stats
+                self._profile.inference_stats.inference_time_p95_us = stats.inference_time_p95_us()
+                self._profile.inference_stats.inference_time_avg_us = stats.inference_time_avg_us()
+                self._profile.inference_stats.inference_rate = stats.inference_rate()
+                self._profile.inference_stats.sample_rate = stats.sample_rate()
                 if self._batch_size:
                     self._profile.inference_stats.batch_size = self._batch_size
+                current_run.reset_inference_stats()
 
                 try:
                     graphsignal._agent.process_reader.read(self._profile)

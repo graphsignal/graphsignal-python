@@ -8,13 +8,14 @@ import uuid
 import hashlib
 import atexit
 
-from graphsignal import version
+from graphsignal.version import __version__
 from graphsignal.agent import Agent
 from graphsignal.workload_run import WorkloadRun
 from graphsignal.uploader import Uploader
 from graphsignal.usage.process_reader import ProcessReader
 from graphsignal.usage.nvml_reader import NvmlReader
 from graphsignal.proto import profiles_pb2
+from graphsignal import profilers
 
 logger = logging.getLogger('graphsignal')
 
@@ -127,7 +128,7 @@ def current_run() -> WorkloadRun:
     return _agent.current_run
 
 
-def next_run() -> None:
+def end_run() -> None:
     _check_configured()
 
     _agent.current_run.end()
@@ -203,3 +204,18 @@ def _sha1(text, size=-1):
 
 def _uuid_sha1(size=-1):
     return _sha1(str(uuid.uuid4()), size)
+
+
+__all__ = [
+    '__version__',
+    'configure',
+    'current_run',
+    'next_run',
+    'upload',
+    'shutdown',
+    'add_tag',
+    'log_param',
+    'log_metric',
+    'generate_uuid',
+    'profilers'
+]

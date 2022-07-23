@@ -44,11 +44,13 @@ class KerasCallbackTest(unittest.TestCase):
 
         ds_train = ds_train.map(normalize_img)
         ds_train = ds_train.batch(128)
+        ds_train = ds_train.take(100)
         ds_train = ds_train.cache()
         ds_train = ds_train.prefetch(tf.data.experimental.AUTOTUNE)
 
         ds_test = ds_test.map(normalize_img)
         ds_test = ds_test.batch(128)
+        ds_test = ds_test.take(100)
         ds_test = ds_test.cache()
         ds_test = ds_test.prefetch(tf.data.experimental.AUTOTUNE)
 
@@ -67,7 +69,7 @@ class KerasCallbackTest(unittest.TestCase):
 
         model.fit(ds_train,
             batch_size=128,
-            epochs=2,
+            epochs=1,
             validation_data=ds_test)
 
         model.evaluate(ds_test,
@@ -78,11 +80,6 @@ class KerasCallbackTest(unittest.TestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(profile))
-
-        self.assertTrue(profile.inference_stats.inference_count > 0)
-        self.assertTrue(profile.inference_stats.sample_count > 0)
-        self.assertTrue(profile.inference_stats.total_time_us > 0)
-        self.assertTrue(profile.inference_stats.inference_count > 0)
 
         self.assertTrue(
             profile.profiler_info.framework_profiler_type, 

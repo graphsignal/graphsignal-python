@@ -46,8 +46,15 @@ class WorkloadRunTest(unittest.TestCase):
         wr = WorkloadRun()
 
         wr.update_inference_stats(10, batch_size=128)
-        wr.update_inference_stats(20, batch_size=128)
-        self.assertEqual(wr.inference_count, 2)
-        self.assertEqual(wr.total_time_us, 30)
-        self.assertEqual(wr.sample_count, 2 * 128)
+        wr.update_inference_stats(30, batch_size=128)
+        self.assertEqual(wr.inference_stats.inference_time_p95_us(), 30)
+        self.assertEqual(wr.inference_stats.inference_time_avg_us(), 20)
+        self.assertEqual(wr.inference_stats.inference_rate(), 49999.99999999999)
+        self.assertEqual(wr.inference_stats.sample_rate(), 6399999.999999999)
 
+    def test_inc_total_inference_count(self):
+        wr = WorkloadRun()
+
+        wr.inc_total_inference_count()
+        wr.inc_total_inference_count()
+        self.assertEqual(wr.total_inference_count, 2)

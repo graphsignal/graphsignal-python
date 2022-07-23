@@ -29,7 +29,7 @@ class HuggingFaceGeneratorTest(unittest.TestCase):
         from transformers import pipeline
         from graphsignal.profilers.pytorch import profile_inference
 
-        generator = pipeline(task="text-generation")
+        generator = pipeline(task="text-generation", model='distilgpt2')
 
         with profile_inference():
             output = generator('some text')
@@ -39,9 +39,6 @@ class HuggingFaceGeneratorTest(unittest.TestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(profile))
-
-        self.assertTrue(profile.inference_stats.inference_count > 0)
-        self.assertTrue(profile.inference_stats.total_time_us > 0)
 
         test_op_stats = None
         for op_stats in profile.op_stats:

@@ -205,5 +205,7 @@ def _avg_sample_value(sample_value_type, samples):
 def log_nvml_error(err):
     if (err.value == NVML_ERROR_NOT_SUPPORTED):
         logger.debug('NVML call not supported', exc_info=True)
+    elif (err.value == NVML_ERROR_NOT_FOUND):
+        logger.debug('NVML call not found', exc_info=True)
     else:
         logger.error('Error calling NVML', exc_info=True)

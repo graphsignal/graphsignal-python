@@ -55,14 +55,15 @@ To get an API key, sign up for a free account at [graphsignal.com](https://graph
 
 One workload can be run multiple times, e.g. to benchmark different parameters. To tag each run, use `graphsignal.add_tag('mytag')`.
 
-In case of multiple subsequent runs/experiments executed within a single script or notebook, call `graphsignal.next_run()` to end current run and start a new one.
+In case of multiple subsequent runs/experiments executed within a single script or notebook, call `graphsignal.end_run()` to end current run, upload it and initialize a new one.
 
+Graphsignal has a built-in support for distributed inference. See [Distributed Workloads](https://graphsignal.com/docs/profiler/distributed-workloads/) section for more information.
 
 ### 3. Profiling
 
 Use the following minimal examples to integrate Graphsignal into your machine learning script. See integration documentation and  [profiling API reference](https://graphsignal.com/docs/profiler/api-reference/) for full reference.
 
-All inferences will be measured, but only a few will be profiled to ensure low overhead.
+When `profile_inference` method is used repeatedly, all inferences will be measured, but only a few will be profiled to ensure low overhead.
 
 
 #### [TensorFlow](https://graphsignal.com/docs/integrations/tensorflow/)
@@ -146,13 +147,22 @@ with profile_inference():
     # single or batch prediction
 ```
 
+### 4. Logging
 
-#### Distributed workloads
+Logging parameters and metrics enables benchmarking inference latency and throughput against logged values. For example, logging evaluation accuracy in optimization runs is useful for ensuring that the accuracy is not affected by inference optimizations or to identify the best tradeoff.
 
-Graphsignal has a built-in support for distributed inference. See [Distributed Workloads](https://graphsignal.com/docs/profiler/distributed-workloads/) section for more information.
+```python
+graphsignal.log_param('my_param', 'val')
+```
+
+```python
+graphsignal.log_metric('my_metric', 0.9)
+```
+
+Parameters and metrics can also be passed via environment variables. See [profiling API reference](/docs/profiler/api-reference/#graphsignallog_param) for full documentation.
 
 
-### 4. Dashboards
+### 5. Dashboards
 
 After profiling is setup, [open](https://app.graphsignal.com/) Graphsignal to analyze recorded profiles.
 
@@ -169,9 +179,10 @@ graphsignal.configure(api_key='my_key', workload_name='my_gpu_inference')
 
 ....
 
-# 3. Use profile method or profiler callback
-with profile_inference():
-  preds = model(x)
+# 3. Use profile method to measure and profile single or batch predictions
+for x in data:
+    with profile_inference():
+        preds = model(x)
 ```
 
 More integration examples are available in [`examples`](https://github.com/graphsignal/examples) repo.

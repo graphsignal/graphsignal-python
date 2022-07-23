@@ -70,11 +70,13 @@ class PyTorchLightningTest(unittest.TestCase):
 
             def train_dataloader(self):
                 train_ds = MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
+                train_ds = torch.utils.data.Subset(train_ds, torch.arange(1000))
                 train_loader = DataLoader(train_ds, batch_size=self.batch_size)
                 return train_loader
 
             def test_dataloader(self):
                 test_ds = MNIST(PATH_DATASETS, train=False, download=True, transform=transforms.ToTensor())
+                test_ds = torch.utils.data.Subset(test_ds, torch.arange(1000))
                 test_loader = DataLoader(test_ds, batch_size=self.batch_size)
                 return test_loader
 
@@ -86,7 +88,7 @@ class PyTorchLightningTest(unittest.TestCase):
         trainer = Trainer(
             accelerator='gpu' if torch.cuda.is_available() else 'cpu',
             devices=AVAIL_GPUS,
-            max_epochs=2,
+            max_epochs=1,
             callbacks=[GraphsignalCallback(batch_size=mnist_model.batch_size)]
         )
 
@@ -101,9 +103,6 @@ class PyTorchLightningTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(profile))
 
-        self.assertTrue(profile.inference_stats.inference_count > 0)
-        self.assertTrue(profile.inference_stats.sample_count > 0)
-        self.assertTrue(profile.inference_stats.total_time_us > 0)
         self.assertEqual(profile.inference_stats.batch_size, mnist_model.batch_size)
 
         self.assertTrue(
@@ -114,6 +113,11 @@ class PyTorchLightningTest(unittest.TestCase):
             profile.frameworks[-1].type,
             profiles_pb2.FrameworkInfo.FrameworkType.PYTORCH_LIGHTNING_FRAMEWORK)
         self.assertTrue(profile.frameworks[-1].version.major > 0)
+
+        self.assertEqual(
+            profile.model_info.model_format,
+            profiles_pb2.ModelInfo.ModelFormat.PYTORCH_FORMAT)
+        self.assertTrue(profile.model_info.model_size_bytes > 0)
 
         self.assertEqual(profile.metrics[0].name, 'test_acc')
         self.assertTrue(profile.metrics[0].value > 0)

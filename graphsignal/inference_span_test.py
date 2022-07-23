@@ -49,26 +49,30 @@ class InferenceSpanTest(unittest.TestCase):
         graphsignal.log_metric('m1', 2.2)
         graphsignal.log_metric('m3', 3)
 
-        span = InferenceSpan(
-            batch_size=128,
-            ensure_profile=True,
-            operation_profiler=TensorflowProfiler())
-        span.set_batch_size(256)
-        span.stop()
-        
-        graphsignal.upload()
-        mocked_start.assert_called_once()
-        mocked_stop.assert_called_once()
+        for i in range(5):
+            span = InferenceSpan(
+                batch_size=128,
+                operation_profiler=TensorflowProfiler())
+            span.set_batch_size(256)
+            time.sleep(0.01)
+            span.stop()
+            graphsignal.upload()
+
+        self.assertEqual(mocked_start.call_count, 2)
+        self.assertEqual(mocked_stop.call_count, 2)
         profile = mocked_upload_profile.call_args[0][0]
 
         self.assertEqual(profile.workload_name, 'w1')
         self.assertTrue(profile.worker_id != '')
         self.assertEqual(profile.run_id, '5573e39b6600')
+        self.assertTrue(profile.run_start_ms > 0)
         self.assertTrue(profile.start_us > 0)
         self.assertTrue(profile.end_us > 0)
-        self.assertEqual(profile.inference_stats.inference_count, 1)
-        self.assertTrue(profile.inference_stats.total_time_us >= 0)
-        self.assertEqual(profile.inference_stats.sample_count, 256)
+        self.assertEqual(profile.inference_stats.inference_count, 5)
+        self.assertTrue(profile.inference_stats.inference_time_p95_us > 0)
+        self.assertTrue(profile.inference_stats.inference_time_avg_us > 0)
+        self.assertTrue(profile.inference_stats.inference_rate > 0)
+        self.assertTrue(profile.inference_stats.sample_rate > 0)
         self.assertEqual(profile.inference_stats.batch_size, 256)
         self.assertEqual(len(profile.tags), 2)
         self.assertEqual(profile.tags[0].value, 't1')
@@ -82,7 +86,6 @@ class InferenceSpanTest(unittest.TestCase):
         self.assertEqual(profile.metrics[1].name, 'm3')
         self.assertEqual(profile.metrics[1].value, 3)
         self.assertEqual(profile.node_usage.node_rank, -1)
-        self.assertTrue(profile.process_usage.start_ms > 0)
         self.assertEqual(profile.process_usage.local_rank, 1)
         self.assertEqual(profile.process_usage.global_rank, 1)
 

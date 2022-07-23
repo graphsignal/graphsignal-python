@@ -21,12 +21,13 @@ class GraphsignalCallback(Callback):
         self._profiler = PyTorchProfiler()
         self._span = None
         self._batch_size = batch_size
+        self._model_size_mb = None
         self._node_rank = -1
         self._local_rank = -1
         self._global_rank = -1
 
     def on_validate_start(self, trainer, pl_module):
-        self._configure_profiler(trainer)
+        self._configure_profiler(trainer, pl_module)
 
     def on_validate_end(self, trainer, pl_module):
         graphsignal.upload()
@@ -39,7 +40,7 @@ class GraphsignalCallback(Callback):
         self._log_metrics(trainer.logged_metrics)
 
     def on_test_start(self, trainer, pl_module):
-        self._configure_profiler(trainer)
+        self._configure_profiler(trainer, pl_module)
 
     def on_test_end(self, trainer, pl_module):
         graphsignal.upload()
@@ -52,7 +53,7 @@ class GraphsignalCallback(Callback):
         self._log_metrics(trainer.logged_metrics)
 
     def on_predict_start(self, trainer, pl_module):
-        self._configure_profiler(trainer)
+        self._configure_profiler(trainer, pl_module)
 
     def on_predict_end(self, trainer, pl_module):
         graphsignal.upload()
@@ -64,7 +65,7 @@ class GraphsignalCallback(Callback):
         self._stop_profiler(trainer)
         self._log_metrics(trainer.logged_metrics)
 
-    def _configure_profiler(self, trainer):
+    def _configure_profiler(self, trainer, pl_module):
         try:
             self._pl_version = profiles_pb2.SemVer()
             parse_semver(self._pl_version, pytorch_lightning.__version__)
@@ -76,13 +77,9 @@ class GraphsignalCallback(Callback):
             if self._check_param(trainer, 'global_rank') and trainer.global_rank >= 0:
                 self._global_rank = trainer.global_rank
 
-            if self._batch_size:
-                graphsignal.log_param('batch_size', self._batch_size)
-
-            self._log_basic_param(trainer, 'world_size')
-            self._log_basic_param(trainer, 'num_nodes')
-            self._log_basic_param(trainer, 'num_devices')
-            self._log_basic_param(trainer, 'precision')
+            model_size_mb = pytorch_lightning.utilities.memory.get_model_size_mb(pl_module)
+            if model_size_mb:
+                self._model_size_mb = model_size_mb
         except Exception:
             logger.error('Error configuring PyTorch Lightning profiler', exc_info=True)
 
@@ -112,6 +109,10 @@ class GraphsignalCallback(Callback):
             if self._check_param(trainer, 'world_size'):
                 profile.inference_stats.world_size = trainer.world_size
 
+            profile.model_info.model_format = profiles_pb2.ModelInfo.ModelFormat.PYTORCH_FORMAT
+            if self._model_size_mb:
+                profile.model_info.model_size_bytes = int(self._model_size_mb * 1e6)
+
             if self._node_rank >= 0 and graphsignal._agent.node_rank == -1:
                 profile.node_usage.node_rank = self._node_rank
             if self._global_rank >= 0 and graphsignal._agent.global_rank == -1:
@@ -120,11 +121,6 @@ class GraphsignalCallback(Callback):
                 profile.process_usage.local_rank = self._local_rank
         except Exception as exc:
             self._span._add_profiler_exception(exc)
-
-    def _log_basic_param(self, trainer, param):
-        value = getattr(trainer, param, None)
-        if isinstance(value, (str, int, float, bool)):
-            graphsignal.log_param(param, value)
 
     def _check_param(self, trainer, param):
         value = getattr(trainer, param, None)

@@ -19,7 +19,7 @@ else
 fi
 pip install tensorflow_datasets
 if [ `uname -m` = "x86_64" ]; then
-    pip install torch==1.12.0+cu113 -f https://download.pytorch.org/whl/torch_stable.html
+    pip install torch==1.12.0+cu116 -f https://download.pytorch.org/whl/torch_stable.html
 else
     pip install torch
 fi

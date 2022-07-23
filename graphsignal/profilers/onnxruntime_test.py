@@ -70,7 +70,4 @@ class ONNXRuntimeProfilerTest(unittest.TestCase):
             profile.frameworks[0].type,
             profiles_pb2.FrameworkInfo.FrameworkType.ONNX_FRAMEWORK)
 
-        self.assertEqual(profile.inference_stats.inference_count, 2)
-        self.assertTrue(profile.inference_stats.total_time_us > 0)
-
         self.assertNotEqual(profile.trace_data, b'')

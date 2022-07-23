@@ -42,9 +42,6 @@ class GenericProfilerTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(profile))
 
-        self.assertTrue(profile.inference_stats.inference_count > 0)
-        self.assertTrue(profile.inference_stats.total_time_us > 0)
-
         foundOp = False
         for op_stats in profile.op_stats:
             if op_stats.op_name.startswith('slow_method') and op_stats.count == 2 and op_stats.total_host_time_us > 200000:

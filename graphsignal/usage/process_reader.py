@@ -33,6 +33,7 @@ MEM_FREE_REGEXP = re.compile(r'MemFree:\s+(\d+)\s+kB')
 
 class ProcessReader():
     def __init__(self):
+        self._start_ms = int(time.time() * 1e3)
         self._last_read_sec = None
         self._last_cpu_time_ns = None
 
@@ -51,6 +52,7 @@ class ProcessReader():
 
         node_usage = profile.node_usage
         process_usage = profile.process_usage
+        process_usage.start_ms = self._start_ms
 
         process_usage.process_id = pid
 

@@ -47,8 +47,6 @@ class HuggingFaceSubclassTest(unittest.TestCase):
         small_eval_dataset = tokenized_datasets["test"].shuffle(
             seed=42).select(
             range(10))
-        full_train_dataset = tokenized_datasets["train"]
-        full_eval_dataset = tokenized_datasets["test"]
 
         from transformers import AutoModelForSequenceClassification
         model = AutoModelForSequenceClassification.from_pretrained(
@@ -84,11 +82,6 @@ class HuggingFaceSubclassTest(unittest.TestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(profile))
-
-        self.assertTrue(profile.inference_stats.inference_count > 0)
-        self.assertTrue(profile.inference_stats.sample_count > 0)
-        self.assertTrue(profile.inference_stats.total_time_us > 0)
-        self.assertTrue(profile.inference_stats.batch_size > 0)
 
         test_op_stats = None
         for op_stats in profile.op_stats:
