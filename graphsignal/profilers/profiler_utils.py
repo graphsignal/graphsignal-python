@@ -27,11 +27,8 @@ def remove_log_dir(log_dir):
 def find_and_read(log_dir, file_pattern, decompress=True, max_size=None):
     file_paths = glob.glob(os.path.join(log_dir, file_pattern))
     if len(file_paths) == 0:
-        raise Exception(
-            'Files are not found at {}'.format(
-                os.path.join(
-                    log_dir,
-                    file_pattern)))
+        logger.debug('Files are not found at %s', os.path.join(log_dir, file_pattern))
+        return None
 
     found_path = file_paths[-1]
 

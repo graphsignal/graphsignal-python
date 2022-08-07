@@ -11,7 +11,7 @@ python -m unittest graphsignal/profilers/pytorch_test.py
 python -m unittest graphsignal/profilers/keras_test.py
 python -m unittest graphsignal/profilers/pytorch_lightning_test.py
 python -m unittest graphsignal/profilers/huggingface_subclass_test.py
-python -m unittest graphsignal/profilers/huggingface_generator_test.py
+python -m unittest graphsignal/profilers/huggingface_pipeline_test.py
 python -m unittest graphsignal/profilers/jax_test.py
 python -m unittest graphsignal/profilers/onnxruntime_test.py
 deactivate

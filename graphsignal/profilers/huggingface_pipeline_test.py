@@ -25,14 +25,14 @@ class HuggingFaceGeneratorTest(unittest.TestCase):
         graphsignal.shutdown()
 
     @patch.object(Uploader, 'upload_profile')
-    def test_generator(self, mocked_upload_profile):
+    def test_pipeline(self, mocked_upload_profile):
         from transformers import pipeline
         from graphsignal.profilers.pytorch import profile_inference
 
-        generator = pipeline(task="text-generation", model='distilgpt2')
+        pipe = pipeline(task="text-generation", model='distilgpt2')
 
         with profile_inference():
-            output = generator('some text')
+            output = pipe('some text')
 
         graphsignal.upload()
         profile = mocked_upload_profile.call_args[0][0]

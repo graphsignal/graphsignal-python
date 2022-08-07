@@ -109,10 +109,10 @@ from transformers import pipeline
 from graphsignal.profilers.pytorch import profile_inference
 # or from graphsignal.profilers.tensorflow import profile_inference
 
-generator = pipeline(task="text-generation")
+pipe = pipeline(task="text-generation")
 
 with profile_inference():
-    output = generator('some text')
+    output = pipe('some text')
 ```
 
 #### [JAX](https://graphsignal.com/docs/integrations/jax/)

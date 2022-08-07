@@ -19,7 +19,7 @@ class InferenceSpan:
         '_profile',
         '_stop_lock',
         '_batch_size',
-        '_start_us',
+        '_start_counter',
         '_metrics'
     ]
 
@@ -44,7 +44,7 @@ class InferenceSpan:
 
         if current_run.profile_scheduler.lock(ensure=ensure_profile):
             if logger.isEnabledFor(logging.DEBUG):
-                profiling_start_ts = time.time()
+                profiling_start_overhead_counter = time.perf_counter()
 
             self._is_scheduled = True
             self._profile = profiles_pb2.MLProfile()
@@ -76,21 +76,23 @@ class InferenceSpan:
             self._profile.start_us = _timestamp_us()
 
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug('Profiling start took: %fs', time.time() - profiling_start_ts)
+                logger.debug('Profiling start took: %fs', time.perf_counter() - profiling_start_overhead_counter)
 
-        self._start_us = _timestamp_us()
+        self._start_counter = time.perf_counter()
 
     def __enter__(self):
         return self
 
-    def __exit__(self, *exc):
-        self.stop()
+    def __exit__(self, *exc_info):
+        self.stop(exc_info=exc_info)
 
-    def stop(self) -> None:
-        stop_us = _timestamp_us()
+    def stop(self, exc_info=None) -> None:
+        stop_counter = time.perf_counter()
 
         with self._stop_lock:
             if self._is_scheduled:
+                self._profile.end_us = _timestamp_us()
+
                 if self._is_profiling:
                     try:
                         self._operation_profiler.stop(self._profile, self._context)
@@ -99,20 +101,17 @@ class InferenceSpan:
                         self._add_profiler_exception(exc)
 
             current_run = graphsignal.current_run()
-
             current_run.inc_total_inference_count()
 
             # only measure if not profiling to exclude spans with profiler overhead
             if not self._is_profiling:
                 current_run.update_inference_stats(
-                    stop_us - self._start_us,
+                    int((stop_counter - self._start_counter) * 1e6),
                     batch_size=self._batch_size)
 
             if self._is_scheduled:
                 if logger.isEnabledFor(logging.DEBUG):
-                    profiling_stop_ts = time.time()
-
-                self._profile.end_us = stop_us
+                    profiling_stop_overhead_counter = time.perf_counter()
 
                 self._profile.inference_stats.inference_count = current_run.total_inference_count
                 stats = current_run.inference_stats
@@ -123,6 +122,9 @@ class InferenceSpan:
                 if self._batch_size:
                     self._profile.inference_stats.batch_size = self._batch_size
                 current_run.reset_inference_stats()
+
+                if exc_info and exc_info[1]:
+                    self._add_inference_exception(exc_info)
 
                 try:
                     graphsignal._agent.process_reader.read(self._profile)
@@ -139,21 +141,28 @@ class InferenceSpan:
                 current_run.profile_scheduler.unlock()
 
                 if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug('Profiling stop took: %fs', time.time() - profiling_stop_ts)
+                    logger.debug('Profiling stop took: %fs', time.perf_counter() - profiling_stop_overhead_counter)
 
     def set_batch_size(self, batch_size: int) -> None:
         if not isinstance(batch_size, int):
             raise ValueError('Invalid batch_size')
         self._batch_size = batch_size
 
+    def _add_inference_exception(self, exc_info):
+        exception = self._profile.exceptions.add()
+        exception.message = str(exc_info[1])
+        if exc_info[2]:
+            frames = traceback.format_tb(exc_info[2])
+            if len(frames) > 0:
+                exception.stack_trace = ''.join(frames)
+
     def _add_profiler_exception(self, exc):
-        if self._profile:
-            profiler_error = self._profile.profiler_errors.add()
-            profiler_error.message = str(exc)
-            if exc.__traceback__:
-                frames = traceback.format_tb(exc.__traceback__)
-                if len(frames) > 0:
-                    profiler_error.stack_trace = ''.join(frames)
+        profiler_error = self._profile.profiler_errors.add()
+        profiler_error.message = str(exc)
+        if exc.__traceback__:
+            frames = traceback.format_tb(exc.__traceback__)
+            if len(frames) > 0:
+                profiler_error.stack_trace = ''.join(frames)
 
 
 def _timestamp_us():

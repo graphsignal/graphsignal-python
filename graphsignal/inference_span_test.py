@@ -119,7 +119,7 @@ class InferenceSpanTest(unittest.TestCase):
     @patch.object(ProcessReader, 'read')
     @patch.object(NvmlReader, 'read')
     @patch.object(Uploader, 'upload_profile')
-    def test_stop_exception(self, mocked_upload_profile, mocked_nvml_read, mocked_host_read,
+    def test_profiler_exception(self, mocked_upload_profile, mocked_nvml_read, mocked_host_read,
                             mocked_stop, mocked_start):
         mocked_stop.side_effect = Exception('ex1')
         span = InferenceSpan(
@@ -138,3 +138,29 @@ class InferenceSpanTest(unittest.TestCase):
         self.assertTrue(profile.end_us > 0)
         self.assertEqual(profile.profiler_errors[0].message, 'ex1')
         self.assertNotEqual(profile.profiler_errors[0].stack_trace, '')
+
+    @patch.object(TensorflowProfiler, 'start', return_value=True)
+    @patch.object(TensorflowProfiler, 'stop', return_value=True)
+    @patch.object(ProcessReader, 'read')
+    @patch.object(NvmlReader, 'read')
+    @patch.object(Uploader, 'upload_profile')
+    def test_inference_exception(self, mocked_upload_profile, mocked_nvml_read, mocked_host_read,
+                            mocked_stop, mocked_start):
+
+        try:
+            with InferenceSpan(ensure_profile=True, operation_profiler=TensorflowProfiler()):
+                raise Exception('ex1')
+        except:
+            pass
+
+        graphsignal.upload()
+        mocked_start.assert_called_once()
+        mocked_stop.assert_called_once()
+        profile = mocked_upload_profile.call_args[0][0]
+
+        self.assertEqual(profile.workload_name, 'w1')
+        self.assertTrue(profile.worker_id != '')
+        self.assertTrue(profile.start_us > 0)
+        self.assertTrue(profile.end_us > 0)
+        self.assertEqual(profile.exceptions[0].message, 'ex1')
+        self.assertNotEqual(profile.exceptions[0].stack_trace, '')
