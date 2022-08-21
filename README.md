@@ -51,14 +51,14 @@ graphsignal.configure(api_key='my_api_key', workload_name='model-serving-prod')
 
 To get an API key, sign up for a free account at [graphsignal.com](https://graphsignal.com). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.com/settings/api-keys) page.
 
-For server applications, provide a `workload_name` to group and aggregate performance data from all workers. See [Model Serving](/docs/guides/model-serving/) guide for more information. 
+For server applications, provide a `workload_name` to group and aggregate performance data from all workers. See [Model Serving](https://graphsignal.com/docs/guides/model-serving/) guide for more information. 
 
 When `workload_name` is not provided, each run is tracked separately.
 
 
 ### Integration
 
-Use the following examples to integrate Graphsignal agent into your machine learning application. See integration documentation and [API reference](/docs/reference/python-api/) for full reference.
+Use the following examples to integrate Graphsignal agent into your machine learning application. See integration documentation and [API reference](https://graphsignal.com/docs/reference/python-api/) for full reference.
 
 Graphsignal agent is **optimized for production**. All inferences wrapped with `inference_span` will be measured, but only a few will be profiled to ensure low overhead.
 
