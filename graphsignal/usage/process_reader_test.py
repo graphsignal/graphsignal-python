@@ -20,7 +20,6 @@ class ProcessReaderTest(unittest.TestCase):
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
-            workload_name='w1',
             debug_mode=True)
 
     def tearDown(self):
@@ -30,7 +29,7 @@ class ProcessReaderTest(unittest.TestCase):
         profile = profiles_pb2.MLProfile()
         reader = graphsignal._agent.process_reader
         reader.read(profile)
-        ProcessReader.MIN_CPU_READ_INTERVAL = 0
+        ProcessReader.MIN_CPU_READ_INTERVAL_NS = 0
         time.sleep(0.2)
         reader.read(profile)
 
@@ -42,7 +41,6 @@ class ProcessReaderTest(unittest.TestCase):
         self.assertNotEqual(profile.process_usage.process_id, '')
         self.assertTrue(profile.process_usage.start_ms > 0)
         if sys.platform != 'win32':
-            self.assertTrue(profile.process_usage.cpu_name != '')
             self.assertTrue(profile.node_usage.mem_total > 0)
             self.assertTrue(profile.node_usage.mem_used > 0)
             self.assertTrue(profile.process_usage.cpu_usage_percent > 0)

@@ -7,36 +7,34 @@ from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
-from graphsignal.profilers.generic import profile_inference
+from graphsignal.tracers.python import inference_span
 from graphsignal.proto import profiles_pb2
 from graphsignal.uploader import Uploader
 
 logger = logging.getLogger('graphsignal')
 
 
-class GenericProfilerTest(unittest.TestCase):
+class PythonProfilerTest(unittest.TestCase):
     def setUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
-            workload_name='w1',
             debug_mode=True)
 
     def tearDown(self):
         graphsignal.shutdown()
 
     @patch.object(Uploader, 'upload_profile')
-    def test_profile_inference(self, mocked_upload_profile):
+    def test_inference_span(self, mocked_upload_profile):
         def slow_method():
             time.sleep(0.1)
 
-        graphsignal.profilers.generic._profiler._exclude_path = 'donotmatchpath'
-        with profile_inference():
+        graphsignal.tracers.python._profiler._exclude_path = 'donotmatchpath'
+        with inference_span('m1'):
             slow_method()
             slow_method()
 
-        graphsignal.upload()
         profile = mocked_upload_profile.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()

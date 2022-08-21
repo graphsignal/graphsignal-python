@@ -14,7 +14,6 @@ class ProfileSchedulerTest(unittest.TestCase):
     def setUp(self):
         graphsignal.configure(
             api_key='k1',
-            workload_name='w1',
             debug_mode=True)
 
     def tearDown(self):
@@ -30,22 +29,32 @@ class ProfileSchedulerTest(unittest.TestCase):
     def test_predefined(self):
         scheduler = ProfileScheduler()
         first_span = next(iter(scheduler._span_filter))
-        for _ in range(first_span - 1):
-            self.assertFalse(scheduler.lock())
-            scheduler.unlock()
-        self.assertTrue(scheduler.lock())
+        for idx in range(ProfileScheduler.PREDEFINED_SPANS[-1]):
+            if idx + 1 in scheduler._span_filter:
+                self.assertTrue(scheduler.lock())
+                scheduler.unlock()
+            else:
+                self.assertFalse(scheduler.lock())
+                scheduler.unlock()
+        self.assertFalse(scheduler.lock())
         scheduler.unlock()
 
     def test_interval(self):
         scheduler = ProfileScheduler()
         scheduler._span_filter = {}
-        scheduler._last_profiled_ts = time.time()
-        scheduler._current_span = 5
-        scheduler._last_profiled_span = 5
-        for _ in range(ProfileScheduler.MIN_INTERVAL_SPANS):
-            self.assertFalse(scheduler.lock())
-            scheduler.unlock()
-        scheduler._last_profiled_ts = time.time() - ProfileScheduler.MIN_INTERVAL_SEC - 1
+        self.assertFalse(scheduler.lock())
+        scheduler.unlock()
+        self.assertFalse(scheduler._interval_mode)
+
+        # first interval
+        scheduler._start_ts = time.time() - ProfileScheduler.MIN_INTERVAL_SEC - 10
+        self.assertTrue(scheduler.lock())
+        scheduler.unlock()
+        self.assertTrue(scheduler._interval_mode)
+
+        # other intervals
+        scheduler._start_ts = time.time() - ProfileScheduler.MIN_INTERVAL_SEC - 10
+        scheduler._last_profile_ts = time.time() - ProfileScheduler.MIN_INTERVAL_SEC - 10
         self.assertTrue(scheduler.lock())
         scheduler.unlock()
 

@@ -9,7 +9,7 @@ from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
-from graphsignal.profilers.onnxruntime import initialize_profiler, profile_inference
+from graphsignal.tracers.onnxruntime import initialize_profiler, inference_span
 from graphsignal.proto import profiles_pb2
 from graphsignal.uploader import Uploader
 
@@ -23,7 +23,6 @@ class ONNXRuntimeProfilerTest(unittest.TestCase):
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
-            workload_name='w1',
             debug_mode=True)
 
     def tearDown(self):
@@ -33,7 +32,7 @@ class ONNXRuntimeProfilerTest(unittest.TestCase):
         os.remove(TEST_MODEL_PATH)
 
     @patch.object(Uploader, 'upload_profile')
-    def test_profile_inference(self, mocked_upload_profile):
+    def test_inference_span(self, mocked_upload_profile):
         x = torch.arange(-5, 5, 0.1).view(-1, 1)
         y = -5 * x + 0.1 * torch.randn(x.size())
         model = torch.nn.Linear(1, 1)
@@ -54,13 +53,12 @@ class ONNXRuntimeProfilerTest(unittest.TestCase):
 
         session = onnxruntime.InferenceSession(TEST_MODEL_PATH, sess_options)
 
-        with profile_inference(session):
+        with inference_span(model_name='m1', onnx_session=session):
             session.run(None, { 'input': x.detach().cpu().numpy() })
 
-        with profile_inference(session, ensure_profile=True):
+        with inference_span(model_name='m1', ensure_profile=True, onnx_session=session):
             session.run(None, { 'input': x.detach().cpu().numpy() })
 
-        graphsignal.upload()
         profile = mocked_upload_profile.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()

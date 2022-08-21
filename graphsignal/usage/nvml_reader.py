@@ -15,8 +15,7 @@ class NvmlReader():
 
     def __init__(self):
         self._is_initialized = False
-        self._last_nvlink_throughput_data_tx = {}
-        self._last_nvlink_throughput_data_rx = {}
+        self._start_us = int(time.time() * 1e6)
 
     def setup(self):
         if self._is_initialized:
@@ -36,9 +35,6 @@ class NvmlReader():
             self._is_initialized = False
         except BaseException:
             logger.error('Error shutting down NVML', exc_info=True)
-
-    def start(self):
-        self.read(profiles_pb2.MLProfile())
 
     def read(self, profile):
         if not self._is_initialized:
@@ -106,7 +102,7 @@ class NvmlReader():
 
             try:
                 last_read_us = max(
-                    int(graphsignal.current_run().start_ms * 1e3),
+                    int(self._start_us),
                     now_us - NvmlReader.MIN_SAMPLE_READ_INTERVAL_US)
 
                 sample_value_type, gpu_samples = nvmlDeviceGetSamples(handle, NVML_GPU_UTILIZATION_SAMPLES, last_read_us)
@@ -122,32 +118,6 @@ class NvmlReader():
                     handle, NVML_PCIE_UTIL_TX_BYTES)
                 device_usage.pcie_throughput_rx = nvmlDeviceGetPcieThroughput(
                     handle, NVML_PCIE_UTIL_RX_BYTES)
-            except NVMLError as err:
-                log_nvml_error(err)
-
-            try:
-                nvlink_throughput_data_tx = nvmlDeviceGetFieldValues(handle, [NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_TX])[0]
-                if nvlink_throughput_data_tx.nvmlReturn == NVML_SUCCESS:
-                    if idx in self._last_nvlink_throughput_data_tx:
-                        last_data = self._last_nvlink_throughput_data_tx[idx]
-                        interval_us = nvlink_throughput_data_tx.timestamp - last_data.timestamp
-                        if interval_us > 0:
-                            value = _nvml_value(nvlink_throughput_data_tx.valueType, nvlink_throughput_data_tx.value)
-                            last_value = _nvml_value(last_data.valueType, last_data.value)
-                            device_usage.nvlink_throughput_tx_kibs = (value - last_value) / (interval_us * 1e6)
-                    self._last_nvlink_throughput_data_tx[idx] = nvlink_throughput_data_tx
-
-                nvlink_throughput_data_rx = nvmlDeviceGetFieldValues(handle, [NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_RX])[0]
-                if nvlink_throughput_data_rx.nvmlReturn == NVML_SUCCESS:
-                    if idx in self._last_nvlink_throughput_data_rx:
-                        last_data = self._last_nvlink_throughput_data_rx[idx]
-                        interval_us = nvlink_throughput_data_rx.timestamp - last_data.timestamp
-                        if interval_us > 0:
-                            value = _nvml_value(nvlink_throughput_data_rx.valueType, nvlink_throughput_data_rx.value)
-                            last_value = _nvml_value(last_data.valueType, last_data.value)
-                            device_usage.nvlink_throughput_rx_kibs = (value - last_value) / (interval_us * 1e6)
-                    self._last_nvlink_throughput_data_rx[idx] = nvlink_throughput_data_rx
-
             except NVMLError as err:
                 log_nvml_error(err)
 
@@ -168,17 +138,6 @@ class NvmlReader():
                     handle)
             except NVMLError as err:
                 log_nvml_error(err)
-
-
-def _nvml_value(value_type, value):
-    if value_type == NVML_VALUE_TYPE_DOUBLE:
-        return value.dVal
-    if value_type == NVML_VALUE_TYPE_UNSIGNED_INT:
-        return value.uiVal
-    if value_type == NVML_VALUE_TYPE_UNSIGNED_LONG:
-        return value.ulVal
-    if value_type == NVML_VALUE_TYPE_UNSIGNED_LONG_LONG:
-        return value.ullVal
 
 
 def _avg_sample_value(sample_value_type, samples):

@@ -1,47 +1,52 @@
 import unittest
 import logging
 import sys
+import os
+import json
 from unittest.mock import patch, Mock
-import torch
+import tensorflow as tf
 from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
-from graphsignal.profilers.pytorch import profile_inference
+from graphsignal.tracers.tensorflow import inference_span
 from graphsignal.proto import profiles_pb2
 from graphsignal.uploader import Uploader
 
 logger = logging.getLogger('graphsignal')
 
 
-class PyTorchProfilerTest(unittest.TestCase):
+class TensorflowProfilerTest(unittest.TestCase):
     def setUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
-            workload_name='w1',
             debug_mode=True)
 
     def tearDown(self):
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
         graphsignal.shutdown()
 
     @patch.object(Uploader, 'upload_profile')
-    def test_profile_inference(self, mocked_upload_profile):
-        x = torch.arange(-5, 5, 0.1).view(-1, 1)
-        y = -5 * x + 0.1 * torch.randn(x.size())
-        model = torch.nn.Linear(1, 1)
-        if torch.cuda.is_available():
-            x = x.to('cuda:0')
-            y = y.to('cuda:0')
-            model = model.to('cuda:0')
+    def test_inference_span(self, mocked_upload_profile):
+        os.environ["TF_CONFIG"] = json.dumps({
+            "cluster": {
+                "chief": ["host1:port"],
+                "worker": ["host1:port", "host2:port"]
+            },
+            "task": {"type": "worker", "index": 1}
+        })
 
-        with profile_inference(batch_size=128):
-            y1 = model(x)
+        @tf.function
+        def f(x):
+            while tf.reduce_sum(x) > 1:
+                #tf.print(x)
+                x = tf.tanh(x)
+            return x
 
-        graphsignal.upload()
+        with inference_span('m1'):
+            f(tf.random.uniform([5]))
+
         profile = mocked_upload_profile.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
@@ -49,16 +54,19 @@ class PyTorchProfilerTest(unittest.TestCase):
 
         self.assertEqual(
             profile.frameworks[0].type,
-            profiles_pb2.FrameworkInfo.FrameworkType.PYTORCH_FRAMEWORK)
+            profiles_pb2.FrameworkInfo.FrameworkType.TENSORFLOW_FRAMEWORK)
+        self.assertEqual(profile.process_usage.global_rank, 1)
+
+        self.assertEqual(profile.cluster_info.world_size, 3)
 
         test_op_stats = None
         for op_stats in profile.op_stats:
-            if op_stats.op_name == 'aten::addmm':
+            if op_stats.op_name == 'RandomUniform':
                 test_op_stats = op_stats
                 break
         self.assertIsNotNone(test_op_stats)
         self.assertTrue(test_op_stats.count >= 1)
-        if torch.cuda.is_available():
+        if len(tf.config.list_physical_devices('GPU')) > 0:
             self.assertTrue(test_op_stats.total_device_time_us >= 1)
             self.assertTrue(test_op_stats.self_device_time_us >= 1)
         else:

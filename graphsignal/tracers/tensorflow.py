@@ -10,8 +10,8 @@ import graphsignal
 from graphsignal.proto_utils import parse_semver, compare_semver
 from graphsignal.proto import profiles_pb2
 from graphsignal.inference_span import InferenceSpan
-from graphsignal.profilers.operation_profiler import OperationProfiler
-from graphsignal.profilers.profiler_utils import create_log_dir, remove_log_dir, convert_tensorflow_profile
+from graphsignal.tracers.operation_profiler import OperationProfiler
+from graphsignal.tracers.profiler_utils import create_log_dir, remove_log_dir, convert_tensorflow_profile
 
 logger = logging.getLogger('graphsignal')
 
@@ -58,13 +58,11 @@ class TensorflowProfiler(OperationProfiler):
 
         # Process info
         if self._global_rank is not None and self._global_rank >= 0:
-            if graphsignal._agent.global_rank == -1:
-                profile.process_usage.global_rank = self._global_rank
+            profile.process_usage.global_rank = self._global_rank
 
-        # Step stats
+        # Cluster stats
         if self._world_size is not None and self._world_size > 0:
-            profile.inference_stats.world_size = self._world_size
-            graphsignal.log_param('world_size', self._world_size)
+            profile.cluster_info.world_size = self._world_size
 
         try:
             self._log_dir = create_log_dir()
@@ -85,20 +83,18 @@ class TensorflowProfiler(OperationProfiler):
             tf.profiler.experimental.stop()
 
             convert_tensorflow_profile(self._log_dir, profile)
-        except Exception as e:
-            raise e
         finally:
            remove_log_dir(self._log_dir)
 
 
 _profiler = TensorflowProfiler()
 
-def profile_inference(
-        batch_size: Optional[int] = None,
-        ensure_profile: Optional[bool] = False) -> InferenceSpan:
+def inference_span(
+        model_name: str,
+        metadata: Optional[dict] = None,ensure_profile: Optional[bool] = False) -> InferenceSpan:
     graphsignal._check_configured()
 
     return InferenceSpan(
-        batch_size=batch_size,
-        ensure_profile=ensure_profile,
+        model_name=model_name,
+        metadata=metadata,ensure_profile=ensure_profile,
         operation_profiler=_profiler)

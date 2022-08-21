@@ -7,18 +7,20 @@ from tensorflow.keras.callbacks import Callback
 import graphsignal
 from graphsignal.proto import profiles_pb2
 from graphsignal.proto_utils import parse_semver
-from graphsignal.profilers.tensorflow import TensorflowProfiler
+from graphsignal.tracers.tensorflow import TensorflowProfiler
 from graphsignal.inference_span import InferenceSpan
 
 logger = logging.getLogger('graphsignal')
 
 
 class GraphsignalCallback(Callback):
-    def __init__(self, batch_size: Optional[int] = None):
+    def __init__(self, model_name: str, metadata: Optional[dict] = None, batch_size: Optional[int] = None):
         super().__init__()
         self._keras_version = None
         self._profiler = TensorflowProfiler()
         self._span = None
+        self._model_name = model_name
+        self._metadata = metadata
         self._batch_size = batch_size
 
     def on_test_begin(self, logs=None):
@@ -32,7 +34,6 @@ class GraphsignalCallback(Callback):
 
     def on_test_batch_end(self, batch, logs=None):
         self._stop_profiler()
-        self._log_metrics(logs)
 
     def on_predict_begin(self, logs=None):
         self._configure_profiler()
@@ -45,7 +46,6 @@ class GraphsignalCallback(Callback):
 
     def on_predict_batch_end(self, batch, logs=None):
         self._stop_profiler()
-        self._log_metrics(logs)
 
     def _configure_profiler(self):
         try:
@@ -57,8 +57,10 @@ class GraphsignalCallback(Callback):
     def _start_profiler(self):
         if not self._span:
             self._span = InferenceSpan(
-                batch_size=self._batch_size,
+                model_name=self._model_name,
+                metadata=self._metadata,
                 operation_profiler=self._profiler)
+            self._span.set_count('items', self._batch_size)
 
     def _stop_profiler(self):
         if self._span:
@@ -78,9 +80,3 @@ class GraphsignalCallback(Callback):
             framework.version.CopyFrom(self._keras_version)
         except Exception as exc:
             self._span._add_profiler_exception(exc)
-
-    def _log_metrics(self, logs):
-        if logs:
-            for key, value in logs.items():
-                if isinstance(key, str) and isinstance(value, (int, float)):
-                    graphsignal.log_metric(key, value)

@@ -12,8 +12,8 @@ import graphsignal
 from graphsignal.proto_utils import parse_semver
 from graphsignal.proto import profiles_pb2
 from graphsignal.inference_span import InferenceSpan
-from graphsignal.profilers.operation_profiler import OperationProfiler
-from graphsignal.profilers.profiler_utils import create_log_dir, remove_log_dir, find_and_read
+from graphsignal.tracers.operation_profiler import OperationProfiler
+from graphsignal.tracers.profiler_utils import create_log_dir, remove_log_dir, find_and_read
 
 logger = logging.getLogger('graphsignal')
 
@@ -62,15 +62,13 @@ class ONNXRuntimeProfiler(OperationProfiler):
                 self._first_trace_path = onnx_session.end_profiling()
 
         if self._first_trace_path:
-            try:
-                if os.path.getsize(self._first_trace_path) > 50 * 1e6:
-                    raise Exception('Trace file too big')
+            trace_file_size = os.path.getsize(self._first_trace_path)
+            if trace_file_size > 50 * 1e6:
+                raise Exception('Trace file too big: {0}'.format(trace_file_size))
 
-                with open(self._first_trace_path) as f:
-                    trace_json = f.read()
-                    profile.trace_data = gzip.compress(trace_json.encode())
-            except Exception as e:
-                logger.error('Error exporting Chrome trace', exc_info=True)
+            with open(self._first_trace_path) as f:
+                trace_json = f.read()
+                profile.trace_data = gzip.compress(trace_json.encode())
 
 
 class ONNXRuntimeProfilingSession():
@@ -82,41 +80,40 @@ class ONNXRuntimeProfilingSession():
 
 
 _profiler = ONNXRuntimeProfiler()
-_profiling_session = None
+_profiling_sessions = []
 
 
-def _cleanup_profiling_session():
-    global _profiling_session
+def _cleanup_profiling_sessions():
+    if _profiling_sessions:
+        for profiling_session in _profiling_sessions:
+            profiling_session.cleanup()
 
-    if _profiling_session:
-        _profiling_session.cleanup()
-
-atexit.register(_cleanup_profiling_session)
+atexit.register(_cleanup_profiling_sessions)
 
 
-def initialize_profiler(session_options: onnxruntime.SessionOptions):
+def initialize_profiler(onnx_session_options: onnxruntime.SessionOptions):
     graphsignal._check_configured()
 
-    global _profiling_session
+    profiling_session = ONNXRuntimeProfilingSession()
+    _profiling_sessions.append(profiling_session)
 
-    if _profiling_session:
-        _profiler.reset()
-        _profiling_session.cleanup()
-
-    _profiling_session = ONNXRuntimeProfilingSession()
-
-    session_options.enable_profiling = True
-    session_options.profile_file_prefix = _profiling_session.log_dir
+    onnx_session_options.enable_profiling = True
+    onnx_session_options.profile_file_prefix = profiling_session.log_dir
 
 
-def profile_inference(
-        session: onnxruntime.InferenceSession,
-        batch_size: Optional[int] = None,
-        ensure_profile: Optional[bool] = False) -> InferenceSpan:
+def inference_span(
+        model_name: str,
+        metadata: Optional[dict] = None,
+        ensure_profile: Optional[bool] = False,
+        onnx_session: Optional[onnxruntime.InferenceSession] = None) -> InferenceSpan:
     graphsignal._check_configured()
+
+    if not onnx_session:
+        raise ValueError('onnx_session is required')
 
     return InferenceSpan(
-        batch_size=batch_size,
+        model_name=model_name,
+        metadata=metadata,
         ensure_profile=ensure_profile,
         operation_profiler=_profiler,
-        context=session)
+        context=onnx_session)

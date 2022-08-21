@@ -1,53 +1,45 @@
 import unittest
 import logging
 import sys
-import os
-import json
-import time
 from unittest.mock import patch, Mock
+import torch
 from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
+from graphsignal.tracers.pytorch import inference_span
 from graphsignal.proto import profiles_pb2
 from graphsignal.uploader import Uploader
 
 logger = logging.getLogger('graphsignal')
 
 
-class JaxProfilerTest(unittest.TestCase):
+class PyTorchProfilerTest(unittest.TestCase):
     def setUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
-            workload_name='w1',
             debug_mode=True)
 
     def tearDown(self):
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         graphsignal.shutdown()
 
     @patch.object(Uploader, 'upload_profile')
-    def test_profile_inference(self, mocked_upload_profile):
-        try:
-            import jax
-            import jax.numpy as jnp
-            from jax import grad, jit, vmap
-            from jax import random
-        except ImportError:
-            logger.info('Not testing JAX profiler, package not found.')
-            return
+    def test_inference_span(self, mocked_upload_profile):
+        x = torch.arange(-5, 5, 0.1).view(-1, 1)
+        y = -5 * x + 0.1 * torch.randn(x.size())
+        model = torch.nn.Linear(1, 1)
+        if torch.cuda.is_available():
+            x = x.to('cuda:0')
+            y = y.to('cuda:0')
+            model = model.to('cuda:0')
 
-        from graphsignal.profilers.jax import profile_inference
+        with inference_span('m1'):
+            y1 = model(x)
 
-        with profile_inference():
-            key = random.PRNGKey(0)
-            x = random.normal(key, (10,))
-            size = 100
-            x = random.normal(key, (size, size), dtype=jnp.float32)
-            jnp.dot(x, x.T).block_until_ready()
-
-        graphsignal.upload()
         profile = mocked_upload_profile.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
@@ -55,16 +47,16 @@ class JaxProfilerTest(unittest.TestCase):
 
         self.assertEqual(
             profile.frameworks[0].type,
-            profiles_pb2.FrameworkInfo.FrameworkType.JAX_FRAMEWORK)
+            profiles_pb2.FrameworkInfo.FrameworkType.PYTORCH_FRAMEWORK)
 
         test_op_stats = None
         for op_stats in profile.op_stats:
-            if op_stats.op_name == 'Thunk':
+            if op_stats.op_name == 'aten::addmm':
                 test_op_stats = op_stats
                 break
         self.assertIsNotNone(test_op_stats)
         self.assertTrue(test_op_stats.count >= 1)
-        if jax.device_count() > 0:
+        if torch.cuda.is_available():
             self.assertTrue(test_op_stats.total_device_time_us >= 1)
             self.assertTrue(test_op_stats.self_device_time_us >= 1)
         else:

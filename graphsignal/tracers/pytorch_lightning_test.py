@@ -19,7 +19,6 @@ class PyTorchLightningTest(unittest.TestCase):
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
-            workload_name='w1',
             debug_mode=True)
 
     def tearDown(self):
@@ -35,7 +34,7 @@ class PyTorchLightningTest(unittest.TestCase):
         from torchmetrics import Accuracy
         from torchvision import transforms
         from torchvision.datasets import MNIST
-        from graphsignal.profilers.pytorch_lightning import GraphsignalCallback
+        from graphsignal.tracers.pytorch_lightning import GraphsignalCallback
 
         PATH_DATASETS = os.environ.get("PATH_DATASETS", ".")
         AVAIL_GPUS = min(1, torch.cuda.device_count())
@@ -89,7 +88,7 @@ class PyTorchLightningTest(unittest.TestCase):
             accelerator='gpu' if torch.cuda.is_available() else 'cpu',
             devices=AVAIL_GPUS,
             max_epochs=1,
-            callbacks=[GraphsignalCallback(batch_size=mnist_model.batch_size)]
+            callbacks=[GraphsignalCallback(model_name='m1', batch_size=mnist_model.batch_size)]
         )
 
         trainer.tune(mnist_model)
@@ -103,7 +102,8 @@ class PyTorchLightningTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(profile))
 
-        self.assertEqual(profile.inference_stats.batch_size, mnist_model.batch_size)
+        self.assertEqual(profile.model_name, 'm1')
+        self.assertTrue(len(profile.inference_stats.extra_counters['items'].buckets_sec), 1)
 
         self.assertTrue(
             profile.profiler_info.framework_profiler_type, 
@@ -118,9 +118,6 @@ class PyTorchLightningTest(unittest.TestCase):
             profile.model_info.model_format,
             profiles_pb2.ModelInfo.ModelFormat.PYTORCH_FORMAT)
         self.assertTrue(profile.model_info.model_size_bytes > 0)
-
-        self.assertEqual(profile.metrics[0].name, 'test_acc')
-        self.assertTrue(profile.metrics[0].value > 0)
 
         test_op_stats = None
         for op_stats in profile.op_stats:

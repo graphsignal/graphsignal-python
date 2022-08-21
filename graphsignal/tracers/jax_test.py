@@ -3,52 +3,49 @@ import logging
 import sys
 import os
 import json
+import time
 from unittest.mock import patch, Mock
-import tensorflow as tf
 from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
-from graphsignal.profilers.tensorflow import profile_inference
 from graphsignal.proto import profiles_pb2
 from graphsignal.uploader import Uploader
 
 logger = logging.getLogger('graphsignal')
 
 
-class TensorflowProfilerTest(unittest.TestCase):
+class JaxProfilerTest(unittest.TestCase):
     def setUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
-            workload_name='w1',
             debug_mode=True)
 
     def tearDown(self):
         graphsignal.shutdown()
 
     @patch.object(Uploader, 'upload_profile')
-    def test_profile_inference(self, mocked_upload_profile):
-        os.environ["TF_CONFIG"] = json.dumps({
-            "cluster": {
-                "chief": ["host1:port"],
-                "worker": ["host1:port", "host2:port"]
-            },
-            "task": {"type": "worker", "index": 1}
-        })
+    def test_inference_span(self, mocked_upload_profile):
+        try:
+            import jax
+            import jax.numpy as jnp
+            from jax import grad, jit, vmap
+            from jax import random
+        except ImportError:
+            logger.info('Not testing JAX profiler, package not found.')
+            return
 
-        @tf.function
-        def f(x):
-            while tf.reduce_sum(x) > 1:
-                #tf.print(x)
-                x = tf.tanh(x)
-            return x
+        from graphsignal.tracers.jax import inference_span
 
-        with profile_inference(batch_size=128):
-            f(tf.random.uniform([5]))
+        with inference_span('m1'):
+            key = random.PRNGKey(0)
+            x = random.normal(key, (10,))
+            size = 100
+            x = random.normal(key, (size, size), dtype=jnp.float32)
+            jnp.dot(x, x.T).block_until_ready()
 
-        graphsignal.upload()
         profile = mocked_upload_profile.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
@@ -56,19 +53,16 @@ class TensorflowProfilerTest(unittest.TestCase):
 
         self.assertEqual(
             profile.frameworks[0].type,
-            profiles_pb2.FrameworkInfo.FrameworkType.TENSORFLOW_FRAMEWORK)
-        self.assertEqual(profile.process_usage.global_rank, 1)
-
-        self.assertEqual(profile.inference_stats.world_size, 3)
+            profiles_pb2.FrameworkInfo.FrameworkType.JAX_FRAMEWORK)
 
         test_op_stats = None
         for op_stats in profile.op_stats:
-            if op_stats.op_name == 'RandomUniform':
+            if op_stats.op_name == 'Thunk':
                 test_op_stats = op_stats
                 break
         self.assertIsNotNone(test_op_stats)
         self.assertTrue(test_op_stats.count >= 1)
-        if len(tf.config.list_physical_devices('GPU')) > 0:
+        if jax.device_count() > 0:
             self.assertTrue(test_op_stats.total_device_time_us >= 1)
             self.assertTrue(test_op_stats.self_device_time_us >= 1)
         else:

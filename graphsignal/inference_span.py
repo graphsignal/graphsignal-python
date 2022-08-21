@@ -11,65 +11,78 @@ logger = logging.getLogger('graphsignal')
 
 
 class InferenceSpan:
+
     __slots__ = [
         '_operation_profiler',
+        '_profile_scheduler',
+        '_inference_stats',
+        '_workload',
+        '_model_name',
+        '_ensure_profile',
+        '_metadata',
         '_context',
         '_is_scheduled',
         '_is_profiling',
         '_profile',
-        '_stop_lock',
-        '_batch_size',
+        '_is_stopped',
         '_start_counter',
-        '_metrics'
+        '_extra_counts'
     ]
 
     def __init__(self, 
-            batch_size=None, 
+            model_name,
+            metadata=None,
             ensure_profile=False, 
             operation_profiler=None,
             context=None):
-        if batch_size is not None and not isinstance(batch_size, int):
-                raise ValueError('Invalid batch_size')
-        self._batch_size = batch_size
-
+        if not model_name:
+            raise ValueError('model_name is required')
+        if metadata is not None and not isinstance(metadata, dict):
+            raise ValueError('metadata must be dict')
+        self._model_name = model_name
+        self._metadata = metadata
+        self._ensure_profile = ensure_profile
         self._operation_profiler = operation_profiler
         self._context = context
+
+        self._workload = None
+        self._profile_scheduler = None
+        self._inference_stats = None
+        self._is_stopped = False
         self._is_scheduled = False
         self._is_profiling = False
         self._profile = None
-        self._stop_lock = Lock()
-        self._metrics = None
+        self._extra_counts = None
 
-        current_run = graphsignal.current_run()
+        try:
+            self._start()
+        except Exception as ex:
+            if self._is_scheduled:
+                self._is_stopped = True
+                self._profile_scheduler.unlock()
+            raise ex
 
-        if current_run.profile_scheduler.lock(ensure=ensure_profile):
+    def _start(self):
+        if self._is_stopped:
+            return
+
+        self._workload = graphsignal.workload()
+        self._profile_scheduler = self._workload.get_profile_scheduler(self._model_name)
+        self._inference_stats = self._workload.get_inference_stats(self._model_name)
+
+        if self._profile_scheduler.lock(ensure=self._ensure_profile):
             if logger.isEnabledFor(logging.DEBUG):
                 profiling_start_overhead_counter = time.perf_counter()
 
             self._is_scheduled = True
-            self._profile = profiles_pb2.MLProfile()
-            self._profile.workload_name = graphsignal._agent.workload_name
-            self._profile.worker_id = graphsignal._agent.worker_id
-            self._profile.run_id = graphsignal.current_run().run_id
-            self._profile.run_start_ms = graphsignal.current_run().start_ms
-            self._profile.node_usage.node_rank = graphsignal._agent.node_rank 
-            self._profile.process_usage.global_rank = graphsignal._agent.global_rank 
-            self._profile.process_usage.local_rank = graphsignal._agent.local_rank 
-
-            try:
-                graphsignal._agent.process_reader.start()
-                graphsignal._agent.nvml_reader.start()
-            except Exception as exc:
-                logger.error('Error starting usage readers', exc_info=True)
-                self._add_profiler_exception(exc)
+            self._profile = self._workload.create_profile()
+            self._profile.model_name = self._model_name
 
             if not graphsignal._agent.disable_op_profiler and self._operation_profiler:
                 try:
                     self._operation_profiler.start(self._profile, self._context)
                     self._is_profiling = True
                 except Exception as exc:
-                    current_run.profile_scheduler.unlock()
-                    self._is_profiling = False
                     self._add_profiler_exception(exc)
                     logger.error('Error starting profiler', exc_info=True)
 
@@ -85,68 +98,95 @@ class InferenceSpan:
 
     def __exit__(self, *exc_info):
         self.stop(exc_info=exc_info)
+        return False
 
     def stop(self, exc_info=None) -> None:
+        try:
+            self._stop(exc_info=exc_info)
+        finally:
+            if self._is_scheduled:
+                self._is_stopped = True
+                self._profile_scheduler.unlock()            
+
+    def _stop(self, exc_info=None) -> None:
         stop_counter = time.perf_counter()
+        end_us = _timestamp_us()
 
-        with self._stop_lock:
-            if self._is_scheduled:
-                self._profile.end_us = _timestamp_us()
+        if self._is_stopped:
+            return
+        self._is_stopped = True
 
-                if self._is_profiling:
-                    try:
-                        self._operation_profiler.stop(self._profile, self._context)
-                    except Exception as exc:
-                        logger.error('Error stopping profiler', exc_info=True)
-                        self._add_profiler_exception(exc)
+        if exc_info and exc_info[1]:
+            self._inference_stats.inc_exception_counter(1, end_us)
 
-            current_run = graphsignal.current_run()
-            current_run.inc_total_inference_count()
+        if self._is_scheduled:
+            self._profile.end_us = end_us
 
-            # only measure if not profiling to exclude spans with profiler overhead
-            if not self._is_profiling:
-                current_run.update_inference_stats(
-                    int((stop_counter - self._start_counter) * 1e6),
-                    batch_size=self._batch_size)
-
-            if self._is_scheduled:
-                if logger.isEnabledFor(logging.DEBUG):
-                    profiling_stop_overhead_counter = time.perf_counter()
-
-                self._profile.inference_stats.inference_count = current_run.total_inference_count
-                stats = current_run.inference_stats
-                self._profile.inference_stats.inference_time_p95_us = stats.inference_time_p95_us()
-                self._profile.inference_stats.inference_time_avg_us = stats.inference_time_avg_us()
-                self._profile.inference_stats.inference_rate = stats.inference_rate()
-                self._profile.inference_stats.sample_rate = stats.sample_rate()
-                if self._batch_size:
-                    self._profile.inference_stats.batch_size = self._batch_size
-                current_run.reset_inference_stats()
-
-                if exc_info and exc_info[1]:
-                    self._add_inference_exception(exc_info)
-
+            if self._is_profiling:
                 try:
-                    graphsignal._agent.process_reader.read(self._profile)
-                    graphsignal._agent.nvml_reader.read(self._profile)
+                    self._operation_profiler.stop(self._profile, self._context)
                 except Exception as exc:
-                    logger.error('Error reading usage information', exc_info=True)
+                    logger.error('Error stopping profiler', exc_info=True)
                     self._add_profiler_exception(exc)
 
-                current_run.add_profile(self._profile)
+        self._inference_stats.inc_inference_counter(1, end_us)
+        if self._extra_counts is not None:
+            for name, value in self._extra_counts.items():
+                self._inference_stats.inc_extra_counter(name, value, end_us)
 
-                self._is_scheduled = False
-                self._is_profiling = False
-                self._profile = None
-                current_run.profile_scheduler.unlock()
+        # only measure time if not profiling to exclude profiler overhead
+        if not self._is_profiling:
+            self._inference_stats.add_time(int((stop_counter - self._start_counter) * 1e6))
 
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug('Profiling stop took: %fs', time.perf_counter() - profiling_stop_overhead_counter)
+        if self._is_scheduled:
+            if logger.isEnabledFor(logging.DEBUG):
+                profiling_stop_overhead_counter = time.perf_counter()
 
-    def set_batch_size(self, batch_size: int) -> None:
-        if not isinstance(batch_size, int):
-            raise ValueError('Invalid batch_size')
-        self._batch_size = batch_size
+            if exc_info and exc_info[1]:
+                self._add_inference_exception(exc_info)
+
+            for time_us in self._inference_stats.time_reservoir_us:
+                self._profile.inference_stats.time_reservoir_us.append(time_us)
+            inference_counter_proto = self._profile.inference_stats.inference_counter
+            for bucket, count in self._inference_stats.inference_counter.items():
+                inference_counter_proto.buckets_sec[bucket] = count
+            exception_counter_proto = self._profile.inference_stats.exception_counter
+            for bucket, count in self._inference_stats.exception_counter.items():
+                exception_counter_proto.buckets_sec[bucket] = count
+            for name, counter in self._inference_stats.extra_counters.items():
+                extra_counter_proto = self._profile.inference_stats.extra_counters[name]
+                for bucket, count in counter.items():
+                    extra_counter_proto.buckets_sec[bucket] = count
+            self._workload.reset_inference_stats(self._model_name)
+
+            try:
+                graphsignal._agent.process_reader.read(self._profile)
+                graphsignal._agent.nvml_reader.read(self._profile)
+            except Exception as exc:
+                logger.error('Error reading usage information', exc_info=True)
+                self._add_profiler_exception(exc)
+
+            if self._metadata is not None:
+                for key, value in self._metadata.items():
+                    entry = self._profile.metadata.add()
+                    entry.key = key
+                    entry.value = str(value)
+
+            graphsignal._agent.uploader.upload_profile(self._profile)
+            self._workload.tick()
+
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug('Profiling stop took: %fs', time.perf_counter() - profiling_stop_overhead_counter)
+
+    def set_count(self, name, value):
+        if not name:
+            raise ValueError('set_count: name must be provided')
+        if not isinstance(value, (int, float)):
+            raise ValueError('set_count: value must be int or float')
+
+        if self._extra_counts is None:
+            self._extra_counts = {}
+        self._extra_counts[name] = value
 
     def _add_inference_exception(self, exc_info):
         exception = self._profile.exceptions.add()

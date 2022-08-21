@@ -5,11 +5,11 @@ import gzip
 import shutil
 import glob
 
-from graphsignal.profilers.tensorflow_proto import overview_page_pb2
-from graphsignal.profilers.tensorflow_proto import input_pipeline_pb2
-from graphsignal.profilers.tensorflow_proto import tf_stats_pb2
-from graphsignal.profilers.tensorflow_proto import kernel_stats_pb2
-from graphsignal.profilers.tensorflow_proto import memory_profile_pb2
+from graphsignal.tracers.tensorflow_proto import overview_page_pb2
+from graphsignal.tracers.tensorflow_proto import input_pipeline_pb2
+from graphsignal.tracers.tensorflow_proto import tf_stats_pb2
+from graphsignal.tracers.tensorflow_proto import kernel_stats_pb2
+from graphsignal.tracers.tensorflow_proto import memory_profile_pb2
 
 from graphsignal.proto import profiles_pb2
 
@@ -33,8 +33,9 @@ def find_and_read(log_dir, file_pattern, decompress=True, max_size=None):
     found_path = file_paths[-1]
 
     if max_size:
-        if os.path.getsize(found_path) > max_size:
-            raise Exception('File is too big: {0}'.format())
+        file_size = os.path.getsize(found_path)
+        if file_size > max_size:
+            raise Exception('File is too big: {0}'.format(file_size))
 
     if decompress and found_path.endswith('.gz'):
         last_file = gzip.open(found_path, "rb")

@@ -18,7 +18,6 @@ class HuggingFaceSubclassTest(unittest.TestCase):
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
-            workload_name='w1',
             debug_mode=True)
 
     def tearDown(self):
@@ -33,7 +32,7 @@ class HuggingFaceSubclassTest(unittest.TestCase):
         raw_datasets = load_dataset("imdb")
 
         from transformers import AutoTokenizer
-        tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-cased", cache_dir='temp')
 
         def tokenize_function(examples):
             return tokenizer(examples["text"],
@@ -50,21 +49,22 @@ class HuggingFaceSubclassTest(unittest.TestCase):
 
         from transformers import AutoModelForSequenceClassification
         model = AutoModelForSequenceClassification.from_pretrained(
-            "bert-base-cased", num_labels=2)
+            "bert-base-cased", cache_dir='temp', num_labels=2)
 
         from transformers import TrainingArguments
         training_args = TrainingArguments("test_trainer",
             num_train_epochs=1)
             
         from transformers import Trainer
-        from graphsignal.profilers.pytorch import profile_inference
+        from graphsignal.tracers.pytorch import inference_span
 
         class MyTrainer(Trainer):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
             
             def prediction_step(self, *args, **kwargs):
-                with profile_inference(batch_size=training_args.eval_batch_size):
+                with inference_span('m1') as span:
+                    span.set_count('samples', training_args.eval_batch_size)
                     return super().prediction_step(*args, **kwargs)
 
         trainer = MyTrainer(
@@ -77,7 +77,6 @@ class HuggingFaceSubclassTest(unittest.TestCase):
 
         trainer.evaluate()
 
-        graphsignal.upload()
         profile = mocked_upload_profile.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()

@@ -18,7 +18,6 @@ class KerasCallbackTest(unittest.TestCase):
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
-            workload_name='w1',
             debug_mode=True)
 
     def tearDown(self):
@@ -65,7 +64,7 @@ class KerasCallbackTest(unittest.TestCase):
             metrics=['accuracy']
         )
 
-        from graphsignal.profilers.keras import GraphsignalCallback
+        from graphsignal.tracers.keras import GraphsignalCallback
 
         model.fit(ds_train,
             batch_size=128,
@@ -74,12 +73,15 @@ class KerasCallbackTest(unittest.TestCase):
 
         model.evaluate(ds_test,
             batch_size=128,
-            callbacks=[GraphsignalCallback(batch_size=128)])
+            callbacks=[GraphsignalCallback(model_name='m1', batch_size=128)])
 
         profile = mocked_upload_profile.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(profile))
+
+        self.assertEqual(profile.model_name, 'm1')
+        self.assertTrue(len(profile.inference_stats.extra_counters['items'].buckets_sec), 1)
 
         self.assertTrue(
             profile.profiler_info.framework_profiler_type, 
@@ -89,9 +91,6 @@ class KerasCallbackTest(unittest.TestCase):
             profile.frameworks[-1].type,
             profiles_pb2.FrameworkInfo.FrameworkType.KERAS_FRAMEWORK)
         self.assertTrue(profile.frameworks[-1].version.major > 0)
-
-        self.assertTrue(profile.metrics[0].name in ('accuracy', 'loss'))
-        self.assertTrue(profile.metrics[0].value > 0)
 
         test_op_stats = None
         for op_stats in profile.op_stats:

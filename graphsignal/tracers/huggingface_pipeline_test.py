@@ -18,7 +18,6 @@ class HuggingFaceGeneratorTest(unittest.TestCase):
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
-            workload_name='w1',
             debug_mode=True)
 
     def tearDown(self):
@@ -27,14 +26,13 @@ class HuggingFaceGeneratorTest(unittest.TestCase):
     @patch.object(Uploader, 'upload_profile')
     def test_pipeline(self, mocked_upload_profile):
         from transformers import pipeline
-        from graphsignal.profilers.pytorch import profile_inference
+        from graphsignal.tracers.pytorch import inference_span
 
         pipe = pipeline(task="text-generation", model='distilgpt2')
 
-        with profile_inference():
+        with inference_span('m1'):
             output = pipe('some text')
 
-        graphsignal.upload()
         profile = mocked_upload_profile.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()

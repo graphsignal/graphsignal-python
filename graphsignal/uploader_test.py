@@ -28,7 +28,6 @@ class UploaderTest(unittest.TestCase):
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
-            workload_name='w1',
             debug_mode=True)
         graphsignal._agent.uploader.clear()
 
@@ -77,7 +76,7 @@ class UploaderTest(unittest.TestCase):
         server.start()
 
         profile = profiles_pb2.MLProfile()
-        profile.workload_name = 'p1'
+        profile.model_name = 'm1'
         upload_request = profiles_pb2.UploadRequest()
         upload_request.ml_profiles.append(profile)
         upload_request.upload_ms = 123
@@ -87,11 +86,34 @@ class UploaderTest(unittest.TestCase):
         received_upload_request = profiles_pb2.UploadRequest()
         received_upload_request.ParseFromString(server.get_request_data())
         self.assertEqual(
-            received_upload_request.ml_profiles[0].workload_name, 'p1')
+            received_upload_request.ml_profiles[0].model_name, 'm1')
         self.assertEqual(received_upload_request.upload_ms, 123)
 
         server.join()
 
+    def test_post(self):
+        graphsignal._agent.uploader.profile_api_url = 'http://localhost:5005'
+
+        server = TestServer(5005)
+        server.set_response_data(
+            profiles_pb2.UploadResponse().SerializeToString())
+        server.start()
+
+        profile = profiles_pb2.MLProfile()
+        profile.model_name = 'm1'
+        upload_request = profiles_pb2.UploadRequest()
+        upload_request.ml_profiles.append(profile)
+        upload_request.upload_ms = 123
+        graphsignal._agent.uploader._post(
+            'profiles', upload_request.SerializeToString())
+
+        received_upload_request = profiles_pb2.UploadRequest()
+        received_upload_request.ParseFromString(server.get_request_data())
+        self.assertEqual(
+            received_upload_request.ml_profiles[0].model_name, 'm1')
+        self.assertEqual(received_upload_request.upload_ms, 123)
+
+        server.join()
 
 class TestServer(threading.Thread):
     def __init__(self, port, delay=None, handler_func=None):

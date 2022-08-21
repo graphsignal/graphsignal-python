@@ -8,18 +8,20 @@ from pytorch_lightning.callbacks.base import Callback
 import graphsignal
 from graphsignal.proto import profiles_pb2
 from graphsignal.proto_utils import parse_semver
-from graphsignal.profilers.pytorch import PyTorchProfiler
+from graphsignal.tracers.pytorch import PyTorchProfiler
 from graphsignal.inference_span import InferenceSpan
 
 logger = logging.getLogger('graphsignal')
 
 
 class GraphsignalCallback(Callback):
-    def __init__(self, batch_size: Optional[int] = None):
+    def __init__(self, model_name: str, metadata: Optional[dict] = None, batch_size: Optional[int] = None):
         super().__init__()
         self._pl_version = None
         self._profiler = PyTorchProfiler()
         self._span = None
+        self._model_name = model_name
+        self._metadata = metadata
         self._batch_size = batch_size
         self._model_size_mb = None
         self._node_rank = -1
@@ -37,7 +39,6 @@ class GraphsignalCallback(Callback):
 
     def on_validate_batch_end(self, trainer, pl_module, batch, batch_idx, dataloader_idx):
         self._stop_profiler(trainer)
-        self._log_metrics(trainer.logged_metrics)
 
     def on_test_start(self, trainer, pl_module):
         self._configure_profiler(trainer, pl_module)
@@ -50,7 +51,6 @@ class GraphsignalCallback(Callback):
 
     def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
         self._stop_profiler(trainer)
-        self._log_metrics(trainer.logged_metrics)
 
     def on_predict_start(self, trainer, pl_module):
         self._configure_profiler(trainer, pl_module)
@@ -63,7 +63,6 @@ class GraphsignalCallback(Callback):
 
     def on_predict_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
         self._stop_profiler(trainer)
-        self._log_metrics(trainer.logged_metrics)
 
     def _configure_profiler(self, trainer, pl_module):
         try:
@@ -86,8 +85,10 @@ class GraphsignalCallback(Callback):
     def _start_profiler(self, trainer):
         if not self._span:
             self._span = InferenceSpan(
-                batch_size=self._batch_size,
+                model_name=self._model_name,
+                metadata=self._metadata,
                 operation_profiler=self._profiler)
+            self._span.set_count('items', self._batch_size)
 
     def _stop_profiler(self, trainer):
         if self._span:
@@ -107,17 +108,17 @@ class GraphsignalCallback(Callback):
             framework.version.CopyFrom(self._pl_version)
 
             if self._check_param(trainer, 'world_size'):
-                profile.inference_stats.world_size = trainer.world_size
+                profile.cluster_info.world_size = trainer.world_size
 
             profile.model_info.model_format = profiles_pb2.ModelInfo.ModelFormat.PYTORCH_FORMAT
             if self._model_size_mb:
                 profile.model_info.model_size_bytes = int(self._model_size_mb * 1e6)
 
-            if self._node_rank >= 0 and graphsignal._agent.node_rank == -1:
+            if self._node_rank >= 0:
                 profile.node_usage.node_rank = self._node_rank
-            if self._global_rank >= 0 and graphsignal._agent.global_rank == -1:
+            if self._global_rank >= 0:
                 profile.process_usage.global_rank = self._global_rank
-            if self._local_rank >= 0 and graphsignal._agent.local_rank == -1:
+            if self._local_rank >= 0:
                 profile.process_usage.local_rank = self._local_rank
         except Exception as exc:
             self._span._add_profiler_exception(exc)
@@ -125,12 +126,3 @@ class GraphsignalCallback(Callback):
     def _check_param(self, trainer, param):
         value = getattr(trainer, param, None)
         return isinstance(value, (str, int, float, bool))
-
-    def _log_metrics(self, logged_metrics):
-        if logged_metrics:
-            for key, value in logged_metrics.items():
-                if isinstance(key, str):
-                    if isinstance(value, (int, float)):
-                        graphsignal.log_metric(key, value)
-                    elif isinstance(value, Tensor):
-                        graphsignal.log_metric(key, value.item())

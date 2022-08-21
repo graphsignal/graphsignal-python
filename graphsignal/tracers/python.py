@@ -12,17 +12,17 @@ logger = logging.getLogger('graphsignal')
 import graphsignal
 from graphsignal.proto import profiles_pb2
 from graphsignal.inference_span import InferenceSpan
-from graphsignal.profilers.operation_profiler import OperationProfiler
+from graphsignal.tracers.operation_profiler import OperationProfiler
 
 logger = logging.getLogger('graphsignal')
 
-class GenericProfiler(OperationProfiler):
+class PythonProfiler(OperationProfiler):
     def __init__(self):
         self._profiler = None
         self._exclude_path = os.path.dirname(os.path.realpath(graphsignal.__file__))
 
     def start(self, profile, context):
-        logger.debug('Activating generic profiler')
+        logger.debug('Activating Python profiler')
 
         # Profiler info
         profile.profiler_info.operation_profiler_type = profiles_pb2.ProfilerInfo.ProfilerType.GENERIC_PROFILER
@@ -31,7 +31,7 @@ class GenericProfiler(OperationProfiler):
         self._profiler.enable()
 
     def stop(self, profile, context):
-        logger.debug('Deactivating generic profiler')
+        logger.debug('Deactivating Python profiler')
 
         self._profiler.disable()
         self._convert_to_operations(profile)
@@ -61,15 +61,15 @@ def _to_us(sec):
     return int(sec * 1e6)
 
 
-_profiler = GenericProfiler()
+_profiler = PythonProfiler()
 
 
-def profile_inference(
-        batch_size: Optional[int] = None,
-        ensure_profile: Optional[bool] = False) -> InferenceSpan:
+def inference_span(
+        model_name: str,
+        metadata: Optional[dict] = None,ensure_profile: Optional[bool] = False) -> InferenceSpan:
     graphsignal._check_configured()
 
     return InferenceSpan(
-        batch_size=batch_size,
-        ensure_profile=ensure_profile,
+        model_name=model_name,
+        metadata=metadata,ensure_profile=ensure_profile,
         operation_profiler=_profiler)

@@ -1,16 +1,16 @@
-# Graphsignal: Inference Profiler
+# Graphsignal: Inference Profiling And Monitoring
 
 [![License](http://img.shields.io/github/license/graphsignal/graphsignal)](https://github.com/graphsignal/graphsignal/blob/main/LICENSE)
 [![Version](https://img.shields.io/github/v/tag/graphsignal/graphsignal?label=version)](https://github.com/graphsignal/graphsignal)
 [![Status](https://img.shields.io/uptimerobot/status/m787882560-d6b932eb0068e8e4ade7f40c?label=SaaS%20status)](https://stats.uptimerobot.com/gMBNpCqqqJ)
 
 
-Graphsignal is a machine learning inference profiler. It helps data scientists and ML engineers make model inference faster and more efficient. It is built for real-world use cases and allows ML practitioners to:
+Graphsignal is a machine learning inference profiling and monitoring platform. It helps data scientists and ML engineers make model inference faster and more efficient. It is built for real-world use cases and allows ML practitioners to:
 
-* Optimize inference by benchmarking latency and throughput, analyzing execution trace, operation-level statistics and compute utilization.
-* Start profiling scripts and notebooks automatically by adding a few lines of code.
-* Use the profiler in local, remote or cloud environment without installing any additional software or opening inbound ports.
-* Keep data private; no code or data is sent to Graphsignal cloud, only run statistics and metadata.
+* Optimize and monitor inference by measuring latency and throughput, analyzing bottlenecks and resource utilization.
+* Start profiling and monitoring jobs and server applications automatically by adding a few lines of code.
+* Use Graphsignal in local, remote or cloud environment without installing any additional software or opening inbound ports.
+* Keep data private; no code or data is sent to Graphsignal cloud, only statistics and metadata.
 
 [![Dashboards](https://graphsignal.com/external/screencast-dashboards.gif)](https://graphsignal.com/)
 
@@ -25,7 +25,7 @@ See full documentation at [graphsignal.com/docs](https://graphsignal.com/docs/).
 
 ### 1. Installation
 
-Install the profiler by running:
+Install Graphsignal agent by running:
 
 ```
 pip install graphsignal
@@ -41,44 +41,50 @@ python setup.py install
 
 ### 2. Configuration
 
-Configure the profiler by specifying your API key and workload name directly or via environment variables.
+Configure Graphsignal agent by specifying your API key directly or via environment variable.
 
 ```python
 import graphsignal
 
-graphsignal.configure(api_key='my_api_key', workload_name='job1')
+graphsignal.configure(api_key='my_api_key')
 ```
 
 To get an API key, sign up for a free account at [graphsignal.com](https://graphsignal.com). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.com/settings/api-keys) page.
 
-`workload_name` identifies the job, application or service that is being profiled.
+For server applications, provide a `workload_name` to group and aggregate performance data from all workers. See [Model Serving](/docs/guides/model-serving/) guide for more information. 
 
-One workload can be run multiple times, e.g. to benchmark different parameters. To tag each run, use `graphsignal.add_tag('mytag')`.
+When `workload_name` is not provided, each run is tracked separately.
 
-In case of multiple subsequent runs/experiments executed within a single script or notebook, call `graphsignal.end_run()` to end current run, upload it and initialize a new one.
 
-Graphsignal has a built-in support for distributed inference. See [Distributed Workloads](https://graphsignal.com/docs/profiler/distributed-workloads/) section for more information.
+### Integration
 
-### 3. Profiling
+Use the following examples to integrate Graphsignal agent into your machine learning application. See integration documentation and [API reference](/docs/reference/python-api/) for full reference.
 
-Use the following minimal examples to integrate Graphsignal into your machine learning script. See integration documentation and  [profiling API reference](https://graphsignal.com/docs/profiler/api-reference/) for full reference.
+Graphsignal agent is **optimized for production**. All inferences wrapped with `inference_span` will be measured, but only a few will be profiled to ensure low overhead.
 
-When `profile_inference` method is used repeatedly, all inferences will be measured, but only a few will be profiled to ensure low overhead.
 
+#### [Python](https://graphsignal.com/docs/integrations/python/)
+
+```python
+from graphsignal.tracers.python import inference_span
+
+with inference_span(model_name='my-model'):
+    # function call or code segment
+```
 
 #### [TensorFlow](https://graphsignal.com/docs/integrations/tensorflow/)
 
 ```python
-from graphsignal.profilers.tensorflow import profile_inference
+from graphsignal.tracers.tensorflow import inference_span
 
-with profile_inference():
-    # single or batch prediction
+with inference_span(model_name='my-model'):
+    # function call or code segment
 ```
 
 #### [Keras](https://graphsignal.com/docs/integrations/keras/)
 
 ```python
-from graphsignal.profilers.keras import GraphsignalCallback
+from graphsignal.tracers.keras import GraphsignalCallback
 
 model.predict(..., callbacks=[GraphsignalCallback()])
 # or model.evaluate(..., callbacks=[GraphsignalCallback()])
@@ -87,16 +93,16 @@ model.predict(..., callbacks=[GraphsignalCallback()])
 #### [PyTorch](https://graphsignal.com/docs/integrations/pytorch/)
 
 ```python
-from graphsignal.profilers.pytorch import profile_inference
+from graphsignal.tracers.pytorch import inference_span
 
-with profile_inference():
-    # single or batch prediction
+with inference_span(model_name='my-model'):
+    # function call or code segment
 ```
 
 #### [PyTorch Lightning](https://graphsignal.com/docs/integrations/pytorch-lightning/)
 
 ```python
-from graphsignal.profilers.pytorch_lightning import GraphsignalCallback
+from graphsignal.tracers.pytorch_lightning import GraphsignalCallback
 
 trainer = Trainer(..., callbacks=[GraphsignalCallback()])
 trainer.predict() # or trainer.validate() or trainer.test()
@@ -106,82 +112,86 @@ trainer.predict() # or trainer.validate() or trainer.test()
 
 ```python
 from transformers import pipeline
-from graphsignal.profilers.pytorch import profile_inference
-# or from graphsignal.profilers.tensorflow import profile_inference
+from graphsignal.tracers.pytorch import inference_span
+# or from graphsignal.tracers.tensorflow import inference_span
 
 pipe = pipeline(task="text-generation")
 
-with profile_inference():
+with inference_span(model_name='my-model'):
     output = pipe('some text')
 ```
 
 #### [JAX](https://graphsignal.com/docs/integrations/jax/)
 
 ```python
-from graphsignal.profilers.jax import profile_inference
+from graphsignal.tracers.jax import inference_span
 
-with profile_inference():
-    # single or batch prediction
+with inference_span(model_name='my-model'):
+    # function call or code segment
 ```
 
 #### [ONNX Runtime](https://graphsignal.com/docs/integrations/onnx-runtime/)
 
 ```python
 import onnxruntime
-from graphsignal.profilers.onnxruntime import initialize_profiler, profile_inference
+from graphsignal.tracers.onnxruntime import initialize_profiler, inference_span
 
 sess_options = onnxruntime.SessionOptions()
 initialize_profiler(sess_options)
 
-session = onnxruntime.InferenceSession('my_model_path', sess_options)
-with profile_inference(session):
+session = onnxruntime.InferenceSession('my-model-path', sess_options)
+with inference_span(model_name='my-model', onnx_session=session):
     session.run(...)
 ```
 
-#### [Other frameworks](https://graphsignal.com/docs/integrations/other-frameworks/)
+
+#### Measuring Rates
+
+By using any `inference_span` method, multiple metrics are automatically measured and periodically reported, including inference performance, CPU, GPU and memory.
+
+To measure additional rates, `InferenceSpan.set_count(name, value)` method can be used. For example, by providing the number of processed items on every inference, item rate per second will be automatically calculated.
 
 ```python
-from graphsignal.profilers.generic import profile_inference
-
-with profile_inference():
-    # single or batch prediction
+with inference_span(model_name='text-classification') as span:
+    span.set_count('sentences', 5)
+    span.set_count('words', 250)
 ```
 
-### 4. Logging
 
-Logging parameters and metrics enables benchmarking inference latency and throughput against logged values. For example, logging evaluation accuracy in optimization runs is useful for ensuring that the accuracy is not affected by inference optimizations or to identify the best tradeoff.
+### 3. Monitoring
 
-```python
-graphsignal.log_param('my_param', 'val')
-```
-
-```python
-graphsignal.log_metric('my_metric', 0.9)
-```
-
-Parameters and metrics can also be passed via environment variables. See [profiling API reference](/docs/profiler/api-reference/#graphsignallog_param) for full documentation.
+After everything is setup, [log in](https://app.graphsignal.com/) to Graphsignal to monitor and analyze inference performance.
 
 
-### 5. Dashboards
+## Examples
 
-After profiling is setup, [open](https://app.graphsignal.com/) Graphsignal to analyze recorded profiles.
-
-
-## Example
+### Model serving
 
 ```python
-# 1. Import Graphsignal modules
 import graphsignal
-from graphsignal.profilers.pytorch import profile_inference
+from graphsignal.tracers.pytorch import inference_span
 
-# 2. Configure
-graphsignal.configure(api_key='my_key', workload_name='my_gpu_inference')
+graphsignal.configure(api_key='my-api-key', workload_name='my-model-serving')
+
+...
+
+def predict(x):
+    with inference_span(model_name='my-model'):
+        return model(x)
+```
+
+### Batch job
+
+```python
+import graphsignal
+from graphsignal.tracers.pytorch import inference_span
+
+graphsignal.configure(api_key='my-api-key')
 
 ....
 
-# 3. Use profile method to measure and profile single or batch predictions
 for x in data:
-    with profile_inference():
+    with inference_span(model_name='my-model'):
         preds = model(x)
 ```
 
@@ -190,23 +200,23 @@ More integration examples are available in [`examples`](https://github.com/graph
 
 ## Overhead
 
-Although profiling may add some overhead to applications, Graphsignal Profiler only profiles certain inferences, automatically limiting the overhead.
+Although profiling may add some overhead to applications, Graphsignal only profiles certain inferences, automatically limiting the overhead.
 
 
 ## Security and Privacy
 
-Graphsignal Profiler can only open outbound connections to `profile-api.graphsignal.com` and send data, no inbound connections or commands are possible. 
+Graphsignal Profiler can only open outbound connections to `agent-api.graphsignal.com` and send data, no inbound connections or commands are possible. 
 
-No code or data is sent to Graphsignal cloud, only run statistics and metadata.
+No code or data is sent to Graphsignal cloud, only statistics and metadata.
 
 
 ## Troubleshooting
 
 To enable debug logging, add `debug_mode=True` to `configure()`. If the debug log doesn't give you any hints on how to fix a problem, please report it to our support team via your account.
 
-In case of connection issues, please make sure outgoing connections to `https://profile-api.graphsignal.com` are allowed.
+In case of connection issues, please make sure outgoing connections to `https://agent-api.graphsignal.com` are allowed.
 
-For GPU profiling, if `libcupti` library is failing to load, make sure the [NVIDIA® CUDA® Profiling Tools Interface](https://developer.nvidia.com/cupti) (CUPTI) is installed by running:
+For GPU profiling, if `libcupti` agent is failing to load, make sure the [NVIDIA® CUDA® Profiling Tools Interface](https://developer.nvidia.com/cupti) (CUPTI) is installed by running:
 
 ```console
 /sbin/ldconfig -p | grep libcupti
