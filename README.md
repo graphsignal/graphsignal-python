@@ -46,7 +46,7 @@ Configure Graphsignal agent by specifying your API key directly or via environme
 ```python
 import graphsignal
 
-graphsignal.configure(api_key='my_api_key')
+graphsignal.configure(api_key='my_api_key', workload_name='model-serving-prod')
 ```
 
 To get an API key, sign up for a free account at [graphsignal.com](https://graphsignal.com). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.com/settings/api-keys) page.
