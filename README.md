@@ -46,7 +46,7 @@ Configure Graphsignal agent by specifying your API key directly or via environme
 ```python
 import graphsignal
 
-graphsignal.configure(api_key='my_api_key')
+graphsignal.configure(api_key='my-api-key')
 ```
 
 To get an API key, sign up for a free account at [graphsignal.com](https://graphsignal.com). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.com/settings/api-keys) page.
@@ -59,7 +59,7 @@ graphsignal.configure(api_key='my-api-key', workload_name='model-serving-prod')
 
 ### Integration
 
-Use the following examples to integrate Graphsignal agent into your machine learning application. See integration documentation and [API reference](/docs/reference/python-api/) for full reference.
+Use the following examples to integrate Graphsignal agent into your machine learning application. See integration documentation and [API reference](https://graphsignal.com/docs/reference/python-api/) for full reference.
 
 Graphsignal agent is **optimized for production**. All inferences wrapped with `inference_span` will be measured, but only a few will be profiled to ensure low overhead.
 
