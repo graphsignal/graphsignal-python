@@ -87,7 +87,8 @@ def configure(
     _agent = Agent()
     _agent.worker_id = _uuid_sha1(size=12)
     _agent.api_key = api_key
-    _agent.workload_name = workload_name
+    if workload_name:
+        _agent.workload_name = workload_name
     _agent.disable_op_profiler = disable_op_profiler
     _agent.debug_mode = debug_mode
     _agent.uploader = Uploader()
@@ -101,7 +102,7 @@ def configure(
     if workload_name:
         _agent.workload.workload_id = _sha1(workload_name, size=12)
     else:
-        _agent.workload.workload_id = _uuid_sha1(size=12)
+        _agent.workload.workload_id = _sha1('', size=12)
 
     atexit.register(shutdown)
 

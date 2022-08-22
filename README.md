@@ -51,10 +51,11 @@ graphsignal.configure(api_key='my_api_key')
 
 To get an API key, sign up for a free account at [graphsignal.com](https://graphsignal.com). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.com/settings/api-keys) page.
 
-For server applications, provide a `workload_name` to group and aggregate performance data from all workers. See [Model Serving](/docs/guides/model-serving/) guide for more information. 
+Provide a `workload_name` to track runs, deployments or applications separately. 
 
-When `workload_name` is not provided, each run is tracked separately.
-
+```python
+graphsignal.configure(api_key='my-api-key', workload_name='model-serving-prod')
+```
 
 ### Integration
 
@@ -86,8 +87,8 @@ with inference_span(model_name='my-model'):
 ```python
 from graphsignal.tracers.keras import GraphsignalCallback
 
-model.predict(..., callbacks=[GraphsignalCallback()])
-# or model.evaluate(..., callbacks=[GraphsignalCallback()])
+model.predict(..., callbacks=[GraphsignalCallback(model_name='my-model')])
+# or model.evaluate(..., callbacks=[GraphsignalCallback(model_name='my-model')])
 ```
 
 #### [PyTorch](https://graphsignal.com/docs/integrations/pytorch/)
@@ -104,7 +105,7 @@ with inference_span(model_name='my-model'):
 ```python
 from graphsignal.tracers.pytorch_lightning import GraphsignalCallback
 
-trainer = Trainer(..., callbacks=[GraphsignalCallback()])
+trainer = Trainer(..., callbacks=[GraphsignalCallback(model_name='my-model')])
 trainer.predict() # or trainer.validate() or trainer.test()
 ```
 
@@ -171,7 +172,8 @@ After everything is setup, [log in](https://app.graphsignal.com/) to Graphsignal
 import graphsignal
 from graphsignal.tracers.pytorch import inference_span
 
-graphsignal.configure(api_key='my-api-key', workload_name='my-model-serving')
+graphsignal.configure(
+    api_key='my-api-key', workload_name='my-model-serving')
 
 ...
 
@@ -186,7 +188,8 @@ def predict(x):
 import graphsignal
 from graphsignal.tracers.pytorch import inference_span
 
-graphsignal.configure(api_key='my-api-key')
+graphsignal.configure(
+    api_key='my-api-key', workload_name='job-{0}'.format(datetime.date.today()))
 
 ....
 
