@@ -1,5 +1,6 @@
-from typing import Union
+from typing import Union, Any
 import logging
+import sys
 import time
 from threading import Lock
 import traceback
@@ -116,9 +117,6 @@ class InferenceSpan:
             return
         self._is_stopped = True
 
-        if exc_info and exc_info[1]:
-            self._inference_stats.inc_exception_counter(1, end_us)
-
         if self._is_scheduled:
             self._profile.end_us = end_us
 
@@ -138,13 +136,22 @@ class InferenceSpan:
         if not self._is_profiling:
             self._inference_stats.add_time(int((stop_counter - self._start_counter) * 1e6))
 
+        if exc_info and exc_info[0]:
+            self._inference_stats.inc_exception_counter(1, end_us)
+            self._workload.add_exception(exc_info, end_us)
+
         if self._is_scheduled:
             if logger.isEnabledFor(logging.DEBUG):
                 profiling_stop_overhead_counter = time.perf_counter()
 
-            if exc_info and exc_info[1]:
-                self._add_inference_exception(exc_info)
+            try:
+                graphsignal._agent.process_reader.read(self._profile)
+                graphsignal._agent.nvml_reader.read(self._profile)
+            except Exception as exc:
+                logger.error('Error reading usage information', exc_info=True)
+                self._add_profiler_exception(exc)
 
+            self._inference_stats.finalize(end_us)
             for time_us in self._inference_stats.time_reservoir_us:
                 self._profile.inference_stats.time_reservoir_us.append(time_us)
             inference_counter_proto = self._profile.inference_stats.inference_counter
@@ -159,18 +166,14 @@ class InferenceSpan:
                     extra_counter_proto.buckets_sec[bucket] = count
             self._workload.reset_inference_stats(self._model_name)
 
-            try:
-                graphsignal._agent.process_reader.read(self._profile)
-                graphsignal._agent.nvml_reader.read(self._profile)
-            except Exception as exc:
-                logger.error('Error reading usage information', exc_info=True)
-                self._add_profiler_exception(exc)
-
             if self._metadata is not None:
                 for key, value in self._metadata.items():
                     entry = self._profile.metadata.add()
                     entry.key = key
                     entry.value = str(value)
+
+            for exc_stats in self._workload.exception_stats.values():
+                self._profile.exception_stats.append(exc_stats)
 
             graphsignal._agent.uploader.upload_profile(self._profile)
             self._workload.tick()
@@ -178,7 +181,7 @@ class InferenceSpan:
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug('Profiling stop took: %fs', time.perf_counter() - profiling_stop_overhead_counter)
 
-    def set_count(self, name, value):
+    def set_count(self, name: str, value: Union[int, float]) -> None:
         if not name:
             raise ValueError('set_count: name must be provided')
         if not isinstance(value, (int, float)):
@@ -188,13 +191,24 @@ class InferenceSpan:
             self._extra_counts = {}
         self._extra_counts[name] = value
 
-    def _add_inference_exception(self, exc_info):
-        exception = self._profile.exceptions.add()
-        exception.message = str(exc_info[1])
-        if exc_info[2]:
-            frames = traceback.format_tb(exc_info[2])
-            if len(frames) > 0:
-                exception.stack_trace = ''.join(frames)
+    def add_metadata(self, key: str, value: Any) -> None:
+        if not key:
+            raise ValueError('add_metadata: key must be provided')
+        if value is None:
+            raise ValueError('add_metadata: value must be provided')
+
+        if self._metadata is None:
+            self._metadata = {}
+        self._metadata[key] = value
+
+    def add_exception(self, exc_info=Union[bool, tuple]) -> None:
+        if not exc_info:
+            raise ValueError('add_exception: exc_info must be provided')
+
+        if exc_info == True:
+            exc_info = sys.exc_info()
+
+        self._workload.add_exception(exc_info, _timestamp_us())
 
     def _add_profiler_exception(self, exc):
         profiler_error = self._profile.profiler_errors.add()

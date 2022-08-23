@@ -159,6 +159,19 @@ with inference_span(model_name='text-classification') as span:
 ```
 
 
+#### Reporting Exceptions
+
+When `with` context manager is used with `inference_span` methods, exceptions are automatically reported. For other cases, use `InferenceSpan.add_exception(exc_info)` method.
+
+```python
+span = inference_span(model_name='my-model'):
+try:
+    preds = model(inputs)
+except:
+    span.add_exception(exc_info=True)
+span.stop()
+```
+
 ### 3. Monitoring
 
 After everything is setup, [log in](https://app.graphsignal.com/) to Graphsignal to monitor and analyze inference performance.

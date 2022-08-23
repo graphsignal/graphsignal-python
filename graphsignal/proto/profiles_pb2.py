@@ -15,7 +15,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0eprofiles.proto\x12\x14graphsignal.profiles\"X\n\rUploadRequest\x12\x34\n\x0bml_profiles\x18\x01 \x03(\x0b\x32\x1f.graphsignal.profiles.MLProfile\x12\x11\n\tupload_ms\x18\x02 \x01(\x04\"\x10\n\x0eUploadResponse\"\xad\x01\n\rProfileRecord\x12\x0f\n\x07\x64\x61ta_id\x18\x01 \x01(\t\x12\x10\n\x08model_id\x18\x02 \x01(\t\x12\x12\n\nprofile_id\x18\x03 \x01(\t\x12\x33\n\nml_profile\x18\x04 \x01(\x0b\x32\x1f.graphsignal.profiles.MLProfile\x12\x1a\n\x12\x64\x61ta_retention_sec\x18\x05 \x01(\x04\x12\x14\n\x0ctime_skew_ms\x18\x06 \x01(\x12\"\xc7\x07\n\tMLProfile\x12\x12\n\nmodel_name\x18\x01 \x01(\t\x12\x15\n\rworkload_name\x18) \x01(\t\x12\x11\n\tworker_id\x18\x1c \x01(\t\x12\x13\n\x0bworkload_id\x18\x02 \x01(\t\x12\x10\n\x08start_us\x18\x05 \x01(\x04\x12\x0e\n\x06\x65nd_us\x18\x06 \x01(\x04\x12\x30\n\x08metadata\x18- \x03(\x0b\x32\x1e.graphsignal.profiles.Metadata\x12\x37\n\nframeworks\x18$ \x03(\x0b\x32#.graphsignal.profiles.FrameworkInfo\x12=\n\x0finference_stats\x18* \x01(\x0b\x32$.graphsignal.profiles.InferenceStats\x12\x33\n\nmodel_info\x18& \x01(\x0b\x32\x1f.graphsignal.profiles.ModelInfo\x12\x37\n\x0c\x63luster_info\x18+ \x01(\x0b\x32!.graphsignal.profiles.ClusterInfo\x12<\n\ncomm_usage\x18\x1b \x01(\x0b\x32(.graphsignal.profiles.CommunicationUsage\x12\x33\n\nnode_usage\x18\x19 \x01(\x0b\x32\x1f.graphsignal.profiles.NodeUsage\x12\x39\n\rprocess_usage\x18\x1a \x01(\x0b\x32\".graphsignal.profiles.ProcessUsage\x12\x37\n\x0c\x64\x65vice_usage\x18\x12 \x03(\x0b\x32!.graphsignal.profiles.DeviceUsage\x12/\n\x08op_stats\x18\x0b \x03(\x0b\x32\x1d.graphsignal.profiles.OpStats\x12\x37\n\x0ckernel_stats\x18\x0c \x03(\x0b\x32!.graphsignal.profiles.KernelStats\x12\x12\n\ntrace_data\x18! \x01(\x0c\x12\x1a\n\x12is_trace_available\x18\" \x01(\x08\x12\x33\n\nexceptions\x18( \x03(\x0b\x32\x1f.graphsignal.profiles.Exception\x12\x39\n\rprofiler_info\x18# \x01(\x0b\x32\".graphsignal.profiles.ProfilerInfo\x12<\n\x0fprofiler_errors\x18\x07 \x03(\x0b\x32#.graphsignal.profiles.ProfilerError\"5\n\x06SemVer\x12\r\n\x05major\x18\x01 \x01(\x05\x12\r\n\x05minor\x18\x02 \x01(\x05\x12\r\n\x05patch\x18\x03 \x01(\x05\"\xb8\x02\n\rFrameworkInfo\x12?\n\x04type\x18\x01 \x01(\x0e\x32\x31.graphsignal.profiles.FrameworkInfo.FrameworkType\x12-\n\x07version\x18\x02 \x01(\x0b\x32\x1c.graphsignal.profiles.SemVer\"\xb6\x01\n\rFrameworkType\x12\x17\n\x13\x46RAMEWORK_UNDEFINED\x10\x00\x12\x18\n\x14TENSORFLOW_FRAMEWORK\x10\x01\x12\x15\n\x11PYTORCH_FRAMEWORK\x10\x02\x12\x13\n\x0fKERAS_FRAMEWORK\x10\x03\x12\x1f\n\x1bPYTORCH_LIGHTNING_FRAMEWORK\x10\x04\x12\x11\n\rJAX_FRAMEWORK\x10\x07\x12\x12\n\x0eONNX_FRAMEWORK\x10\t\"&\n\x08Metadata\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\x84\x04\n\x0eInferenceStats\x12\x19\n\x11time_reservoir_us\x18\x01 \x03(\x04\x12G\n\x11inference_counter\x18\x02 \x01(\x0b\x32,.graphsignal.profiles.InferenceStats.Counter\x12G\n\x11\x65xception_counter\x18\x03 \x01(\x0b\x32,.graphsignal.profiles.InferenceStats.Counter\x12O\n\x0e\x65xtra_counters\x18\x04 \x03(\x0b\x32\x37.graphsignal.profiles.InferenceStats.ExtraCountersEntry\x1a\x8f\x01\n\x07\x43ounter\x12Q\n\x0b\x62uckets_sec\x18\x01 \x03(\x0b\x32<.graphsignal.profiles.InferenceStats.Counter.BucketsSecEntry\x1a\x31\n\x0f\x42ucketsSecEntry\x12\x0b\n\x03key\x18\x01 \x01(\x04\x12\r\n\x05value\x18\x02 \x01(\x04:\x02\x38\x01\x1a\x62\n\x12\x45xtraCountersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12;\n\x05value\x18\x02 \x01(\x0b\x32,.graphsignal.profiles.InferenceStats.Counter:\x02\x38\x01\"\xb2\x01\n\tModelInfo\x12\x41\n\x0cmodel_format\x18\x01 \x01(\x0e\x32+.graphsignal.profiles.ModelInfo.ModelFormat\x12\x18\n\x10model_size_bytes\x18\x02 \x01(\x04\"H\n\x0bModelFormat\x12\x14\n\x10\x46ORMAT_UNDEFINED\x10\x00\x12\x12\n\x0ePYTORCH_FORMAT\x10\x01\x12\x0f\n\x0bONNX_FORMAT\x10\x02\"!\n\x0b\x43lusterInfo\x12\x12\n\nworld_size\x18\x01 \x01(\x04\"\xd5\x01\n\x12\x43ommunicationUsage\x12W\n\x0c\x62\x61\x63kend_type\x18\x01 \x01(\x0e\x32\x41.graphsignal.profiles.CommunicationUsage.CommunicationBackendType\"f\n\x18\x43ommunicationBackendType\x12#\n\x1f\x43OMMUNICATION_BACKEND_UNDEFINED\x10\x00\x12\x08\n\x04NCCL\x10\x01\x12\x08\n\x04GLOO\x10\x02\x12\x07\n\x03MPI\x10\x03\x12\x08\n\x04RING\x10\x04\"\xc6\x01\n\tNodeUsage\x12\x10\n\x08hostname\x18\x01 \x01(\t\x12\x12\n\nip_address\x18\x07 \x01(\t\x12\x11\n\tnode_rank\x18\x08 \x01(\x05\x12\x10\n\x08mem_used\x18\t \x01(\x04\x12\x11\n\tmem_total\x18\n \x01(\x04\x12\x10\n\x08platform\x18\x02 \x01(\t\x12\x0f\n\x07machine\x18\x03 \x01(\t\x12\x0f\n\x07os_name\x18\x04 \x01(\t\x12\x12\n\nos_version\x18\x05 \x01(\t\x12\x13\n\x0bnum_devices\x18\x06 \x01(\x05\"\xf9\x02\n\x0cProcessUsage\x12\x12\n\nprocess_id\x18\x05 \x01(\t\x12\x10\n\x08start_ms\x18\x0e \x01(\x04\x12\x12\n\nlocal_rank\x18\x0c \x01(\x05\x12\x13\n\x0bglobal_rank\x18\x0f \x01(\x05\x12\x10\n\x08\x63pu_name\x18\x10 \x01(\t\x12\x19\n\x11\x63pu_usage_percent\x18\x01 \x01(\x01\x12\x0f\n\x07max_rss\x18\x02 \x01(\x04\x12\x13\n\x0b\x63urrent_rss\x18\x03 \x01(\x04\x12\x0f\n\x07vm_size\x18\x04 \x01(\x04\x12;\n\x07runtime\x18\x06 \x01(\x0e\x32*.graphsignal.profiles.ProcessUsage.Runtime\x12\x35\n\x0fruntime_version\x18\x07 \x01(\x0b\x32\x1c.graphsignal.profiles.SemVer\x12\x14\n\x0cruntime_impl\x18\x08 \x01(\t\",\n\x07Runtime\x12\x15\n\x11RUNTIME_UNDEFINED\x10\x00\x12\n\n\x06PYTHON\x10\x01\"\xcf\x03\n\x0b\x44\x65viceUsage\x12\x35\n\x0b\x64\x65vice_type\x18\x0b \x01(\x0e\x32 .graphsignal.profiles.DeviceType\x12\x11\n\tdevice_id\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65vice_name\x18\x02 \x01(\t\x12\x14\n\x0c\x61rchitecture\x18\x11 \x01(\t\x12\x38\n\x12\x63ompute_capability\x18\x0f \x01(\x0b\x32\x1c.graphsignal.profiles.SemVer\x12\x11\n\tmem_total\x18\x03 \x01(\x04\x12\x10\n\x08mem_used\x18\x04 \x01(\x04\x12\x10\n\x08mem_free\x18\x05 \x01(\x04\x12\x1f\n\x17gpu_utilization_percent\x18\x06 \x01(\x01\x12\x1a\n\x12mem_access_percent\x18\x10 \x01(\x01\x12\x1a\n\x12pcie_throughput_tx\x18\r \x01(\x01\x12\x1a\n\x12pcie_throughput_rx\x18\x0e \x01(\x01\x12\x12\n\ngpu_temp_c\x18\x08 \x01(\x01\x12\x15\n\rpower_usage_w\x18\t \x01(\x01\x12\x19\n\x11\x66\x61n_speed_percent\x18\n \x01(\x01\x12\x1f\n\x17mxu_utilization_percent\x18\x0c \x01(\x01\"\xea\x03\n\x07OpStats\x12\x35\n\x0b\x64\x65vice_type\x18\x01 \x01(\x0e\x32 .graphsignal.profiles.DeviceType\x12\x11\n\tdevice_id\x18\x02 \x01(\t\x12\x0f\n\x07op_type\x18\x03 \x01(\t\x12\x0f\n\x07op_name\x18\x04 \x01(\t\x12\r\n\x05\x63ount\x18\x05 \x01(\x04\x12\x1a\n\x12total_host_time_us\x18\x06 \x01(\x04\x12\x1c\n\x14total_device_time_us\x18\x07 \x01(\x04\x12\x19\n\x11self_host_time_us\x18\x08 \x01(\x04\x12\x1b\n\x13self_device_time_us\x18\t \x01(\x04\x12\x19\n\x11total_host_memory\x18\n \x01(\x04\x12\x1b\n\x13total_device_memory\x18\x0b \x01(\x04\x12\x18\n\x10self_host_memory\x18\x0c \x01(\x04\x12\x1a\n\x12self_device_memory\x18\r \x01(\x04\x12\x1d\n\x15self_host_memory_rate\x18\x0e \x01(\x04\x12\x1f\n\x17self_device_memory_rate\x18\x0f \x01(\x04\x12\r\n\x05\x66lops\x18\x10 \x01(\x04\x12\x15\n\rflops_per_sec\x18\x12 \x01(\x01\x12\x1e\n\x16tensorcore_utilization\x18\x11 \x01(\x01\"\xbe\x01\n\x0bKernelStats\x12\x35\n\x0b\x64\x65vice_type\x18\x01 \x01(\x0e\x32 .graphsignal.profiles.DeviceType\x12\x11\n\tdevice_id\x18\x02 \x01(\t\x12\x0f\n\x07op_name\x18\x03 \x01(\t\x12\x13\n\x0bkernel_name\x18\x04 \x01(\t\x12\r\n\x05\x63ount\x18\x05 \x01(\x04\x12\x13\n\x0b\x64uration_ns\x18\x06 \x01(\x04\x12\x1b\n\x13is_using_tensorcore\x18\x07 \x01(\x08\"1\n\tException\x12\x0f\n\x07message\x18\x01 \x01(\t\x12\x13\n\x0bstack_trace\x18\x02 \x01(\t\"\xa8\x03\n\x0cProfilerInfo\x12P\n\x17operation_profiler_type\x18\x01 \x01(\x0e\x32/.graphsignal.profiles.ProfilerInfo.ProfilerType\x12P\n\x17\x66ramework_profiler_type\x18\x02 \x01(\x0e\x32/.graphsignal.profiles.ProfilerInfo.ProfilerType\x12-\n\x07version\x18\x03 \x01(\x0b\x32\x1c.graphsignal.profiles.SemVer\"\xc4\x01\n\x0cProfilerType\x12\x16\n\x12PROFILER_UNDEFINED\x10\x00\x12\x14\n\x10GENERIC_PROFILER\x10\x01\x12\x17\n\x13TENSORFLOW_PROFILER\x10\x02\x12\x14\n\x10PYTORCH_PROFILER\x10\x03\x12\x12\n\x0eKERAS_PROFILER\x10\x04\x12\x1e\n\x1aPYTORCH_LIGHTNING_PROFILER\x10\x06\x12\x10\n\x0cJAX_PROFILER\x10\x08\x12\x11\n\rONNX_PROFILER\x10\n\"5\n\rProfilerError\x12\x0f\n\x07message\x18\x01 \x01(\t\x12\x13\n\x0bstack_trace\x18\x02 \x01(\t*B\n\nDeviceType\x12\x19\n\x15\x44\x45VICE_TYPE_UNDEFINED\x10\x00\x12\x07\n\x03\x43PU\x10\x01\x12\x07\n\x03GPU\x10\x02\x12\x07\n\x03TPU\x10\x03\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0eprofiles.proto\x12\x14graphsignal.profiles\"X\n\rUploadRequest\x12\x34\n\x0bml_profiles\x18\x01 \x03(\x0b\x32\x1f.graphsignal.profiles.MLProfile\x12\x11\n\tupload_ms\x18\x02 \x01(\x04\"\x10\n\x0eUploadResponse\"\xad\x01\n\rProfileRecord\x12\x0f\n\x07\x64\x61ta_id\x18\x01 \x01(\t\x12\x10\n\x08model_id\x18\x02 \x01(\t\x12\x12\n\nprofile_id\x18\x03 \x01(\t\x12\x33\n\nml_profile\x18\x04 \x01(\x0b\x32\x1f.graphsignal.profiles.MLProfile\x12\x1a\n\x12\x64\x61ta_retention_sec\x18\x05 \x01(\x04\x12\x14\n\x0ctime_skew_ms\x18\x06 \x01(\x12\"\xd1\x07\n\tMLProfile\x12\x12\n\nmodel_name\x18\x01 \x01(\t\x12\x15\n\rworkload_name\x18) \x01(\t\x12\x11\n\tworker_id\x18\x1c \x01(\t\x12\x13\n\x0bworkload_id\x18\x02 \x01(\t\x12\x10\n\x08start_us\x18\x05 \x01(\x04\x12\x0e\n\x06\x65nd_us\x18\x06 \x01(\x04\x12\x30\n\x08metadata\x18- \x03(\x0b\x32\x1e.graphsignal.profiles.Metadata\x12\x37\n\nframeworks\x18$ \x03(\x0b\x32#.graphsignal.profiles.FrameworkInfo\x12/\n\x08op_stats\x18\x0b \x03(\x0b\x32\x1d.graphsignal.profiles.OpStats\x12\x37\n\x0ckernel_stats\x18\x0c \x03(\x0b\x32!.graphsignal.profiles.KernelStats\x12\x12\n\ntrace_data\x18! \x01(\x0c\x12\x1a\n\x12is_trace_available\x18\" \x01(\x08\x12=\n\x0finference_stats\x18* \x01(\x0b\x32$.graphsignal.profiles.InferenceStats\x12=\n\x0f\x65xception_stats\x18. \x03(\x0b\x32$.graphsignal.profiles.ExceptionStats\x12\x33\n\nmodel_info\x18& \x01(\x0b\x32\x1f.graphsignal.profiles.ModelInfo\x12\x37\n\x0c\x63luster_info\x18+ \x01(\x0b\x32!.graphsignal.profiles.ClusterInfo\x12<\n\ncomm_usage\x18\x1b \x01(\x0b\x32(.graphsignal.profiles.CommunicationUsage\x12\x37\n\x0c\x64\x65vice_usage\x18\x12 \x03(\x0b\x32!.graphsignal.profiles.DeviceUsage\x12\x33\n\nnode_usage\x18\x19 \x01(\x0b\x32\x1f.graphsignal.profiles.NodeUsage\x12\x39\n\rprocess_usage\x18\x1a \x01(\x0b\x32\".graphsignal.profiles.ProcessUsage\x12\x39\n\rprofiler_info\x18# \x01(\x0b\x32\".graphsignal.profiles.ProfilerInfo\x12<\n\x0fprofiler_errors\x18\x07 \x03(\x0b\x32#.graphsignal.profiles.ProfilerError\"5\n\x06SemVer\x12\r\n\x05major\x18\x01 \x01(\x05\x12\r\n\x05minor\x18\x02 \x01(\x05\x12\r\n\x05patch\x18\x03 \x01(\x05\"&\n\x08Metadata\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xb8\x02\n\rFrameworkInfo\x12?\n\x04type\x18\x01 \x01(\x0e\x32\x31.graphsignal.profiles.FrameworkInfo.FrameworkType\x12-\n\x07version\x18\x02 \x01(\x0b\x32\x1c.graphsignal.profiles.SemVer\"\xb6\x01\n\rFrameworkType\x12\x17\n\x13\x46RAMEWORK_UNDEFINED\x10\x00\x12\x18\n\x14TENSORFLOW_FRAMEWORK\x10\x01\x12\x15\n\x11PYTORCH_FRAMEWORK\x10\x02\x12\x13\n\x0fKERAS_FRAMEWORK\x10\x03\x12\x1f\n\x1bPYTORCH_LIGHTNING_FRAMEWORK\x10\x04\x12\x11\n\rJAX_FRAMEWORK\x10\x07\x12\x12\n\x0eONNX_FRAMEWORK\x10\t\"\xea\x03\n\x07OpStats\x12\x35\n\x0b\x64\x65vice_type\x18\x01 \x01(\x0e\x32 .graphsignal.profiles.DeviceType\x12\x11\n\tdevice_id\x18\x02 \x01(\t\x12\x0f\n\x07op_type\x18\x03 \x01(\t\x12\x0f\n\x07op_name\x18\x04 \x01(\t\x12\r\n\x05\x63ount\x18\x05 \x01(\x04\x12\x1a\n\x12total_host_time_us\x18\x06 \x01(\x04\x12\x1c\n\x14total_device_time_us\x18\x07 \x01(\x04\x12\x19\n\x11self_host_time_us\x18\x08 \x01(\x04\x12\x1b\n\x13self_device_time_us\x18\t \x01(\x04\x12\x19\n\x11total_host_memory\x18\n \x01(\x04\x12\x1b\n\x13total_device_memory\x18\x0b \x01(\x04\x12\x18\n\x10self_host_memory\x18\x0c \x01(\x04\x12\x1a\n\x12self_device_memory\x18\r \x01(\x04\x12\x1d\n\x15self_host_memory_rate\x18\x0e \x01(\x04\x12\x1f\n\x17self_device_memory_rate\x18\x0f \x01(\x04\x12\r\n\x05\x66lops\x18\x10 \x01(\x04\x12\x15\n\rflops_per_sec\x18\x12 \x01(\x01\x12\x1e\n\x16tensorcore_utilization\x18\x11 \x01(\x01\"\xbe\x01\n\x0bKernelStats\x12\x35\n\x0b\x64\x65vice_type\x18\x01 \x01(\x0e\x32 .graphsignal.profiles.DeviceType\x12\x11\n\tdevice_id\x18\x02 \x01(\t\x12\x0f\n\x07op_name\x18\x03 \x01(\t\x12\x13\n\x0bkernel_name\x18\x04 \x01(\t\x12\r\n\x05\x63ount\x18\x05 \x01(\x04\x12\x13\n\x0b\x64uration_ns\x18\x06 \x01(\x04\x12\x1b\n\x13is_using_tensorcore\x18\x07 \x01(\x08\"\x84\x04\n\x0eInferenceStats\x12\x19\n\x11time_reservoir_us\x18\x01 \x03(\x04\x12G\n\x11inference_counter\x18\x02 \x01(\x0b\x32,.graphsignal.profiles.InferenceStats.Counter\x12G\n\x11\x65xception_counter\x18\x03 \x01(\x0b\x32,.graphsignal.profiles.InferenceStats.Counter\x12O\n\x0e\x65xtra_counters\x18\x04 \x03(\x0b\x32\x37.graphsignal.profiles.InferenceStats.ExtraCountersEntry\x1a\x8f\x01\n\x07\x43ounter\x12Q\n\x0b\x62uckets_sec\x18\x01 \x03(\x0b\x32<.graphsignal.profiles.InferenceStats.Counter.BucketsSecEntry\x1a\x31\n\x0f\x42ucketsSecEntry\x12\x0b\n\x03key\x18\x01 \x01(\x04\x12\r\n\x05value\x18\x02 \x01(\x04:\x02\x38\x01\x1a\x62\n\x12\x45xtraCountersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12;\n\x05value\x18\x02 \x01(\x0b\x32,.graphsignal.profiles.InferenceStats.Counter:\x02\x38\x01\"j\n\x0e\x45xceptionStats\x12\x10\n\x08\x65xc_type\x18\x01 \x01(\t\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x13\n\x0bstack_trace\x18\x03 \x01(\t\x12\r\n\x05\x63ount\x18\x04 \x01(\x04\x12\x11\n\tupdate_ms\x18\x05 \x01(\x04\"\xb2\x01\n\tModelInfo\x12\x41\n\x0cmodel_format\x18\x01 \x01(\x0e\x32+.graphsignal.profiles.ModelInfo.ModelFormat\x12\x18\n\x10model_size_bytes\x18\x02 \x01(\x04\"H\n\x0bModelFormat\x12\x14\n\x10\x46ORMAT_UNDEFINED\x10\x00\x12\x12\n\x0ePYTORCH_FORMAT\x10\x01\x12\x0f\n\x0bONNX_FORMAT\x10\x02\"!\n\x0b\x43lusterInfo\x12\x12\n\nworld_size\x18\x01 \x01(\x04\"\xd5\x01\n\x12\x43ommunicationUsage\x12W\n\x0c\x62\x61\x63kend_type\x18\x01 \x01(\x0e\x32\x41.graphsignal.profiles.CommunicationUsage.CommunicationBackendType\"f\n\x18\x43ommunicationBackendType\x12#\n\x1f\x43OMMUNICATION_BACKEND_UNDEFINED\x10\x00\x12\x08\n\x04NCCL\x10\x01\x12\x08\n\x04GLOO\x10\x02\x12\x07\n\x03MPI\x10\x03\x12\x08\n\x04RING\x10\x04\"\xc6\x01\n\tNodeUsage\x12\x10\n\x08hostname\x18\x01 \x01(\t\x12\x12\n\nip_address\x18\x07 \x01(\t\x12\x11\n\tnode_rank\x18\x08 \x01(\x05\x12\x10\n\x08mem_used\x18\t \x01(\x04\x12\x11\n\tmem_total\x18\n \x01(\x04\x12\x10\n\x08platform\x18\x02 \x01(\t\x12\x0f\n\x07machine\x18\x03 \x01(\t\x12\x0f\n\x07os_name\x18\x04 \x01(\t\x12\x12\n\nos_version\x18\x05 \x01(\t\x12\x13\n\x0bnum_devices\x18\x06 \x01(\x05\"\xf9\x02\n\x0cProcessUsage\x12\x12\n\nprocess_id\x18\x05 \x01(\t\x12\x10\n\x08start_ms\x18\x0e \x01(\x04\x12\x12\n\nlocal_rank\x18\x0c \x01(\x05\x12\x13\n\x0bglobal_rank\x18\x0f \x01(\x05\x12\x10\n\x08\x63pu_name\x18\x10 \x01(\t\x12\x19\n\x11\x63pu_usage_percent\x18\x01 \x01(\x01\x12\x0f\n\x07max_rss\x18\x02 \x01(\x04\x12\x13\n\x0b\x63urrent_rss\x18\x03 \x01(\x04\x12\x0f\n\x07vm_size\x18\x04 \x01(\x04\x12;\n\x07runtime\x18\x06 \x01(\x0e\x32*.graphsignal.profiles.ProcessUsage.Runtime\x12\x35\n\x0fruntime_version\x18\x07 \x01(\x0b\x32\x1c.graphsignal.profiles.SemVer\x12\x14\n\x0cruntime_impl\x18\x08 \x01(\t\",\n\x07Runtime\x12\x15\n\x11RUNTIME_UNDEFINED\x10\x00\x12\n\n\x06PYTHON\x10\x01\"\xcf\x03\n\x0b\x44\x65viceUsage\x12\x35\n\x0b\x64\x65vice_type\x18\x0b \x01(\x0e\x32 .graphsignal.profiles.DeviceType\x12\x11\n\tdevice_id\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65vice_name\x18\x02 \x01(\t\x12\x14\n\x0c\x61rchitecture\x18\x11 \x01(\t\x12\x38\n\x12\x63ompute_capability\x18\x0f \x01(\x0b\x32\x1c.graphsignal.profiles.SemVer\x12\x11\n\tmem_total\x18\x03 \x01(\x04\x12\x10\n\x08mem_used\x18\x04 \x01(\x04\x12\x10\n\x08mem_free\x18\x05 \x01(\x04\x12\x1f\n\x17gpu_utilization_percent\x18\x06 \x01(\x01\x12\x1a\n\x12mem_access_percent\x18\x10 \x01(\x01\x12\x1a\n\x12pcie_throughput_tx\x18\r \x01(\x01\x12\x1a\n\x12pcie_throughput_rx\x18\x0e \x01(\x01\x12\x12\n\ngpu_temp_c\x18\x08 \x01(\x01\x12\x15\n\rpower_usage_w\x18\t \x01(\x01\x12\x19\n\x11\x66\x61n_speed_percent\x18\n \x01(\x01\x12\x1f\n\x17mxu_utilization_percent\x18\x0c \x01(\x01\"\xa8\x03\n\x0cProfilerInfo\x12P\n\x17operation_profiler_type\x18\x01 \x01(\x0e\x32/.graphsignal.profiles.ProfilerInfo.ProfilerType\x12P\n\x17\x66ramework_profiler_type\x18\x02 \x01(\x0e\x32/.graphsignal.profiles.ProfilerInfo.ProfilerType\x12-\n\x07version\x18\x03 \x01(\x0b\x32\x1c.graphsignal.profiles.SemVer\"\xc4\x01\n\x0cProfilerType\x12\x16\n\x12PROFILER_UNDEFINED\x10\x00\x12\x14\n\x10GENERIC_PROFILER\x10\x01\x12\x17\n\x13TENSORFLOW_PROFILER\x10\x02\x12\x14\n\x10PYTORCH_PROFILER\x10\x03\x12\x12\n\x0eKERAS_PROFILER\x10\x04\x12\x1e\n\x1aPYTORCH_LIGHTNING_PROFILER\x10\x06\x12\x10\n\x0cJAX_PROFILER\x10\x08\x12\x11\n\rONNX_PROFILER\x10\n\"5\n\rProfilerError\x12\x0f\n\x07message\x18\x01 \x01(\t\x12\x13\n\x0bstack_trace\x18\x02 \x01(\t*B\n\nDeviceType\x12\x19\n\x15\x44\x45VICE_TYPE_UNDEFINED\x10\x00\x12\x07\n\x03\x43PU\x10\x01\x12\x07\n\x03GPU\x10\x02\x12\x07\n\x03TPU\x10\x03\x62\x06proto3')
 
 _DEVICETYPE = DESCRIPTOR.enum_types_by_name['DeviceType']
 DeviceType = enum_type_wrapper.EnumTypeWrapper(_DEVICETYPE)
@@ -30,21 +30,21 @@ _UPLOADRESPONSE = DESCRIPTOR.message_types_by_name['UploadResponse']
 _PROFILERECORD = DESCRIPTOR.message_types_by_name['ProfileRecord']
 _MLPROFILE = DESCRIPTOR.message_types_by_name['MLProfile']
 _SEMVER = DESCRIPTOR.message_types_by_name['SemVer']
-_FRAMEWORKINFO = DESCRIPTOR.message_types_by_name['FrameworkInfo']
 _METADATA = DESCRIPTOR.message_types_by_name['Metadata']
+_FRAMEWORKINFO = DESCRIPTOR.message_types_by_name['FrameworkInfo']
+_OPSTATS = DESCRIPTOR.message_types_by_name['OpStats']
+_KERNELSTATS = DESCRIPTOR.message_types_by_name['KernelStats']
 _INFERENCESTATS = DESCRIPTOR.message_types_by_name['InferenceStats']
 _INFERENCESTATS_COUNTER = _INFERENCESTATS.nested_types_by_name['Counter']
 _INFERENCESTATS_COUNTER_BUCKETSSECENTRY = _INFERENCESTATS_COUNTER.nested_types_by_name['BucketsSecEntry']
 _INFERENCESTATS_EXTRACOUNTERSENTRY = _INFERENCESTATS.nested_types_by_name['ExtraCountersEntry']
+_EXCEPTIONSTATS = DESCRIPTOR.message_types_by_name['ExceptionStats']
 _MODELINFO = DESCRIPTOR.message_types_by_name['ModelInfo']
 _CLUSTERINFO = DESCRIPTOR.message_types_by_name['ClusterInfo']
 _COMMUNICATIONUSAGE = DESCRIPTOR.message_types_by_name['CommunicationUsage']
 _NODEUSAGE = DESCRIPTOR.message_types_by_name['NodeUsage']
 _PROCESSUSAGE = DESCRIPTOR.message_types_by_name['ProcessUsage']
 _DEVICEUSAGE = DESCRIPTOR.message_types_by_name['DeviceUsage']
-_OPSTATS = DESCRIPTOR.message_types_by_name['OpStats']
-_KERNELSTATS = DESCRIPTOR.message_types_by_name['KernelStats']
-_EXCEPTION = DESCRIPTOR.message_types_by_name['Exception']
 _PROFILERINFO = DESCRIPTOR.message_types_by_name['ProfilerInfo']
 _PROFILERERROR = DESCRIPTOR.message_types_by_name['ProfilerError']
 _FRAMEWORKINFO_FRAMEWORKTYPE = _FRAMEWORKINFO.enum_types_by_name['FrameworkType']
@@ -87,6 +87,13 @@ SemVer = _reflection.GeneratedProtocolMessageType('SemVer', (_message.Message,),
   })
 _sym_db.RegisterMessage(SemVer)
 
+Metadata = _reflection.GeneratedProtocolMessageType('Metadata', (_message.Message,), {
+  'DESCRIPTOR' : _METADATA,
+  '__module__' : 'profiles_pb2'
+  # @@protoc_insertion_point(class_scope:graphsignal.profiles.Metadata)
+  })
+_sym_db.RegisterMessage(Metadata)
+
 FrameworkInfo = _reflection.GeneratedProtocolMessageType('FrameworkInfo', (_message.Message,), {
   'DESCRIPTOR' : _FRAMEWORKINFO,
   '__module__' : 'profiles_pb2'
@@ -94,12 +101,19 @@ FrameworkInfo = _reflection.GeneratedProtocolMessageType('FrameworkInfo', (_mess
   })
 _sym_db.RegisterMessage(FrameworkInfo)
 
-Metadata = _reflection.GeneratedProtocolMessageType('Metadata', (_message.Message,), {
-  'DESCRIPTOR' : _METADATA,
+OpStats = _reflection.GeneratedProtocolMessageType('OpStats', (_message.Message,), {
+  'DESCRIPTOR' : _OPSTATS,
   '__module__' : 'profiles_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.profiles.Metadata)
+  # @@protoc_insertion_point(class_scope:graphsignal.profiles.OpStats)
   })
-_sym_db.RegisterMessage(Metadata)
+_sym_db.RegisterMessage(OpStats)
+
+KernelStats = _reflection.GeneratedProtocolMessageType('KernelStats', (_message.Message,), {
+  'DESCRIPTOR' : _KERNELSTATS,
+  '__module__' : 'profiles_pb2'
+  # @@protoc_insertion_point(class_scope:graphsignal.profiles.KernelStats)
+  })
+_sym_db.RegisterMessage(KernelStats)
 
 InferenceStats = _reflection.GeneratedProtocolMessageType('InferenceStats', (_message.Message,), {
 
@@ -131,6 +145,13 @@ _sym_db.RegisterMessage(InferenceStats)
 _sym_db.RegisterMessage(InferenceStats.Counter)
 _sym_db.RegisterMessage(InferenceStats.Counter.BucketsSecEntry)
 _sym_db.RegisterMessage(InferenceStats.ExtraCountersEntry)
+
+ExceptionStats = _reflection.GeneratedProtocolMessageType('ExceptionStats', (_message.Message,), {
+  'DESCRIPTOR' : _EXCEPTIONSTATS,
+  '__module__' : 'profiles_pb2'
+  # @@protoc_insertion_point(class_scope:graphsignal.profiles.ExceptionStats)
+  })
+_sym_db.RegisterMessage(ExceptionStats)
 
 ModelInfo = _reflection.GeneratedProtocolMessageType('ModelInfo', (_message.Message,), {
   'DESCRIPTOR' : _MODELINFO,
@@ -174,27 +195,6 @@ DeviceUsage = _reflection.GeneratedProtocolMessageType('DeviceUsage', (_message.
   })
 _sym_db.RegisterMessage(DeviceUsage)
 
-OpStats = _reflection.GeneratedProtocolMessageType('OpStats', (_message.Message,), {
-  'DESCRIPTOR' : _OPSTATS,
-  '__module__' : 'profiles_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.profiles.OpStats)
-  })
-_sym_db.RegisterMessage(OpStats)
-
-KernelStats = _reflection.GeneratedProtocolMessageType('KernelStats', (_message.Message,), {
-  'DESCRIPTOR' : _KERNELSTATS,
-  '__module__' : 'profiles_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.profiles.KernelStats)
-  })
-_sym_db.RegisterMessage(KernelStats)
-
-Exception = _reflection.GeneratedProtocolMessageType('Exception', (_message.Message,), {
-  'DESCRIPTOR' : _EXCEPTION,
-  '__module__' : 'profiles_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.profiles.Exception)
-  })
-_sym_db.RegisterMessage(Exception)
-
 ProfilerInfo = _reflection.GeneratedProtocolMessageType('ProfilerInfo', (_message.Message,), {
   'DESCRIPTOR' : _PROFILERINFO,
   '__module__' : 'profiles_pb2'
@@ -216,8 +216,8 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _INFERENCESTATS_COUNTER_BUCKETSSECENTRY._serialized_options = b'8\001'
   _INFERENCESTATS_EXTRACOUNTERSENTRY._options = None
   _INFERENCESTATS_EXTRACOUNTERSENTRY._serialized_options = b'8\001'
-  _DEVICETYPE._serialized_start=4921
-  _DEVICETYPE._serialized_end=4987
+  _DEVICETYPE._serialized_start=4988
+  _DEVICETYPE._serialized_end=5054
   _UPLOADREQUEST._serialized_start=40
   _UPLOADREQUEST._serialized_end=128
   _UPLOADRESPONSE._serialized_start=130
@@ -225,51 +225,51 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _PROFILERECORD._serialized_start=149
   _PROFILERECORD._serialized_end=322
   _MLPROFILE._serialized_start=325
-  _MLPROFILE._serialized_end=1292
-  _SEMVER._serialized_start=1294
-  _SEMVER._serialized_end=1347
-  _FRAMEWORKINFO._serialized_start=1350
-  _FRAMEWORKINFO._serialized_end=1662
-  _FRAMEWORKINFO_FRAMEWORKTYPE._serialized_start=1480
-  _FRAMEWORKINFO_FRAMEWORKTYPE._serialized_end=1662
-  _METADATA._serialized_start=1664
-  _METADATA._serialized_end=1702
-  _INFERENCESTATS._serialized_start=1705
-  _INFERENCESTATS._serialized_end=2221
-  _INFERENCESTATS_COUNTER._serialized_start=1978
-  _INFERENCESTATS_COUNTER._serialized_end=2121
-  _INFERENCESTATS_COUNTER_BUCKETSSECENTRY._serialized_start=2072
-  _INFERENCESTATS_COUNTER_BUCKETSSECENTRY._serialized_end=2121
-  _INFERENCESTATS_EXTRACOUNTERSENTRY._serialized_start=2123
-  _INFERENCESTATS_EXTRACOUNTERSENTRY._serialized_end=2221
-  _MODELINFO._serialized_start=2224
-  _MODELINFO._serialized_end=2402
-  _MODELINFO_MODELFORMAT._serialized_start=2330
-  _MODELINFO_MODELFORMAT._serialized_end=2402
-  _CLUSTERINFO._serialized_start=2404
-  _CLUSTERINFO._serialized_end=2437
-  _COMMUNICATIONUSAGE._serialized_start=2440
-  _COMMUNICATIONUSAGE._serialized_end=2653
-  _COMMUNICATIONUSAGE_COMMUNICATIONBACKENDTYPE._serialized_start=2551
-  _COMMUNICATIONUSAGE_COMMUNICATIONBACKENDTYPE._serialized_end=2653
-  _NODEUSAGE._serialized_start=2656
-  _NODEUSAGE._serialized_end=2854
-  _PROCESSUSAGE._serialized_start=2857
-  _PROCESSUSAGE._serialized_end=3234
-  _PROCESSUSAGE_RUNTIME._serialized_start=3190
-  _PROCESSUSAGE_RUNTIME._serialized_end=3234
-  _DEVICEUSAGE._serialized_start=3237
-  _DEVICEUSAGE._serialized_end=3700
-  _OPSTATS._serialized_start=3703
-  _OPSTATS._serialized_end=4193
-  _KERNELSTATS._serialized_start=4196
-  _KERNELSTATS._serialized_end=4386
-  _EXCEPTION._serialized_start=4388
-  _EXCEPTION._serialized_end=4437
-  _PROFILERINFO._serialized_start=4440
-  _PROFILERINFO._serialized_end=4864
-  _PROFILERINFO_PROFILERTYPE._serialized_start=4668
-  _PROFILERINFO_PROFILERTYPE._serialized_end=4864
-  _PROFILERERROR._serialized_start=4866
-  _PROFILERERROR._serialized_end=4919
+  _MLPROFILE._serialized_end=1302
+  _SEMVER._serialized_start=1304
+  _SEMVER._serialized_end=1357
+  _METADATA._serialized_start=1359
+  _METADATA._serialized_end=1397
+  _FRAMEWORKINFO._serialized_start=1400
+  _FRAMEWORKINFO._serialized_end=1712
+  _FRAMEWORKINFO_FRAMEWORKTYPE._serialized_start=1530
+  _FRAMEWORKINFO_FRAMEWORKTYPE._serialized_end=1712
+  _OPSTATS._serialized_start=1715
+  _OPSTATS._serialized_end=2205
+  _KERNELSTATS._serialized_start=2208
+  _KERNELSTATS._serialized_end=2398
+  _INFERENCESTATS._serialized_start=2401
+  _INFERENCESTATS._serialized_end=2917
+  _INFERENCESTATS_COUNTER._serialized_start=2674
+  _INFERENCESTATS_COUNTER._serialized_end=2817
+  _INFERENCESTATS_COUNTER_BUCKETSSECENTRY._serialized_start=2768
+  _INFERENCESTATS_COUNTER_BUCKETSSECENTRY._serialized_end=2817
+  _INFERENCESTATS_EXTRACOUNTERSENTRY._serialized_start=2819
+  _INFERENCESTATS_EXTRACOUNTERSENTRY._serialized_end=2917
+  _EXCEPTIONSTATS._serialized_start=2919
+  _EXCEPTIONSTATS._serialized_end=3025
+  _MODELINFO._serialized_start=3028
+  _MODELINFO._serialized_end=3206
+  _MODELINFO_MODELFORMAT._serialized_start=3134
+  _MODELINFO_MODELFORMAT._serialized_end=3206
+  _CLUSTERINFO._serialized_start=3208
+  _CLUSTERINFO._serialized_end=3241
+  _COMMUNICATIONUSAGE._serialized_start=3244
+  _COMMUNICATIONUSAGE._serialized_end=3457
+  _COMMUNICATIONUSAGE_COMMUNICATIONBACKENDTYPE._serialized_start=3355
+  _COMMUNICATIONUSAGE_COMMUNICATIONBACKENDTYPE._serialized_end=3457
+  _NODEUSAGE._serialized_start=3460
+  _NODEUSAGE._serialized_end=3658
+  _PROCESSUSAGE._serialized_start=3661
+  _PROCESSUSAGE._serialized_end=4038
+  _PROCESSUSAGE_RUNTIME._serialized_start=3994
+  _PROCESSUSAGE_RUNTIME._serialized_end=4038
+  _DEVICEUSAGE._serialized_start=4041
+  _DEVICEUSAGE._serialized_end=4504
+  _PROFILERINFO._serialized_start=4507
+  _PROFILERINFO._serialized_end=4931
+  _PROFILERINFO_PROFILERTYPE._serialized_start=4735
+  _PROFILERINFO_PROFILERTYPE._serialized_end=4931
+  _PROFILERERROR._serialized_start=4933
+  _PROFILERERROR._serialized_end=4986
 # @@protoc_insertion_point(module_scope)
