@@ -149,8 +149,7 @@ To measure additional rates, `InferenceSpan.set_count(name, value)` method can b
 
 ```python
 with inference_span(model_name='text-classification') as span:
-    span.set_count('sentences', 5)
-    span.set_count('words', 250)
+    span.set_count('words', num_words)
 ```
 
 
@@ -158,14 +157,6 @@ with inference_span(model_name='text-classification') as span:
 
 When `with` context manager is used with `inference_span` methods, exceptions are automatically reported. For other cases, use `InferenceSpan.set_exception(exc_info)` method.
 
-```python
-span = inference_span(model_name='my-model'):
-try:
-    preds = model(inputs)
-except:
-    span.set_exception(exc_info=True)
-span.stop()
-```
 
 ### 4. Monitoring
 
