@@ -9,7 +9,7 @@ import time
 
 import graphsignal
 from graphsignal.usage.nvml_reader import NvmlReader
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 
 logger = logging.getLogger('graphsignal')
 
@@ -26,7 +26,7 @@ class NvmlReaderTest(unittest.TestCase):
         graphsignal.shutdown()
 
     def test_read(self):
-        profile = profiles_pb2.MLProfile()
+        signal = signals_pb2.MLSignal()
 
         x = torch.arange(-50, 50, 0.1).view(-1, 1)
         y = -5 * x + 0.1 * torch.randn(x.size())
@@ -39,20 +39,20 @@ class NvmlReaderTest(unittest.TestCase):
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
 
         reader = graphsignal._agent.nvml_reader
-        reader.read(profile)
+        reader.read(signal)
 
         time.sleep(0.2)
 
-        reader.read(profile)
+        reader.read(signal)
 
         #pp = pprint.PrettyPrinter()
-        # pp.pprint(MessageToJson(profile))
+        # pp.pprint(MessageToJson(signal))
 
-        if len(profile.device_usage) > 0:
-            self.assertTrue(profile.node_usage.num_devices > 0)
+        if len(signal.device_usage) > 0:
+            self.assertTrue(signal.node_usage.num_devices > 0)
 
-            device_usage = profile.device_usage[0]
-            self.assertEqual(device_usage.device_type, profiles_pb2.DeviceType.GPU)
+            device_usage = signal.device_usage[0]
+            self.assertEqual(device_usage.device_type, signals_pb2.DeviceType.GPU)
             self.assertNotEqual(device_usage.device_id, '')
             self.assertNotEqual(device_usage.device_name, '')
             self.assertNotEqual(device_usage.architecture, '')

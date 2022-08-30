@@ -10,7 +10,7 @@ logger = logging.getLogger('graphsignal')
 
 
 import graphsignal
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 from graphsignal.inference_span import InferenceSpan
 from graphsignal.tracers.operation_profiler import OperationProfiler
 
@@ -21,23 +21,23 @@ class PythonProfiler(OperationProfiler):
         self._profiler = None
         self._exclude_path = os.path.dirname(os.path.realpath(graphsignal.__file__))
 
-    def start(self, profile, context):
-        logger.debug('Activating Python profiler')
+    def read_info(self, signal):
+        pass
 
-        # Profiler info
-        profile.profiler_info.operation_profiler_type = profiles_pb2.ProfilerInfo.ProfilerType.GENERIC_PROFILER
+    def start(self, signal, context):
+        logger.debug('Activating Python profiler')
 
         self._profiler = cProfile.Profile()
         self._profiler.enable()
 
-    def stop(self, profile, context):
+    def stop(self, signal, context):
         logger.debug('Deactivating Python profiler')
 
         self._profiler.disable()
-        self._convert_to_operations(profile)
+        self._convert_to_operations(signal)
         self._profiler = None
 
-    def _convert_to_operations(self, profile):
+    def _convert_to_operations(self, signal):
         stats = pstats.Stats(self._profiler)
         func_list = stats.fcn_list[:] if stats.fcn_list else list(stats.stats.keys())
         if not func_list:
@@ -49,8 +49,8 @@ class PythonProfiler(OperationProfiler):
                 continue
             cc, nc, tt, ct, callers = stats.stats[func]
 
-            op_stats = profile.op_stats.add()
-            op_stats.device_type = profiles_pb2.DeviceType.CPU
+            op_stats = signal.op_stats.add()
+            op_stats.device_type = signals_pb2.DeviceType.CPU
             op_stats.op_name = '{0} ({1}:{2})'.format(func_name, file_name, line_number)
             op_stats.count = int(nc)
             op_stats.total_host_time_us = _to_us(ct)
@@ -66,10 +66,12 @@ _profiler = PythonProfiler()
 
 def inference_span(
         model_name: str,
-        metadata: Optional[dict] = None,ensure_profile: Optional[bool] = False) -> InferenceSpan:
+        tags: Optional[dict] = None,
+        ensure_trace: Optional[bool] = False) -> InferenceSpan:
     graphsignal._check_configured()
 
     return InferenceSpan(
         model_name=model_name,
-        metadata=metadata,ensure_profile=ensure_profile,
+        tags=tags,
+        ensure_trace=ensure_trace,
         operation_profiler=_profiler)

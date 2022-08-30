@@ -10,7 +10,7 @@ import pprint
 
 import graphsignal
 from graphsignal.tracers.onnxruntime import initialize_profiler, inference_span
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
 
 logger = logging.getLogger('graphsignal')
@@ -31,8 +31,8 @@ class ONNXRuntimeProfilerTest(unittest.TestCase):
         graphsignal.shutdown()
         os.remove(TEST_MODEL_PATH)
 
-    @patch.object(Uploader, 'upload_profile')
-    def test_inference_span(self, mocked_upload_profile):
+    @patch.object(Uploader, 'upload_signal')
+    def test_inference_span(self, mocked_upload_signal):
         x = torch.arange(-5, 5, 0.1).view(-1, 1)
         y = -5 * x + 0.1 * torch.randn(x.size())
         model = torch.nn.Linear(1, 1)
@@ -56,16 +56,16 @@ class ONNXRuntimeProfilerTest(unittest.TestCase):
         with inference_span(model_name='m1', onnx_session=session):
             session.run(None, { 'input': x.detach().cpu().numpy() })
 
-        with inference_span(model_name='m1', ensure_profile=True, onnx_session=session):
+        signal = mocked_upload_signal.call_args[0][0]
+
+        with inference_span(model_name='m1', ensure_trace=True, onnx_session=session):
             session.run(None, { 'input': x.detach().cpu().numpy() })
 
-        profile = mocked_upload_profile.call_args[0][0]
-
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(profile))
+        #pp.pprint(MessageToJson(signal))
 
         self.assertEqual(
-            profile.frameworks[0].type,
-            profiles_pb2.FrameworkInfo.FrameworkType.ONNX_FRAMEWORK)
+            signal.frameworks[0].type,
+            signals_pb2.FrameworkInfo.FrameworkType.ONNX_FRAMEWORK)
 
-        self.assertNotEqual(profile.trace_data, b'')
+        self.assertNotEqual(signal.trace_data, b'')

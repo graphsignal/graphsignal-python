@@ -8,7 +8,7 @@ import jax
 
 import graphsignal
 from graphsignal.proto_utils import parse_semver, compare_semver
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 from graphsignal.inference_span import InferenceSpan
 from graphsignal.tracers.operation_profiler import OperationProfiler
 from graphsignal.tracers.profiler_utils import create_log_dir, remove_log_dir, convert_tensorflow_profile
@@ -17,27 +17,24 @@ logger = logging.getLogger('graphsignal')
 
 class JaxProfiler(OperationProfiler):
     def __init__(self):
-        self._is_initialized = False
         self._log_dir = None
         self._jax_version = None
 
-    def start(self, profile, context):
-        logger.debug('Activating JAX profiler')
-
-        # Initialization
-        if not self._is_initialized:
-            self._is_initialized = True
-
-            self._jax_version = profiles_pb2.SemVer()
+    def read_info(self, signal):
+        if not self._jax_version:
+            self._jax_version = signals_pb2.SemVer()
             parse_semver(self._jax_version, jax.__version__)
 
-        # Profiler info
-        profile.profiler_info.operation_profiler_type = profiles_pb2.ProfilerInfo.ProfilerType.JAX_PROFILER
-
         # Framework info
-        framework = profile.frameworks.add()
-        framework.type = profiles_pb2.FrameworkInfo.FrameworkType.JAX_FRAMEWORK
+        framework = signal.frameworks.add()
+        framework.type = signals_pb2.FrameworkInfo.FrameworkType.JAX_FRAMEWORK
         framework.version.CopyFrom(self._jax_version)
+
+    def start(self, signal, context):
+        logger.debug('Activating JAX profiler')
+
+        # Profiler info
+        signal.agent_info.operation_profiler_type = signals_pb2.AgentInfo.ProfilerType.JAX_PROFILER
 
         try:
             self._log_dir = create_log_dir()
@@ -47,13 +44,13 @@ class JaxProfiler(OperationProfiler):
             remove_log_dir(self._log_dir)
             raise e
 
-    def stop(self, profile, context):
+    def stop(self, signal, context):
         logger.debug('Deactivating JAX profiler')
 
         try:
             jax.profiler.stop_trace()
 
-            convert_tensorflow_profile(self._log_dir, profile)
+            convert_tensorflow_profile(self._log_dir, signal)
         finally:
             remove_log_dir(self._log_dir)
 
@@ -62,10 +59,12 @@ _profiler = JaxProfiler()
 
 def inference_span(
         model_name: str,
-        metadata: Optional[dict] = None,ensure_profile: Optional[bool] = False) -> InferenceSpan:
+        tags: Optional[dict] = None,
+        ensure_trace: Optional[bool] = False) -> InferenceSpan:
     graphsignal._check_configured()
 
     return InferenceSpan(
         model_name=model_name,
-        metadata=metadata,ensure_profile=ensure_profile,
+        tags=tags,
+        ensure_trace=ensure_trace,
         operation_profiler=_profiler)

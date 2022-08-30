@@ -6,7 +6,7 @@ from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
 
 logger = logging.getLogger('graphsignal')
@@ -23,8 +23,8 @@ class HuggingFaceGeneratorTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    @patch.object(Uploader, 'upload_profile')
-    def test_pipeline(self, mocked_upload_profile):
+    @patch.object(Uploader, 'upload_signal')
+    def test_pipeline(self, mocked_upload_signal):
         from transformers import pipeline
         from graphsignal.tracers.pytorch import inference_span
 
@@ -33,13 +33,13 @@ class HuggingFaceGeneratorTest(unittest.TestCase):
         with inference_span('m1'):
             output = pipe('some text')
 
-        profile = mocked_upload_profile.call_args[0][0]
+        signal = mocked_upload_signal.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(profile))
+        #pp.pprint(MessageToJson(signal))
 
         test_op_stats = None
-        for op_stats in profile.op_stats:
+        for op_stats in signal.op_stats:
             if op_stats.op_name == 'aten::mm':
                 test_op_stats = op_stats
                 break

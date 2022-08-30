@@ -2,92 +2,105 @@ from typing import Union, Any
 import logging
 import sys
 import time
-from threading import Lock
 import traceback
 
 import graphsignal
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 
 logger = logging.getLogger('graphsignal')
 
 
 class InferenceSpan:
+    MAX_TAGS = 10
+    MAX_EXCEPTIONS = 10
 
     __slots__ = [
         '_operation_profiler',
-        '_profile_scheduler',
+        '_trace_sampler',
         '_inference_stats',
-        '_workload',
+        '_agent',
         '_model_name',
-        '_ensure_profile',
-        '_metadata',
+        '_ensure_trace',
+        '_tags',
         '_context',
-        '_is_scheduled',
+        '_is_tracing',
         '_is_profiling',
-        '_profile',
+        '_signal',
         '_is_stopped',
         '_start_counter',
-        '_extra_counts'
+        '_extra_counts',
+        '_exc_info'
     ]
 
     def __init__(self, 
             model_name,
-            metadata=None,
-            ensure_profile=False, 
+            tags=None,
+            ensure_trace=False, 
             operation_profiler=None,
             context=None):
         if not model_name:
             raise ValueError('model_name is required')
-        if metadata is not None and not isinstance(metadata, dict):
-            raise ValueError('metadata must be dict')
+        if not isinstance(model_name, str):
+            raise ValueError('model_name must be string')
+        if len(model_name) > 50:
+            raise ValueError('model_name is too long (>50)')
+        if tags is not None:
+            if not isinstance(tags, dict):
+                raise ValueError('tags must be dict')
+            if len(tags) > InferenceSpan.MAX_TAGS:
+                raise ValueError('too many tags (>{0})'.format(InferenceSpan.MAX_TAGS))
+
         self._model_name = model_name
-        self._metadata = metadata
-        self._ensure_profile = ensure_profile
+        self._tags = tags
+        self._ensure_trace = ensure_trace
         self._operation_profiler = operation_profiler
         self._context = context
 
-        self._workload = None
-        self._profile_scheduler = None
+        self._agent = None
+        self._trace_sampler = None
         self._inference_stats = None
         self._is_stopped = False
-        self._is_scheduled = False
+        self._is_tracing = False
         self._is_profiling = False
-        self._profile = None
+        self._signal = None
         self._extra_counts = None
+        self._exc_info = None
 
         try:
             self._start()
         except Exception as ex:
-            if self._is_scheduled:
+            if self._is_tracing:
                 self._is_stopped = True
-                self._profile_scheduler.unlock()
+                self._trace_sampler.unlock()
             raise ex
 
     def _start(self):
         if self._is_stopped:
             return
 
-        self._workload = graphsignal.workload()
-        self._profile_scheduler = self._workload.get_profile_scheduler(self._model_name)
-        self._inference_stats = self._workload.get_inference_stats(self._model_name)
+        self._agent = graphsignal._agent
+        self._trace_sampler = self._agent.get_trace_sampler(self._model_name)
+        self._inference_stats = self._agent.get_inference_stats(self._model_name)
 
-        if self._profile_scheduler.lock(ensure=self._ensure_profile):
+        if self._trace_sampler.lock(ensure=self._ensure_trace):
             if logger.isEnabledFor(logging.DEBUG):
                 profiling_start_overhead_counter = time.perf_counter()
 
-            self._is_scheduled = True
-            self._profile = self._workload.create_profile()
-            self._profile.model_name = self._model_name
+            self._is_tracing = True
+            self._signal = self._agent.create_signal()
 
-            if not graphsignal._agent.disable_op_profiler and self._operation_profiler:
+            # read framework-specific info
+            if self._operation_profiler:
+                self._operation_profiler.read_info(self._signal)
+
+            # start profiler
+            if not self._agent.disable_profiling and self._operation_profiler and self._trace_sampler.should_profile():
                 try:
-                    self._operation_profiler.start(self._profile, self._context)
+                    self._operation_profiler.start(self._signal, self._context)
                     self._is_profiling = True
                 except Exception as exc:
                     self._add_profiler_exception(exc)
                     logger.error('Error starting profiler', exc_info=True)
-
-            self._profile.start_us = _timestamp_us()
 
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug('Profiling start took: %fs', time.perf_counter() - profiling_start_overhead_counter)
@@ -98,85 +111,116 @@ class InferenceSpan:
         return self
 
     def __exit__(self, *exc_info):
-        self.stop(exc_info=exc_info)
+        self._exc_info = exc_info
+        self.stop()
         return False
 
-    def stop(self, exc_info=None) -> None:
+    def stop(self) -> None:
         try:
-            self._stop(exc_info=exc_info)
+            self._stop()
         finally:
-            if self._is_scheduled:
+            if self._is_tracing:
                 self._is_stopped = True
-                self._profile_scheduler.unlock()            
+                self._trace_sampler.unlock()            
 
-    def _stop(self, exc_info=None) -> None:
+    def _stop(self) -> None:
         stop_counter = time.perf_counter()
+        duration_us = int((stop_counter - self._start_counter) * 1e6)
         end_us = _timestamp_us()
 
         if self._is_stopped:
             return
         self._is_stopped = True
 
-        if self._is_scheduled:
-            self._profile.end_us = end_us
+        # if exception, but the span is not being traced, try to start tracing
+        if self._exc_info and self._exc_info[0] and not self._is_tracing:
+            if self._trace_sampler.lock(ensure=True):
+                self._is_tracing = True
+                self._signal = self._agent.create_signal()
 
-            if self._is_profiling:
-                try:
-                    self._operation_profiler.stop(self._profile, self._context)
-                except Exception as exc:
-                    logger.error('Error stopping profiler', exc_info=True)
-                    self._add_profiler_exception(exc)
+        # stop profiler, if profiling
+        if self._is_profiling:
+            try:
+                self._operation_profiler.stop(self._signal, self._context)
+            except Exception as exc:
+                logger.error('Error stopping profiler', exc_info=True)
+                self._add_profiler_exception(exc)
 
+        # update time and counters
+        if not self._is_profiling:
+            # only measure time if not profiling to exclude profiler overhead
+            self._inference_stats.add_time(duration_us)
         self._inference_stats.inc_inference_counter(1, end_us)
         if self._extra_counts is not None:
             for name, value in self._extra_counts.items():
                 self._inference_stats.inc_extra_counter(name, value, end_us)
 
-        # only measure time if not profiling to exclude profiler overhead
-        if not self._is_profiling:
-            self._inference_stats.add_time(int((stop_counter - self._start_counter) * 1e6))
-
-        if exc_info and exc_info[0]:
+        # update exception counter
+        if self._exc_info and self._exc_info[0]:
             self._inference_stats.inc_exception_counter(1, end_us)
-            self._workload.add_exception(exc_info, end_us)
 
-        if self._is_scheduled:
+        # fill and upload profile
+        if self._is_tracing:
             if logger.isEnabledFor(logging.DEBUG):
                 profiling_stop_overhead_counter = time.perf_counter()
 
+            # read usage data
             try:
-                graphsignal._agent.process_reader.read(self._profile)
-                graphsignal._agent.nvml_reader.read(self._profile)
+                self._agent.process_reader.read(self._signal)
+                self._agent.nvml_reader.read(self._signal)
             except Exception as exc:
                 logger.error('Error reading usage information', exc_info=True)
                 self._add_profiler_exception(exc)
 
+            # copy data to profile
+            self._signal.model_name = self._model_name
+            self._signal.start_us = end_us - duration_us
+            self._signal.end_us = end_us
+            if self._exc_info and self._exc_info[0]:
+                self._signal.signal_type = signals_pb2.SignalType.INFERENCE_EXCEPTION_SIGNAL
+            elif self._is_profiling:
+                self._signal.signal_type = signals_pb2.SignalType.INFERENCE_PROFILE_SIGNAL
+            else:
+                self._signal.signal_type = signals_pb2.SignalType.INFERENCE_SAMPLE_SIGNAL
+
+            # copy inference stats
             self._inference_stats.finalize(end_us)
             for time_us in self._inference_stats.time_reservoir_us:
-                self._profile.inference_stats.time_reservoir_us.append(time_us)
-            inference_counter_proto = self._profile.inference_stats.inference_counter
+                self._signal.inference_stats.time_reservoir_us.append(time_us)
+            inference_counter_proto = self._signal.inference_stats.inference_counter
             for bucket, count in self._inference_stats.inference_counter.items():
                 inference_counter_proto.buckets_sec[bucket] = count
-            exception_counter_proto = self._profile.inference_stats.exception_counter
+            exception_counter_proto = self._signal.inference_stats.exception_counter
             for bucket, count in self._inference_stats.exception_counter.items():
                 exception_counter_proto.buckets_sec[bucket] = count
             for name, counter in self._inference_stats.extra_counters.items():
-                extra_counter_proto = self._profile.inference_stats.extra_counters[name]
+                extra_counter_proto = self._signal.inference_stats.extra_counters[name]
                 for bucket, count in counter.items():
                     extra_counter_proto.buckets_sec[bucket] = count
-            self._workload.reset_inference_stats(self._model_name)
+            self._agent.reset_inference_stats(self._model_name)
 
-            if self._metadata is not None:
-                for key, value in self._metadata.items():
-                    entry = self._profile.metadata.add()
-                    entry.key = key
-                    entry.value = str(value)
+            # copy tags
+            if self._tags is not None:
+                for key, value in self._tags.items():
+                    tag = self._signal.tags.add()
+                    tag.key = key[:50]
+                    tag.value = str(value)[:50]
 
-            for exc_stats in self._workload.exception_stats.values():
-                self._profile.exception_stats.append(exc_stats)
+            # copy exception
+            if self._exc_info and self._exc_info[0]:
+                exception = self._signal.exceptions.add()
+                if self._exc_info[0] and hasattr(self._exc_info[0], '__name__'):
+                    exception.exc_type = str(self._exc_info[0].__name__)
+                if self._exc_info[1]:
+                    exception.message = str(self._exc_info[1])
+                if self._exc_info[2]:
+                    frames = traceback.format_tb(self._exc_info[2])
+                    if len(frames) > 0:
+                        exception.stack_trace = ''.join(frames)
 
-            graphsignal._agent.uploader.upload_profile(self._profile)
-            self._workload.tick()
+            # queue signal for upload
+            self._agent.uploader.upload_signal(self._signal)
+            self._agent.tick()
 
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug('Profiling stop took: %fs', time.perf_counter() - profiling_stop_overhead_counter)
@@ -191,27 +235,30 @@ class InferenceSpan:
             self._extra_counts = {}
         self._extra_counts[name] = value
 
-    def add_metadata(self, key: str, value: Any) -> None:
+    def add_tag(self, key: str, value: Any) -> None:
         if not key:
-            raise ValueError('add_metadata: key must be provided')
+            raise ValueError('add_tag: key must be provided')
         if value is None:
-            raise ValueError('add_metadata: value must be provided')
+            raise ValueError('add_tag: value must be provided')
 
-        if self._metadata is None:
-            self._metadata = {}
-        self._metadata[key] = value
+        if self._tags is not None and len(self._tags) > InferenceSpan.MAX_TAGS:
+            return
 
-    def add_exception(self, exc_info=Union[bool, tuple]) -> None:
+        if self._tags is None:
+            self._tags = {}
+        self._tags[key] = value
+
+    def set_exception(self, exc_info=Union[bool, tuple]) -> None:
         if not exc_info:
-            raise ValueError('add_exception: exc_info must be provided')
+            raise ValueError('set_exception: exc_info must be provided')
 
         if exc_info == True:
             exc_info = sys.exc_info()
 
-        self._workload.add_exception(exc_info, _timestamp_us())
+        self._exc_info = exc_info
 
     def _add_profiler_exception(self, exc):
-        profiler_error = self._profile.profiler_errors.add()
+        profiler_error = self._signal.profiler_errors.add()
         profiler_error.message = str(exc)
         if exc.__traceback__:
             frames = traceback.format_tb(exc.__traceback__)

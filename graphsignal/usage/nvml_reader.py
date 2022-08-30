@@ -5,7 +5,7 @@ import time
 import socket
 
 import graphsignal
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 from graphsignal.usage.pynvml import *
 
 logger = logging.getLogger('graphsignal')
@@ -36,7 +36,7 @@ class NvmlReader():
         except BaseException:
             logger.error('Error shutting down NVML', exc_info=True)
 
-    def read(self, profile):
+    def read(self, signal):
         if not self._is_initialized:
             return
 
@@ -44,7 +44,7 @@ class NvmlReader():
 
         device_count = nvmlDeviceGetCount()
 
-        profile.node_usage.num_devices = device_count
+        signal.node_usage.num_devices = device_count
 
         for idx in range(0, device_count):
             try:
@@ -53,8 +53,8 @@ class NvmlReader():
                 log_nvml_error(err)
                 continue
 
-            device_usage = profile.device_usage.add()
-            device_usage.device_type = profiles_pb2.DeviceType.GPU
+            device_usage = signal.device_usage.add()
+            device_usage.device_type = signals_pb2.DeviceType.GPU
 
             try:
                 pci_info = nvmlDeviceGetPciInfo(handle)

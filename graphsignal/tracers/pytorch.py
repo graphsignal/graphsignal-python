@@ -10,7 +10,7 @@ import torch.distributed
 
 import graphsignal
 from graphsignal.proto_utils import parse_semver
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 from graphsignal.inference_span import InferenceSpan
 from graphsignal.tracers.operation_profiler import OperationProfiler
 from graphsignal.tracers.profiler_utils import create_log_dir, remove_log_dir
@@ -27,7 +27,41 @@ class PyTorchProfiler(OperationProfiler):
         self._world_size = None
         self._comm_backend = None
 
-    def start(self, profile, context):
+    def read_info(self, signal):
+        if not self._pytorch_version:
+            self._pytorch_version = signals_pb2.SemVer()
+            parse_semver(self._pytorch_version, torch.__version__)
+
+            if torch.distributed.is_available():
+                if torch.distributed.is_initialized():
+                    self._global_rank = torch.distributed.get_rank()
+                    self._world_size = torch.distributed.get_world_size()
+                    self._comm_backend = torch.distributed.get_backend()
+
+        # Framework info
+        framework = signal.frameworks.add()
+        framework.type = signals_pb2.FrameworkInfo.FrameworkType.PYTORCH_FRAMEWORK
+        framework.version.CopyFrom(self._pytorch_version)
+
+        # Process info
+        if self._global_rank is not None and self._global_rank >= 0:
+            signal.process_usage.global_rank = self._global_rank
+
+        # Cluster stats
+        if self._world_size is not None and self._world_size > 0:
+            signal.cluster_info.world_size = self._world_size
+
+        # Communication info
+        if self._comm_backend:
+            if self._comm_backend == 'nccl':
+                signal.comm_usage.backend_type = signals_pb2.CommunicationUsage.CommunicationBackendType.NCCL
+            if self._comm_backend == 'gloo':
+                signal.comm_usage.backend_type = signals_pb2.CommunicationUsage.CommunicationBackendType.GLOO
+            if self._comm_backend == 'mpi':
+                signal.comm_usage.backend_type = signals_pb2.CommunicationUsage.CommunicationBackendType.MPI
+
+
+    def start(self, signal, context):
         logger.debug('Activating PyTorch profiler')
 
         if not self._torch_prof:
@@ -42,57 +76,26 @@ class PyTorchProfiler(OperationProfiler):
                 with_stack=False,
                 with_flops=True)
 
-            self._pytorch_version = profiles_pb2.SemVer()
-            parse_semver(self._pytorch_version, torch.__version__)
-
-            if torch.distributed.is_available():
-                if torch.distributed.is_initialized():
-                    self._global_rank = torch.distributed.get_rank()
-                    self._world_size = torch.distributed.get_world_size()
-                    self._comm_backend = torch.distributed.get_backend()
-
         # Profiler info
-        profile.profiler_info.operation_profiler_type = profiles_pb2.ProfilerInfo.ProfilerType.PYTORCH_PROFILER
-
-        # Framework info
-        framework = profile.frameworks.add()
-        framework.type = profiles_pb2.FrameworkInfo.FrameworkType.PYTORCH_FRAMEWORK
-        framework.version.CopyFrom(self._pytorch_version)
-
-        # Process info
-        if self._global_rank is not None and self._global_rank >= 0:
-            profile.process_usage.global_rank = self._global_rank
-
-        # Cluster stats
-        if self._world_size is not None and self._world_size > 0:
-            profile.cluster_info.world_size = self._world_size
-
-        # Communication info
-        if self._comm_backend:
-            if self._comm_backend == 'nccl':
-                profile.comm_usage.backend_type = profiles_pb2.CommunicationUsage.CommunicationBackendType.NCCL
-            if self._comm_backend == 'gloo':
-                profile.comm_usage.backend_type = profiles_pb2.CommunicationUsage.CommunicationBackendType.GLOO
-            if self._comm_backend == 'mpi':
-                profile.comm_usage.backend_type = profiles_pb2.CommunicationUsage.CommunicationBackendType.MPI
+        signal.agent_info.operation_profiler_type = signals_pb2.AgentInfo.ProfilerType.PYTORCH_PROFILER
 
         self._torch_prof.start()
 
-    def stop(self, profile, context):
+    def stop(self, signal, context):
         logger.debug('Deactivating PyTorch profiler')
 
         self._torch_prof.stop()
 
-        self._convert_operations(profile)
+        self._convert_operations(signal)
 
-        self._read_chrome_trace(profile)
+        self._read_chrome_trace(signal)
 
-    def _convert_operations(self, profile):
+    def _convert_operations(self, signal):
         # Operation stats
         for event_avg in self._torch_prof.key_averages():
             if event_avg.key and event_avg.key.startswith('ProfilerStep'):
                 continue
-            op_stats = profile.op_stats.add()
+            op_stats = signal.op_stats.add()
             op_stats.op_name = event_avg.key
             op_stats.count = _uint(event_avg.count)
             op_stats.total_host_time_us = _uint(event_avg.cpu_time_total)
@@ -105,9 +108,9 @@ class PyTorchProfiler(OperationProfiler):
             op_stats.self_device_memory = _uint(event_avg.self_cuda_memory_usage)
             op_stats.flops = _uint(event_avg.flops)
             if event_avg.device_type in (DeviceType.CUDA, DeviceType.HIP)  or op_stats.self_device_time_us > 0:
-                op_stats.device_type = profiles_pb2.DeviceType.GPU
+                op_stats.device_type = signals_pb2.DeviceType.GPU
             else:
-                op_stats.device_type = profiles_pb2.DeviceType.CPU
+                op_stats.device_type = signals_pb2.DeviceType.CPU
 
         # Kernel stats
         kernel_index = {}
@@ -119,8 +122,8 @@ class PyTorchProfiler(OperationProfiler):
                     kernel_stats.count += 1
                     kernel_stats.duration_ns += _uint(kernel.duration * 1000)
                 else:
-                    kernel_stats = kernel_index[key] = profile.kernel_stats.add()
-                    kernel_stats.device_type = profiles_pb2.DeviceType.GPU
+                    kernel_stats = kernel_index[key] = signal.kernel_stats.add()
+                    kernel_stats.device_type = signals_pb2.DeviceType.GPU
                     kernel_stats.device_id = str(kernel.device)
                     kernel_stats.op_name = event.name
                     kernel_stats.kernel_name = kernel.name
@@ -128,12 +131,12 @@ class PyTorchProfiler(OperationProfiler):
                     kernel_stats.duration_ns = _uint(kernel.duration * 1000)
 
         for kernel_stats in kernel_index.values():
-            profile.kernel_stats.append(kernel_stats)
+            signal.kernel_stats.append(kernel_stats)
 
         logger.debug(
-            'Converted %d PyTorch operation statistics', len(profile.op_stats))
+            'Converted %d PyTorch operation statistics', len(signal.op_stats))
 
-    def _read_chrome_trace(self, profile):
+    def _read_chrome_trace(self, signal):
         try:
             self._log_dir = create_log_dir()
 
@@ -146,7 +149,7 @@ class PyTorchProfiler(OperationProfiler):
 
             with open(trace_path) as f:
                 trace_json = f.read()
-                profile.trace_data = gzip.compress(trace_json.encode())
+                signal.trace_data = gzip.compress(trace_json.encode())
         finally:
             remove_log_dir(self._log_dir)
 
@@ -158,10 +161,12 @@ _profiler = PyTorchProfiler()
 
 def inference_span(
         model_name: str,
-        metadata: Optional[dict] = None,ensure_profile: Optional[bool] = False) -> InferenceSpan:
+        tags: Optional[dict] = None,
+        ensure_trace: Optional[bool] = False) -> InferenceSpan:
     graphsignal._check_configured()
 
     return InferenceSpan(
         model_name=model_name,
-        metadata=metadata,ensure_profile=ensure_profile,
+        tags=tags,
+        ensure_trace=ensure_trace,
         operation_profiler=_profiler)

@@ -15,7 +15,6 @@ class GraphsignalTest(unittest.TestCase):
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
-            workload_name='r1',
             debug_mode=True)
 
     def tearDown(self):
@@ -48,7 +47,6 @@ class GraphsignalTest(unittest.TestCase):
 
 
     def test_configure(self):
-        self.assertEqual(graphsignal.workload().workload_id, '5573e39b6600')
         self.assertIsNotNone(graphsignal._agent.worker_id)
         self.assertEqual(graphsignal._agent.api_key, 'k1')
         self.assertEqual(graphsignal._agent.debug_mode, True)

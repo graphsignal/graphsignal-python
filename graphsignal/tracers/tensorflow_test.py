@@ -10,7 +10,7 @@ import pprint
 
 import graphsignal
 from graphsignal.tracers.tensorflow import inference_span
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
 
 logger = logging.getLogger('graphsignal')
@@ -27,8 +27,8 @@ class TensorflowProfilerTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    @patch.object(Uploader, 'upload_profile')
-    def test_inference_span(self, mocked_upload_profile):
+    @patch.object(Uploader, 'upload_signal')
+    def test_inference_span(self, mocked_upload_signal):
         os.environ["TF_CONFIG"] = json.dumps({
             "cluster": {
                 "chief": ["host1:port"],
@@ -47,20 +47,20 @@ class TensorflowProfilerTest(unittest.TestCase):
         with inference_span('m1'):
             f(tf.random.uniform([5]))
 
-        profile = mocked_upload_profile.call_args[0][0]
+        signal = mocked_upload_signal.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(profile))
+        #pp.pprint(MessageToJson(signal))
 
         self.assertEqual(
-            profile.frameworks[0].type,
-            profiles_pb2.FrameworkInfo.FrameworkType.TENSORFLOW_FRAMEWORK)
-        self.assertEqual(profile.process_usage.global_rank, 1)
+            signal.frameworks[0].type,
+            signals_pb2.FrameworkInfo.FrameworkType.TENSORFLOW_FRAMEWORK)
+        self.assertEqual(signal.process_usage.global_rank, 1)
 
-        self.assertEqual(profile.cluster_info.world_size, 3)
+        self.assertEqual(signal.cluster_info.world_size, 3)
 
         test_op_stats = None
-        for op_stats in profile.op_stats:
+        for op_stats in signal.op_stats:
             if op_stats.op_name == 'RandomUniform':
                 test_op_stats = op_stats
                 break
@@ -73,4 +73,4 @@ class TensorflowProfilerTest(unittest.TestCase):
             self.assertTrue(test_op_stats.total_host_time_us >= 1)
             self.assertTrue(test_op_stats.self_host_time_us >= 1)
 
-        self.assertNotEqual(profile.trace_data, b'')
+        self.assertNotEqual(signal.trace_data, b'')

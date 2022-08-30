@@ -1,8 +1,11 @@
 
 
 class OperationProfiler():
-    def start(self, profile, context):
+    def read_info(self, signal):
         raise NotImplementedError()
 
-    def stop(self, profile, context):
+    def start(self, signal, context):
+        raise NotImplementedError()
+
+    def stop(self, signal, context):
         raise NotImplementedError()

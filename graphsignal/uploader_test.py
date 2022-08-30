@@ -17,7 +17,7 @@ from unittest.mock import patch, Mock
 
 import graphsignal
 from graphsignal.uploader import Uploader
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 
 logger = logging.getLogger('graphsignal')
 
@@ -37,18 +37,18 @@ class UploaderTest(unittest.TestCase):
 
     @patch.object(Uploader, '_post')
     def test_flush(self, mocked_post):
-        profile = profiles_pb2.MLProfile()
-        graphsignal._agent.uploader.upload_profile(profile)
+        signal = signals_pb2.MLSignal()
+        graphsignal._agent.uploader.upload_signal(signal)
         graphsignal._agent.uploader.flush()
 
         mocked_post.assert_called_once()
         self.assertEqual(len(graphsignal._agent.uploader.buffer), 0)
 
     @patch.object(Uploader, '_post',
-                  return_value=profiles_pb2.UploadResponse().SerializeToString())
+                  return_value=signals_pb2.UploadResponse().SerializeToString())
     def test_flush_in_thread(self, mocked_post):
-        profile = profiles_pb2.MLProfile()
-        graphsignal._agent.uploader.upload_profile(profile)
+        signal = signals_pb2.MLSignal()
+        graphsignal._agent.uploader.upload_signal(signal)
         graphsignal._agent.uploader.flush_in_thread()
 
         mocked_post.assert_called_once()
@@ -60,57 +60,57 @@ class UploaderTest(unittest.TestCase):
             raise URLError("Ex1")
         mocked_post.side_effect = side_effect
 
-        profile = profiles_pb2.MLProfile()
-        graphsignal._agent.uploader.upload_profile(profile)
-        graphsignal._agent.uploader.upload_profile(profile)
+        signal = signals_pb2.MLSignal()
+        graphsignal._agent.uploader.upload_signal(signal)
+        graphsignal._agent.uploader.upload_signal(signal)
         graphsignal._agent.uploader.flush()
 
         self.assertEqual(len(graphsignal._agent.uploader.buffer), 2)
 
     def test_post(self):
-        graphsignal._agent.uploader.profile_api_url = 'http://localhost:5005'
+        graphsignal._agent.uploader.agent_api_url = 'http://localhost:5005'
 
         server = TestServer(5005)
         server.set_response_data(
-            profiles_pb2.UploadResponse().SerializeToString())
+            signals_pb2.UploadResponse().SerializeToString())
         server.start()
 
-        profile = profiles_pb2.MLProfile()
-        profile.model_name = 'm1'
-        upload_request = profiles_pb2.UploadRequest()
-        upload_request.ml_profiles.append(profile)
+        signal = signals_pb2.MLSignal()
+        signal.model_name = 'm1'
+        upload_request = signals_pb2.UploadRequest()
+        upload_request.ml_signals.append(signal)
         upload_request.upload_ms = 123
         graphsignal._agent.uploader._post(
-            'profiles', upload_request.SerializeToString())
+            'signals', upload_request.SerializeToString())
 
-        received_upload_request = profiles_pb2.UploadRequest()
+        received_upload_request = signals_pb2.UploadRequest()
         received_upload_request.ParseFromString(server.get_request_data())
         self.assertEqual(
-            received_upload_request.ml_profiles[0].model_name, 'm1')
+            received_upload_request.ml_signals[0].model_name, 'm1')
         self.assertEqual(received_upload_request.upload_ms, 123)
 
         server.join()
 
     def test_post(self):
-        graphsignal._agent.uploader.profile_api_url = 'http://localhost:5005'
+        graphsignal._agent.uploader.agent_api_url = 'http://localhost:5005'
 
         server = TestServer(5005)
         server.set_response_data(
-            profiles_pb2.UploadResponse().SerializeToString())
+            signals_pb2.UploadResponse().SerializeToString())
         server.start()
 
-        profile = profiles_pb2.MLProfile()
-        profile.model_name = 'm1'
-        upload_request = profiles_pb2.UploadRequest()
-        upload_request.ml_profiles.append(profile)
+        signal = signals_pb2.MLSignal()
+        signal.model_name = 'm1'
+        upload_request = signals_pb2.UploadRequest()
+        upload_request.ml_signals.append(signal)
         upload_request.upload_ms = 123
         graphsignal._agent.uploader._post(
-            'profiles', upload_request.SerializeToString())
+            'signals', upload_request.SerializeToString())
 
-        received_upload_request = profiles_pb2.UploadRequest()
+        received_upload_request = signals_pb2.UploadRequest()
         received_upload_request.ParseFromString(server.get_request_data())
         self.assertEqual(
-            received_upload_request.ml_profiles[0].model_name, 'm1')
+            received_upload_request.ml_signals[0].model_name, 'm1')
         self.assertEqual(received_upload_request.upload_ms, 123)
 
         server.join()

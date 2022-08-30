@@ -6,7 +6,7 @@ import pytorch_lightning
 from pytorch_lightning.callbacks.base import Callback
 
 import graphsignal
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 from graphsignal.proto_utils import parse_semver
 from graphsignal.tracers.pytorch import PyTorchProfiler
 from graphsignal.inference_span import InferenceSpan
@@ -15,13 +15,13 @@ logger = logging.getLogger('graphsignal')
 
 
 class GraphsignalCallback(Callback):
-    def __init__(self, model_name: str, metadata: Optional[dict] = None, batch_size: Optional[int] = None):
+    def __init__(self, model_name: str, tags: Optional[dict] = None, batch_size: Optional[int] = None):
         super().__init__()
         self._pl_version = None
         self._profiler = PyTorchProfiler()
         self._span = None
         self._model_name = model_name
-        self._metadata = metadata
+        self._tags = tags
         self._batch_size = batch_size
         self._model_size_mb = None
         self._node_rank = -1
@@ -66,7 +66,7 @@ class GraphsignalCallback(Callback):
 
     def _configure_profiler(self, trainer, pl_module):
         try:
-            self._pl_version = profiles_pb2.SemVer()
+            self._pl_version = signals_pb2.SemVer()
             parse_semver(self._pl_version, pytorch_lightning.__version__)
 
             if self._check_param(trainer, 'node_rank') and trainer.node_rank >= 0:
@@ -86,40 +86,40 @@ class GraphsignalCallback(Callback):
         if not self._span:
             self._span = InferenceSpan(
                 model_name=self._model_name,
-                metadata=self._metadata,
+                tags=self._tags,
                 operation_profiler=self._profiler)
             self._span.set_count('items', self._batch_size)
 
     def _stop_profiler(self, trainer):
         if self._span:
-            if self._span._is_scheduled:
+            if self._span._is_tracing:
                 self._update_profile(trainer)
             self._span.stop()
             self._span = None
 
     def _update_profile(self, trainer):
         try:
-            profile = self._span._profile
+            signal = self._span._signal
 
-            profile.profiler_info.framework_profiler_type = profiles_pb2.ProfilerInfo.ProfilerType.PYTORCH_LIGHTNING_PROFILER
+            signal.agent_info.framework_profiler_type = signals_pb2.AgentInfo.ProfilerType.PYTORCH_LIGHTNING_PROFILER
 
-            framework = profile.frameworks.add()
-            framework.type = profiles_pb2.FrameworkInfo.FrameworkType.PYTORCH_LIGHTNING_FRAMEWORK
+            framework = signal.frameworks.add()
+            framework.type = signals_pb2.FrameworkInfo.FrameworkType.PYTORCH_LIGHTNING_FRAMEWORK
             framework.version.CopyFrom(self._pl_version)
 
             if self._check_param(trainer, 'world_size'):
-                profile.cluster_info.world_size = trainer.world_size
+                signal.cluster_info.world_size = trainer.world_size
 
-            profile.model_info.model_format = profiles_pb2.ModelInfo.ModelFormat.PYTORCH_FORMAT
+            signal.model_info.model_format = signals_pb2.ModelInfo.ModelFormat.PYTORCH_FORMAT
             if self._model_size_mb:
-                profile.model_info.model_size_bytes = int(self._model_size_mb * 1e6)
+                signal.model_info.model_size_bytes = int(self._model_size_mb * 1e6)
 
             if self._node_rank >= 0:
-                profile.node_usage.node_rank = self._node_rank
+                signal.node_usage.node_rank = self._node_rank
             if self._global_rank >= 0:
-                profile.process_usage.global_rank = self._global_rank
+                signal.process_usage.global_rank = self._global_rank
             if self._local_rank >= 0:
-                profile.process_usage.local_rank = self._local_rank
+                signal.process_usage.local_rank = self._local_rank
         except Exception as exc:
             self._span._add_profiler_exception(exc)
 

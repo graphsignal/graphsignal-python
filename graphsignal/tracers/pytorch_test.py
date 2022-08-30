@@ -8,7 +8,7 @@ import pprint
 
 import graphsignal
 from graphsignal.tracers.pytorch import inference_span
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
 
 logger = logging.getLogger('graphsignal')
@@ -27,8 +27,8 @@ class PyTorchProfilerTest(unittest.TestCase):
             torch.cuda.empty_cache()
         graphsignal.shutdown()
 
-    @patch.object(Uploader, 'upload_profile')
-    def test_inference_span(self, mocked_upload_profile):
+    @patch.object(Uploader, 'upload_signal')
+    def test_inference_span(self, mocked_upload_signal):
         x = torch.arange(-5, 5, 0.1).view(-1, 1)
         y = -5 * x + 0.1 * torch.randn(x.size())
         model = torch.nn.Linear(1, 1)
@@ -40,17 +40,17 @@ class PyTorchProfilerTest(unittest.TestCase):
         with inference_span('m1'):
             y1 = model(x)
 
-        profile = mocked_upload_profile.call_args[0][0]
+        signal = mocked_upload_signal.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(profile))
+        #pp.pprint(MessageToJson(signal))
 
         self.assertEqual(
-            profile.frameworks[0].type,
-            profiles_pb2.FrameworkInfo.FrameworkType.PYTORCH_FRAMEWORK)
+            signal.frameworks[0].type,
+            signals_pb2.FrameworkInfo.FrameworkType.PYTORCH_FRAMEWORK)
 
         test_op_stats = None
-        for op_stats in profile.op_stats:
+        for op_stats in signal.op_stats:
             if op_stats.op_name == 'aten::addmm':
                 test_op_stats = op_stats
                 break
@@ -63,4 +63,4 @@ class PyTorchProfilerTest(unittest.TestCase):
             self.assertTrue(test_op_stats.total_host_time_us >= 1)
             self.assertTrue(test_op_stats.self_host_time_us >= 1)
 
-        self.assertNotEqual(profile.trace_data, b'')
+        self.assertNotEqual(signal.trace_data, b'')

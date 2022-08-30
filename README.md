@@ -5,10 +5,10 @@
 [![Status](https://img.shields.io/uptimerobot/status/m787882560-d6b932eb0068e8e4ade7f40c?label=SaaS%20status)](https://stats.uptimerobot.com/gMBNpCqqqJ)
 
 
-Graphsignal is a machine learning inference profiling and monitoring platform. It helps data scientists and ML engineers make model inference faster and more efficient. It is built for real-world use cases and allows ML practitioners to:
+Graphsignal is a machine learning inference observability platform. It allows ML engineers and MLOps teams to:
 
-* Optimize and monitor inference by measuring latency and throughput, analyzing bottlenecks and resource utilization.
-* Start profiling and monitoring jobs and server applications automatically by adding a few lines of code.
+* Monitor, troubleshoot and optimize inference by analyzing performance bottlenecks, resource utilization and errors.
+* Start measuring and profiling server applications and batch jobs automatically by adding a few lines of code.
 * Use Graphsignal in local, remote or cloud environment without installing any additional software or opening inbound ports.
 * Keep data private; no code or data is sent to Graphsignal cloud, only statistics and metadata.
 
@@ -51,17 +51,12 @@ graphsignal.configure(api_key='my-api-key')
 
 To get an API key, sign up for a free account at [graphsignal.com](https://graphsignal.com). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.com/settings/api-keys) page.
 
-Provide a `workload_name` to track runs, deployments or applications separately. 
-
-```python
-graphsignal.configure(api_key='my-api-key', workload_name='model-serving-prod')
-```
 
 ### Integration
 
 Use the following examples to integrate Graphsignal agent into your machine learning application. See integration documentation and [API reference](https://graphsignal.com/docs/reference/python-api/) for full reference.
 
-Graphsignal agent is **optimized for production**. All inferences wrapped with `inference_span` will be measured, but only a few will be profiled to ensure low overhead.
+Graphsignal agent is **optimized for production**. All inferences wrapped with `inference_span` will be measured, but only a few will be traced and profiled to ensure low overhead.
 
 
 #### [Python](https://graphsignal.com/docs/integrations/python/)
@@ -161,14 +156,14 @@ with inference_span(model_name='text-classification') as span:
 
 #### Reporting Exceptions
 
-When `with` context manager is used with `inference_span` methods, exceptions are automatically reported. For other cases, use `InferenceSpan.add_exception(exc_info)` method.
+When `with` context manager is used with `inference_span` methods, exceptions are automatically reported. For other cases, use `InferenceSpan.set_exception(exc_info)` method.
 
 ```python
 span = inference_span(model_name='my-model'):
 try:
     preds = model(inputs)
 except:
-    span.add_exception(exc_info=True)
+    span.set_exception(exc_info=True)
 span.stop()
 ```
 
@@ -185,13 +180,12 @@ After everything is setup, [log in](https://app.graphsignal.com/) to Graphsignal
 import graphsignal
 from graphsignal.tracers.pytorch import inference_span
 
-graphsignal.configure(
-    api_key='my-api-key', workload_name='my-model-serving')
+graphsignal.configure(api_key='my-api-key')
 
 ...
 
 def predict(x):
-    with inference_span(model_name='my-model'):
+    with inference_span(model_name='my-model-prod'):
         return model(x)
 ```
 
@@ -201,13 +195,12 @@ def predict(x):
 import graphsignal
 from graphsignal.tracers.pytorch import inference_span
 
-graphsignal.configure(
-    api_key='my-api-key', workload_name='job-{0}'.format(datetime.date.today()))
+graphsignal.configure(api_key='my-api-key')
 
 ....
 
 for x in data:
-    with inference_span(model_name='my-model'):
+    with inference_span(model_name='my-model', tags=dict(job_id='job1')):
         preds = model(x)
 ```
 
@@ -221,7 +214,7 @@ Although profiling may add some overhead to applications, Graphsignal only profi
 
 ## Security and Privacy
 
-Graphsignal Profiler can only open outbound connections to `agent-api.graphsignal.com` and send data, no inbound connections or commands are possible. 
+Graphsignal agent can only open outbound connections to `agent-api.graphsignal.com` and send data, no inbound connections or commands are possible. 
 
 No code or data is sent to Graphsignal cloud, only statistics and metadata.
 

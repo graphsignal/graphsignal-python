@@ -1,22 +1,11 @@
 from typing import Any, Union, Optional
-import time
-import sys
 import os
 import logging
-import threading
-import uuid
-import hashlib
 import atexit
 
 from graphsignal.version import __version__
 from graphsignal.agent import Agent
-from graphsignal.workload import Workload
-from graphsignal.uploader import Uploader
-from graphsignal.usage.process_reader import ProcessReader
-from graphsignal.usage.nvml_reader import NvmlReader
-from graphsignal.inference_span import InferenceSpan
 from graphsignal import tracers
-from graphsignal.proto import profiles_pb2
 
 logger = logging.getLogger('graphsignal')
 
@@ -27,7 +16,7 @@ def _check_configured():
     global _agent
     if not _agent:
         raise ValueError(
-            'Profiler not configured, call graphsignal.configure() first')
+            'Agent not configured, call graphsignal.configure() first')
 
 
 def _check_and_set_arg(
@@ -66,13 +55,12 @@ def _check_and_set_arg(
 
 def configure(
         api_key: Optional[str] = None,
-        workload_name: Optional[str] = None,
         debug_mode: Optional[bool] = False,
-        disable_op_profiler: Optional[bool] = False) -> None:
+        disable_profiling: Optional[bool] = False) -> None:
     global _agent
 
     if _agent:
-        logger.warning('Profiler already configured')
+        logger.warning('Agent already configured')
         return
 
     debug_mode = _check_and_set_arg('debug_mode', debug_mode, is_bool=True)
@@ -81,79 +69,40 @@ def configure(
     else:
         logger.setLevel(logging.WARNING)
     api_key = _check_and_set_arg('api_key', api_key, is_str=True, required=True)
-    workload_name = _check_and_set_arg('workload_name', workload_name,  is_str=True, max_len=50)
-    disable_op_profiler = _check_and_set_arg('disable_op_profiler', disable_op_profiler, is_bool=True)
+    disable_profiling = _check_and_set_arg('disable_profiling', disable_profiling, is_bool=True)
 
-    _agent = Agent()
-    _agent.worker_id = _uuid_sha1(size=12)
-    _agent.api_key = api_key
-    if workload_name:
-        _agent.workload_name = workload_name
-    _agent.disable_op_profiler = disable_op_profiler
-    _agent.debug_mode = debug_mode
-    _agent.uploader = Uploader()
-    _agent.uploader.configure()
-    _agent.process_reader = ProcessReader()
-    _agent.process_reader.setup()
-    _agent.nvml_reader = NvmlReader()
-    _agent.nvml_reader.setup()
-
-    _agent.workload = Workload()
-    if workload_name:
-        _agent.workload.workload_id = _sha1(workload_name, size=12)
-    else:
-        _agent.workload.workload_id = _sha1('', size=12)
+    _agent = Agent(
+        api_key=api_key, 
+        disable_profiling=disable_profiling,
+        debug_mode=debug_mode)
+    _agent.start()
 
     atexit.register(shutdown)
 
-    logger.debug('Profiler configured')
-
-
-def workload() -> Workload:
-    _check_configured()
-
-    return _agent.workload
+    logger.debug('Agent configured')
 
 
 def upload(block=False) -> None:
     _check_configured()
 
-    _agent.workload.upload(block=block)
+    _agent.upload(block=block)
 
 
 def shutdown() -> None:
+    global _agent
     _check_configured()
 
-    global _agent
     atexit.unregister(shutdown)
-    _agent.workload.end(block=True)
-    _agent.process_reader.shutdown()
-    _agent.nvml_reader.shutdown()
+    _agent.stop()
     _agent = None
 
-    logger.debug('Profiler shutdown')
-
-
-def generate_uuid() -> None:
-    return _uuid_sha1()    
-
-
-def _sha1(text, size=-1):
-    sha1_hash = hashlib.sha1()
-    sha1_hash.update(text.encode('utf-8'))
-    return sha1_hash.hexdigest()[0:size]
-
-
-def _uuid_sha1(size=-1):
-    return _sha1(str(uuid.uuid4()), size)
+    logger.debug('Agent shutdown')
 
 
 __all__ = [
     '__version__',
     'configure',
-    'workload',
     'upload',
     'shutdown',
-    'generate_uuid',
     'tracers'
 ]

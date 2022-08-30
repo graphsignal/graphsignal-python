@@ -23,12 +23,13 @@ setup(
     'machine learning',
     'deep learning',
     'data science',
+    'inference monitoring',
+    'inference profiling',
     'machine learning profiler',
     'deep learning profiler',
     'tensorflow profiler',
     'keras profiler',
-    'pytorch profiler',
-    'inference profiling'
+    'pytorch profiler'
   ],
   classifiers = [
     'Development Status :: 5 - Production/Stable',

@@ -5,7 +5,7 @@ from tensorflow import keras
 from tensorflow.keras.callbacks import Callback
 
 import graphsignal
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 from graphsignal.proto_utils import parse_semver
 from graphsignal.tracers.tensorflow import TensorflowProfiler
 from graphsignal.inference_span import InferenceSpan
@@ -14,13 +14,13 @@ logger = logging.getLogger('graphsignal')
 
 
 class GraphsignalCallback(Callback):
-    def __init__(self, model_name: str, metadata: Optional[dict] = None, batch_size: Optional[int] = None):
+    def __init__(self, model_name: str, tags: Optional[dict] = None, batch_size: Optional[int] = None):
         super().__init__()
         self._keras_version = None
         self._profiler = TensorflowProfiler()
         self._span = None
         self._model_name = model_name
-        self._metadata = metadata
+        self._tags = tags
         self._batch_size = batch_size
 
     def on_test_begin(self, logs=None):
@@ -49,7 +49,7 @@ class GraphsignalCallback(Callback):
 
     def _configure_profiler(self):
         try:
-            self._keras_version = profiles_pb2.SemVer()
+            self._keras_version = signals_pb2.SemVer()
             parse_semver(self._keras_version, keras.__version__)
         except Exception:
             logger.error('Error configuring Keras profiler', exc_info=True)
@@ -58,25 +58,25 @@ class GraphsignalCallback(Callback):
         if not self._span:
             self._span = InferenceSpan(
                 model_name=self._model_name,
-                metadata=self._metadata,
+                tags=self._tags,
                 operation_profiler=self._profiler)
             self._span.set_count('items', self._batch_size)
 
     def _stop_profiler(self):
         if self._span:
-            if self._span._is_scheduled:
+            if self._span._is_tracing:
                 self._update_profile()
             self._span.stop()
             self._span = None
 
     def _update_profile(self):
         try:
-            profile = self._span._profile
+            signal = self._span._signal
 
-            profile.profiler_info.framework_profiler_type = profiles_pb2.ProfilerInfo.ProfilerType.KERAS_PROFILER
+            signal.agent_info.framework_profiler_type = signals_pb2.AgentInfo.ProfilerType.KERAS_PROFILER
 
-            framework = profile.frameworks.add()
-            framework.type = profiles_pb2.FrameworkInfo.FrameworkType.KERAS_FRAMEWORK
+            framework = signal.frameworks.add()
+            framework.type = signals_pb2.FrameworkInfo.FrameworkType.KERAS_FRAMEWORK
             framework.version.CopyFrom(self._keras_version)
         except Exception as exc:
             self._span._add_profiler_exception(exc)

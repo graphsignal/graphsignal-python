@@ -6,7 +6,7 @@ from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
 
 logger = logging.getLogger('graphsignal')
@@ -23,8 +23,8 @@ class KerasCallbackTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    @patch.object(Uploader, 'upload_profile')
-    def test_callback(self, mocked_upload_profile):
+    @patch.object(Uploader, 'upload_signal')
+    def test_callback(self, mocked_upload_signal):
         import tensorflow as tf
         import tensorflow_datasets as tfds
         tfds.disable_progress_bar()
@@ -75,25 +75,25 @@ class KerasCallbackTest(unittest.TestCase):
             batch_size=128,
             callbacks=[GraphsignalCallback(model_name='m1', batch_size=128)])
 
-        profile = mocked_upload_profile.call_args[0][0]
+        signal = mocked_upload_signal.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(profile))
+        #pp.pprint(MessageToJson(signal))
 
-        self.assertEqual(profile.model_name, 'm1')
-        self.assertTrue(len(profile.inference_stats.extra_counters['items'].buckets_sec), 1)
+        self.assertEqual(signal.model_name, 'm1')
+        self.assertTrue(len(signal.inference_stats.extra_counters['items'].buckets_sec), 1)
 
         self.assertTrue(
-            profile.profiler_info.framework_profiler_type, 
-            profiles_pb2.ProfilerInfo.ProfilerType.KERAS_PROFILER)
+            signal.agent_info.framework_profiler_type, 
+            signals_pb2.AgentInfo.ProfilerType.KERAS_PROFILER)
 
         self.assertEqual(
-            profile.frameworks[-1].type,
-            profiles_pb2.FrameworkInfo.FrameworkType.KERAS_FRAMEWORK)
-        self.assertTrue(profile.frameworks[-1].version.major > 0)
+            signal.frameworks[-1].type,
+            signals_pb2.FrameworkInfo.FrameworkType.KERAS_FRAMEWORK)
+        self.assertTrue(signal.frameworks[-1].version.major > 0)
 
         test_op_stats = None
-        for op_stats in profile.op_stats:
+        for op_stats in signal.op_stats:
             if 'MatMul' in op_stats.op_type:
                 test_op_stats = op_stats
                 break

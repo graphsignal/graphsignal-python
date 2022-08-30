@@ -8,7 +8,7 @@ import pprint
 
 import graphsignal
 from graphsignal.tracers.python import inference_span
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
 
 logger = logging.getLogger('graphsignal')
@@ -25,8 +25,8 @@ class PythonProfilerTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    @patch.object(Uploader, 'upload_profile')
-    def test_inference_span(self, mocked_upload_profile):
+    @patch.object(Uploader, 'upload_signal')
+    def test_inference_span(self, mocked_upload_signal):
         def slow_method():
             time.sleep(0.1)
 
@@ -35,13 +35,13 @@ class PythonProfilerTest(unittest.TestCase):
             slow_method()
             slow_method()
 
-        profile = mocked_upload_profile.call_args[0][0]
+        signal = mocked_upload_signal.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(profile))
+        #pp.pprint(MessageToJson(signal))
 
         foundOp = False
-        for op_stats in profile.op_stats:
+        for op_stats in signal.op_stats:
             if op_stats.op_name.startswith('slow_method') and op_stats.count == 2 and op_stats.total_host_time_us > 200000:
                 foundOp = True
                 break

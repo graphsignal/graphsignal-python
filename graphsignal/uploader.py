@@ -14,31 +14,31 @@ from urllib.error import URLError
 from urllib.error import HTTPError
 
 import graphsignal
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 
 logger = logging.getLogger('graphsignal')
 
 
 class Uploader:
-    MAX_BUFFER_SIZE = 2500
+    MAX_BUFFER_SIZE = 25
 
     def __init__(self):
-        self.profile_api_url = 'https://agent-api.graphsignal.com'
+        self.agent_api_url = 'https://agent-api.graphsignal.com'
         self.buffer = []
         self.buffer_lock = threading.Lock()
         self.flush_lock = threading.Lock()
 
-    def configure(self):
+    def setup(self):
         if 'GRAPHSIGNAL_AGENT_API_URL' in os.environ:
-            self.profile_api_url = os.environ['GRAPHSIGNAL_AGENT_API_URL']
+            self.agent_api_url = os.environ['GRAPHSIGNAL_AGENT_API_URL']
 
     def clear(self):
         with self.buffer_lock:
             self.buffer = []
 
-    def upload_profile(self, profile):
+    def upload_signal(self, signal):
         with self.buffer_lock:
-            self.buffer.append(profile)
+            self.buffer.append(signal)
             if len(self.buffer) > self.MAX_BUFFER_SIZE:
                 self.buffer = self.buffer[-self.MAX_BUFFER_SIZE:]
 
@@ -55,18 +55,18 @@ class Uploader:
             try:
                 upload_start = time.time()
                 payload = _create_upload_request(outgoing)
-                content = self._post('profiles', payload)
+                content = self._post('signals', payload)
                 _create_upload_response(content)
                 logger.debug('Upload took %.3f sec (%dB)', time.time() - upload_start, len(payload))
             except URLError:
-                logger.debug('Failed uploading profiles, will retry', exc_info=True)
+                logger.debug('Failed uploading signals, will retry', exc_info=True)
                 with self.buffer_lock:
                     self.buffer[:0] = outgoing
             except Exception:
-                logger.error('Error uploading profiles', exc_info=True)
+                logger.error('Error uploading signals', exc_info=True)
 
     def _post(self, endpoint, data):
-        logger.debug('Posting data to %s/%s', self.profile_api_url, endpoint)
+        logger.debug('Posting data to %s/%s', self.agent_api_url, endpoint)
 
         api_key_64 = _base64_encode(graphsignal._agent.api_key + ':').replace('\n', '')
         headers = {
@@ -79,7 +79,7 @@ class Uploader:
         data_gzip = _gzip_data(data)
 
         request = Request(
-            url=self.profile_api_url + '/' + endpoint,
+            url=self.agent_api_url + '/' + endpoint,
             data=data_gzip,
             headers=headers)
 
@@ -99,14 +99,14 @@ class Uploader:
 
 
 def _create_upload_request(outgoing):
-    upload_request = profiles_pb2.UploadRequest()
-    upload_request.ml_profiles.extend(outgoing)
+    upload_request = signals_pb2.UploadRequest()
+    upload_request.ml_signals.extend(outgoing)
     upload_request.upload_ms = int(time.time() * 1e3)
     return upload_request.SerializeToString()
 
 
 def _create_upload_response(content):
-    upload_response = profiles_pb2.UploadResponse()
+    upload_response = signals_pb2.UploadResponse()
     upload_response.ParseFromString(content)
     return upload_response
 

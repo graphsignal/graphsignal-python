@@ -1,4 +1,4 @@
-// This proto is used for analysis of TensorFlow runtime memory profile.
+// This proto is used for analysis of TensorFlow runtime memory signal.
 syntax = "proto3";
 
 package tensorflow.profiler;

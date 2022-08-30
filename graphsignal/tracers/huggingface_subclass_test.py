@@ -6,7 +6,7 @@ from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
 
 logger = logging.getLogger('graphsignal')
@@ -23,8 +23,8 @@ class HuggingFaceSubclassTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    @patch.object(Uploader, 'upload_profile')
-    def test_subclass(self, mocked_upload_profile):
+    @patch.object(Uploader, 'upload_signal')
+    def test_subclass(self, mocked_upload_signal):
         import torch
         if not torch.cuda.is_available():
             return
@@ -77,13 +77,13 @@ class HuggingFaceSubclassTest(unittest.TestCase):
 
         trainer.evaluate()
 
-        profile = mocked_upload_profile.call_args[0][0]
+        signal = mocked_upload_signal.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(profile))
+        #pp.pprint(MessageToJson(signal))
 
         test_op_stats = None
-        for op_stats in profile.op_stats:
+        for op_stats in signal.op_stats:
             if 'sgemm' in op_stats.op_name:
                 test_op_stats = op_stats
                 break

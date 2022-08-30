@@ -13,7 +13,7 @@ except ImportError:
     pass
 
 import graphsignal
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 from graphsignal.proto_utils import parse_semver
 from graphsignal import version
 
@@ -44,12 +44,12 @@ class ProcessReader():
     def shutdown(self):
         pass
 
-    def read(self, profile):
+    def read(self, signal):
         now = time.time()
         pid = str(os.getpid())
 
-        node_usage = profile.node_usage
-        process_usage = profile.process_usage
+        node_usage = signal.node_usage
+        process_usage = signal.process_usage
         process_usage.start_ms = self._start_ms
 
         process_usage.process_id = pid
@@ -110,12 +110,12 @@ class ProcessReader():
             logger.error('Error reading node information', exc_info=True)
 
         try:
-            process_usage.runtime = profiles_pb2.ProcessUsage.Runtime.PYTHON
+            process_usage.runtime = signals_pb2.ProcessUsage.Runtime.PYTHON
             process_usage.runtime_version.major = sys.version_info.major
             process_usage.runtime_version.minor = sys.version_info.minor
             process_usage.runtime_version.patch = sys.version_info.micro
             process_usage.runtime_impl = platform.python_implementation()
-            parse_semver(profile.profiler_info.version, version.__version__)
+            parse_semver(signal.agent_info.version, version.__version__)
         except BaseException:
             logger.error('Error reading process information', exc_info=True)
 

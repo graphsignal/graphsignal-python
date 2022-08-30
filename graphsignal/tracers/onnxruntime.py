@@ -1,16 +1,13 @@
 from typing import Optional
 import logging
 import os
-import sys
-import time
 import gzip
-import atexit
-import threading
+from pathlib import Path
 import onnxruntime
 
 import graphsignal
 from graphsignal.proto_utils import parse_semver
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 from graphsignal.inference_span import InferenceSpan
 from graphsignal.tracers.operation_profiler import OperationProfiler
 from graphsignal.tracers.profiler_utils import create_log_dir, remove_log_dir, find_and_read
@@ -22,98 +19,96 @@ class ONNXRuntimeProfiler(OperationProfiler):
     def __init__(self):
         self._is_initialized = None
         self._onnx_version = None
-        self._first_trace_path = None
-        self._end_lock = threading.Lock()
+        self._ended = False
 
-    def reset(self):
-        self._first_trace_path = None
+    def read_info(self, signal):
+        if not self._onnx_version:
+            self._onnx_version = signals_pb2.SemVer()
+            parse_semver(self._onnx_version, onnxruntime.__version__)
 
-    def start(self, profile, onnx_session):
+        # Framework info
+        framework = signal.frameworks.add()
+        framework.type = signals_pb2.FrameworkInfo.FrameworkType.ONNX_FRAMEWORK
+        framework.version.CopyFrom(self._onnx_version)
+
+    def start(self, signal, onnx_session):
         if not onnx_session.get_session_options().enable_profiling:
+            return
+
+        if self._ended:
             return
 
         logger.debug('Activating ONNX profiler')
 
-        # Initialization
-        if not self._is_initialized:
-            self._is_initialized = True
-
-            self._onnx_version = profiles_pb2.SemVer()
-            parse_semver(self._onnx_version, onnxruntime.__version__)
-
         # Profiler info
-        profile.profiler_info.operation_profiler_type = profiles_pb2.ProfilerInfo.ProfilerType.ONNX_PROFILER
+        signal.agent_info.operation_profiler_type = signals_pb2.AgentInfo.ProfilerType.ONNX_PROFILER
 
-        # Framework info
-        framework = profile.frameworks.add()
-        framework.type = profiles_pb2.FrameworkInfo.FrameworkType.ONNX_FRAMEWORK
-        framework.version.CopyFrom(self._onnx_version)
-
-    def stop(self, profile, onnx_session):
+    def stop(self, signal, onnx_session):
         if not onnx_session.get_session_options().enable_profiling:
             return
 
+        if self._ended:
+            return
+        self._ended = True
+
         logger.debug('Deactivating ONNX profiler')
 
-        # end profiling after first inference and use first trace data 
-        # in all other profiles for the current inference session
-        with self._end_lock:
-            if not self._first_trace_path:
-                self._first_trace_path = onnx_session.end_profiling()
-
-        if self._first_trace_path:
-            trace_file_size = os.path.getsize(self._first_trace_path)
+        try:
+            trace_file_path = onnx_session.end_profiling()
+            trace_file_size = os.path.getsize(trace_file_path)
             if trace_file_size > 50 * 1e6:
                 raise Exception('Trace file too big: {0}'.format(trace_file_size))
 
-            with open(self._first_trace_path) as f:
+            with open(trace_file_path) as f:
                 trace_json = f.read()
-                profile.trace_data = gzip.compress(trace_json.encode())
+                signal.trace_data = gzip.compress(trace_json.encode())
+        finally:
+            # delete profiler after profiling first inference
+            log_dir = str(Path(trace_file_path).parent.absolute())
+            remove_log_dir(log_dir)
+
+            key = _extract_session_key(log_dir)
+            del _profilers[key]
 
 
-class ONNXRuntimeProfilingSession():
-    def __init__(self):
-        self.log_dir = '{0}{1}'.format(create_log_dir(), os.path.sep)
-
-    def cleanup(self):
-        remove_log_dir(self.log_dir)
+_profilers = {}
 
 
-_profiler = ONNXRuntimeProfiler()
-_profiling_sessions = []
-
-
-def _cleanup_profiling_sessions():
-    if _profiling_sessions:
-        for profiling_session in _profiling_sessions:
-            profiling_session.cleanup()
-
-atexit.register(_cleanup_profiling_sessions)
+def _extract_session_key(log_dir):
+    return os.path.basename(os.path.normpath(log_dir))
 
 
 def initialize_profiler(onnx_session_options: onnxruntime.SessionOptions):
     graphsignal._check_configured()
 
-    profiling_session = ONNXRuntimeProfilingSession()
-    _profiling_sessions.append(profiling_session)
-
     onnx_session_options.enable_profiling = True
-    onnx_session_options.profile_file_prefix = profiling_session.log_dir
+
+    log_dir = '{0}{1}'.format(create_log_dir(), os.path.sep)
+    onnx_session_options.profile_file_prefix = log_dir
+
+    key = _extract_session_key(log_dir)
+    _profilers[key] = ONNXRuntimeProfiler()
 
 
 def inference_span(
         model_name: str,
-        metadata: Optional[dict] = None,
-        ensure_profile: Optional[bool] = False,
+        tags: Optional[dict] = None,
+        ensure_trace: Optional[bool] = False,
         onnx_session: Optional[onnxruntime.InferenceSession] = None) -> InferenceSpan:
     graphsignal._check_configured()
 
     if not onnx_session:
         raise ValueError('onnx_session is required')
 
+    profiler = None
+    log_dir = onnx_session.get_session_options().profile_file_prefix
+    key = _extract_session_key(log_dir)
+    if key in _profilers:
+        profiler = _profilers[key]
+
     return InferenceSpan(
         model_name=model_name,
-        metadata=metadata,
-        ensure_profile=ensure_profile,
-        operation_profiler=_profiler,
+        tags=tags,
+        ensure_trace=ensure_trace,
+        operation_profiler=profiler,
         context=onnx_session)

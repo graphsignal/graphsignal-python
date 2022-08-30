@@ -6,12 +6,11 @@ import time
 from unittest.mock import patch, Mock
 
 import graphsignal
-from graphsignal.workload import Workload
 
 logger = logging.getLogger('graphsignal')
 
 
-class WorkloadTest(unittest.TestCase):
+class AgentTest(unittest.TestCase):
     def setUp(self):
         graphsignal.configure(
             api_key='k1',
@@ -22,7 +21,7 @@ class WorkloadTest(unittest.TestCase):
 
     @patch('time.time', return_value=1)
     def test_update_inference_stats(self, mocked_time):
-        stats = Workload().get_inference_stats('m1')
+        stats = graphsignal._agent.get_inference_stats('m1')
 
         stats.inc_inference_counter(1, 1000 * 1e6)
         stats.inc_inference_counter(1, 1000 * 1e6)

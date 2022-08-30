@@ -9,7 +9,7 @@ import time
 
 import graphsignal
 from graphsignal.usage.process_reader import ProcessReader
-from graphsignal.proto import profiles_pb2
+from graphsignal.proto import signals_pb2
 
 logger = logging.getLogger('graphsignal')
 
@@ -26,25 +26,25 @@ class ProcessReaderTest(unittest.TestCase):
         graphsignal.shutdown()
 
     def test_read(self):
-        profile = profiles_pb2.MLProfile()
+        signal = signals_pb2.MLSignal()
         reader = graphsignal._agent.process_reader
-        reader.read(profile)
+        reader.read(signal)
         ProcessReader.MIN_CPU_READ_INTERVAL_NS = 0
         time.sleep(0.2)
-        reader.read(profile)
+        reader.read(signal)
 
         #pp = pprint.PrettyPrinter()
-        # pp.pprint(MessageToJson(profile))
+        # pp.pprint(MessageToJson(signal))
 
-        self.assertNotEqual(profile.node_usage.hostname, '')
-        self.assertNotEqual(profile.node_usage.ip_address, '')
-        self.assertNotEqual(profile.process_usage.process_id, '')
-        self.assertTrue(profile.process_usage.start_ms > 0)
+        self.assertNotEqual(signal.node_usage.hostname, '')
+        self.assertNotEqual(signal.node_usage.ip_address, '')
+        self.assertNotEqual(signal.process_usage.process_id, '')
+        self.assertTrue(signal.process_usage.start_ms > 0)
         if sys.platform != 'win32':
-            self.assertTrue(profile.node_usage.mem_total > 0)
-            self.assertTrue(profile.node_usage.mem_used > 0)
-            self.assertTrue(profile.process_usage.cpu_usage_percent > 0)
-            self.assertTrue(profile.process_usage.max_rss > 0)
-            self.assertTrue(profile.process_usage.current_rss > 0)
-            self.assertTrue(profile.process_usage.vm_size > 0)
-        self.assertTrue(profile.profiler_info.version.major > 0 or profile.profiler_info.version.minor > 0)
+            self.assertTrue(signal.node_usage.mem_total > 0)
+            self.assertTrue(signal.node_usage.mem_used > 0)
+            self.assertTrue(signal.process_usage.cpu_usage_percent > 0)
+            self.assertTrue(signal.process_usage.max_rss > 0)
+            self.assertTrue(signal.process_usage.current_rss > 0)
+            self.assertTrue(signal.process_usage.vm_size > 0)
+        self.assertTrue(signal.agent_info.version.major > 0 or signal.agent_info.version.minor > 0)
