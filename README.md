@@ -52,7 +52,7 @@ graphsignal.configure(api_key='my-api-key')
 To get an API key, sign up for a free account at [graphsignal.com](https://graphsignal.com). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.com/settings/api-keys) page.
 
 
-### Integration
+### 3. Integration
 
 Use the following examples to integrate Graphsignal agent into your machine learning application. See integration documentation and [API reference](https://graphsignal.com/docs/reference/python-api/) for full reference.
 
@@ -167,7 +167,7 @@ except:
 span.stop()
 ```
 
-### 3. Monitoring
+### 4. Monitoring
 
 After everything is setup, [log in](https://app.graphsignal.com/) to Graphsignal to monitor and analyze inference performance.
 
