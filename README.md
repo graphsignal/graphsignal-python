@@ -1,4 +1,4 @@
-# Graphsignal: Inference Profiling And Monitoring
+# Graphsignal: Inference Monitoring and Profiling 
 
 [![License](http://img.shields.io/github/license/graphsignal/graphsignal)](https://github.com/graphsignal/graphsignal/blob/main/LICENSE)
 [![Version](https://img.shields.io/github/v/tag/graphsignal/graphsignal?label=version)](https://github.com/graphsignal/graphsignal)
