@@ -7,8 +7,6 @@ from tensorflow.keras.callbacks import Callback
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.proto_utils import parse_semver
-from graphsignal.tracers.tensorflow import TensorflowProfiler
-from graphsignal.inference_span import InferenceSpan
 
 logger = logging.getLogger('graphsignal')
 
@@ -17,7 +15,7 @@ class GraphsignalCallback(Callback):
     def __init__(self, model_name: str, tags: Optional[dict] = None, batch_size: Optional[int] = None):
         super().__init__()
         self._keras_version = None
-        self._profiler = TensorflowProfiler()
+        self._tracer = graphsignal.tracer(with_profiler='tensorflow')
         self._span = None
         self._model_name = model_name
         self._tags = tags
@@ -56,15 +54,14 @@ class GraphsignalCallback(Callback):
 
     def _start_profiler(self):
         if not self._span:
-            self._span = InferenceSpan(
+            self._span = self._tracer.inference_span(
                 model_name=self._model_name,
-                tags=self._tags,
-                operation_profiler=self._profiler)
+                tags=self._tags)
             self._span.set_count('items', self._batch_size)
 
     def _stop_profiler(self):
         if self._span:
-            if self._span._is_tracing:
+            if self._span.is_tracing():
                 self._update_profile()
             self._span.stop()
             self._span = None

@@ -6,8 +6,8 @@ from unittest.mock import patch, Mock
 
 import graphsignal
 from graphsignal.proto import signals_pb2
-from graphsignal.inference_span import InferenceSpan
-from graphsignal.tracers.tensorflow import TensorflowProfiler
+from graphsignal.tracer import InferenceSpan
+from graphsignal.profilers.tensorflow import TensorFlowProfiler
 from graphsignal.usage.process_reader import ProcessReader
 from graphsignal.usage.nvml_reader import NvmlReader
 from graphsignal.uploader import Uploader
@@ -15,7 +15,7 @@ from graphsignal.uploader import Uploader
 logger = logging.getLogger('graphsignal')
 
 
-class InferenceSpanTest(unittest.TestCase):
+class TracerTest(unittest.TestCase):
     def setUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -26,8 +26,8 @@ class InferenceSpanTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    @patch.object(TensorflowProfiler, 'start', return_value=True)
-    @patch.object(TensorflowProfiler, 'stop', return_value=True)
+    @patch.object(TensorFlowProfiler, 'start', return_value=True)
+    @patch.object(TensorFlowProfiler, 'stop', return_value=True)
     @patch.object(ProcessReader, 'read')
     @patch.object(NvmlReader, 'read')
     @patch.object(Uploader, 'upload_signal')
@@ -38,7 +38,7 @@ class InferenceSpanTest(unittest.TestCase):
             span = InferenceSpan(
                 model_name='m1',
                 tags={'k1': 'v2', 'k3': 3.0},
-                operation_profiler=TensorflowProfiler())
+                operation_profiler=TensorFlowProfiler())
             span.set_count('items', 256)
             span.add_tag('k4', 'v4')
             time.sleep(0.01)
@@ -63,8 +63,8 @@ class InferenceSpanTest(unittest.TestCase):
         self.assertEqual(signal.tags[2].key, 'k4')
         self.assertEqual(signal.tags[2].value, 'v4')
 
-    @patch.object(TensorflowProfiler, 'start', return_value=True)
-    @patch.object(TensorflowProfiler, 'stop', return_value=True)
+    @patch.object(TensorFlowProfiler, 'start', return_value=True)
+    @patch.object(TensorFlowProfiler, 'stop', return_value=True)
     @patch.object(ProcessReader, 'read')
     @patch.object(NvmlReader, 'read')
     @patch.object(Uploader, 'upload_signal')
@@ -74,7 +74,7 @@ class InferenceSpanTest(unittest.TestCase):
         span = InferenceSpan(
             model_name='m1',
             ensure_trace=True,
-            operation_profiler=TensorflowProfiler())
+            operation_profiler=TensorFlowProfiler())
         span.stop()
 
         mocked_start.assert_called_once()
@@ -89,8 +89,8 @@ class InferenceSpanTest(unittest.TestCase):
         self.assertEqual(signal.profiler_errors[0].message, 'ex1')
         self.assertNotEqual(signal.profiler_errors[0].stack_trace, '')
 
-    @patch.object(TensorflowProfiler, 'start', return_value=True)
-    @patch.object(TensorflowProfiler, 'stop', return_value=True)
+    @patch.object(TensorFlowProfiler, 'start', return_value=True)
+    @patch.object(TensorFlowProfiler, 'stop', return_value=True)
     @patch.object(ProcessReader, 'read')
     @patch.object(NvmlReader, 'read')
     @patch.object(Uploader, 'upload_signal')
@@ -100,7 +100,7 @@ class InferenceSpanTest(unittest.TestCase):
         span = InferenceSpan(
             model_name='m1',
             ensure_trace=True,
-            operation_profiler=TensorflowProfiler())
+            operation_profiler=TensorFlowProfiler())
         span.stop()
 
         mocked_start.assert_called_once()
@@ -114,8 +114,8 @@ class InferenceSpanTest(unittest.TestCase):
         self.assertEqual(signal.profiler_errors[0].message, 'ex1')
         self.assertNotEqual(signal.profiler_errors[0].stack_trace, '')
 
-    @patch.object(TensorflowProfiler, 'start', return_value=True)
-    @patch.object(TensorflowProfiler, 'stop', return_value=True)
+    @patch.object(TensorFlowProfiler, 'start', return_value=True)
+    @patch.object(TensorFlowProfiler, 'stop', return_value=True)
     @patch.object(ProcessReader, 'read')
     @patch.object(NvmlReader, 'read')
     @patch.object(Uploader, 'upload_signal')
@@ -124,7 +124,7 @@ class InferenceSpanTest(unittest.TestCase):
 
         for _ in range(2):
             try:
-                with InferenceSpan(model_name='m1', operation_profiler=TensorflowProfiler()):
+                with InferenceSpan(model_name='m1', operation_profiler=TensorFlowProfiler()):
                     raise Exception('ex1')
             except Exception as ex:
                 if str(ex) != 'ex1':
@@ -143,14 +143,14 @@ class InferenceSpanTest(unittest.TestCase):
         self.assertEqual(signal.exceptions[0].message, 'ex1')
         self.assertNotEqual(signal.exceptions[0].stack_trace, '')
 
-    @patch.object(TensorflowProfiler, 'start', return_value=True)
-    @patch.object(TensorflowProfiler, 'stop', return_value=True)
+    @patch.object(TensorFlowProfiler, 'start', return_value=True)
+    @patch.object(TensorFlowProfiler, 'stop', return_value=True)
     @patch.object(ProcessReader, 'read')
     @patch.object(NvmlReader, 'read')
     @patch.object(Uploader, 'upload_signal')
     def test_set_exception(self, mocked_upload_signal, mocked_nvml_read, mocked_host_read,
                             mocked_stop, mocked_start):
-        span = InferenceSpan(model_name='m1', ensure_trace=True, operation_profiler=TensorflowProfiler())
+        span = InferenceSpan(model_name='m1', ensure_trace=True, operation_profiler=TensorFlowProfiler())
         try:
             raise Exception('ex2')
         except Exception as ex:

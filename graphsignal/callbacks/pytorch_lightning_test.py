@@ -34,7 +34,7 @@ class PyTorchLightningTest(unittest.TestCase):
         from torchmetrics import Accuracy
         from torchvision import transforms
         from torchvision.datasets import MNIST
-        from graphsignal.tracers.pytorch_lightning import GraphsignalCallback
+        from graphsignal.callbacks.pytorch_lightning import GraphsignalCallback
 
         PATH_DATASETS = os.environ.get("PATH_DATASETS", ".")
         AVAIL_GPUS = min(1, torch.cuda.device_count())

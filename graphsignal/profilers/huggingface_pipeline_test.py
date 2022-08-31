@@ -23,17 +23,17 @@ class HuggingFaceGeneratorTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    @patch.object(Uploader, 'upload_signal')
-    def test_pipeline(self, mocked_upload_signal):
+    def test_pipeline(self):
         from transformers import pipeline
-        from graphsignal.tracers.pytorch import inference_span
+        from graphsignal.profilers.pytorch import PyTorchProfiler
 
         pipe = pipeline(task="text-generation", model='distilgpt2')
 
-        with inference_span('m1'):
-            output = pipe('some text')
-
-        signal = mocked_upload_signal.call_args[0][0]
+        profiler = PyTorchProfiler()
+        signal = signals_pb2.MLSignal()
+        profiler.start(signal)
+        output = pipe('some text')
+        profiler.stop(signal)
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))

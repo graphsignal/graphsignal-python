@@ -38,7 +38,7 @@ class NvmlReaderTest(unittest.TestCase):
         criterion = torch.nn.MSELoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
 
-        reader = graphsignal._agent.nvml_reader
+        reader = NvmlReader()
         reader.read(signal)
 
         time.sleep(0.2)

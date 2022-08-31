@@ -5,7 +5,6 @@ import atexit
 
 from graphsignal.version import __version__
 from graphsignal.agent import Agent
-from graphsignal import tracers
 
 logger = logging.getLogger('graphsignal')
 
@@ -55,8 +54,7 @@ def _check_and_set_arg(
 
 def configure(
         api_key: Optional[str] = None,
-        debug_mode: Optional[bool] = False,
-        disable_profiling: Optional[bool] = False) -> None:
+        debug_mode: Optional[bool] = False) -> None:
     global _agent
 
     if _agent:
@@ -69,17 +67,21 @@ def configure(
     else:
         logger.setLevel(logging.WARNING)
     api_key = _check_and_set_arg('api_key', api_key, is_str=True, required=True)
-    disable_profiling = _check_and_set_arg('disable_profiling', disable_profiling, is_bool=True)
 
     _agent = Agent(
         api_key=api_key, 
-        disable_profiling=disable_profiling,
         debug_mode=debug_mode)
     _agent.start()
 
     atexit.register(shutdown)
 
     logger.debug('Agent configured')
+
+
+def tracer(with_profiler: Union[bool, str] = True):
+    _check_configured()
+
+    return _agent.tracer(with_profiler=with_profiler)
 
 
 def upload(block=False) -> None:
@@ -102,7 +104,7 @@ def shutdown() -> None:
 __all__ = [
     '__version__',
     'configure',
+    'tracer'
     'upload',
-    'shutdown',
-    'tracers'
+    'shutdown'
 ]

@@ -6,6 +6,7 @@ import uuid
 import hashlib
 
 import graphsignal
+from graphsignal.tracer import Tracer
 from graphsignal.uploader import Uploader
 from graphsignal.usage.process_reader import ProcessReader
 from graphsignal.usage.nvml_reader import NvmlReader
@@ -16,46 +17,82 @@ logger = logging.getLogger('graphsignal')
 
 
 class Agent:
-    def __init__(self, api_key, disable_profiling=False, debug_mode=False):
+    def __init__(self, api_key, debug_mode=False):
         self.worker_id = _uuid_sha1(size=12)
         self.api_key = api_key
-        self.disable_profiling = disable_profiling
         self.debug_mode = debug_mode
-        self.trace_samplers = None
-        self.inference_stats = None
+
+        self._uploader = None
+        self._process_reader = None
+        self._nvml_reader = None
+        self._trace_samplers = None
+        self._inference_stats = None
+        self._tracer = None
 
     def start(self):
-        self.uploader = Uploader()
-        self.uploader.setup()
-        self.process_reader = ProcessReader()
-        self.process_reader.setup()
-        self.nvml_reader = NvmlReader()
-        self.nvml_reader.setup()
-        self.trace_samplers = {}
-        self.inference_stats = {}
+        self._uploader = Uploader()
+        self._uploader.setup()
+        self._process_reader = ProcessReader()
+        self._process_reader.setup()
+        self._nvml_reader = NvmlReader()
+        self._nvml_reader.setup()
+        self._trace_samplers = {}
+        self._inference_stats = {}
 
     def stop(self):
         self.upload(block=True)
-        self.process_reader.shutdown()
-        self.nvml_reader.shutdown()
-        self.trace_samplers = None
-        self.inference_stats = None
+        self._process_reader.shutdown()
+        self._nvml_reader.shutdown()
+        self._trace_samplers = None
+        self._inference_stats = None
+
+    def uploader(self):
+        return self._uploader
+
+    def tracer(self, with_profiler=True):
+        if not self._tracer:
+            profiler = None
+            if with_profiler == True or with_profiler == 'python':
+                from graphsignal.profilers.python import PythonProfiler
+                profiler = PythonProfiler()
+            elif with_profiler == 'tensorflow':
+                from graphsignal.profilers.tensorflow import TensorFlowProfiler
+                profiler = TensorFlowProfiler()
+            elif with_profiler == 'pytorch':
+                from graphsignal.profilers.pytorch import PyTorchProfiler
+                profiler = PyTorchProfiler()
+            elif with_profiler == 'jax':
+                from graphsignal.profilers.jax import JaxProfiler
+                profiler = JaxProfiler()
+            elif with_profiler == 'onnxruntime':
+                from graphsignal.profilers.onnxruntime import ONNXRuntimeProfiler
+                profiler = ONNXRuntimeProfiler()
+            elif with_profiler:
+                raise ValueError('Invalid profiler name: {0}'.format(with_profiler))
+
+            self._tracer = Tracer(profiler=profiler)
+
+        return self._tracer
 
     def get_trace_sampler(self, model_name):
-        if model_name in self.trace_samplers:
-            return self.trace_samplers[model_name]
+        if model_name in self._trace_samplers:
+            return self._trace_samplers[model_name]
         else:
-            trace_sampler = self.trace_samplers[model_name] = TraceSampler()
+            trace_sampler = self._trace_samplers[model_name] = TraceSampler()
             return trace_sampler
 
     def reset_inference_stats(self, name):
-        self.inference_stats[name] = InferenceStats()
+        self._inference_stats[name] = InferenceStats()
 
     def get_inference_stats(self, name):
-        if name not in self.inference_stats:
+        if name not in self._inference_stats:
             self.reset_inference_stats(name)
 
-        return self.inference_stats[name]
+        return self._inference_stats[name]
+
+    def read_usage(self, signal):
+        self._process_reader.read(signal)
+        self._nvml_reader.read(signal)
 
     def create_signal(self):
         signal = signals_pb2.MLSignal()
@@ -65,9 +102,9 @@ class Agent:
 
     def upload(self, block=False):
         if block:
-            graphsignal._agent.uploader.flush()
+            self._uploader.flush()
         else:
-            graphsignal._agent.uploader.flush_in_thread()
+            self._uploader.flush_in_thread()
 
     def tick(self, block=False):
         self.upload(block=False)

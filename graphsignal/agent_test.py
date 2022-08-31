@@ -19,6 +19,21 @@ class AgentTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
+    def test_tracer_default(self):
+        tracer = graphsignal._agent.tracer()
+        self.assertIsNotNone(tracer)
+        self.assertTrue(isinstance(tracer.profiler(), graphsignal.profilers.python.PythonProfiler))
+
+    def test_tracer_python(self):
+        tracer = graphsignal._agent.tracer(with_profiler='python')
+        self.assertIsNotNone(tracer)
+        self.assertTrue(isinstance(tracer.profiler(), graphsignal.profilers.python.PythonProfiler))
+
+    def test_tracer_disabled(self):
+        tracer = graphsignal._agent.tracer(with_profiler=False)
+        self.assertIsNotNone(tracer)
+        self.assertIsNone(tracer.profiler())
+
     @patch('time.time', return_value=1)
     def test_update_inference_stats(self, mocked_time):
         stats = graphsignal._agent.get_inference_stats('m1')

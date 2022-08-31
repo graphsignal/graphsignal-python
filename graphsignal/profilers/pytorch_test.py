@@ -7,7 +7,7 @@ from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
-from graphsignal.tracers.pytorch import inference_span
+from graphsignal.profilers.pytorch import PyTorchProfiler
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
 
@@ -27,8 +27,16 @@ class PyTorchProfilerTest(unittest.TestCase):
             torch.cuda.empty_cache()
         graphsignal.shutdown()
 
-    @patch.object(Uploader, 'upload_signal')
-    def test_inference_span(self, mocked_upload_signal):
+    def test_read_info(self):
+        profiler = PyTorchProfiler()
+        signal = signals_pb2.MLSignal()
+        profiler.read_info(signal)
+
+        self.assertEqual(
+            signal.frameworks[0].type,
+            signals_pb2.FrameworkInfo.FrameworkType.PYTORCH_FRAMEWORK)
+
+    def test_start_stop(self):
         x = torch.arange(-5, 5, 0.1).view(-1, 1)
         y = -5 * x + 0.1 * torch.randn(x.size())
         model = torch.nn.Linear(1, 1)
@@ -37,17 +45,14 @@ class PyTorchProfilerTest(unittest.TestCase):
             y = y.to('cuda:0')
             model = model.to('cuda:0')
 
-        with inference_span('m1'):
-            y1 = model(x)
-
-        signal = mocked_upload_signal.call_args[0][0]
+        profiler = PyTorchProfiler()
+        signal = signals_pb2.MLSignal()
+        profiler.start(signal)
+        y1 = model(x)
+        profiler.stop(signal)
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
-
-        self.assertEqual(
-            signal.frameworks[0].type,
-            signals_pb2.FrameworkInfo.FrameworkType.PYTORCH_FRAMEWORK)
 
         test_op_stats = None
         for op_stats in signal.op_stats:

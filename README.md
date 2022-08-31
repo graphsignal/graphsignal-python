@@ -59,96 +59,39 @@ Use the following examples to integrate Graphsignal agent into your machine lear
 Graphsignal agent is **optimized for production**. All inferences wrapped with `inference_span` will be measured, but only a few will be traced and profiled to ensure low overhead.
 
 
-#### [Python](https://graphsignal.com/docs/integrations/python/)
+#### Tracing
+
+To measure and trace inferences, wrap the code with `inference_span` method.
 
 ```python
-from graphsignal.tracers.python import inference_span
+tracer = graphsignal.tracer()
 
-with inference_span(model_name='my-model'):
+with tracer.inference_span(model_name='my-model'):
     # function call or code segment
 ```
 
-#### [TensorFlow](https://graphsignal.com/docs/integrations/tensorflow/)
+Other integrations are available as well. See [integration documentation](https://graphsignal.com/docs/) for more information.
+
+
+#### Profiling
+
+Enable/disable various profilers depending on the code and model runtime by passing `with_profiler` argument to `tracer()` method. By default `with_profiler=True` and Python profiler is enabled. Pass `False` to disable profiling.
 
 ```python
-from graphsignal.tracers.tensorflow import inference_span
-
-with inference_span(model_name='my-model'):
-    # function call or code segment
+tracer = graphsignal.tracer(with_profiler='pytorch')
 ```
 
-#### [Keras](https://graphsignal.com/docs/integrations/keras/)
-
-```python
-from graphsignal.tracers.keras import GraphsignalCallback
-
-model.predict(..., callbacks=[GraphsignalCallback(model_name='my-model')])
-# or model.evaluate(..., callbacks=[GraphsignalCallback(model_name='my-model')])
-```
-
-#### [PyTorch](https://graphsignal.com/docs/integrations/pytorch/)
-
-```python
-from graphsignal.tracers.pytorch import inference_span
-
-with inference_span(model_name='my-model'):
-    # function call or code segment
-```
-
-#### [PyTorch Lightning](https://graphsignal.com/docs/integrations/pytorch-lightning/)
-
-```python
-from graphsignal.tracers.pytorch_lightning import GraphsignalCallback
-
-trainer = Trainer(..., callbacks=[GraphsignalCallback(model_name='my-model')])
-trainer.predict() # or trainer.validate() or trainer.test()
-```
-
-#### [Hugging Face](https://graphsignal.com/docs/integrations/hugging-face/)
-
-```python
-from transformers import pipeline
-from graphsignal.tracers.pytorch import inference_span
-# or from graphsignal.tracers.tensorflow import inference_span
-
-pipe = pipeline(task="text-generation")
-
-with inference_span(model_name='my-model'):
-    output = pipe('some text')
-```
-
-#### [JAX](https://graphsignal.com/docs/integrations/jax/)
-
-```python
-from graphsignal.tracers.jax import inference_span
-
-with inference_span(model_name='my-model'):
-    # function call or code segment
-```
-
-#### [ONNX Runtime](https://graphsignal.com/docs/integrations/onnx-runtime/)
-
-```python
-import onnxruntime
-from graphsignal.tracers.onnxruntime import initialize_profiler, inference_span
-
-sess_options = onnxruntime.SessionOptions()
-initialize_profiler(sess_options)
-
-session = onnxruntime.InferenceSession('my-model-path', sess_options)
-with inference_span(model_name='my-model', onnx_session=session):
-    session.run(...)
-```
+The following values are currently supported: `True` (or `python`), `tensorflow`, `pytorch`, `jax`, `onnxruntime`. See [integration documentation](https://graphsignal.com/docs/) for more information on each profiler.
 
 
 #### Measuring Rates
 
-By using any `inference_span` method, multiple metrics are automatically measured and periodically reported, including inference performance, CPU, GPU and memory.
+By using any `inference_span` method, multiple metrics are automatically reported, including inference performance, CPU, GPU and memory.
 
 To measure additional rates, `InferenceSpan.set_count(name, value)` method can be used. For example, by providing the number of processed items on every inference, item rate per second will be automatically calculated.
 
 ```python
-with inference_span(model_name='text-classification') as span:
+with tracer.inference_span(model_name='text-classification') as span:
     span.set_count('words', num_words)
 ```
 
@@ -169,14 +112,14 @@ After everything is setup, [log in](https://app.graphsignal.com/) to Graphsignal
 
 ```python
 import graphsignal
-from graphsignal.tracers.pytorch import inference_span
 
 graphsignal.configure(api_key='my-api-key')
+tracer = graphsignal.tracer()
 
 ...
 
 def predict(x):
-    with inference_span(model_name='my-model-prod'):
+    with tracer.inference_span(model_name='my-model-prod'):
         return model(x)
 ```
 
@@ -184,14 +127,14 @@ def predict(x):
 
 ```python
 import graphsignal
-from graphsignal.tracers.pytorch import inference_span
 
 graphsignal.configure(api_key='my-api-key')
+tracer = graphsignal.tracer()
 
 ....
 
 for x in data:
-    with inference_span(model_name='my-model', tags=dict(job_id='job1')):
+    with tracer.inference_span(model_name='my-model', tags=dict(job_id='job1')):
         preds = model(x)
 ```
 

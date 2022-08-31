@@ -7,7 +7,7 @@ from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
-from graphsignal.tracers.python import inference_span
+from graphsignal.profilers.python import PythonProfiler
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
 
@@ -25,17 +25,17 @@ class PythonProfilerTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    @patch.object(Uploader, 'upload_signal')
-    def test_inference_span(self, mocked_upload_signal):
+    def test_stat_stop(self):
         def slow_method():
             time.sleep(0.1)
 
-        graphsignal.tracers.python._profiler._exclude_path = 'donotmatchpath'
-        with inference_span('m1'):
-            slow_method()
-            slow_method()
-
-        signal = mocked_upload_signal.call_args[0][0]
+        profiler = PythonProfiler()
+        profiler._exclude_path = 'donotmatchpath'
+        signal = signals_pb2.MLSignal()
+        profiler.start(signal)
+        slow_method()
+        slow_method()
+        profiler.stop(signal)
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))

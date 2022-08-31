@@ -27,7 +27,7 @@ class ProcessReaderTest(unittest.TestCase):
 
     def test_read(self):
         signal = signals_pb2.MLSignal()
-        reader = graphsignal._agent.process_reader
+        reader = ProcessReader()
         reader.read(signal)
         ProcessReader.MIN_CPU_READ_INTERVAL_NS = 0
         time.sleep(0.2)

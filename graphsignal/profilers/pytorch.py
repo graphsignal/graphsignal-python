@@ -11,9 +11,8 @@ import torch.distributed
 import graphsignal
 from graphsignal.proto_utils import parse_semver
 from graphsignal.proto import signals_pb2
-from graphsignal.inference_span import InferenceSpan
-from graphsignal.tracers.operation_profiler import OperationProfiler
-from graphsignal.tracers.profiler_utils import create_log_dir, remove_log_dir
+from graphsignal.profilers.operation_profiler import OperationProfiler
+from graphsignal.profilers.profiler_utils import create_log_dir, remove_log_dir
 
 logger = logging.getLogger('graphsignal')
 
@@ -61,7 +60,7 @@ class PyTorchProfiler(OperationProfiler):
                 signal.comm_usage.backend_type = signals_pb2.CommunicationUsage.CommunicationBackendType.MPI
 
 
-    def start(self, signal, context):
+    def start(self, signal):
         logger.debug('Activating PyTorch profiler')
 
         if not self._torch_prof:
@@ -81,7 +80,7 @@ class PyTorchProfiler(OperationProfiler):
 
         self._torch_prof.start()
 
-    def stop(self, signal, context):
+    def stop(self, signal):
         logger.debug('Deactivating PyTorch profiler')
 
         self._torch_prof.stop()
@@ -155,18 +154,3 @@ class PyTorchProfiler(OperationProfiler):
 
 def _uint(val):
     return max(int(val), 0)
-
-
-_profiler = PyTorchProfiler()
-
-def inference_span(
-        model_name: str,
-        tags: Optional[dict] = None,
-        ensure_trace: Optional[bool] = False) -> InferenceSpan:
-    graphsignal._check_configured()
-
-    return InferenceSpan(
-        model_name=model_name,
-        tags=tags,
-        ensure_trace=ensure_trace,
-        operation_profiler=_profiler)

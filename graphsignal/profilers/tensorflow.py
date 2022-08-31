@@ -9,13 +9,12 @@ import tensorflow as tf
 import graphsignal
 from graphsignal.proto_utils import parse_semver, compare_semver
 from graphsignal.proto import signals_pb2
-from graphsignal.inference_span import InferenceSpan
-from graphsignal.tracers.operation_profiler import OperationProfiler
-from graphsignal.tracers.profiler_utils import create_log_dir, remove_log_dir, convert_tensorflow_profile
+from graphsignal.profilers.operation_profiler import OperationProfiler
+from graphsignal.profilers.profiler_utils import create_log_dir, remove_log_dir, convert_tensorflow_profile
 
 logger = logging.getLogger('graphsignal')
 
-class TensorflowProfiler(OperationProfiler):
+class TensorFlowProfiler(OperationProfiler):
     def __init__(self):
         self._log_dir = None
         self._tensorflow_version = None
@@ -55,7 +54,7 @@ class TensorflowProfiler(OperationProfiler):
         if self._world_size is not None and self._world_size > 0:
             signal.cluster_info.world_size = self._world_size
 
-    def start(self, signal, context):
+    def start(self, signal):
         logger.debug('Activating TensorFlow profiler')
 
         # Profiler info
@@ -73,7 +72,7 @@ class TensorflowProfiler(OperationProfiler):
             remove_log_dir(self._log_dir)
             raise e
 
-    def stop(self, signal, context):
+    def stop(self, signal):
         logger.debug('Deactivating TensorFlow profiler')
 
         try:
@@ -82,18 +81,3 @@ class TensorflowProfiler(OperationProfiler):
             convert_tensorflow_profile(self._log_dir, signal)
         finally:
            remove_log_dir(self._log_dir)
-
-
-_profiler = TensorflowProfiler()
-
-def inference_span(
-        model_name: str,
-        tags: Optional[dict] = None,
-        ensure_trace: Optional[bool] = False) -> InferenceSpan:
-    graphsignal._check_configured()
-
-    return InferenceSpan(
-        model_name=model_name,
-        tags=tags,
-        ensure_trace=ensure_trace,
-        operation_profiler=_profiler)

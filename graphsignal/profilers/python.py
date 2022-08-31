@@ -4,15 +4,8 @@ import os
 import cProfile, pstats
 
 import graphsignal
-from graphsignal.inference_span import InferenceSpan
-
-logger = logging.getLogger('graphsignal')
-
-
-import graphsignal
 from graphsignal.proto import signals_pb2
-from graphsignal.inference_span import InferenceSpan
-from graphsignal.tracers.operation_profiler import OperationProfiler
+from graphsignal.profilers.operation_profiler import OperationProfiler
 
 logger = logging.getLogger('graphsignal')
 
@@ -24,13 +17,13 @@ class PythonProfiler(OperationProfiler):
     def read_info(self, signal):
         pass
 
-    def start(self, signal, context):
+    def start(self, signal):
         logger.debug('Activating Python profiler')
 
         self._profiler = cProfile.Profile()
         self._profiler.enable()
 
-    def stop(self, signal, context):
+    def stop(self, signal):
         logger.debug('Deactivating Python profiler')
 
         self._profiler.disable()
@@ -59,19 +52,3 @@ class PythonProfiler(OperationProfiler):
 
 def _to_us(sec):
     return int(sec * 1e6)
-
-
-_profiler = PythonProfiler()
-
-
-def inference_span(
-        model_name: str,
-        tags: Optional[dict] = None,
-        ensure_trace: Optional[bool] = False) -> InferenceSpan:
-    graphsignal._check_configured()
-
-    return InferenceSpan(
-        model_name=model_name,
-        tags=tags,
-        ensure_trace=ensure_trace,
-        operation_profiler=_profiler)

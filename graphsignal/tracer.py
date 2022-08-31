@@ -1,4 +1,4 @@
-from typing import Union, Any
+from typing import Union, Any, Optional
 import logging
 import sys
 import time
@@ -12,7 +12,6 @@ logger = logging.getLogger('graphsignal')
 
 class InferenceSpan:
     MAX_TAGS = 10
-    MAX_EXCEPTIONS = 10
 
     __slots__ = [
         '_operation_profiler',
@@ -22,7 +21,6 @@ class InferenceSpan:
         '_model_name',
         '_ensure_trace',
         '_tags',
-        '_context',
         '_is_tracing',
         '_is_profiling',
         '_signal',
@@ -36,8 +34,7 @@ class InferenceSpan:
             model_name,
             tags=None,
             ensure_trace=False, 
-            operation_profiler=None,
-            context=None):
+            operation_profiler=None):
         if not model_name:
             raise ValueError('model_name is required')
         if not isinstance(model_name, str):
@@ -54,7 +51,6 @@ class InferenceSpan:
         self._tags = tags
         self._ensure_trace = ensure_trace
         self._operation_profiler = operation_profiler
-        self._context = context
 
         self._agent = None
         self._trace_sampler = None
@@ -73,6 +69,12 @@ class InferenceSpan:
                 self._is_stopped = True
                 self._trace_sampler.unlock()
             raise ex
+
+    def is_tracing(self):
+        return self._is_tracing
+
+    def is_profiling(self):
+        return self._is_profiling
 
     def _start(self):
         if self._is_stopped:
@@ -94,9 +96,9 @@ class InferenceSpan:
                 self._operation_profiler.read_info(self._signal)
 
             # start profiler
-            if not self._agent.disable_profiling and self._operation_profiler and self._trace_sampler.should_profile():
+            if self._operation_profiler and self._trace_sampler.should_profile():
                 try:
-                    self._operation_profiler.start(self._signal, self._context)
+                    self._operation_profiler.start(self._signal)
                     self._is_profiling = True
                 except Exception as exc:
                     self._add_profiler_exception(exc)
@@ -141,7 +143,7 @@ class InferenceSpan:
         # stop profiler, if profiling
         if self._is_profiling:
             try:
-                self._operation_profiler.stop(self._signal, self._context)
+                self._operation_profiler.stop(self._signal)
             except Exception as exc:
                 logger.error('Error stopping profiler', exc_info=True)
                 self._add_profiler_exception(exc)
@@ -166,8 +168,7 @@ class InferenceSpan:
 
             # read usage data
             try:
-                self._agent.process_reader.read(self._signal)
-                self._agent.nvml_reader.read(self._signal)
+                self._agent.read_usage(self._signal)
             except Exception as exc:
                 logger.error('Error reading usage information', exc_info=True)
                 self._add_profiler_exception(exc)
@@ -219,7 +220,7 @@ class InferenceSpan:
                         exception.stack_trace = ''.join(frames)
 
             # queue signal for upload
-            self._agent.uploader.upload_signal(self._signal)
+            self._agent.uploader().upload_signal(self._signal)
             self._agent.tick()
 
             if logger.isEnabledFor(logging.DEBUG):
@@ -264,6 +265,25 @@ class InferenceSpan:
             frames = traceback.format_tb(exc.__traceback__)
             if len(frames) > 0:
                 profiler_error.stack_trace = ''.join(frames)
+
+
+class Tracer:
+    def __init__(self, profiler=None):
+        self._profiler = profiler
+
+    def profiler(self):
+        return self._profiler
+
+    def inference_span(self,
+        model_name: str,
+        tags: Optional[dict] = None,
+        ensure_trace: Optional[bool] = False) -> InferenceSpan:
+
+        return InferenceSpan(
+            model_name=model_name,
+            tags=tags,
+            ensure_trace=ensure_trace,
+            operation_profiler=self._profiler)
 
 
 def _timestamp_us():

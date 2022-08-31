@@ -29,30 +29,30 @@ class UploaderTest(unittest.TestCase):
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._agent.uploader.clear()
+        graphsignal._agent.uploader().clear()
 
     def tearDown(self):
-        graphsignal._agent.uploader.clear()
+        graphsignal._agent.uploader().clear()
         graphsignal.shutdown()
 
     @patch.object(Uploader, '_post')
     def test_flush(self, mocked_post):
         signal = signals_pb2.MLSignal()
-        graphsignal._agent.uploader.upload_signal(signal)
-        graphsignal._agent.uploader.flush()
+        graphsignal._agent.uploader().upload_signal(signal)
+        graphsignal._agent.uploader().flush()
 
         mocked_post.assert_called_once()
-        self.assertEqual(len(graphsignal._agent.uploader.buffer), 0)
+        self.assertEqual(len(graphsignal._agent.uploader().buffer), 0)
 
     @patch.object(Uploader, '_post',
                   return_value=signals_pb2.UploadResponse().SerializeToString())
     def test_flush_in_thread(self, mocked_post):
         signal = signals_pb2.MLSignal()
-        graphsignal._agent.uploader.upload_signal(signal)
-        graphsignal._agent.uploader.flush_in_thread()
+        graphsignal._agent.uploader().upload_signal(signal)
+        graphsignal._agent.uploader().flush_in_thread()
 
         mocked_post.assert_called_once()
-        self.assertEqual(len(graphsignal._agent.uploader.buffer), 0)
+        self.assertEqual(len(graphsignal._agent.uploader().buffer), 0)
 
     @patch.object(Uploader, '_post')
     def test_flush_fail(self, mocked_post):
@@ -61,14 +61,14 @@ class UploaderTest(unittest.TestCase):
         mocked_post.side_effect = side_effect
 
         signal = signals_pb2.MLSignal()
-        graphsignal._agent.uploader.upload_signal(signal)
-        graphsignal._agent.uploader.upload_signal(signal)
-        graphsignal._agent.uploader.flush()
+        graphsignal._agent.uploader().upload_signal(signal)
+        graphsignal._agent.uploader().upload_signal(signal)
+        graphsignal._agent.uploader().flush()
 
-        self.assertEqual(len(graphsignal._agent.uploader.buffer), 2)
+        self.assertEqual(len(graphsignal._agent.uploader().buffer), 2)
 
     def test_post(self):
-        graphsignal._agent.uploader.agent_api_url = 'http://localhost:5005'
+        graphsignal._agent.uploader().agent_api_url = 'http://localhost:5005'
 
         server = TestServer(5005)
         server.set_response_data(
@@ -80,7 +80,7 @@ class UploaderTest(unittest.TestCase):
         upload_request = signals_pb2.UploadRequest()
         upload_request.ml_signals.append(signal)
         upload_request.upload_ms = 123
-        graphsignal._agent.uploader._post(
+        graphsignal._agent.uploader()._post(
             'signals', upload_request.SerializeToString())
 
         received_upload_request = signals_pb2.UploadRequest()
@@ -92,7 +92,7 @@ class UploaderTest(unittest.TestCase):
         server.join()
 
     def test_post(self):
-        graphsignal._agent.uploader.agent_api_url = 'http://localhost:5005'
+        graphsignal._agent.uploader().agent_api_url = 'http://localhost:5005'
 
         server = TestServer(5005)
         server.set_response_data(
@@ -104,7 +104,7 @@ class UploaderTest(unittest.TestCase):
         upload_request = signals_pb2.UploadRequest()
         upload_request.ml_signals.append(signal)
         upload_request.upload_ms = 123
-        graphsignal._agent.uploader._post(
+        graphsignal._agent.uploader()._post(
             'signals', upload_request.SerializeToString())
 
         received_upload_request = signals_pb2.UploadRequest()

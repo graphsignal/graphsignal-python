@@ -9,7 +9,7 @@ from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
-from graphsignal.tracers.onnxruntime import initialize_profiler, inference_span
+from graphsignal.profilers.onnxruntime import ONNXRuntimeProfiler
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
 
@@ -29,10 +29,19 @@ class ONNXRuntimeProfilerTest(unittest.TestCase):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         graphsignal.shutdown()
-        os.remove(TEST_MODEL_PATH)
+        if os.path.exists(TEST_MODEL_PATH):
+            os.remove(TEST_MODEL_PATH)
 
-    @patch.object(Uploader, 'upload_signal')
-    def test_inference_span(self, mocked_upload_signal):
+    def test_read_info(self):
+        profiler = ONNXRuntimeProfiler()
+        signal = signals_pb2.MLSignal()
+        profiler.read_info(signal)
+
+        self.assertEqual(
+            signal.frameworks[0].type,
+            signals_pb2.FrameworkInfo.FrameworkType.ONNX_FRAMEWORK)
+
+    def test_start_stop(self):
         x = torch.arange(-5, 5, 0.1).view(-1, 1)
         y = -5 * x + 0.1 * torch.randn(x.size())
         model = torch.nn.Linear(1, 1)
@@ -46,26 +55,22 @@ class ONNXRuntimeProfilerTest(unittest.TestCase):
         output_names = [ "output" ]
         torch.onnx.export(model, x, TEST_MODEL_PATH, verbose=True, input_names=input_names, output_names=output_names)
 
+        profiler = ONNXRuntimeProfiler()
+        signal = signals_pb2.MLSignal()
+
         sess_options = onnxruntime.SessionOptions()
         sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
 
-        initialize_profiler(sess_options)
-
+        profiler.initialize_options(sess_options)
         session = onnxruntime.InferenceSession(TEST_MODEL_PATH, sess_options)
 
-        with inference_span(model_name='m1', onnx_session=session):
-            session.run(None, { 'input': x.detach().cpu().numpy() })
+        profiler.set_onnx_session(session)
 
-        signal = mocked_upload_signal.call_args[0][0]
-
-        with inference_span(model_name='m1', ensure_trace=True, onnx_session=session):
-            session.run(None, { 'input': x.detach().cpu().numpy() })
+        profiler.start(signal)
+        session.run(None, { 'input': x.detach().cpu().numpy() })
+        profiler.stop(signal)
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
-
-        self.assertEqual(
-            signal.frameworks[0].type,
-            signals_pb2.FrameworkInfo.FrameworkType.ONNX_FRAMEWORK)
 
         self.assertNotEqual(signal.trace_data, b'')

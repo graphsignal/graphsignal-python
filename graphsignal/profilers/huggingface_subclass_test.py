@@ -23,11 +23,9 @@ class HuggingFaceSubclassTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    @patch.object(Uploader, 'upload_signal')
-    def test_subclass(self, mocked_upload_signal):
+    @unittest.skip("long test")
+    def test_subclass(self):
         import torch
-        if not torch.cuda.is_available():
-            return
         from datasets import load_dataset
         raw_datasets = load_dataset("imdb")
 
@@ -49,23 +47,29 @@ class HuggingFaceSubclassTest(unittest.TestCase):
 
         from transformers import AutoModelForSequenceClassification
         model = AutoModelForSequenceClassification.from_pretrained(
-            "bert-base-cased", cache_dir='temp', num_labels=2)
+            "distilbert-base-cased", cache_dir='temp', num_labels=2)
 
         from transformers import TrainingArguments
         training_args = TrainingArguments("test_trainer",
             num_train_epochs=1)
             
         from transformers import Trainer
-        from graphsignal.tracers.pytorch import inference_span
+        from graphsignal.profilers.pytorch import PyTorchProfiler
+
+        profiler = PyTorchProfiler()
+        signal = None
 
         class MyTrainer(Trainer):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
             
             def prediction_step(self, *args, **kwargs):
-                with inference_span('m1') as span:
-                    span.set_count('samples', training_args.eval_batch_size)
-                    return super().prediction_step(*args, **kwargs)
+                global signal
+                signal = signals_pb2.MLSignal()
+                profiler.start(signal)
+                ret = super().prediction_step(*args, **kwargs)
+                profiler.stop(signal)
+                return ret
 
         trainer = MyTrainer(
             model=model,
@@ -76,8 +80,6 @@ class HuggingFaceSubclassTest(unittest.TestCase):
         trainer.train()
 
         trainer.evaluate()
-
-        signal = mocked_upload_signal.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))

@@ -5,11 +5,11 @@ import gzip
 import shutil
 import glob
 
-from graphsignal.tracers.tensorflow_proto import overview_page_pb2
-from graphsignal.tracers.tensorflow_proto import input_pipeline_pb2
-from graphsignal.tracers.tensorflow_proto import tf_stats_pb2
-from graphsignal.tracers.tensorflow_proto import kernel_stats_pb2
-from graphsignal.tracers.tensorflow_proto import memory_profile_pb2
+from graphsignal.profilers.tensorflow_proto import overview_page_pb2
+from graphsignal.profilers.tensorflow_proto import input_pipeline_pb2
+from graphsignal.profilers.tensorflow_proto import tf_stats_pb2
+from graphsignal.profilers.tensorflow_proto import kernel_stats_pb2
+from graphsignal.profilers.tensorflow_proto import memory_profile_pb2
 
 from graphsignal.proto import signals_pb2
 

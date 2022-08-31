@@ -64,7 +64,7 @@ class KerasCallbackTest(unittest.TestCase):
             metrics=['accuracy']
         )
 
-        from graphsignal.tracers.keras import GraphsignalCallback
+        from graphsignal.callbacks.keras import GraphsignalCallback
 
         model.fit(ds_train,
             batch_size=128,
@@ -82,15 +82,6 @@ class KerasCallbackTest(unittest.TestCase):
 
         self.assertEqual(signal.model_name, 'm1')
         self.assertTrue(len(signal.inference_stats.extra_counters['items'].buckets_sec), 1)
-
-        self.assertTrue(
-            signal.agent_info.framework_profiler_type, 
-            signals_pb2.AgentInfo.ProfilerType.KERAS_PROFILER)
-
-        self.assertEqual(
-            signal.frameworks[-1].type,
-            signals_pb2.FrameworkInfo.FrameworkType.KERAS_FRAMEWORK)
-        self.assertTrue(signal.frameworks[-1].version.major > 0)
 
         test_op_stats = None
         for op_stats in signal.op_stats:

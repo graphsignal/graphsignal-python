@@ -26,8 +26,7 @@ class JaxProfilerTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    @patch.object(Uploader, 'upload_signal')
-    def test_inference_span(self, mocked_upload_signal):
+    def test_read_info(self):
         try:
             import jax
             import jax.numpy as jnp
@@ -37,23 +36,42 @@ class JaxProfilerTest(unittest.TestCase):
             logger.info('Not testing JAX profiler, package not found.')
             return
 
-        from graphsignal.tracers.jax import inference_span
+        from graphsignal.profilers.jax import JaxProfiler
 
-        with inference_span('m1'):
-            key = random.PRNGKey(0)
-            x = random.normal(key, (10,))
-            size = 100
-            x = random.normal(key, (size, size), dtype=jnp.float32)
-            jnp.dot(x, x.T).block_until_ready()
-
-        signal = mocked_upload_signal.call_args[0][0]
-
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(signal))
+        profiler = JaxProfiler()
+        signal = signals_pb2.MLSignal()
+        profiler.read_info(signal)
 
         self.assertEqual(
             signal.frameworks[0].type,
             signals_pb2.FrameworkInfo.FrameworkType.JAX_FRAMEWORK)
+
+    def test_start_stop(self):
+        try:
+            import jax
+            import jax.numpy as jnp
+            from jax import grad, jit, vmap
+            from jax import random
+        except ImportError:
+            logger.info('Not testing JAX profiler, package not found.')
+            return
+
+        from graphsignal.profilers.jax import JaxProfiler
+
+        profiler = JaxProfiler()
+        signal = signals_pb2.MLSignal()
+        profiler.start(signal)
+
+        key = random.PRNGKey(0)
+        x = random.normal(key, (10,))
+        size = 100
+        x = random.normal(key, (size, size), dtype=jnp.float32)
+        jnp.dot(x, x.T).block_until_ready()
+
+        profiler.stop(signal)
+
+        #pp = pprint.PrettyPrinter()
+        #pp.pprint(MessageToJson(signal))
 
         test_op_stats = None
         for op_stats in signal.op_stats:
