@@ -75,7 +75,7 @@ Other integrations are available as well. See [integration documentation](https:
 
 #### Profiling
 
-Enable/disable various profilers depending on the code and model runtime by passing `with_profiler` argument to `tracer()` method. By default `with_profiler=True` and Python profiler is enabled. Pass `False` to disable profiling.
+Enable/disable various profilers depending on the code and model runtime by passing `with_profiler` argument to `tracer()` method. By default `with_profiler=True` and Python profiler is enabled. Set to `False` to disable profiling.
 
 ```python
 tracer = graphsignal.tracer(with_profiler='pytorch')
@@ -84,21 +84,9 @@ tracer = graphsignal.tracer(with_profiler='pytorch')
 The following values are currently supported: `True` (or `python`), `tensorflow`, `pytorch`, `jax`, `onnxruntime`. See [integration documentation](https://graphsignal.com/docs/) for more information on each profiler.
 
 
-#### Measuring Rates
+#### Exception tracking
 
-By using any `inference_span` method, multiple metrics are automatically reported, including inference performance, CPU, GPU and memory.
-
-To measure additional rates, `InferenceSpan.set_count(name, value)` method can be used. For example, by providing the number of processed items on every inference, item rate per second will be automatically calculated.
-
-```python
-with tracer.inference_span(model_name='text-classification') as span:
-    span.set_count('words', num_words)
-```
-
-
-#### Reporting Exceptions
-
-When `with` context manager is used with `inference_span` methods, exceptions are automatically reported. For other cases, use `InferenceSpan.set_exception(exc_info)` method.
+When `with` context manager is used with `inference_span` method, exceptions are automatically reported. For other cases, use `InferenceSpan.set_exception(exc_info)` method.
 
 
 ### 4. Monitoring
