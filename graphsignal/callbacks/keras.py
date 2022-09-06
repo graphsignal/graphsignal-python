@@ -57,7 +57,7 @@ class GraphsignalCallback(Callback):
             self._span = self._tracer.inference_span(
                 model_name=self._model_name,
                 tags=self._tags)
-            self._span.set_count('items', self._batch_size)
+            self._span.measure_data(counts=dict(items=self._batch_size))
 
     def _stop_profiler(self):
         if self._span:

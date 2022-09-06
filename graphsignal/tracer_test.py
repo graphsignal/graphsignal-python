@@ -39,8 +39,8 @@ class TracerTest(unittest.TestCase):
                 model_name='m1',
                 tags={'k1': 'v2', 'k3': 3.0},
                 operation_profiler=TensorFlowProfiler())
-            span.set_count('items', 256)
             span.add_tag('k4', 'v4')
+            span.measure_data(counts=dict(items=256, nones=0))
             time.sleep(0.01)
             span.stop()
 
@@ -54,7 +54,7 @@ class TracerTest(unittest.TestCase):
         self.assertTrue(signal.end_us > 0)
         self.assertEqual(signal.signal_type, signals_pb2.SignalType.INFERENCE_PROFILE_SIGNAL)
         self.assertEqual(len(signal.inference_stats.inference_counter.buckets_sec), 1)
-        self.assertEqual(len(signal.inference_stats.extra_counters['items'].buckets_sec), 1)
+        self.assertEqual(len(signal.inference_stats.data_counters['items'].buckets_sec), 1)
         self.assertEqual(len(signal.inference_stats.time_reservoir_us), 8)
         self.assertEqual(signal.tags[0].key, 'k1')
         self.assertEqual(signal.tags[0].value, 'v2')
@@ -62,6 +62,12 @@ class TracerTest(unittest.TestCase):
         self.assertEqual(signal.tags[1].value, '3.0')
         self.assertEqual(signal.tags[2].key, 'k4')
         self.assertEqual(signal.tags[2].value, 'v4')
+        self.assertEqual(signal.tags[2].key, 'k4')
+        self.assertEqual(signal.tags[2].value, 'v4')
+        self.assertEqual(signal.data_counts[0].key, 'items')
+        self.assertEqual(signal.data_counts[0].count, 256)
+        self.assertEqual(signal.data_counts[1].key, 'nones')
+        self.assertEqual(signal.data_counts[1].count, 0)
 
     @patch.object(TensorFlowProfiler, 'start', return_value=True)
     @patch.object(TensorFlowProfiler, 'stop', return_value=True)
@@ -148,13 +154,13 @@ class TracerTest(unittest.TestCase):
     @patch.object(ProcessReader, 'read')
     @patch.object(NvmlReader, 'read')
     @patch.object(Uploader, 'upload_signal')
-    def test_set_exception(self, mocked_upload_signal, mocked_nvml_read, mocked_host_read,
+    def test_record_exception(self, mocked_upload_signal, mocked_nvml_read, mocked_host_read,
                             mocked_stop, mocked_start):
         span = InferenceSpan(model_name='m1', ensure_trace=True, operation_profiler=TensorFlowProfiler())
         try:
             raise Exception('ex2')
         except Exception as ex:
-            span.set_exception(exc_info=True)
+            span.record_exception(exc_info=True)
         span.stop()
 
         signal = mocked_upload_signal.call_args[0][0]

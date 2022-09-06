@@ -23,7 +23,7 @@ See full documentation at [graphsignal.com/docs](https://graphsignal.com/docs/).
 
 ## Getting Started
 
-### 1. Installation
+### 1. Install
 
 Install Graphsignal agent by running:
 
@@ -39,7 +39,7 @@ python setup.py install
 ```
 
 
-### 2. Configuration
+### 2. Configure
 
 Configure Graphsignal agent by specifying your API key directly or via environment variable.
 
@@ -52,7 +52,7 @@ graphsignal.configure(api_key='my-api-key')
 To get an API key, sign up for a free account at [graphsignal.com](https://graphsignal.com). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.com/settings/api-keys) page.
 
 
-### 3. Integration
+### 3. Integrate
 
 Use the following examples to integrate Graphsignal agent into your machine learning application. See integration documentation and [API reference](https://graphsignal.com/docs/reference/python-api/) for full reference.
 
@@ -61,7 +61,7 @@ Graphsignal agent is **optimized for production**. All inferences wrapped with `
 
 #### Tracing
 
-To measure and trace inferences, wrap the code with `inference_span` method.
+To measure and trace inferences, wrap the code with [`inference_span`](https://graphsignal.com/docs/reference/python-api/#graphsignaltracerinference_span) method.
 
 ```python
 tracer = graphsignal.tracer()
@@ -75,7 +75,7 @@ Other integrations are available as well. See [integration documentation](https:
 
 #### Profiling
 
-Enable/disable various profilers depending on the code and model runtime by passing `with_profiler` argument to `tracer()` method. By default `with_profiler=True` and Python profiler is enabled. Set to `False` to disable profiling.
+Enable/disable various profilers depending on the code and model runtime by passing `with_profiler` argument to `tracer()` method. By default `with_profiler` is `True` and Python profiler is enabled. Set to `False` to disable profiling.
 
 ```python
 tracer = graphsignal.tracer(with_profiler='pytorch')
@@ -86,10 +86,19 @@ The following values are currently supported: `True` (or `python`), `tensorflow`
 
 #### Exception tracking
 
-When `with` context manager is used with `inference_span` method, exceptions are automatically reported. For other cases, use `InferenceSpan.set_exception(exc_info)` method.
+When `with` context manager is used with `inference_span` method, exceptions are automatically reported. For other cases, use [`InferenceSpan.record_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalinferencespanrecord_exception) method.
 
 
-### 4. Monitoring
+### Data monitoring
+
+To measure data rates and detect anomalies, [`InferenceSpan.measure_data`](https://graphsignal.com/docs/reference/python-api/#graphsignalinferencespanmeasure_data) method can be used. For example, by providing the number of processed items on every inference, item rate per second will be automatically calculated.
+
+```python
+with tracer.inference_span(model_name='text-classification') as span:
+    span.measure_data(counts=dict(words=num_words))
+```
+
+### 4. Observe
 
 After everything is setup, [log in](https://app.graphsignal.com/) to Graphsignal to monitor and analyze inference performance.
 

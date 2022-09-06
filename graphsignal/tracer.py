@@ -1,4 +1,4 @@
-from typing import Union, Any, Optional
+from typing import Union, Any, Optional, Dict
 import logging
 import sys
 import time
@@ -12,6 +12,7 @@ logger = logging.getLogger('graphsignal')
 
 class InferenceSpan:
     MAX_TAGS = 10
+    MAX_DATA_COUNTS = 10
 
     __slots__ = [
         '_operation_profiler',
@@ -26,7 +27,7 @@ class InferenceSpan:
         '_signal',
         '_is_stopped',
         '_start_counter',
-        '_extra_counts',
+        '_data_counts',
         '_exc_info'
     ]
 
@@ -59,7 +60,7 @@ class InferenceSpan:
         self._is_tracing = False
         self._is_profiling = False
         self._signal = None
-        self._extra_counts = None
+        self._data_counts = None
         self._exc_info = None
 
         try:
@@ -153,9 +154,9 @@ class InferenceSpan:
             # only measure time if not profiling to exclude profiler overhead
             self._inference_stats.add_time(duration_us)
         self._inference_stats.inc_inference_counter(1, end_us)
-        if self._extra_counts is not None:
-            for name, value in self._extra_counts.items():
-                self._inference_stats.inc_extra_counter(name, value, end_us)
+        if self._data_counts is not None:
+            for name, value in self._data_counts.items():
+                self._inference_stats.inc_data_counter(name, value, end_us)
 
         # update exception counter
         if self._exc_info and self._exc_info[0]:
@@ -184,6 +185,13 @@ class InferenceSpan:
             else:
                 self._signal.signal_type = signals_pb2.SignalType.INFERENCE_SAMPLE_SIGNAL
 
+            # copy tags
+            if self._tags is not None:
+                for key, value in self._tags.items():
+                    tag = self._signal.tags.add()
+                    tag.key = key[:50]
+                    tag.value = str(value)[:50]
+
             # copy inference stats
             self._inference_stats.finalize(end_us)
             for time_us in self._inference_stats.time_reservoir_us:
@@ -194,18 +202,11 @@ class InferenceSpan:
             exception_counter_proto = self._signal.inference_stats.exception_counter
             for bucket, count in self._inference_stats.exception_counter.items():
                 exception_counter_proto.buckets_sec[bucket] = count
-            for name, counter in self._inference_stats.extra_counters.items():
-                extra_counter_proto = self._signal.inference_stats.extra_counters[name]
+            for name, counter in self._inference_stats.data_counters.items():
+                data_counter_proto = self._signal.inference_stats.data_counters[name]
                 for bucket, count in counter.items():
-                    extra_counter_proto.buckets_sec[bucket] = count
+                    data_counter_proto.buckets_sec[bucket] = count
             self._agent.reset_inference_stats(self._model_name)
-
-            # copy tags
-            if self._tags is not None:
-                for key, value in self._tags.items():
-                    tag = self._signal.tags.add()
-                    tag.key = key[:50]
-                    tag.value = str(value)[:50]
 
             # copy exception
             if self._exc_info and self._exc_info[0]:
@@ -219,6 +220,13 @@ class InferenceSpan:
                     if len(frames) > 0:
                         exception.stack_trace = ''.join(frames)
 
+            # copy data counts
+            if self._data_counts is not None:
+                for key, count in self._data_counts.items():
+                    data_count_proto = self._signal.data_counts.add()
+                    data_count_proto.key = key
+                    data_count_proto.count = count
+
             # queue signal for upload
             self._agent.uploader().upload_signal(self._signal)
             self._agent.tick()
@@ -226,37 +234,46 @@ class InferenceSpan:
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug('Profiling stop took: %fs', time.perf_counter() - profiling_stop_overhead_counter)
 
-    def set_count(self, name: str, value: Union[int, float]) -> None:
-        if not name:
-            raise ValueError('set_count: name must be provided')
-        if not isinstance(value, (int, float)):
-            raise ValueError('set_count: value must be int or float')
-
-        if self._extra_counts is None:
-            self._extra_counts = {}
-        self._extra_counts[name] = value
-
-    def add_tag(self, key: str, value: Any) -> None:
+    def add_tag(self, key: str, value: str) -> None:
         if not key:
             raise ValueError('add_tag: key must be provided')
         if value is None:
             raise ValueError('add_tag: value must be provided')
 
-        if self._tags is not None and len(self._tags) > InferenceSpan.MAX_TAGS:
-            return
-
         if self._tags is None:
             self._tags = {}
+
+        if len(self._tags) > InferenceSpan.MAX_TAGS:
+            raise ValueError('add_tag: too many tags (>{0})'.format(InferenceSpan.MAX_TAGS))
+
         self._tags[key] = value
 
-    def set_exception(self, exc_info=Union[bool, tuple]) -> None:
+    def record_exception(self, exc_info=Union[bool, tuple]) -> None:
         if not exc_info:
-            raise ValueError('set_exception: exc_info must be provided')
+            raise ValueError('record_exception: exc_info must be provided')
 
         if exc_info == True:
             exc_info = sys.exc_info()
 
         self._exc_info = exc_info
+
+    def measure_data(self, counts: Dict[str, Union[int, float]]) -> None:
+        if not isinstance(counts, dict):
+            raise ValueError('measure_data: counts must be dict')
+
+        if self._data_counts is None:
+            self._data_counts = {}
+
+        if len(self._data_counts) > InferenceSpan.MAX_DATA_COUNTS:
+            raise ValueError('measure_data: too many counts (>{0})'.format(InferenceSpan.MAX_DATA_COUNTS))
+
+        for key, count in counts.items():
+            if not isinstance(key, str):
+                raise ValueError('measure_data: keys of counts dict must be string')
+            if not isinstance(count, (int, float)):
+                raise ValueError('measure_data: values of counts dict must be int of float')
+
+            self._data_counts[key] = count
 
     def _add_profiler_exception(self, exc):
         profiler_error = self._signal.profiler_errors.add()

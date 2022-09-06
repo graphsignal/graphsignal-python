@@ -48,12 +48,12 @@ class AgentTest(unittest.TestCase):
         stats.inc_exception_counter(1, 1004 * 1e6)
         self.assertEqual(stats.exception_counter, {1: 0, 1003: 2, 1004: 1})
 
-        stats.inc_extra_counter('c1', 1, 1000 * 1e6)
-        stats.inc_extra_counter('c1', 1, 1000 * 1e6)
-        stats.inc_extra_counter('c1', 1, 1001 * 1e6)
-        stats.inc_extra_counter('c2', 1, 1001 * 1e6)
-        self.assertEqual(stats.extra_counters['c1'], {1: 0, 1000: 2, 1001: 1})
-        self.assertEqual(stats.extra_counters['c2'], {1: 0, 1001: 1})
+        stats.inc_data_counter('c1', 1, 1000 * 1e6)
+        stats.inc_data_counter('c1', 1, 1000 * 1e6)
+        stats.inc_data_counter('c1', 1, 1001 * 1e6)
+        stats.inc_data_counter('c2', 1, 1001 * 1e6)
+        self.assertEqual(stats.data_counters['c1'], {1: 0, 1000: 2, 1001: 1})
+        self.assertEqual(stats.data_counters['c2'], {1: 0, 1001: 1})
 
         stats.add_time(20)
         stats.add_time(30)

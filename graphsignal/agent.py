@@ -120,7 +120,7 @@ class InferenceStats:
         self.time_reservoir_us = []
         self.inference_counter = {}
         self.exception_counter = {}
-        self.extra_counters = {}
+        self.data_counters = {}
 
     def add_time(self, duration_us):
         with self._update_lock:
@@ -137,15 +137,15 @@ class InferenceStats:
         with self._update_lock:
             self._inc_counter(self.exception_counter, value, timestamp_us)
 
-    def inc_extra_counter(self, name, value, timestamp_us):
+    def inc_data_counter(self, name, value, timestamp_us):
         with self._update_lock:
-            if name not in self.extra_counters:
-                if len(self.extra_counters) < InferenceStats.MAX_COUNTERS:
-                    counter = self.extra_counters[name] = {}
+            if name not in self.data_counters:
+                if len(self.data_counters) < InferenceStats.MAX_COUNTERS:
+                    counter = self.data_counters[name] = {}
                 else:
                     return
             else:
-                counter = self.extra_counters[name]
+                counter = self.data_counters[name]
 
             self._inc_counter(counter, value, timestamp_us)
 
@@ -153,8 +153,8 @@ class InferenceStats:
         with self._update_lock:
             self._finalize_counter(self.inference_counter, timestamp_us)
             self._finalize_counter(self.exception_counter, timestamp_us)
-            for extra_counter in self.extra_counters.values():
-                self._finalize_counter(extra_counter, timestamp_us)
+            for data_counter in self.data_counters.values():
+                self._finalize_counter(data_counter, timestamp_us)
 
     def _inc_counter(self, counter, value, timestamp_us):
         bucket = int(timestamp_us / 1e6)
