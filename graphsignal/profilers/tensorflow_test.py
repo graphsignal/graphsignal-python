@@ -28,14 +28,6 @@ class TensorFlowProfilerTest(unittest.TestCase):
         graphsignal.shutdown()
 
     def test_read_info(self):
-        os.environ["TF_CONFIG"] = json.dumps({
-            "cluster": {
-                "chief": ["host1:port"],
-                "worker": ["host1:port", "host2:port"]
-            },
-            "task": {"type": "worker", "index": 1}
-        })
-
         profiler = TensorFlowProfiler()
         signal = signals_pb2.MLSignal()
         profiler.read_info(signal)
@@ -43,9 +35,6 @@ class TensorFlowProfilerTest(unittest.TestCase):
         self.assertEqual(
             signal.frameworks[0].type,
             signals_pb2.FrameworkInfo.FrameworkType.TENSORFLOW_FRAMEWORK)
-        self.assertEqual(signal.process_usage.global_rank, 1)
-
-        self.assertEqual(signal.cluster_info.world_size, 3)
 
     def test_start_stop(self):
         @tf.function

@@ -20,16 +20,16 @@ setup(
   url = 'https://graphsignal.com',
   license = 'Apache-2.0',
   keywords = [
-    'machine learning',
-    'deep learning',
-    'data science',
     'inference monitoring',
+    'model monitoring',
+    'data monitoring',
+    'exception tracking',
     'inference profiling',
     'machine learning profiler',
-    'deep learning profiler',
     'tensorflow profiler',
     'keras profiler',
-    'pytorch profiler'
+    'pytorch profiler',
+    'jax profiler'
   ],
   classifiers = [
     'Development Status :: 5 - Production/Stable',

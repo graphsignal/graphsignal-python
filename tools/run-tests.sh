@@ -5,6 +5,10 @@ set -e
 source venv/bin/activate
 python -m unittest graphsignal/*_test.py
 python -m unittest graphsignal/usage/*_test.py
+python -m unittest graphsignal/data/builtin_types_test.py
+python -m unittest graphsignal/data/numpy_ndarray_test.py
+python -m unittest graphsignal/data/tf_tensor_test.py
+python -m unittest graphsignal/data/torch_tensor_test.py
 python -m unittest graphsignal/profilers/python_test.py
 python -m unittest graphsignal/profilers/tensorflow_test.py
 python -m unittest graphsignal/profilers/pytorch_test.py

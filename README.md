@@ -86,17 +86,22 @@ The following values are currently supported: `True` (or `python`), `tensorflow`
 
 #### Exception tracking
 
-When `with` context manager is used with `inference_span` method, exceptions are automatically reported. For other cases, use [`InferenceSpan.record_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalinferencespanrecord_exception) method.
+When `with` context manager is used with `inference_span` method, exceptions are **automatically recorded**. For other cases, use [`InferenceSpan.set_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalinferencespanset_exception) method.
 
 
-### Data monitoring
+#### Data monitoring
 
-To measure data rates and detect anomalies, [`InferenceSpan.measure_data`](https://graphsignal.com/docs/reference/python-api/#graphsignalinferencespanmeasure_data) method can be used. For example, by providing the number of processed items on every inference, item rate per second will be automatically calculated.
+To track data metrics and record per-inference data profiles, [`InferenceSpan.set_data`](https://graphsignal.com/docs/reference/python-api/#graphsignalinferencespanset_data) method can be used.
 
 ```python
-with tracer.inference_span(model_name='text-classification') as span:
-    span.measure_data(counts=dict(words=num_words))
+with tracer.inference_span(model_name='my-model') as span:
+    span.set_data('my-model-input', input_data)
 ```
+
+The following data types are currently supported: `list`, `dict`, `set`, `tuple`, `str`, `bytes`, `numpy.ndarray`, `tensorflow.Tensor`, `torch.Tensor`.
+
+**No raw data is recorded** by the agent, only statistics such as size, shape or number of missing values.
+
 
 ### 4. Observe
 

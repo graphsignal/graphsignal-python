@@ -13,18 +13,14 @@ logger = logging.getLogger('graphsignal')
 
 
 class GraphsignalCallback(Callback):
-    def __init__(self, model_name: str, tags: Optional[dict] = None, batch_size: Optional[int] = None):
+    def __init__(self, model_name: str, tags: Optional[dict] = None):
         super().__init__()
         self._pl_version = None
         self._tracer = graphsignal.tracer(with_profiler='pytorch')
         self._span = None
         self._model_name = model_name
         self._tags = tags
-        self._batch_size = batch_size
         self._model_size_mb = None
-        self._node_rank = -1
-        self._local_rank = -1
-        self._global_rank = -1
 
     def on_validate_start(self, trainer, pl_module):
         self._configure_profiler(trainer, pl_module)
@@ -67,13 +63,6 @@ class GraphsignalCallback(Callback):
             self._pl_version = signals_pb2.SemVer()
             parse_semver(self._pl_version, pytorch_lightning.__version__)
 
-            if self._check_param(trainer, 'node_rank') and trainer.node_rank >= 0:
-                self._node_rank = trainer.node_rank
-            if self._check_param(trainer, 'local_rank') and trainer.local_rank >= 0:
-                self._local_rank = trainer.local_rank
-            if self._check_param(trainer, 'global_rank') and trainer.global_rank >= 0:
-                self._global_rank = trainer.global_rank
-
             model_size_mb = pytorch_lightning.utilities.memory.get_model_size_mb(pl_module)
             if model_size_mb:
                 self._model_size_mb = model_size_mb
@@ -85,7 +74,6 @@ class GraphsignalCallback(Callback):
             self._span = self._tracer.inference_span(
                 model_name=self._model_name,
                 tags=self._tags)
-            self._span.measure_data(counts=dict(items=self._batch_size))
 
     def _stop_profiler(self, trainer):
         if self._span:
@@ -104,22 +92,8 @@ class GraphsignalCallback(Callback):
             framework.type = signals_pb2.FrameworkInfo.FrameworkType.PYTORCH_LIGHTNING_FRAMEWORK
             framework.version.CopyFrom(self._pl_version)
 
-            if self._check_param(trainer, 'world_size'):
-                signal.cluster_info.world_size = trainer.world_size
-
             signal.model_info.model_format = signals_pb2.ModelInfo.ModelFormat.PYTORCH_FORMAT
             if self._model_size_mb:
                 signal.model_info.model_size_bytes = int(self._model_size_mb * 1e6)
-
-            if self._node_rank >= 0:
-                signal.node_usage.node_rank = self._node_rank
-            if self._global_rank >= 0:
-                signal.process_usage.global_rank = self._global_rank
-            if self._local_rank >= 0:
-                signal.process_usage.local_rank = self._local_rank
         except Exception as exc:
             self._span._add_profiler_exception(exc)
-
-    def _check_param(self, trainer, param):
-        value = getattr(trainer, param, None)
-        return isinstance(value, (str, int, float, bool))

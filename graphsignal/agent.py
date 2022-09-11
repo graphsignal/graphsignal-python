@@ -81,14 +81,14 @@ class Agent:
             trace_sampler = self._trace_samplers[model_name] = TraceSampler()
             return trace_sampler
 
-    def reset_inference_stats(self, name):
-        self._inference_stats[name] = InferenceStats()
+    def reset_inference_stats(self, model_name):
+        self._inference_stats[model_name] = InferenceStats()
 
-    def get_inference_stats(self, name):
-        if name not in self._inference_stats:
-            self.reset_inference_stats(name)
+    def get_inference_stats(self, model_name):
+        if model_name not in self._inference_stats:
+            self.reset_inference_stats(model_name)
 
-        return self._inference_stats[name]
+        return self._inference_stats[model_name]
 
     def read_usage(self, signal):
         self._process_reader.read(signal)
@@ -118,8 +118,8 @@ class InferenceStats:
         self._update_lock = threading.Lock()
         self._start_sec = int(time.time())
         self.time_reservoir_us = []
-        self.inference_counter = {}
-        self.exception_counter = {}
+        self.inference_counter = signals_pb2.InferenceStats.Counter()
+        self.exception_counter = signals_pb2.InferenceStats.Counter()
         self.data_counters = {}
 
     def add_time(self, duration_us):
@@ -137,11 +137,12 @@ class InferenceStats:
         with self._update_lock:
             self._inc_counter(self.exception_counter, value, timestamp_us)
 
-    def inc_data_counter(self, name, value, timestamp_us):
+    def inc_data_counter(self, name, value, unit, timestamp_us):
         with self._update_lock:
             if name not in self.data_counters:
                 if len(self.data_counters) < InferenceStats.MAX_COUNTERS:
-                    counter = self.data_counters[name] = {}
+                    counter = self.data_counters[name] = signals_pb2.InferenceStats.Counter()
+                    counter.unit = unit
                 else:
                     return
             else:
@@ -158,17 +159,17 @@ class InferenceStats:
 
     def _inc_counter(self, counter, value, timestamp_us):
         bucket = int(timestamp_us / 1e6)
-        if bucket in counter:
-            counter[bucket] += value
-            counter[self._start_sec] = 0
+        if bucket in counter.buckets_sec:
+            counter.buckets_sec[bucket] += value
+            counter.buckets_sec[self._start_sec] = 0
         else:
-            counter[self._start_sec] = 0
-            counter[bucket] = value
+            counter.buckets_sec[self._start_sec] = 0
+            counter.buckets_sec[bucket] = value
 
     def _finalize_counter(self, counter, timestamp_us):
         end_sec = int(timestamp_us / 1e6)
-        if end_sec not in counter:
-            counter[end_sec] = 0
+        if end_sec not in counter.buckets_sec:
+            counter.buckets_sec[end_sec] = 0
 
 
 def _sha1(text, size=-1):

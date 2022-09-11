@@ -22,43 +22,16 @@ class PyTorchProfiler(OperationProfiler):
         self._torch_prof = None
         self._log_dir = None
         self._pytorch_version = None
-        self._global_rank = None
-        self._world_size = None
-        self._comm_backend = None
 
     def read_info(self, signal):
         if not self._pytorch_version:
             self._pytorch_version = signals_pb2.SemVer()
             parse_semver(self._pytorch_version, torch.__version__)
 
-            if torch.distributed.is_available():
-                if torch.distributed.is_initialized():
-                    self._global_rank = torch.distributed.get_rank()
-                    self._world_size = torch.distributed.get_world_size()
-                    self._comm_backend = torch.distributed.get_backend()
-
         # Framework info
         framework = signal.frameworks.add()
         framework.type = signals_pb2.FrameworkInfo.FrameworkType.PYTORCH_FRAMEWORK
         framework.version.CopyFrom(self._pytorch_version)
-
-        # Process info
-        if self._global_rank is not None and self._global_rank >= 0:
-            signal.process_usage.global_rank = self._global_rank
-
-        # Cluster stats
-        if self._world_size is not None and self._world_size > 0:
-            signal.cluster_info.world_size = self._world_size
-
-        # Communication info
-        if self._comm_backend:
-            if self._comm_backend == 'nccl':
-                signal.comm_usage.backend_type = signals_pb2.CommunicationUsage.CommunicationBackendType.NCCL
-            if self._comm_backend == 'gloo':
-                signal.comm_usage.backend_type = signals_pb2.CommunicationUsage.CommunicationBackendType.GLOO
-            if self._comm_backend == 'mpi':
-                signal.comm_usage.backend_type = signals_pb2.CommunicationUsage.CommunicationBackendType.MPI
-
 
     def start(self, signal):
         logger.debug('Activating PyTorch profiler')

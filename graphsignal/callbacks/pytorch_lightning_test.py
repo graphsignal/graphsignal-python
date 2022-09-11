@@ -88,7 +88,7 @@ class PyTorchLightningTest(unittest.TestCase):
             accelerator='gpu' if torch.cuda.is_available() else 'cpu',
             devices=AVAIL_GPUS,
             max_epochs=1,
-            callbacks=[GraphsignalCallback(model_name='m1', batch_size=mnist_model.batch_size)]
+            callbacks=[GraphsignalCallback(model_name='m1')]
         )
 
         trainer.tune(mnist_model)
@@ -103,7 +103,6 @@ class PyTorchLightningTest(unittest.TestCase):
         #pp.pprint(MessageToJson(signal))
 
         self.assertEqual(signal.model_name, 'm1')
-        self.assertTrue(len(signal.inference_stats.data_counters['items'].buckets_sec), 1)
 
         self.assertTrue(
             signal.agent_info.framework_profiler_type, 

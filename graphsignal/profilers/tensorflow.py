@@ -18,8 +18,6 @@ class TensorFlowProfiler(OperationProfiler):
     def __init__(self):
         self._log_dir = None
         self._tensorflow_version = None
-        self._global_rank = None
-        self._world_size = None
 
     def read_info(self, signal):
         if not self._tensorflow_version:
@@ -29,30 +27,10 @@ class TensorFlowProfiler(OperationProfiler):
                 raise Exception(
                     'TensorFlow profiling is not supported for versions <=2.2')
 
-            if 'TF_CONFIG' in os.environ:
-                try:
-                    tf_config = json.loads(os.environ['TF_CONFIG'])
-                    self._world_size = 0
-                    if 'chief' in tf_config['cluster']:
-                        self._world_size += len(tf_config['cluster']['chief'])
-                    if 'worker' in tf_config['cluster']:
-                        self._world_size += len(tf_config['cluster']['worker'])
-                    self._global_rank = tf_config['task']['index']
-                except:
-                    logger.warning('Error parsing TF_CONFIG', exc_info=True)
-
         # Framework info
         framework = signal.frameworks.add()
         framework.type = signals_pb2.FrameworkInfo.FrameworkType.TENSORFLOW_FRAMEWORK
         framework.version.CopyFrom(self._tensorflow_version)
-
-        # Process info
-        if self._global_rank is not None and self._global_rank >= 0:
-            signal.process_usage.global_rank = self._global_rank
-
-        # Cluster stats
-        if self._world_size is not None and self._world_size > 0:
-            signal.cluster_info.world_size = self._world_size
 
     def start(self, signal):
         logger.debug('Activating TensorFlow profiler')
