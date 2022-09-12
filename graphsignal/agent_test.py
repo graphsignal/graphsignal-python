@@ -35,13 +35,13 @@ class AgentTest(unittest.TestCase):
         self.assertIsNone(tracer.profiler())
 
     @patch('time.time', return_value=1)
-    def test_update_inference_stats(self, mocked_time):
-        stats = graphsignal._agent.get_inference_stats('m1')
+    def test_update_span_stats(self, mocked_time):
+        stats = graphsignal._agent.get_span_stats('m1')
 
-        stats.inc_inference_counter(1, 1000 * 1e6)
-        stats.inc_inference_counter(1, 1000 * 1e6)
-        stats.inc_inference_counter(1, 1001 * 1e6)
-        self.assertEqual(stats.inference_counter.buckets_sec, {1: 0, 1000: 2, 1001: 1})
+        stats.inc_call_counter(1, 1000 * 1e6)
+        stats.inc_call_counter(1, 1000 * 1e6)
+        stats.inc_call_counter(1, 1001 * 1e6)
+        self.assertEqual(stats.call_counter.buckets_sec, {1: 0, 1000: 2, 1001: 1})
         
         stats.inc_exception_counter(1, 1003 * 1e6)
         stats.inc_exception_counter(1, 1003 * 1e6)

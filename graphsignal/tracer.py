@@ -18,7 +18,7 @@ class InferenceSpan:
     __slots__ = [
         '_operation_profiler',
         '_trace_sampler',
-        '_inference_stats',
+        '_span_stats',
         '_agent',
         '_model_name',
         '_ensure_trace',
@@ -56,7 +56,7 @@ class InferenceSpan:
 
         self._agent = None
         self._trace_sampler = None
-        self._inference_stats = None
+        self._span_stats = None
         self._is_stopped = False
         self._is_tracing = False
         self._is_profiling = False
@@ -84,7 +84,7 @@ class InferenceSpan:
 
         self._agent = graphsignal._agent
         self._trace_sampler = self._agent.get_trace_sampler(self._model_name)
-        self._inference_stats = self._agent.get_inference_stats(self._model_name)
+        self._span_stats = self._agent.get_span_stats(self._model_name)
 
         if self._trace_sampler.lock(ensure=self._ensure_trace):
             if logger.isEnabledFor(logging.DEBUG):
@@ -153,16 +153,16 @@ class InferenceSpan:
         # update time and counters
         if not self._is_profiling:
             # only measure time if not profiling to exclude profiler overhead
-            self._inference_stats.add_time(duration_us)
-        self._inference_stats.inc_inference_counter(1, end_us)
+            self._span_stats.add_time(duration_us)
+        self._span_stats.inc_call_counter(1, end_us)
         if self._data is not None:
             for name, data in self._data.items():
                 data_size, size_unit = compute_size(data)
-                self._inference_stats.inc_data_counter(name, data_size, size_unit, end_us)
+                self._span_stats.inc_data_counter(name, data_size, size_unit, end_us)
 
         # update exception counter
         if self._exc_info and self._exc_info[0]:
-            self._inference_stats.inc_exception_counter(1, end_us)
+            self._span_stats.inc_exception_counter(1, end_us)
 
         # fill and upload profile
         if self._is_tracing:
@@ -195,16 +195,16 @@ class InferenceSpan:
                     tag.value = str(value)[:50]
 
             # copy inference stats
-            self._inference_stats.finalize(end_us)
-            self._signal.inference_stats.time_reservoir_us[:] = \
-                self._inference_stats.time_reservoir_us
-            self._signal.inference_stats.inference_counter.CopyFrom(
-                self._inference_stats.inference_counter)
-            self._signal.inference_stats.exception_counter.CopyFrom(
-                self._inference_stats.exception_counter)
-            for name, counter in self._inference_stats.data_counters.items():
-                self._signal.inference_stats.data_counters[name].CopyFrom(counter)
-            self._agent.reset_inference_stats(self._model_name)
+            self._span_stats.finalize(end_us)
+            self._signal.span_stats.time_reservoir_us[:] = \
+                self._span_stats.time_reservoir_us
+            self._signal.span_stats.call_counter.CopyFrom(
+                self._span_stats.call_counter)
+            self._signal.span_stats.exception_counter.CopyFrom(
+                self._span_stats.exception_counter)
+            for name, counter in self._span_stats.data_counters.items():
+                self._signal.span_stats.data_counters[name].CopyFrom(counter)
+            self._agent.reset_span_stats(self._model_name)
 
             # copy exception
             if self._exc_info and self._exc_info[0]:

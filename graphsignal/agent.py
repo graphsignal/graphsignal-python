@@ -26,8 +26,8 @@ class Agent:
         self._process_reader = None
         self._nvml_reader = None
         self._trace_samplers = None
-        self._inference_stats = None
-        self._tracer = None
+        self._span_stats = None
+        self._tracers = None
 
     def start(self):
         self._uploader = Uploader()
@@ -37,42 +37,45 @@ class Agent:
         self._nvml_reader = NvmlReader()
         self._nvml_reader.setup()
         self._trace_samplers = {}
-        self._inference_stats = {}
+        self._span_stats = {}
+        self._tracers = {}
 
     def stop(self):
         self.upload(block=True)
         self._process_reader.shutdown()
         self._nvml_reader.shutdown()
         self._trace_samplers = None
-        self._inference_stats = None
+        self._span_stats = None
+        self._tracers = None
 
     def uploader(self):
         return self._uploader
 
     def tracer(self, with_profiler=True):
-        if not self._tracer:
-            profiler = None
-            if with_profiler == True or with_profiler == 'python':
-                from graphsignal.profilers.python import PythonProfiler
-                profiler = PythonProfiler()
-            elif with_profiler == 'tensorflow':
-                from graphsignal.profilers.tensorflow import TensorFlowProfiler
-                profiler = TensorFlowProfiler()
-            elif with_profiler == 'pytorch':
-                from graphsignal.profilers.pytorch import PyTorchProfiler
-                profiler = PyTorchProfiler()
-            elif with_profiler == 'jax':
-                from graphsignal.profilers.jax import JaxProfiler
-                profiler = JaxProfiler()
-            elif with_profiler == 'onnxruntime':
-                from graphsignal.profilers.onnxruntime import ONNXRuntimeProfiler
-                profiler = ONNXRuntimeProfiler()
-            elif with_profiler:
-                raise ValueError('Invalid profiler name: {0}'.format(with_profiler))
+        if with_profiler in self._tracers:
+            return self._tracers[with_profiler]
 
-            self._tracer = Tracer(profiler=profiler)
+        profiler = None
+        if with_profiler == True or with_profiler == 'python':
+            from graphsignal.profilers.python import PythonProfiler
+            profiler = PythonProfiler()
+        elif with_profiler == 'tensorflow':
+            from graphsignal.profilers.tensorflow import TensorFlowProfiler
+            profiler = TensorFlowProfiler()
+        elif with_profiler == 'pytorch':
+            from graphsignal.profilers.pytorch import PyTorchProfiler
+            profiler = PyTorchProfiler()
+        elif with_profiler == 'jax':
+            from graphsignal.profilers.jax import JaxProfiler
+            profiler = JaxProfiler()
+        elif with_profiler == 'onnxruntime':
+            from graphsignal.profilers.onnxruntime import ONNXRuntimeProfiler
+            profiler = ONNXRuntimeProfiler()
+        elif with_profiler:
+            raise ValueError('Invalid profiler name: {0}'.format(with_profiler))
 
-        return self._tracer
+        tracer = self._tracers[with_profiler] = Tracer(profiler=profiler)
+        return tracer
 
     def get_trace_sampler(self, model_name):
         if model_name in self._trace_samplers:
@@ -81,14 +84,14 @@ class Agent:
             trace_sampler = self._trace_samplers[model_name] = TraceSampler()
             return trace_sampler
 
-    def reset_inference_stats(self, model_name):
-        self._inference_stats[model_name] = InferenceStats()
+    def reset_span_stats(self, model_name):
+        self._span_stats[model_name] = SpanStats()
 
-    def get_inference_stats(self, model_name):
-        if model_name not in self._inference_stats:
-            self.reset_inference_stats(model_name)
+    def get_span_stats(self, model_name):
+        if model_name not in self._span_stats:
+            self.reset_span_stats(model_name)
 
-        return self._inference_stats[model_name]
+        return self._span_stats[model_name]
 
     def read_usage(self, signal):
         self._process_reader.read(signal)
@@ -110,7 +113,7 @@ class Agent:
         self.upload(block=False)
 
 
-class InferenceStats:
+class SpanStats:
     MAX_RESERVOIR_SIZE = 100
     MAX_COUNTERS = 10
 
@@ -118,20 +121,20 @@ class InferenceStats:
         self._update_lock = threading.Lock()
         self._start_sec = int(time.time())
         self.time_reservoir_us = []
-        self.inference_counter = signals_pb2.InferenceStats.Counter()
-        self.exception_counter = signals_pb2.InferenceStats.Counter()
+        self.call_counter = signals_pb2.SpanStats.Counter()
+        self.exception_counter = signals_pb2.SpanStats.Counter()
         self.data_counters = {}
 
     def add_time(self, duration_us):
         with self._update_lock:
-            if len(self.time_reservoir_us) < InferenceStats.MAX_RESERVOIR_SIZE:
+            if len(self.time_reservoir_us) < SpanStats.MAX_RESERVOIR_SIZE:
                 self.time_reservoir_us.append(duration_us)
             else:
-                self.time_reservoir_us[random.randint(0, InferenceStats.MAX_RESERVOIR_SIZE - 1)] = duration_us
+                self.time_reservoir_us[random.randint(0, SpanStats.MAX_RESERVOIR_SIZE - 1)] = duration_us
 
-    def inc_inference_counter(self, value, timestamp_us):
+    def inc_call_counter(self, value, timestamp_us):
         with self._update_lock:
-            self._inc_counter(self.inference_counter, value, timestamp_us)
+            self._inc_counter(self.call_counter, value, timestamp_us)
 
     def inc_exception_counter(self, value, timestamp_us):
         with self._update_lock:
@@ -140,8 +143,8 @@ class InferenceStats:
     def inc_data_counter(self, name, value, unit, timestamp_us):
         with self._update_lock:
             if name not in self.data_counters:
-                if len(self.data_counters) < InferenceStats.MAX_COUNTERS:
-                    counter = self.data_counters[name] = signals_pb2.InferenceStats.Counter()
+                if len(self.data_counters) < SpanStats.MAX_COUNTERS:
+                    counter = self.data_counters[name] = signals_pb2.SpanStats.Counter()
                     counter.unit = unit
                 else:
                     return
@@ -152,7 +155,7 @@ class InferenceStats:
 
     def finalize(self, timestamp_us):
         with self._update_lock:
-            self._finalize_counter(self.inference_counter, timestamp_us)
+            self._finalize_counter(self.call_counter, timestamp_us)
             self._finalize_counter(self.exception_counter, timestamp_us)
             for data_counter in self.data_counters.values():
                 self._finalize_counter(data_counter, timestamp_us)

@@ -7,7 +7,7 @@
 
 Graphsignal is a machine learning inference observability platform. It allows ML engineers and MLOps teams to:
 
-* Monitor, troubleshoot and optimize inference by analyzing performance bottlenecks, resource utilization and errors.
+* Monitor, troubleshoot and optimize inference by analyzing performance, data and errors.
 * Start measuring and profiling server applications and batch jobs automatically by adding a few lines of code.
 * Use Graphsignal in local, remote or cloud environment without installing any additional software or opening inbound ports.
 * Keep data private; no code or data is sent to Graphsignal cloud, only statistics and metadata.
@@ -64,9 +64,7 @@ Graphsignal agent is **optimized for production**. All inferences wrapped with `
 To measure and trace inferences, wrap the code with [`inference_span`](https://graphsignal.com/docs/reference/python-api/#graphsignaltracerinference_span) method.
 
 ```python
-tracer = graphsignal.tracer()
-
-with tracer.inference_span(model_name='my-model'):
+with graphsignal.tracer().inference_span(model_name='my-model'):
     # function call or code segment
 ```
 
@@ -78,7 +76,8 @@ Other integrations are available as well. See [integration documentation](https:
 Enable/disable various profilers depending on the code and model runtime by passing `with_profiler` argument to `tracer()` method. By default `with_profiler` is `True` and Python profiler is enabled. Set to `False` to disable profiling.
 
 ```python
-tracer = graphsignal.tracer(with_profiler='pytorch')
+with graphsignal.tracer(with_profiler='pytorch').inference_span(model_name='my-model'):
+    # function call or code segment
 ```
 
 The following values are currently supported: `True` (or `python`), `tensorflow`, `pytorch`, `jax`, `onnxruntime`. See [integration documentation](https://graphsignal.com/docs/) for more information on each profiler.
@@ -94,8 +93,8 @@ When `with` context manager is used with `inference_span` method, exceptions are
 To track data metrics and record per-inference data profiles, [`InferenceSpan.set_data`](https://graphsignal.com/docs/reference/python-api/#graphsignalinferencespanset_data) method can be used.
 
 ```python
-with tracer.inference_span(model_name='my-model') as span:
-    span.set_data('my-model-input', input_data)
+with graphsignal.tracer().inference_span(model_name='my-model') as span:
+    span.set_data('input', input_data)
 ```
 
 The following data types are currently supported: `list`, `dict`, `set`, `tuple`, `str`, `bytes`, `numpy.ndarray`, `tensorflow.Tensor`, `torch.Tensor`.
@@ -116,12 +115,11 @@ After everything is setup, [log in](https://app.graphsignal.com/) to Graphsignal
 import graphsignal
 
 graphsignal.configure(api_key='my-api-key')
-tracer = graphsignal.tracer()
 
 ...
 
 def predict(x):
-    with tracer.inference_span(model_name='my-model-prod'):
+    with graphsignal.tracer().inference_span(model_name='my-model-prod'):
         return model(x)
 ```
 
@@ -131,12 +129,11 @@ def predict(x):
 import graphsignal
 
 graphsignal.configure(api_key='my-api-key')
-tracer = graphsignal.tracer()
 
 ....
 
 for x in data:
-    with tracer.inference_span(model_name='my-model', tags=dict(job_id='job1')):
+    with graphsignal.tracer().inference_span(model_name='my-model', tags=dict(job_id='job1')):
         preds = model(x)
 ```
 
