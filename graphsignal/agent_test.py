@@ -35,29 +35,27 @@ class AgentTest(unittest.TestCase):
         self.assertIsNone(tracer.profiler())
 
     @patch('time.time', return_value=1)
-    def test_update_span_stats(self, mocked_time):
-        stats = graphsignal._agent.get_span_stats('m1')
+    def test_update_metric_store(self, mocked_time):
+        store = graphsignal._agent.get_metric_store('m1')
 
-        stats.inc_call_counter(1, 1000 * 1e6)
-        stats.inc_call_counter(1, 1000 * 1e6)
-        stats.inc_call_counter(1, 1001 * 1e6)
-        self.assertEqual(stats.call_counter.buckets_sec, {1: 0, 1000: 2, 1001: 1})
+        store.inc_call_count(1, 1000 * 1e6)
+        store.inc_call_count(1, 1000 * 1e6)
+        store.inc_call_count(1, 1001 * 1e6)
+        self.assertEqual(store.call_count.counter.buckets, {1: 0, 1000: 2, 1001: 1})
         
-        stats.inc_exception_counter(1, 1003 * 1e6)
-        stats.inc_exception_counter(1, 1003 * 1e6)
-        stats.inc_exception_counter(1, 1004 * 1e6)
-        self.assertEqual(stats.exception_counter.buckets_sec, {1: 0, 1003: 2, 1004: 1})
+        store.inc_exception_count(1, 1003 * 1e6)
+        store.inc_exception_count(1, 1003 * 1e6)
+        store.inc_exception_count(1, 1004 * 1e6)
+        self.assertEqual(store.exception_count.counter.buckets, {1: 0, 1003: 2, 1004: 1})
 
-        stats.inc_data_counter('c1', 1, 'elem', 1000 * 1e6)
-        stats.inc_data_counter('c1', 1, 'elem', 1000 * 1e6)
-        stats.inc_data_counter('c1', 1, 'elem', 1001 * 1e6)
-        stats.inc_data_counter('c2', 1, 'elem', 1001 * 1e6)
-        self.assertEqual(stats.data_counters['c1'].buckets_sec, {1: 0, 1000: 2, 1001: 1})
-        self.assertEqual(stats.data_counters['c1'].unit, 'elem')
-        self.assertEqual(stats.data_counters['c2'].buckets_sec, {1: 0, 1001: 1})
-        self.assertEqual(stats.data_counters['c2'].unit, 'elem')
+        store.inc_data_counter('d1', 'c1', 1, 1000 * 1e6)
+        store.inc_data_counter('d1', 'c1', 1, 1000 * 1e6)
+        store.inc_data_counter('d1', 'c1', 1, 1001 * 1e6)
+        store.inc_data_counter('d1', 'c2', 1, 1001 * 1e6)
+        self.assertEqual(store.data_counters[('d1', 'c1')].metric.counter.buckets, {1: 0, 1000: 2, 1001: 1})
+        self.assertEqual(store.data_counters[('d1', 'c2')].metric.counter.buckets, {1: 0, 1001: 1})
 
-        stats.add_time(20)
-        stats.add_time(30)
-        self.assertEqual(stats.time_reservoir_us, [20, 30])
+        store.add_time(20)
+        store.add_time(30)
+        self.assertEqual(store.latency_us.reservoir.values, [20, 30])
 

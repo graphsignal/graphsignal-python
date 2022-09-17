@@ -19,13 +19,13 @@ data_profilers = [
 ]
 
 
-def compute_size(data):
+def compute_counts(data):
     for dp in data_profilers:
         if dp.is_instance(data):
-            return dp.get_size(data)
+            return dp.compute_counts(data)
 
 
-def compute_stats(data):
+def build_stats(data):
     for dp in data_profilers:
         if dp.is_instance(data):
-            return dp.compute_stats(data)
+            return dp.build_stats(data)

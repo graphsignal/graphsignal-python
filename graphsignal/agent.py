@@ -26,7 +26,7 @@ class Agent:
         self._process_reader = None
         self._nvml_reader = None
         self._trace_samplers = None
-        self._span_stats = None
+        self._metric_store = None
         self._tracers = None
 
     def start(self):
@@ -37,7 +37,7 @@ class Agent:
         self._nvml_reader = NvmlReader()
         self._nvml_reader.setup()
         self._trace_samplers = {}
-        self._span_stats = {}
+        self._metric_store = {}
         self._tracers = {}
 
     def stop(self):
@@ -45,7 +45,7 @@ class Agent:
         self._process_reader.shutdown()
         self._nvml_reader.shutdown()
         self._trace_samplers = None
-        self._span_stats = None
+        self._metric_store = None
         self._tracers = None
 
     def uploader(self):
@@ -84,14 +84,14 @@ class Agent:
             trace_sampler = self._trace_samplers[model_name] = TraceSampler()
             return trace_sampler
 
-    def reset_span_stats(self, model_name):
-        self._span_stats[model_name] = SpanStats()
+    def reset_metric_store(self, model_name):
+        self._metric_store[model_name] = MetricStore()
 
-    def get_span_stats(self, model_name):
-        if model_name not in self._span_stats:
-            self.reset_span_stats(model_name)
+    def get_metric_store(self, model_name):
+        if model_name not in self._metric_store:
+            self.reset_metric_store(model_name)
 
-        return self._span_stats[model_name]
+        return self._metric_store[model_name]
 
     def read_usage(self, signal):
         self._process_reader.read(signal)
@@ -113,66 +113,80 @@ class Agent:
         self.upload(block=False)
 
 
-class SpanStats:
+class MetricStore:
     MAX_RESERVOIR_SIZE = 100
-    MAX_COUNTERS = 10
 
     def __init__(self):
         self._update_lock = threading.Lock()
         self._start_sec = int(time.time())
-        self.time_reservoir_us = []
-        self.call_counter = signals_pb2.SpanStats.Counter()
-        self.exception_counter = signals_pb2.SpanStats.Counter()
+        self.latency_us = None
+        self.call_count = None
+        self.exception_count = None
         self.data_counters = {}
 
     def add_time(self, duration_us):
         with self._update_lock:
-            if len(self.time_reservoir_us) < SpanStats.MAX_RESERVOIR_SIZE:
-                self.time_reservoir_us.append(duration_us)
+            if not self.latency_us:
+                self.latency_us = signals_pb2.Metric()
+                self.latency_us.type = signals_pb2.Metric.MetricType.RESERVOIR_METRIC
+
+            if len(self.latency_us.reservoir.values) < MetricStore.MAX_RESERVOIR_SIZE:
+                self.latency_us.reservoir.values.append(duration_us)
             else:
-                self.time_reservoir_us[random.randint(0, SpanStats.MAX_RESERVOIR_SIZE - 1)] = duration_us
+                self.latency_us.reservoir.values[random.randint(0, MetricStore.MAX_RESERVOIR_SIZE - 1)] = duration_us
 
-    def inc_call_counter(self, value, timestamp_us):
+    def inc_call_count(self, value, timestamp_us):
         with self._update_lock:
-            self._inc_counter(self.call_counter, value, timestamp_us)
+            if not self.call_count:
+                self.call_count = signals_pb2.Metric()
+                self.call_count.type = signals_pb2.Metric.MetricType.COUNTER_METRIC
+            
+            self._inc_counter(self.call_count, value, timestamp_us)
 
-    def inc_exception_counter(self, value, timestamp_us):
+    def inc_exception_count(self, value, timestamp_us):
         with self._update_lock:
-            self._inc_counter(self.exception_counter, value, timestamp_us)
+            if not self.exception_count:
+                self.exception_count = signals_pb2.Metric()
+                self.exception_count.type = signals_pb2.Metric.MetricType.COUNTER_METRIC
+            
+            self._inc_counter(self.exception_count, value, timestamp_us)
 
-    def inc_data_counter(self, name, value, unit, timestamp_us):
+    def inc_data_counter(self, data_name, counter_name, value, timestamp_us):
         with self._update_lock:
-            if name not in self.data_counters:
-                if len(self.data_counters) < SpanStats.MAX_COUNTERS:
-                    counter = self.data_counters[name] = signals_pb2.SpanStats.Counter()
-                    counter.unit = unit
-                else:
-                    return
+            key = (data_name, counter_name)
+            if key not in self.data_counters:
+                counter = signals_pb2.DataMetric()
+                counter.data_name = data_name
+                counter.metric_name = counter_name
+                counter.metric.type = signals_pb2.Metric.MetricType.COUNTER_METRIC
+                self.data_counters[key] = counter
             else:
-                counter = self.data_counters[name]
+                counter = self.data_counters[key]
 
-            self._inc_counter(counter, value, timestamp_us)
+            self._inc_counter(counter.metric, value, timestamp_us)
 
     def finalize(self, timestamp_us):
         with self._update_lock:
-            self._finalize_counter(self.call_counter, timestamp_us)
-            self._finalize_counter(self.exception_counter, timestamp_us)
-            for data_counter in self.data_counters.values():
-                self._finalize_counter(data_counter, timestamp_us)
+            if self.call_count:
+                self._finalize_counter(self.call_count, timestamp_us)
+            if self.exception_count:
+                self._finalize_counter(self.exception_count, timestamp_us)
+            for counter in self.data_counters.values():
+                self._finalize_counter(counter.metric, timestamp_us)
 
     def _inc_counter(self, counter, value, timestamp_us):
         bucket = int(timestamp_us / 1e6)
-        if bucket in counter.buckets_sec:
-            counter.buckets_sec[bucket] += value
-            counter.buckets_sec[self._start_sec] = 0
+        if bucket in counter.counter.buckets:
+            counter.counter.buckets[bucket] += value
+            counter.counter.buckets[self._start_sec] = 0
         else:
-            counter.buckets_sec[self._start_sec] = 0
-            counter.buckets_sec[bucket] = value
+            counter.counter.buckets[self._start_sec] = 0
+            counter.counter.buckets[bucket] = value
 
     def _finalize_counter(self, counter, timestamp_us):
         end_sec = int(timestamp_us / 1e6)
-        if end_sec not in counter.buckets_sec:
-            counter.buckets_sec[end_sec] = 0
+        if end_sec not in counter.counter.buckets:
+            counter.counter.buckets[end_sec] = 0
 
 
 def _sha1(text, size=-1):

@@ -2,6 +2,7 @@ import unittest
 import logging
 import sys
 import time
+import numpy as np
 from unittest.mock import patch, Mock
 
 import graphsignal
@@ -40,7 +41,7 @@ class TracerTest(unittest.TestCase):
                 tags={'k1': 'v2', 'k3': 3.0},
                 operation_profiler=TensorFlowProfiler())
             span.set_tag('k4', 'v4')
-            span.set_data('input', [[1, 2],[3, 4]])
+            span.set_data('input', np.asarray([[1, 2],[3, 4]]))
             time.sleep(0.01)
             span.stop()
 
@@ -53,9 +54,11 @@ class TracerTest(unittest.TestCase):
         self.assertTrue(signal.start_us > 0)
         self.assertTrue(signal.end_us > 0)
         self.assertEqual(signal.signal_type, signals_pb2.SignalType.INFERENCE_PROFILE_SIGNAL)
-        self.assertEqual(len(signal.span_stats.call_counter.buckets_sec), 1)
-        self.assertEqual(len(signal.span_stats.data_counters['input'].buckets_sec), 1)
-        self.assertEqual(len(signal.span_stats.time_reservoir_us), 8)
+        self.assertEqual(len(signal.span_metrics.call_count.counter.buckets), 1)
+        self.assertEqual(len(signal.span_metrics.latency_us.reservoir.values), 8)
+        self.assertEqual(signal.data_metrics[0].data_name, 'input')
+        self.assertEqual(signal.data_metrics[0].metric_name, 'element_count')
+        self.assertEqual(len(signal.data_metrics[0].metric.counter.buckets), 1)
         self.assertEqual(signal.tags[0].key, 'k1')
         self.assertEqual(signal.tags[0].value, 'v2')
         self.assertEqual(signal.tags[1].key, 'k3')
@@ -65,7 +68,7 @@ class TracerTest(unittest.TestCase):
         self.assertEqual(signal.tags[2].key, 'k4')
         self.assertEqual(signal.tags[2].value, 'v4')
         self.assertEqual(signal.data_stats[0].data_name, 'input')
-        self.assertEqual(signal.data_stats[0].size, 4)
+        self.assertEqual(signal.data_stats[0].shape, [2, 2])
 
     @patch.object(TensorFlowProfiler, 'start', return_value=True)
     @patch.object(TensorFlowProfiler, 'stop', return_value=True)
@@ -142,7 +145,7 @@ class TracerTest(unittest.TestCase):
         self.assertTrue(signal.signal_id != '')
         self.assertTrue(signal.start_us > 0)
         self.assertTrue(signal.end_us > 0)
-        self.assertEqual(len(signal.span_stats.exception_counter.buckets_sec), 1)
+        self.assertEqual(len(signal.span_metrics.exception_count.counter.buckets), 1)
         self.assertEqual(signal.exceptions[0].exc_type, 'Exception')
         self.assertEqual(signal.exceptions[0].message, 'ex1')
         self.assertNotEqual(signal.exceptions[0].stack_trace, '')
@@ -167,7 +170,7 @@ class TracerTest(unittest.TestCase):
         self.assertTrue(signal.worker_id != '')
         self.assertTrue(signal.start_us > 0)
         self.assertTrue(signal.end_us > 0)
-        self.assertEqual(len(signal.span_stats.exception_counter.buckets_sec), 1)
+        self.assertEqual(len(signal.span_metrics.exception_count.counter.buckets), 1)
         self.assertEqual(signal.exceptions[0].exc_type, 'Exception')
         self.assertEqual(signal.exceptions[0].message, 'ex2')
         self.assertNotEqual(signal.exceptions[0].stack_trace, '')
@@ -192,7 +195,7 @@ class TracerTest(unittest.TestCase):
         self.assertTrue(signal.worker_id != '')
         self.assertTrue(signal.start_us > 0)
         self.assertTrue(signal.end_us > 0)
-        self.assertEqual(len(signal.span_stats.exception_counter.buckets_sec), 1)
+        self.assertEqual(len(signal.span_metrics.exception_count.counter.buckets), 1)
         self.assertEqual(signal.exceptions[0].exc_type, 'Exception')
         self.assertEqual(signal.exceptions[0].message, 'ex2')
         self.assertNotEqual(signal.exceptions[0].stack_trace, '')

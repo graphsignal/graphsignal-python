@@ -6,7 +6,7 @@ import traceback
 
 import graphsignal
 from graphsignal.proto import signals_pb2
-from graphsignal.data import compute_size, compute_stats 
+from graphsignal.data import compute_counts, build_stats 
 
 logger = logging.getLogger('graphsignal')
 
@@ -18,7 +18,7 @@ class InferenceSpan:
     __slots__ = [
         '_operation_profiler',
         '_trace_sampler',
-        '_span_stats',
+        '_metric_store',
         '_agent',
         '_model_name',
         '_ensure_trace',
@@ -56,7 +56,7 @@ class InferenceSpan:
 
         self._agent = None
         self._trace_sampler = None
-        self._span_stats = None
+        self._metric_store = None
         self._is_stopped = False
         self._is_tracing = False
         self._is_profiling = False
@@ -84,7 +84,7 @@ class InferenceSpan:
 
         self._agent = graphsignal._agent
         self._trace_sampler = self._agent.get_trace_sampler(self._model_name)
-        self._span_stats = self._agent.get_span_stats(self._model_name)
+        self._metric_store = self._agent.get_metric_store(self._model_name)
 
         if self._trace_sampler.lock(ensure=self._ensure_trace):
             if logger.isEnabledFor(logging.DEBUG):
@@ -152,17 +152,19 @@ class InferenceSpan:
 
         # update time and counters
         if not self._is_profiling:
-            # only measure time if not profiling to exclude profiler overhead
-            self._span_stats.add_time(duration_us)
-        self._span_stats.inc_call_counter(1, end_us)
+            # only measure time if not profiling due to profiler overhead
+            self._metric_store.add_time(duration_us)
+        self._metric_store.inc_call_count(1, end_us)
         if self._data is not None:
-            for name, data in self._data.items():
-                data_size, size_unit = compute_size(data)
-                self._span_stats.inc_data_counter(name, data_size, size_unit, end_us)
+            for data_name, data in self._data.items():
+                data_counts = compute_counts(data)
+                for count_name, count in data_counts.items():
+                    self._metric_store.inc_data_counter(
+                        data_name, count_name, count, end_us)
 
         # update exception counter
         if self._exc_info and self._exc_info[0]:
-            self._span_stats.inc_exception_counter(1, end_us)
+            self._metric_store.inc_exception_count(1, end_us)
 
         # fill and upload profile
         if self._is_tracing:
@@ -195,16 +197,19 @@ class InferenceSpan:
                     tag.value = str(value)[:50]
 
             # copy inference stats
-            self._span_stats.finalize(end_us)
-            self._signal.span_stats.time_reservoir_us[:] = \
-                self._span_stats.time_reservoir_us
-            self._signal.span_stats.call_counter.CopyFrom(
-                self._span_stats.call_counter)
-            self._signal.span_stats.exception_counter.CopyFrom(
-                self._span_stats.exception_counter)
-            for name, counter in self._span_stats.data_counters.items():
-                self._signal.span_stats.data_counters[name].CopyFrom(counter)
-            self._agent.reset_span_stats(self._model_name)
+            self._metric_store.finalize(end_us)
+            if self._metric_store.latency_us:
+                self._signal.span_metrics.latency_us.CopyFrom(
+                    self._metric_store.latency_us)
+            if self._metric_store.call_count:
+                self._signal.span_metrics.call_count.CopyFrom(
+                    self._metric_store.call_count)
+            if self._metric_store.exception_count:
+                self._signal.span_metrics.exception_count.CopyFrom(
+                    self._metric_store.exception_count)
+            for counter in self._metric_store.data_counters.values():
+                self._signal.data_metrics.append(counter)
+            self._agent.reset_metric_store(self._model_name)
 
             # copy exception
             if self._exc_info and self._exc_info[0]:
@@ -222,7 +227,7 @@ class InferenceSpan:
             if self._data is not None:
                 for name, data in self._data.items():
                     try:
-                        data_stats_proto = compute_stats(data)
+                        data_stats_proto = build_stats(data)
                         data_stats_proto.data_name = name
                         if data_stats_proto:
                             self._signal.data_stats.append(data_stats_proto)

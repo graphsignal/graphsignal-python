@@ -26,36 +26,24 @@ class BuiltInTypesProfilerTest(unittest.TestCase):
         profiler = BuiltInTypesProfiler()
         self.assertTrue(profiler.is_instance([]))
 
-    def test_get_size(self):
+    def test_compute_counts(self):
         profiler = BuiltInTypesProfiler()
-        self.assertEqual(profiler.get_size(dict(a=[1, 2.0, 3], b=['444', '55'], c=set([6,7]))), (7, 'elem'))
+        self.assertEqual(
+            profiler.compute_counts(dict(a=[0, 1, 1, 2.0, 3, float('nan'), float('inf')], b=[0, None, None], c=set([6,7]))), 
+            {'element_count': 12, 'inf_count': 1, 'nan_count': 1, 'null_count': 2, 'zero_count': 2})
 
-    def test_get_size_str(self):
+    def test_compute_counts_none(self):
         profiler = BuiltInTypesProfiler()
-        self.assertEqual(profiler.get_size('abc123'), (6, 'char'))
+        self.assertEqual(
+            profiler.compute_counts(None), 
+            {'element_count': 1, 'inf_count': 0, 'nan_count': 0, 'null_count': 1, 'zero_count': 0})
 
-    def test_get_size_none(self):
+    def test_build_stats(self):
         profiler = BuiltInTypesProfiler()
-        self.assertEqual(profiler.get_size(None), (1, 'elem'))
+        ds = profiler.build_stats([1, 2])
+        self.assertEqual(ds.data_type, 'list')
 
-    def test_compute_stats(self):
+    def test_build_stats_none(self):
         profiler = BuiltInTypesProfiler()
-        ds = profiler.compute_stats(dict(a=[0, 1, 1, 2.0, 3, float('nan'), float('inf')], b=[0, None, None], c=set([6,7])))
-        self.assertEqual(ds.data_type, 'dict')
-        self.assertEqual(ds.size, 12)
-        self.assertEqual(ds.num_null, 2)
-        self.assertEqual(ds.num_nan, 1)
-        self.assertEqual(ds.num_inf, 1)
-        self.assertEqual(ds.num_zero, 2)
-        self.assertEqual(ds.num_unique, 9)
-
-    def test_compute_stats_none(self):
-        profiler = BuiltInTypesProfiler()
-        ds = profiler.compute_stats(None)
+        ds = profiler.build_stats(None)
         self.assertEqual(ds.data_type, 'NoneType')
-        self.assertEqual(ds.size, 1)
-        self.assertEqual(ds.num_null, 1)
-        self.assertEqual(ds.num_nan, 0)
-        self.assertEqual(ds.num_inf, 0)
-        self.assertEqual(ds.num_zero, 0)
-        self.assertEqual(ds.num_unique, 1)

@@ -61,7 +61,7 @@ Graphsignal agent is **optimized for production**. All inferences wrapped with `
 
 #### Tracing
 
-To measure and trace inferences, wrap the code with [`inference_span`](https://graphsignal.com/docs/reference/python-api/#graphsignaltracerinference_span) method.
+To measure and trace inferences, wrap inference code with [`inference_span`](https://graphsignal.com/docs/reference/python-api/#graphsignaltracerinference_span) method.
 
 ```python
 with graphsignal.tracer().inference_span(model_name='my-model'):
@@ -73,7 +73,7 @@ Other integrations are available as well. See [integration documentation](https:
 
 #### Profiling
 
-Enable/disable various profilers depending on the code and model runtime by passing `with_profiler` argument to `tracer()` method. By default `with_profiler` is `True` and Python profiler is enabled. Set to `False` to disable profiling.
+Enable/disable various code profilers depending on the code and model runtime by passing `with_profiler` argument to `tracer()` method. By default `with_profiler` is `True` and Python profiler is enabled. Set to `False` to disable profiling.
 
 ```python
 with graphsignal.tracer(with_profiler='pytorch').inference_span(model_name='my-model'):

@@ -26,8 +26,15 @@ class DataProfiler():
     def is_instance(self, data):
         raise NotImplementedError()
 
-    def get_size(self, data):
+    def compute_counts(self, data):
         raise NotImplementedError()
 
-    def compute_stats(self, data):
+    def build_stats(self, data):
         raise NotImplementedError()
+
+
+def add_counts(data_stats, counts):
+    for name, count in counts.items():
+        dc = data_stats.data_counts.add()
+        dc.name = name
+        dc.count = count
