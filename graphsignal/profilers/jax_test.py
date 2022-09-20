@@ -39,7 +39,7 @@ class JaxProfilerTest(unittest.TestCase):
         from graphsignal.profilers.jax import JaxProfiler
 
         profiler = JaxProfiler()
-        signal = signals_pb2.MLSignal()
+        signal = signals_pb2.WorkerSignal()
         profiler.read_info(signal)
 
         self.assertEqual(
@@ -59,7 +59,7 @@ class JaxProfilerTest(unittest.TestCase):
         from graphsignal.profilers.jax import JaxProfiler
 
         profiler = JaxProfiler()
-        signal = signals_pb2.MLSignal()
+        signal = signals_pb2.WorkerSignal()
         profiler.start(signal)
 
         key = random.PRNGKey(0)

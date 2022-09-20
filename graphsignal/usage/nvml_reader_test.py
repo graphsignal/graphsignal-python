@@ -26,7 +26,7 @@ class NvmlReaderTest(unittest.TestCase):
         graphsignal.shutdown()
 
     def test_read(self):
-        signal = signals_pb2.MLSignal()
+        signal = signals_pb2.WorkerSignal()
 
         x = torch.arange(-50, 50, 0.1).view(-1, 1)
         y = -5 * x + 0.1 * torch.randn(x.size())

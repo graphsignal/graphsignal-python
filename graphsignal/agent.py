@@ -77,28 +77,28 @@ class Agent:
         tracer = self._tracers[with_profiler] = Tracer(profiler=profiler)
         return tracer
 
-    def get_trace_sampler(self, model_name):
-        if model_name in self._trace_samplers:
-            return self._trace_samplers[model_name]
+    def get_trace_sampler(self, endpoint):
+        if endpoint in self._trace_samplers:
+            return self._trace_samplers[endpoint]
         else:
-            trace_sampler = self._trace_samplers[model_name] = TraceSampler()
+            trace_sampler = self._trace_samplers[endpoint] = TraceSampler()
             return trace_sampler
 
-    def reset_metric_store(self, model_name):
-        self._metric_store[model_name] = MetricStore()
+    def reset_metric_store(self, endpoint):
+        self._metric_store[endpoint] = MetricStore()
 
-    def get_metric_store(self, model_name):
-        if model_name not in self._metric_store:
-            self.reset_metric_store(model_name)
+    def get_metric_store(self, endpoint):
+        if endpoint not in self._metric_store:
+            self.reset_metric_store(endpoint)
 
-        return self._metric_store[model_name]
+        return self._metric_store[endpoint]
 
     def read_usage(self, signal):
         self._process_reader.read(signal)
         self._nvml_reader.read(signal)
 
     def create_signal(self):
-        signal = signals_pb2.MLSignal()
+        signal = signals_pb2.WorkerSignal()
         signal.worker_id = graphsignal._agent.worker_id
         signal.signal_id = _uuid_sha1(size=12)
         return signal

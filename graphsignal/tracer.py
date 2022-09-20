@@ -11,7 +11,7 @@ from graphsignal.data import compute_counts, build_stats
 logger = logging.getLogger('graphsignal')
 
 
-class InferenceSpan:
+class TraceSpan:
     MAX_TAGS = 10
     MAX_DATA_OBJECTS = 10
 
@@ -20,7 +20,7 @@ class InferenceSpan:
         '_trace_sampler',
         '_metric_store',
         '_agent',
-        '_model_name',
+        '_endpoint',
         '_ensure_trace',
         '_tags',
         '_is_tracing',
@@ -33,23 +33,23 @@ class InferenceSpan:
     ]
 
     def __init__(self, 
-            model_name,
+            endpoint,
             tags=None,
             ensure_trace=False, 
             operation_profiler=None):
-        if not model_name:
-            raise ValueError('model_name is required')
-        if not isinstance(model_name, str):
-            raise ValueError('model_name must be string')
-        if len(model_name) > 50:
-            raise ValueError('model_name is too long (>50)')
+        if not endpoint:
+            raise ValueError('endpoint is required')
+        if not isinstance(endpoint, str):
+            raise ValueError('endpoint must be string')
+        if len(endpoint) > 50:
+            raise ValueError('endpoint is too long (>50)')
         if tags is not None:
             if not isinstance(tags, dict):
                 raise ValueError('tags must be dict')
-            if len(tags) > InferenceSpan.MAX_TAGS:
-                raise ValueError('too many tags (>{0})'.format(InferenceSpan.MAX_TAGS))
+            if len(tags) > TraceSpan.MAX_TAGS:
+                raise ValueError('too many tags (>{0})'.format(TraceSpan.MAX_TAGS))
 
-        self._model_name = model_name
+        self._endpoint = endpoint
         self._tags = tags
         self._ensure_trace = ensure_trace
         self._operation_profiler = operation_profiler
@@ -83,8 +83,8 @@ class InferenceSpan:
             return
 
         self._agent = graphsignal._agent
-        self._trace_sampler = self._agent.get_trace_sampler(self._model_name)
-        self._metric_store = self._agent.get_metric_store(self._model_name)
+        self._trace_sampler = self._agent.get_trace_sampler(self._endpoint)
+        self._metric_store = self._agent.get_metric_store(self._endpoint)
 
         if self._trace_sampler.lock(ensure=self._ensure_trace):
             if logger.isEnabledFor(logging.DEBUG):
@@ -179,15 +179,15 @@ class InferenceSpan:
                 self._add_profiler_exception(exc)
 
             # copy data to profile
-            self._signal.model_name = self._model_name
+            self._signal.endpoint = self._endpoint
             self._signal.start_us = end_us - duration_us
             self._signal.end_us = end_us
             if self._exc_info and self._exc_info[0]:
-                self._signal.signal_type = signals_pb2.SignalType.INFERENCE_EXCEPTION_SIGNAL
+                self._signal.signal_type = signals_pb2.SignalType.EXCEPTION_SIGNAL
             elif self._is_profiling:
-                self._signal.signal_type = signals_pb2.SignalType.INFERENCE_PROFILE_SIGNAL
+                self._signal.signal_type = signals_pb2.SignalType.PROFILE_SIGNAL
             else:
-                self._signal.signal_type = signals_pb2.SignalType.INFERENCE_SAMPLE_SIGNAL
+                self._signal.signal_type = signals_pb2.SignalType.SAMPLE_SIGNAL
 
             # copy tags
             if self._tags is not None:
@@ -209,7 +209,7 @@ class InferenceSpan:
                     self._metric_store.exception_count)
             for counter in self._metric_store.data_counters.values():
                 self._signal.data_metrics.append(counter)
-            self._agent.reset_metric_store(self._model_name)
+            self._agent.reset_metric_store(self._endpoint)
 
             # copy exception
             if self._exc_info and self._exc_info[0]:
@@ -251,8 +251,8 @@ class InferenceSpan:
         if self._tags is None:
             self._tags = {}
 
-        if len(self._tags) > InferenceSpan.MAX_TAGS:
-            raise ValueError('set_tag: too many tags (>{0})'.format(InferenceSpan.MAX_TAGS))
+        if len(self._tags) > TraceSpan.MAX_TAGS:
+            raise ValueError('set_tag: too many tags (>{0})'.format(TraceSpan.MAX_TAGS))
 
         self._tags[key] = value
 
@@ -268,17 +268,17 @@ class InferenceSpan:
         elif exc_info == True:
             self._exc_info = sys.exc_info()
 
-    def set_data(self, name: str, data: Any) -> None:
+    def set_data(self, name: str, obj: Any) -> None:
         if self._data is None:
             self._data = {}
 
-        if len(self._data) > InferenceSpan.MAX_DATA_OBJECTS:
-            raise ValueError('set_data: too many data objects (>{0})'.format(InferenceSpan.MAX_DATA_OBJECTS))
+        if len(self._data) > TraceSpan.MAX_DATA_OBJECTS:
+            raise ValueError('set_data: too many data objects (>{0})'.format(TraceSpan.MAX_DATA_OBJECTS))
 
         if name and not isinstance(name, str):
             raise ValueError('set_data: name must be string')
 
-        self._data[name] = data
+        self._data[name] = obj
 
     def _add_profiler_exception(self, exc):
         profiler_error = self._signal.profiler_errors.add()
@@ -296,17 +296,16 @@ class Tracer:
     def profiler(self):
         return self._profiler
 
-    def inference_span(self,
-        model_name: str,
-        tags: Optional[dict] = None,
-        ensure_trace: Optional[bool] = False) -> InferenceSpan:
+    def span(self,
+            endpoint: str,
+            tags: Optional[Dict[str, str]] = None,
+            ensure_trace: Optional[bool] = False) -> TraceSpan:
 
-        return InferenceSpan(
-            model_name=model_name,
+        return TraceSpan(
+            endpoint=endpoint,
             tags=tags,
             ensure_trace=ensure_trace,
             operation_profiler=self._profiler)
-
 
 def _timestamp_us():
     return int(time.time() * 1e6)

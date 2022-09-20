@@ -30,7 +30,7 @@ class HuggingFaceGeneratorTest(unittest.TestCase):
         pipe = pipeline(task="text-generation", model='distilgpt2')
 
         profiler = PyTorchProfiler()
-        signal = signals_pb2.MLSignal()
+        signal = signals_pb2.WorkerSignal()
         profiler.start(signal)
         output = pipe('some text')
         profiler.stop(signal)

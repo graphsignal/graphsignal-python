@@ -65,7 +65,7 @@ class HuggingFaceSubclassTest(unittest.TestCase):
             
             def prediction_step(self, *args, **kwargs):
                 global signal
-                signal = signals_pb2.MLSignal()
+                signal = signals_pb2.WorkerSignal()
                 profiler.start(signal)
                 ret = super().prediction_step(*args, **kwargs)
                 profiler.stop(signal)

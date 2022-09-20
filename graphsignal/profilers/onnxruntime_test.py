@@ -34,7 +34,7 @@ class ONNXRuntimeProfilerTest(unittest.TestCase):
 
     def test_read_info(self):
         profiler = ONNXRuntimeProfiler()
-        signal = signals_pb2.MLSignal()
+        signal = signals_pb2.WorkerSignal()
         profiler.read_info(signal)
 
         self.assertEqual(
@@ -56,7 +56,7 @@ class ONNXRuntimeProfilerTest(unittest.TestCase):
         torch.onnx.export(model, x, TEST_MODEL_PATH, verbose=True, input_names=input_names, output_names=output_names)
 
         profiler = ONNXRuntimeProfiler()
-        signal = signals_pb2.MLSignal()
+        signal = signals_pb2.WorkerSignal()
 
         sess_options = onnxruntime.SessionOptions()
         sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL

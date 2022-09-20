@@ -7,7 +7,7 @@ from unittest.mock import patch, Mock
 
 import graphsignal
 from graphsignal.proto import signals_pb2
-from graphsignal.tracer import InferenceSpan
+from graphsignal.tracer import TraceSpan
 from graphsignal.profilers.tensorflow import TensorFlowProfiler
 from graphsignal.usage.process_reader import ProcessReader
 from graphsignal.usage.nvml_reader import NvmlReader
@@ -36,8 +36,8 @@ class TracerTest(unittest.TestCase):
     def test_start_stop(self, mocked_time, mocked_upload_signal, mocked_nvml_read, mocked_host_read,
                         mocked_stop, mocked_start):
         for i in range(10):
-            span = InferenceSpan(
-                model_name='m1',
+            span = TraceSpan(
+                endpoint='ep1',
                 tags={'k1': 'v2', 'k3': 3.0},
                 operation_profiler=TensorFlowProfiler())
             span.set_tag('k4', 'v4')
@@ -49,11 +49,11 @@ class TracerTest(unittest.TestCase):
         self.assertEqual(mocked_stop.call_count, 2)
         signal = mocked_upload_signal.call_args[0][0]
 
-        self.assertEqual(signal.model_name, 'm1')
+        self.assertEqual(signal.endpoint, 'ep1')
         self.assertTrue(signal.worker_id != '')
         self.assertTrue(signal.start_us > 0)
         self.assertTrue(signal.end_us > 0)
-        self.assertEqual(signal.signal_type, signals_pb2.SignalType.INFERENCE_PROFILE_SIGNAL)
+        self.assertEqual(signal.signal_type, signals_pb2.SignalType.PROFILE_SIGNAL)
         self.assertEqual(len(signal.span_metrics.call_count.counter.buckets), 1)
         self.assertEqual(len(signal.span_metrics.latency_us.reservoir.values), 8)
         self.assertEqual(signal.data_metrics[0].data_name, 'input')
@@ -78,8 +78,8 @@ class TracerTest(unittest.TestCase):
     def test_start_exception(self, mocked_upload_signal, mocked_nvml_read, mocked_host_read,
                              mocked_stop, mocked_start):
         mocked_start.side_effect = Exception('ex1')
-        span = InferenceSpan(
-            model_name='m1',
+        span = TraceSpan(
+            endpoint='ep1',
             ensure_trace=True,
             operation_profiler=TensorFlowProfiler())
         span.stop()
@@ -88,11 +88,11 @@ class TracerTest(unittest.TestCase):
         mocked_stop.assert_not_called()
         signal = mocked_upload_signal.call_args[0][0]
 
-        self.assertEqual(signal.model_name, 'm1')
+        self.assertEqual(signal.endpoint, 'ep1')
         self.assertTrue(signal.worker_id != '')
         self.assertTrue(signal.start_us > 0)
         self.assertTrue(signal.end_us > 0)
-        self.assertEqual(signal.signal_type, signals_pb2.SignalType.INFERENCE_SAMPLE_SIGNAL)
+        self.assertEqual(signal.signal_type, signals_pb2.SignalType.SAMPLE_SIGNAL)
         self.assertEqual(signal.profiler_errors[0].message, 'ex1')
         self.assertNotEqual(signal.profiler_errors[0].stack_trace, '')
 
@@ -104,8 +104,8 @@ class TracerTest(unittest.TestCase):
     def test_profiler_exception(self, mocked_upload_signal, mocked_nvml_read, mocked_host_read,
                             mocked_stop, mocked_start):
         mocked_stop.side_effect = Exception('ex1')
-        span = InferenceSpan(
-            model_name='m1',
+        span = TraceSpan(
+            endpoint='ep1',
             ensure_trace=True,
             operation_profiler=TensorFlowProfiler())
         span.stop()
@@ -114,7 +114,7 @@ class TracerTest(unittest.TestCase):
         mocked_stop.assert_called_once()
         signal = mocked_upload_signal.call_args[0][0]
 
-        self.assertEqual(signal.model_name, 'm1')
+        self.assertEqual(signal.endpoint, 'ep1')
         self.assertTrue(signal.worker_id != '')
         self.assertTrue(signal.start_us > 0)
         self.assertTrue(signal.end_us > 0)
@@ -131,7 +131,7 @@ class TracerTest(unittest.TestCase):
 
         for _ in range(2):
             try:
-                with InferenceSpan(model_name='m1', operation_profiler=TensorFlowProfiler()):
+                with TraceSpan(endpoint='ep1', operation_profiler=TensorFlowProfiler()):
                     raise Exception('ex1')
             except Exception as ex:
                 if str(ex) != 'ex1':
@@ -140,7 +140,7 @@ class TracerTest(unittest.TestCase):
         self.assertEqual(mocked_upload_signal.call_count, 2)
         signal = mocked_upload_signal.call_args[0][0]
 
-        self.assertEqual(signal.model_name, 'm1')
+        self.assertEqual(signal.endpoint, 'ep1')
         self.assertTrue(signal.worker_id != '')
         self.assertTrue(signal.signal_id != '')
         self.assertTrue(signal.start_us > 0)
@@ -157,7 +157,7 @@ class TracerTest(unittest.TestCase):
     @patch.object(Uploader, 'upload_signal')
     def test_set_exception(self, mocked_upload_signal, mocked_nvml_read, mocked_host_read,
                             mocked_stop, mocked_start):
-        span = InferenceSpan(model_name='m1', ensure_trace=True, operation_profiler=TensorFlowProfiler())
+        span = TraceSpan(endpoint='ep1', ensure_trace=True, operation_profiler=TensorFlowProfiler())
         try:
             raise Exception('ex2')
         except Exception as ex:
@@ -166,7 +166,7 @@ class TracerTest(unittest.TestCase):
 
         signal = mocked_upload_signal.call_args[0][0]
 
-        self.assertEqual(signal.model_name, 'm1')
+        self.assertEqual(signal.endpoint, 'ep1')
         self.assertTrue(signal.worker_id != '')
         self.assertTrue(signal.start_us > 0)
         self.assertTrue(signal.end_us > 0)
@@ -182,7 +182,7 @@ class TracerTest(unittest.TestCase):
     @patch.object(Uploader, 'upload_signal')
     def test_set_exception_true(self, mocked_upload_signal, mocked_nvml_read, mocked_host_read,
                             mocked_stop, mocked_start):
-        span = InferenceSpan(model_name='m1', ensure_trace=True, operation_profiler=TensorFlowProfiler())
+        span = TraceSpan(endpoint='ep1', ensure_trace=True, operation_profiler=TensorFlowProfiler())
         try:
             raise Exception('ex2')
         except Exception as ex:
@@ -191,7 +191,7 @@ class TracerTest(unittest.TestCase):
 
         signal = mocked_upload_signal.call_args[0][0]
 
-        self.assertEqual(signal.model_name, 'm1')
+        self.assertEqual(signal.endpoint, 'ep1')
         self.assertTrue(signal.worker_id != '')
         self.assertTrue(signal.start_us > 0)
         self.assertTrue(signal.end_us > 0)

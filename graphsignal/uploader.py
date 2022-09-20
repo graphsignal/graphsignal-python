@@ -100,7 +100,7 @@ class Uploader:
 
 def _create_upload_request(outgoing):
     upload_request = signals_pb2.UploadRequest()
-    upload_request.ml_signals.extend(outgoing)
+    upload_request.worker_signals.extend(outgoing)
     upload_request.upload_ms = int(time.time() * 1e3)
     return upload_request.SerializeToString()
 

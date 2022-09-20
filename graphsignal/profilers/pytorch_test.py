@@ -29,7 +29,7 @@ class PyTorchProfilerTest(unittest.TestCase):
 
     def test_read_info(self):
         profiler = PyTorchProfiler()
-        signal = signals_pb2.MLSignal()
+        signal = signals_pb2.WorkerSignal()
         profiler.read_info(signal)
 
         self.assertEqual(
@@ -46,7 +46,7 @@ class PyTorchProfilerTest(unittest.TestCase):
             model = model.to('cuda:0')
 
         profiler = PyTorchProfiler()
-        signal = signals_pb2.MLSignal()
+        signal = signals_pb2.WorkerSignal()
         profiler.start(signal)
         y1 = model(x)
         profiler.stop(signal)

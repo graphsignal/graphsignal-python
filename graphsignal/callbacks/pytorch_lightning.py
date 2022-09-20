@@ -13,12 +13,12 @@ logger = logging.getLogger('graphsignal')
 
 
 class GraphsignalCallback(Callback):
-    def __init__(self, model_name: str, tags: Optional[dict] = None):
+    def __init__(self, endpoint: str, tags: Optional[dict] = None):
         super().__init__()
         self._pl_version = None
         self._tracer = graphsignal.tracer(with_profiler='pytorch')
         self._span = None
-        self._model_name = model_name
+        self._endpoint = endpoint
         self._tags = tags
         self._model_size_mb = None
 
@@ -71,8 +71,8 @@ class GraphsignalCallback(Callback):
 
     def _start_profiler(self, trainer):
         if not self._span:
-            self._span = self._tracer.inference_span(
-                model_name=self._model_name,
+            self._span = self._tracer.span(
+                endpoint=self._endpoint,
                 tags=self._tags)
 
     def _stop_profiler(self, trainer):

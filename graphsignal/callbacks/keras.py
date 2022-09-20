@@ -12,12 +12,12 @@ logger = logging.getLogger('graphsignal')
 
 
 class GraphsignalCallback(Callback):
-    def __init__(self, model_name: str, tags: Optional[dict] = None):
+    def __init__(self, endpoint: str, tags: Optional[dict] = None):
         super().__init__()
         self._keras_version = None
         self._tracer = graphsignal.tracer(with_profiler='tensorflow')
         self._span = None
-        self._model_name = model_name
+        self._endpoint = endpoint
         self._tags = tags
 
     def on_test_begin(self, logs=None):
@@ -53,8 +53,8 @@ class GraphsignalCallback(Callback):
 
     def _start_profiler(self):
         if not self._span:
-            self._span = self._tracer.inference_span(
-                model_name=self._model_name,
+            self._span = self._tracer.span(
+                endpoint=self._endpoint,
                 tags=self._tags)
 
     def _stop_profiler(self):

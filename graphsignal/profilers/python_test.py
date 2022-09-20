@@ -31,7 +31,7 @@ class PythonProfilerTest(unittest.TestCase):
 
         profiler = PythonProfiler()
         profiler._exclude_path = 'donotmatchpath'
-        signal = signals_pb2.MLSignal()
+        signal = signals_pb2.WorkerSignal()
         profiler.start(signal)
         slow_method()
         slow_method()

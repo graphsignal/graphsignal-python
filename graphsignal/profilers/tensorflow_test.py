@@ -29,7 +29,7 @@ class TensorFlowProfilerTest(unittest.TestCase):
 
     def test_read_info(self):
         profiler = TensorFlowProfiler()
-        signal = signals_pb2.MLSignal()
+        signal = signals_pb2.WorkerSignal()
         profiler.read_info(signal)
 
         self.assertEqual(
@@ -45,7 +45,7 @@ class TensorFlowProfilerTest(unittest.TestCase):
             return x
 
         profiler = TensorFlowProfiler()
-        signal = signals_pb2.MLSignal()
+        signal = signals_pb2.WorkerSignal()
         profiler.start(signal)
         f(tf.random.uniform([5]))
         profiler.stop(signal)

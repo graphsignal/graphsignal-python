@@ -36,7 +36,7 @@ class AgentTest(unittest.TestCase):
 
     @patch('time.time', return_value=1)
     def test_update_metric_store(self, mocked_time):
-        store = graphsignal._agent.get_metric_store('m1')
+        store = graphsignal._agent.get_metric_store('ep1')
 
         store.inc_call_count(1, 1000 * 1e6)
         store.inc_call_count(1, 1000 * 1e6)

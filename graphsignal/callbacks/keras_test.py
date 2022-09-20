@@ -73,14 +73,14 @@ class KerasCallbackTest(unittest.TestCase):
 
         model.evaluate(ds_test,
             batch_size=128,
-            callbacks=[GraphsignalCallback(model_name='m1')])
+            callbacks=[GraphsignalCallback(endpoint='ep1')])
 
         signal = mocked_upload_signal.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
 
-        self.assertEqual(signal.model_name, 'm1')
+        self.assertEqual(signal.endpoint, 'ep1')
 
         test_op_stats = None
         for op_stats in signal.op_stats:
