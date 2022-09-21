@@ -1,16 +1,16 @@
-# Graphsignal: Inference Monitoring and Profiling 
+# Graphsignal: AI Application Monitoring
 
 [![License](http://img.shields.io/github/license/graphsignal/graphsignal)](https://github.com/graphsignal/graphsignal/blob/main/LICENSE)
 [![Version](https://img.shields.io/github/v/tag/graphsignal/graphsignal?label=version)](https://github.com/graphsignal/graphsignal)
 [![Status](https://img.shields.io/uptimerobot/status/m787882560-d6b932eb0068e8e4ade7f40c?label=SaaS%20status)](https://stats.uptimerobot.com/gMBNpCqqqJ)
 
 
-Graphsignal is an AI observability platform. It allows ML engineers and MLOps teams to:
+Graphsignal is an AI observability platform. It helps ML engineers and MLOps teams make AI applications run faster and reliably by monitoring and analyzing performance, resources, data and errors. Graphsignal's capabilities enable full visibility into AI applications for any model, data and deployment.
 
-* Monitor, troubleshoot and optimize AI applications by analyzing performance, data and errors.
-* Start measuring and profiling server applications and batch jobs automatically by adding a few lines of code.
-* Use Graphsignal in local, remote or cloud environment without installing any additional software or opening inbound ports.
-* Keep data private; no code or data is sent to Graphsignal cloud, only statistics and metadata.
+* Inference tracing and monitoring.
+* Automatic inference profiling.
+* Error and exception tracking.
+* Data monitoring and data issue detection.
 
 [![Dashboards](https://graphsignal.com/external/screencast-dashboards.gif)](https://graphsignal.com/)
 
