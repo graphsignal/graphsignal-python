@@ -16,8 +16,7 @@ class GraphsignalCallback(Callback):
     def __init__(self, endpoint: str, tags: Optional[dict] = None):
         super().__init__()
         self._pl_version = None
-        self._tracer = graphsignal.tracer(with_profiler='pytorch')
-        self._span = None
+        self._trace = None
         self._endpoint = endpoint
         self._tags = tags
         self._model_size_mb = None
@@ -70,21 +69,21 @@ class GraphsignalCallback(Callback):
             logger.error('Error configuring PyTorch Lightning profiler', exc_info=True)
 
     def _start_profiler(self, trainer):
-        if not self._span:
-            self._span = self._tracer.span(
+        if not self._trace:
+            self._trace = graphsignal.tracer(with_profiler='pytorch').trace(
                 endpoint=self._endpoint,
                 tags=self._tags)
 
     def _stop_profiler(self, trainer):
-        if self._span:
-            if self._span.is_tracing():
+        if self._trace:
+            if self._trace.is_tracing():
                 self._update_profile(trainer)
-            self._span.stop()
-            self._span = None
+            self._trace.stop()
+            self._trace = None
 
     def _update_profile(self, trainer):
         try:
-            signal = self._span._signal
+            signal = self._trace._signal
 
             signal.agent_info.framework_profiler_type = signals_pb2.AgentInfo.ProfilerType.PYTORCH_LIGHTNING_PROFILER
 
@@ -96,4 +95,4 @@ class GraphsignalCallback(Callback):
             if self._model_size_mb:
                 signal.model_info.model_size_bytes = int(self._model_size_mb * 1e6)
         except Exception as exc:
-            self._span._add_profiler_exception(exc)
+            self._trace._add_profiler_exception(exc)

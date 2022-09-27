@@ -24,8 +24,11 @@ class BuiltInTypesProfiler(DataProfiler):
             counts['element_count'] = _count_elems(data, lambda elem: True)
         counts['null_count'] = _count_elems(data, lambda elem: elem is None)
         counts['nan_count'] = _count_elems(data, lambda elem: elem != elem)
-        counts['inf_count'] = _count_elems(data, lambda elem: elem == float("inf"))
+        counts['inf_count'] = _count_elems(data, lambda elem: elem == float("inf") or elem == float("-inf"))
         counts['zero_count'] = _count_elems(data, lambda elem: elem == 0)
+        counts['empty_count'] = _count_elems(data, lambda elem: elem == '')
+        counts['negative_count'] = _count_elems(data, lambda elem: isinstance(elem, (int, float)) and elem < 0)
+        counts['positive_count'] = _count_elems(data, lambda elem: isinstance(elem, (int, float)) and elem > 0)
         return counts
 
     def build_stats(self, data):

@@ -16,7 +16,7 @@ class GraphsignalCallback(Callback):
         super().__init__()
         self._keras_version = None
         self._tracer = graphsignal.tracer(with_profiler='tensorflow')
-        self._span = None
+        self._trace = None
         self._endpoint = endpoint
         self._tags = tags
 
@@ -52,21 +52,21 @@ class GraphsignalCallback(Callback):
             logger.error('Error configuring Keras profiler', exc_info=True)
 
     def _start_profiler(self):
-        if not self._span:
-            self._span = self._tracer.span(
+        if not self._trace:
+            self._trace = graphsignal.tracer(with_profiler='tensorflow').trace(
                 endpoint=self._endpoint,
                 tags=self._tags)
 
     def _stop_profiler(self):
-        if self._span:
-            if self._span.is_tracing():
+        if self._trace:
+            if self._trace.is_tracing():
                 self._update_profile()
-            self._span.stop()
-            self._span = None
+            self._trace.stop()
+            self._trace = None
 
     def _update_profile(self):
         try:
-            signal = self._span._signal
+            signal = self._trace._signal
 
             signal.agent_info.framework_profiler_type = signals_pb2.AgentInfo.ProfilerType.KERAS_PROFILER
 
@@ -74,4 +74,4 @@ class GraphsignalCallback(Callback):
             framework.type = signals_pb2.FrameworkInfo.FrameworkType.KERAS_FRAMEWORK
             framework.version.CopyFrom(self._keras_version)
         except Exception as exc:
-            self._span._add_profiler_exception(exc)
+            self._trace._add_profiler_exception(exc)

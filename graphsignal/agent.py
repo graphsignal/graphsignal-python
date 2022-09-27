@@ -12,14 +12,16 @@ from graphsignal.usage.process_reader import ProcessReader
 from graphsignal.usage.nvml_reader import NvmlReader
 from graphsignal.trace_sampler import TraceSampler
 from graphsignal.proto import signals_pb2
+from graphsignal.data.missing_value_detector import MissingValueDetector
 
 logger = logging.getLogger('graphsignal')
 
 
 class Agent:
-    def __init__(self, api_key, debug_mode=False):
+    def __init__(self, api_key, deployment=None, debug_mode=False):
         self.worker_id = _uuid_sha1(size=12)
         self.api_key = api_key
+        self.deployment = deployment
         self.debug_mode = debug_mode
 
         self._uploader = None
@@ -28,6 +30,7 @@ class Agent:
         self._trace_samplers = None
         self._metric_store = None
         self._tracers = None
+        self._mv_detectors = None
 
     def start(self):
         self._uploader = Uploader()
@@ -39,6 +42,7 @@ class Agent:
         self._trace_samplers = {}
         self._metric_store = {}
         self._tracers = {}
+        self._mv_detectors = {}
 
     def stop(self):
         self.upload(block=True)
@@ -93,6 +97,13 @@ class Agent:
 
         return self._metric_store[endpoint]
 
+    def get_mv_detector(self, endpoint):
+        if endpoint in self._mv_detectors:
+            return self._mv_detectors[endpoint]
+        else:
+            mv_detector = self._mv_detectors[endpoint] = MissingValueDetector()
+            return mv_detector
+
     def read_usage(self, signal):
         self._process_reader.read(signal)
         self._nvml_reader.read(signal)
@@ -101,6 +112,8 @@ class Agent:
         signal = signals_pb2.WorkerSignal()
         signal.worker_id = graphsignal._agent.worker_id
         signal.signal_id = _uuid_sha1(size=12)
+        if self.deployment:
+            signal.deployment_name = self.deployment
         return signal
 
     def upload(self, block=False):

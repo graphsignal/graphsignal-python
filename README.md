@@ -10,7 +10,7 @@ Graphsignal is an AI observability platform. It helps ML engineers and MLOps tea
 * Inference tracing and monitoring.
 * Automatic inference profiling.
 * Error and exception tracking.
-* Data monitoring and data issue detection.
+* Data monitoring and anomaly detection.
 
 [![Dashboards](https://graphsignal.com/external/screencast-dashboards.gif)](https://graphsignal.com/)
 
@@ -45,20 +45,22 @@ graphsignal.configure(api_key='my-api-key')
 
 To get an API key, sign up for a free account at [graphsignal.com](https://graphsignal.com). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.com/settings/api-keys) page.
 
+To track deployments, versions and environments separately, specify a `deployment` parameter, e.g. `graphsignal.configure(deployment='my-model-prod-v1')`.
+
 
 ## Integrate
 
 Use the following examples to integrate Graphsignal agent into your machine learning application. See integration documentation and [API reference](https://graphsignal.com/docs/reference/python-api/) for full reference.
 
-Graphsignal agent is **optimized for production**. All executions wrapped with `span` method will be measured, but only a few will be traced and profiled to ensure low overhead.
+Graphsignal agent is **optimized for production**. All executions wrapped with `trace` method will be measured, but only a few will be traced and profiled to ensure low overhead.
 
 
 ### Tracing
 
-To measure and trace executions, wrap the code with [`span`](https://graphsignal.com/docs/reference/python-api/#graphsignaltracerspan) method.
+To measure and trace executions, wrap the code with [`trace`](https://graphsignal.com/docs/reference/python-api/#graphsignaltracertrace) method.
 
 ```python
-with graphsignal.tracer().span(endpoint='predict'):
+with graphsignal.trace(endpoint='predict'):
     # function call or code segment
 ```
 
@@ -70,7 +72,7 @@ Other integrations are available as well. See [integration documentation](https:
 Enable/disable various code profilers depending on the code and model runtime by passing `with_profiler` argument to `tracer()` method. By default `with_profiler` is `True` and Python profiler is enabled. Set to `False` to disable profiling.
 
 ```python
-with graphsignal.tracer(with_profiler='pytorch').span(endpoint='predict'):
+with graphsignal.tracer(with_profiler='pytorch').trace(endpoint='predict'):
     # function call or code segment
 ```
 
@@ -79,16 +81,16 @@ The following values are currently supported: `True` (or `python`), `tensorflow`
 
 ### Exception tracking
 
-When `with` context manager is used with `span` method, exceptions are **automatically recorded**. For other cases, use [`TraceSpan.set_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignaltracespanset_exception) method.
+When `with` context manager is used with `trace` method, exceptions are **automatically recorded**. For other cases, use [`EndpointTrace.set_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalendpointtraceset_exception) method.
 
 
 ### Data monitoring
 
-To track data metrics and record data profiles, [`TraceSpan.set_data`](https://graphsignal.com/docs/reference/python-api/#graphsignaltracespanset_data) method can be used.
+To track data metrics and record data profiles, [`EndpointTrace.set_data`](https://graphsignal.com/docs/reference/python-api/#graphsignalendpointtraceset_data) method can be used.
 
 ```python
-with graphsignal.tracer().span(endpoint='predict') as span:
-    span.set_data('input', input_data)
+with graphsignal.trace(endpoint='predict') as trace:
+    trace.set_data('input', input_data)
 ```
 
 The following data types are currently supported: `list`, `dict`, `set`, `tuple`, `str`, `bytes`, `numpy.ndarray`, `tensorflow.Tensor`, `torch.Tensor`.
@@ -108,12 +110,12 @@ After everything is setup, [log in](https://app.graphsignal.com/) to Graphsignal
 ```python
 import graphsignal
 
-graphsignal.configure(api_key='my-api-key')
+graphsignal.configure(api_key='my-api-key', deployment='my-app-prod')
 
 ...
 
 def predict(x):
-    with graphsignal.tracer().span(endpoint='predict-prod'):
+    with graphsignal.trace(endpoint='my-model-predict'):
         return model(x)
 ```
 
@@ -127,7 +129,7 @@ graphsignal.configure(api_key='my-api-key')
 ....
 
 for x in data:
-    with graphsignal.tracer().span(endpoint='predict', tags=dict(job_id='job1')):
+    with graphsignal.trace(endpoint='my-model-predict', tags=dict(job_id='job1')):
         preds = model(x)
 ```
 

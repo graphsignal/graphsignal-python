@@ -102,7 +102,7 @@ class PyTorchLightningTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
 
-        self.assertEqual(signal.endpoint, 'ep1')
+        self.assertEqual(signal.endpoint_name, 'ep1')
 
         self.assertTrue(
             signal.agent_info.framework_profiler_type, 

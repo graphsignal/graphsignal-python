@@ -6,12 +6,13 @@ import traceback
 
 import graphsignal
 from graphsignal.proto import signals_pb2
-from graphsignal.data import compute_counts, build_stats 
+from graphsignal.data import compute_counts, build_stats
 
 logger = logging.getLogger('graphsignal')
 
+PROFILE_TRACES = {1, 10, 100}
 
-class TraceSpan:
+class EndpointTrace:
     MAX_TAGS = 10
     MAX_DATA_OBJECTS = 10
 
@@ -19,9 +20,10 @@ class TraceSpan:
         '_operation_profiler',
         '_trace_sampler',
         '_metric_store',
+        '_mv_detector',
         '_agent',
         '_endpoint',
-        '_ensure_trace',
+        '_ensure_sample',
         '_tags',
         '_is_tracing',
         '_is_profiling',
@@ -29,13 +31,14 @@ class TraceSpan:
         '_is_stopped',
         '_start_counter',
         '_exc_info',
-        '_data'
+        '_data',
+        '_has_missing_values'
     ]
 
     def __init__(self, 
             endpoint,
             tags=None,
-            ensure_trace=False, 
+            ensure_sample=False, 
             operation_profiler=None):
         if not endpoint:
             raise ValueError('endpoint is required')
@@ -46,23 +49,25 @@ class TraceSpan:
         if tags is not None:
             if not isinstance(tags, dict):
                 raise ValueError('tags must be dict')
-            if len(tags) > TraceSpan.MAX_TAGS:
-                raise ValueError('too many tags (>{0})'.format(TraceSpan.MAX_TAGS))
+            if len(tags) > EndpointTrace.MAX_TAGS:
+                raise ValueError('too many tags (>{0})'.format(EndpointTrace.MAX_TAGS))
 
         self._endpoint = endpoint
         self._tags = tags
-        self._ensure_trace = ensure_trace
+        self._ensure_sample = ensure_sample
         self._operation_profiler = operation_profiler
 
         self._agent = None
         self._trace_sampler = None
         self._metric_store = None
+        self._mv_detector = None
         self._is_stopped = False
         self._is_tracing = False
         self._is_profiling = False
         self._signal = None
         self._exc_info = None
         self._data = None
+        self._has_missing_values = False
 
         try:
             self._start()
@@ -85,12 +90,17 @@ class TraceSpan:
         self._agent = graphsignal._agent
         self._trace_sampler = self._agent.get_trace_sampler(self._endpoint)
         self._metric_store = self._agent.get_metric_store(self._endpoint)
+        self._mv_detector = self._agent.get_mv_detector(self._endpoint)
 
-        if self._trace_sampler.lock(ensure=self._ensure_trace):
+        if self._ensure_sample:
+            self._is_tracing = self._trace_sampler.lock('ensured')
+        else:
+            self._is_tracing = self._trace_sampler.lock('samples', include_trace_idx=PROFILE_TRACES)
+
+        if self._is_tracing:
             if logger.isEnabledFor(logging.DEBUG):
                 profiling_start_overhead_counter = time.perf_counter()
 
-            self._is_tracing = True
             self._signal = self._agent.create_signal()
 
             # read framework-specific info
@@ -98,7 +108,7 @@ class TraceSpan:
                 self._operation_profiler.read_info(self._signal)
 
             # start profiler
-            if self._operation_profiler and self._trace_sampler.should_profile():
+            if self._operation_profiler and self._trace_sampler.current_trace_idx() in PROFILE_TRACES:
                 try:
                     self._operation_profiler.start(self._signal)
                     self._is_profiling = True
@@ -136,9 +146,9 @@ class TraceSpan:
             return
         self._is_stopped = True
 
-        # if exception, but the span is not being traced, try to start tracing
+        # if exception, but the trace is not being recorded, try to start tracing
         if self._exc_info and self._exc_info[0] and not self._is_tracing:
-            if self._trace_sampler.lock(ensure=True):
+            if self._trace_sampler.lock('exceptions'):
                 self._is_tracing = True
                 self._signal = self._agent.create_signal()
 
@@ -155,12 +165,24 @@ class TraceSpan:
             # only measure time if not profiling due to profiler overhead
             self._metric_store.add_time(duration_us)
         self._metric_store.inc_call_count(1, end_us)
+
+        # update data counters and check for missing values
         if self._data is not None:
             for data_name, data in self._data.items():
                 data_counts = compute_counts(data)
+
                 for count_name, count in data_counts.items():
                     self._metric_store.inc_data_counter(
                         data_name, count_name, count, end_us)
+
+                if self._mv_detector.detect(data_name, data_counts):
+                    self._has_missing_values = True
+
+        # if missing values detected, but the trace is not being recorded, try to start tracing
+        if self._has_missing_values:
+            if self._trace_sampler.lock('missing-values'):
+                self._is_tracing = True
+                self._signal = self._agent.create_signal()
 
         # update exception counter
         if self._exc_info and self._exc_info[0]:
@@ -179,11 +201,13 @@ class TraceSpan:
                 self._add_profiler_exception(exc)
 
             # copy data to profile
-            self._signal.endpoint = self._endpoint
+            self._signal.endpoint_name = self._endpoint
             self._signal.start_us = end_us - duration_us
             self._signal.end_us = end_us
             if self._exc_info and self._exc_info[0]:
                 self._signal.signal_type = signals_pb2.SignalType.EXCEPTION_SIGNAL
+            elif self._has_missing_values:
+                self._signal.signal_type = signals_pb2.SignalType.MISSING_VALUES_SIGNAL
             elif self._is_profiling:
                 self._signal.signal_type = signals_pb2.SignalType.PROFILE_SIGNAL
             else:
@@ -199,13 +223,13 @@ class TraceSpan:
             # copy inference stats
             self._metric_store.finalize(end_us)
             if self._metric_store.latency_us:
-                self._signal.span_metrics.latency_us.CopyFrom(
+                self._signal.trace_metrics.latency_us.CopyFrom(
                     self._metric_store.latency_us)
             if self._metric_store.call_count:
-                self._signal.span_metrics.call_count.CopyFrom(
+                self._signal.trace_metrics.call_count.CopyFrom(
                     self._metric_store.call_count)
             if self._metric_store.exception_count:
-                self._signal.span_metrics.exception_count.CopyFrom(
+                self._signal.trace_metrics.exception_count.CopyFrom(
                     self._metric_store.exception_count)
             for counter in self._metric_store.data_counters.values():
                 self._signal.data_metrics.append(counter)
@@ -251,8 +275,8 @@ class TraceSpan:
         if self._tags is None:
             self._tags = {}
 
-        if len(self._tags) > TraceSpan.MAX_TAGS:
-            raise ValueError('set_tag: too many tags (>{0})'.format(TraceSpan.MAX_TAGS))
+        if len(self._tags) > EndpointTrace.MAX_TAGS:
+            raise ValueError('set_tag: too many tags (>{0})'.format(EndpointTrace.MAX_TAGS))
 
         self._tags[key] = value
 
@@ -272,8 +296,8 @@ class TraceSpan:
         if self._data is None:
             self._data = {}
 
-        if len(self._data) > TraceSpan.MAX_DATA_OBJECTS:
-            raise ValueError('set_data: too many data objects (>{0})'.format(TraceSpan.MAX_DATA_OBJECTS))
+        if len(self._data) > EndpointTrace.MAX_DATA_OBJECTS:
+            raise ValueError('set_data: too many data objects (>{0})'.format(EndpointTrace.MAX_DATA_OBJECTS))
 
         if name and not isinstance(name, str):
             raise ValueError('set_data: name must be string')
@@ -296,15 +320,15 @@ class Tracer:
     def profiler(self):
         return self._profiler
 
-    def span(self,
+    def trace(self,
             endpoint: str,
             tags: Optional[Dict[str, str]] = None,
-            ensure_trace: Optional[bool] = False) -> TraceSpan:
+            ensure_sample: Optional[bool] = False) -> EndpointTrace:
 
-        return TraceSpan(
+        return EndpointTrace(
             endpoint=endpoint,
             tags=tags,
-            ensure_trace=ensure_trace,
+            ensure_sample=ensure_sample,
             operation_profiler=self._profiler)
 
 def _timestamp_us():

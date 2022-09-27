@@ -23,6 +23,8 @@ class TFTensorProfiler(DataProfiler):
         counts['nan_count'] = int(tf.math.count_nonzero(tf.math.is_nan(data)))
         counts['inf_count'] = int(tf.math.count_nonzero(tf.math.is_inf(data)))
         counts['zero_count'] = int(tf.math.count_nonzero(tf.math.equal(data, 0)))
+        counts['negative_count'] = int(tf.math.count_nonzero(tf.math.less(data, 0)))
+        counts['positive_count'] = int(tf.math.count_nonzero(tf.math.greater(data, 0)))
         return counts
 
     def build_stats(self, data):

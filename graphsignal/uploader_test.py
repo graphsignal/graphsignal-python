@@ -76,7 +76,7 @@ class UploaderTest(unittest.TestCase):
         server.start()
 
         signal = signals_pb2.WorkerSignal()
-        signal.endpoint = 'ep1'
+        signal.endpoint_name = 'ep1'
         upload_request = signals_pb2.UploadRequest()
         upload_request.worker_signals.append(signal)
         upload_request.upload_ms = 123
@@ -86,7 +86,7 @@ class UploaderTest(unittest.TestCase):
         received_upload_request = signals_pb2.UploadRequest()
         received_upload_request.ParseFromString(server.get_request_data())
         self.assertEqual(
-            received_upload_request.worker_signals[0].endpoint, 'ep1')
+            received_upload_request.worker_signals[0].endpoint_name, 'ep1')
         self.assertEqual(received_upload_request.upload_ms, 123)
 
         server.join()
@@ -100,7 +100,7 @@ class UploaderTest(unittest.TestCase):
         server.start()
 
         signal = signals_pb2.WorkerSignal()
-        signal.endpoint = 'ep1'
+        signal.endpoint_name = 'ep1'
         upload_request = signals_pb2.UploadRequest()
         upload_request.worker_signals.append(signal)
         upload_request.upload_ms = 123
@@ -110,7 +110,7 @@ class UploaderTest(unittest.TestCase):
         received_upload_request = signals_pb2.UploadRequest()
         received_upload_request.ParseFromString(server.get_request_data())
         self.assertEqual(
-            received_upload_request.worker_signals[0].endpoint, 'ep1')
+            received_upload_request.worker_signals[0].endpoint_name, 'ep1')
         self.assertEqual(received_upload_request.upload_ms, 123)
 
         server.join()

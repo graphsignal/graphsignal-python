@@ -1,10 +1,11 @@
-from typing import Any, Union, Optional
+from typing import Dict, Any, Union, Optional
 import os
 import logging
 import atexit
 
 from graphsignal.version import __version__
 from graphsignal.agent import Agent
+from graphsignal.tracer import EndpointTrace
 
 logger = logging.getLogger('graphsignal')
 
@@ -54,6 +55,7 @@ def _check_and_set_arg(
 
 def configure(
         api_key: Optional[str] = None,
+        deployment: Optional[str] = None,
         debug_mode: Optional[bool] = False) -> None:
     global _agent
 
@@ -67,9 +69,11 @@ def configure(
     else:
         logger.setLevel(logging.WARNING)
     api_key = _check_and_set_arg('api_key', api_key, is_str=True, required=True)
+    deployment = _check_and_set_arg('deployment', deployment, is_str=True, required=False)
 
     _agent = Agent(
-        api_key=api_key, 
+        api_key=api_key,
+        deployment=deployment,
         debug_mode=debug_mode)
     _agent.start()
 
@@ -82,6 +86,16 @@ def tracer(with_profiler: Union[bool, str] = True):
     _check_configured()
 
     return _agent.tracer(with_profiler=with_profiler)
+
+
+def trace(endpoint: str,
+        tags: Optional[Dict[str, str]] = None,
+        ensure_sample: Optional[bool] = False) -> EndpointTrace:
+
+    return tracer().trace(
+        endpoint=endpoint,
+        tags=tags,
+        ensure_sample=ensure_sample)
 
 
 def upload(block=False) -> None:

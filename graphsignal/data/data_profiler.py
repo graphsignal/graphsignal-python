@@ -8,7 +8,7 @@ import graphsignal
 logger = logging.getLogger('graphsignal')
 
 
-class DataProfiler():
+class DataProfiler:
     def __init__(self):
         self._module = None
         self._is_checked = False

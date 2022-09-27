@@ -31,8 +31,13 @@ class TorchTensorProfilerTest(unittest.TestCase):
     def test_compute_counts(self):
         profiler = TorchTensorProfiler()
         self.assertEqual(
-            profiler.compute_counts(torch.tensor(np.asarray([[1, 2.0, 0, np.inf], [1, 0, 0, np.nan]]))), 
-            {'element_count': 8, 'nan_count': 1, 'inf_count': 1, 'zero_count': 3})
+            profiler.compute_counts(torch.tensor(np.asarray([[-1, 2.0, 0, np.inf], [1, 0, 0, np.nan]]))), 
+            {'element_count': 8,
+             'nan_count': 1,
+             'inf_count': 1,
+             'zero_count': 3,
+             'negative_count': 1,
+             'positive_count': 3,})
 
     def test_build_stats(self):
         profiler = TorchTensorProfiler()

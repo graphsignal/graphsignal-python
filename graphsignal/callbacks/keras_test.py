@@ -80,7 +80,7 @@ class KerasCallbackTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
 
-        self.assertEqual(signal.endpoint, 'ep1')
+        self.assertEqual(signal.endpoint_name, 'ep1')
 
         test_op_stats = None
         for op_stats in signal.op_stats:

@@ -19,63 +19,48 @@ class TraceSamplerTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    def test_ensured(self):
+    def test_group(self):
+        limit = 2
         sampler = TraceSampler()
-        for _ in range(TraceSampler.MAX_ENSURED_SPANS):
-            self.assertTrue(sampler.lock(ensure=True))
+        for _ in range(limit):
+            self.assertTrue(sampler.lock('g1', limit_per_interval=limit))
             sampler.unlock()
+        self.assertFalse(sampler.lock('g1', limit_per_interval=limit))
         sampler.unlock()
 
-    def test_predefined(self):
+    def test_include_trace_idx(self):
         sampler = TraceSampler()
-        first_span = next(iter(sampler._span_filter))
-        for idx in range(TraceSampler.PREDEFINED_SPANS[-1]):
-            if idx + 1 in sampler._span_filter:
-                self.assertTrue(sampler.lock())
+        trace_idx = {1, 4, 10}
+        for idx in range(list(trace_idx)[-1]):
+            if idx + 1 in trace_idx:
+                self.assertTrue(sampler.lock('g1', limit_per_interval=0, include_trace_idx=trace_idx))
                 sampler.unlock()
             else:
-                self.assertFalse(sampler.lock())
+                self.assertFalse(sampler.lock('g1', limit_per_interval=0, include_trace_idx=trace_idx))
                 sampler.unlock()
-        self.assertFalse(sampler.lock())
-        sampler.unlock()
-
-    def test_interval(self):
-        sampler = TraceSampler()
-        sampler._span_filter = {}
-        self.assertFalse(sampler.lock())
-        sampler.unlock()
-        self.assertFalse(sampler._interval_mode)
-
-        # first interval
-        sampler._start_ts = time.time() - TraceSampler.MIN_INTERVAL_SEC - 10
-        self.assertTrue(sampler.lock())
-        sampler.unlock()
-        self.assertFalse(sampler.lock())
-        sampler.unlock()
-        self.assertTrue(sampler._interval_mode)
-
-        # other intervals
-        sampler._start_ts = time.time() - TraceSampler.MIN_INTERVAL_SEC - 10
-        sampler._last_sample_ts = time.time() - TraceSampler.MIN_INTERVAL_SEC - 10
-        self.assertTrue(sampler.lock())
-        sampler.unlock()
-        self.assertFalse(sampler.lock())
-        sampler.unlock()
-
-        # test ensured during interval
-        self.assertFalse(sampler.lock())
-        for _ in range(TraceSampler.MAX_ENSURED_SPANS):
-            self.assertTrue(sampler.lock(ensure=True))
-            sampler.unlock()
-        self.assertFalse(sampler.lock())
+        self.assertFalse(sampler.lock('g1', limit_per_interval=0, include_trace_idx=trace_idx))
         sampler.unlock()
 
     def test_concurrent(self):
         sampler = TraceSampler()
-        self.assertTrue(sampler.lock(ensure=True))
-        self.assertFalse(sampler.lock(ensure=True))
-        self.assertFalse(sampler.lock(ensure=True))
+        self.assertTrue(sampler.lock('g1'))
+        self.assertFalse(sampler.lock('g1'))
+        self.assertFalse(sampler.lock('g2'))
         sampler.unlock()
-        self.assertTrue(sampler.lock(ensure=True))
+        self.assertTrue(sampler.lock('g2'))
         sampler.unlock()
 
+    def test_reset(self):
+        sampler = TraceSampler()
+
+        self.assertTrue(sampler.lock('g1', limit_per_interval=1))
+        sampler.unlock()
+        self.assertFalse(sampler.lock('g1', limit_per_interval=1))
+        sampler.unlock()
+
+        sampler._last_reset_ts = time.time() - TraceSampler.MIN_INTERVAL_SEC - 10
+
+        self.assertTrue(sampler.lock('g1', limit_per_interval=1))
+        sampler.unlock()
+        self.assertFalse(sampler.lock('g1', limit_per_interval=1))
+        sampler.unlock()

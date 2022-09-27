@@ -29,14 +29,28 @@ class BuiltInTypesProfilerTest(unittest.TestCase):
     def test_compute_counts(self):
         profiler = BuiltInTypesProfiler()
         self.assertEqual(
-            profiler.compute_counts(dict(a=[0, 1, 1, 2.0, 3, float('nan'), float('inf')], b=[0, None, None], c=set([6,7]))), 
-            {'element_count': 12, 'inf_count': 1, 'nan_count': 1, 'null_count': 2, 'zero_count': 2})
+            profiler.compute_counts(dict(a=[0, -1, 1, 2.0, 3, float('nan'), float('inf')], b=[0, None, ''], c=set([6,7]))), 
+            {'element_count': 12,
+             'inf_count': 1,
+             'nan_count': 1,
+             'null_count': 1,
+             'zero_count': 2,
+             'empty_count': 1,
+             'negative_count': 1,
+             'positive_count': 6})
 
     def test_compute_counts_none(self):
         profiler = BuiltInTypesProfiler()
         self.assertEqual(
             profiler.compute_counts(None), 
-            {'element_count': 1, 'inf_count': 0, 'nan_count': 0, 'null_count': 1, 'zero_count': 0})
+            {'element_count': 1,
+             'inf_count': 0,
+             'nan_count': 0,
+             'null_count': 1,
+             'zero_count': 0,
+             'empty_count': 0,
+             'negative_count': 0,
+             'positive_count': 0})
 
     def test_build_stats(self):
         profiler = BuiltInTypesProfiler()

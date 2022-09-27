@@ -24,6 +24,8 @@ class NumpyNDArrayProfiler(DataProfiler):
             counts['nan_count'] = np.count_nonzero(np.isnan(data))
             counts['inf_count'] = np.count_nonzero(np.isinf(data))
         counts['zero_count'] = np.count_nonzero(data == 0)
+        counts['negative_count'] = np.count_nonzero(data < 0)
+        counts['positive_count'] = np.count_nonzero(data > 0)
         return counts
 
     def build_stats(self, data):
