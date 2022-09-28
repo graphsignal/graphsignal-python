@@ -6,7 +6,6 @@ import uuid
 import hashlib
 
 import graphsignal
-from graphsignal.tracer import Tracer
 from graphsignal.uploader import Uploader
 from graphsignal.usage.process_reader import ProcessReader
 from graphsignal.usage.nvml_reader import NvmlReader
@@ -29,7 +28,7 @@ class Agent:
         self._nvml_reader = None
         self._trace_samplers = None
         self._metric_store = None
-        self._tracers = None
+        self._profilers = None
         self._mv_detectors = None
 
     def start(self):
@@ -41,7 +40,7 @@ class Agent:
         self._nvml_reader.setup()
         self._trace_samplers = {}
         self._metric_store = {}
-        self._tracers = {}
+        self._profilers = {}
         self._mv_detectors = {}
 
     def stop(self):
@@ -50,38 +49,38 @@ class Agent:
         self._nvml_reader.shutdown()
         self._trace_samplers = None
         self._metric_store = None
-        self._tracers = None
+        self._profilers = None
 
     def uploader(self):
         return self._uploader
 
-    def tracer(self, with_profiler=True):
-        if with_profiler in self._tracers:
-            return self._tracers[with_profiler]
+    def profiler(self, name=True):
+        if name in self._profilers:
+            return self._profilers[name]
 
         profiler = None
-        if with_profiler == True or with_profiler == 'python':
+        if name == 'python':
             from graphsignal.profilers.python import PythonProfiler
             profiler = PythonProfiler()
-        elif with_profiler == 'tensorflow':
+        elif name == 'tensorflow':
             from graphsignal.profilers.tensorflow import TensorFlowProfiler
             profiler = TensorFlowProfiler()
-        elif with_profiler == 'pytorch':
+        elif name == 'pytorch':
             from graphsignal.profilers.pytorch import PyTorchProfiler
             profiler = PyTorchProfiler()
-        elif with_profiler == 'jax':
+        elif name == 'jax':
             from graphsignal.profilers.jax import JaxProfiler
             profiler = JaxProfiler()
-        elif with_profiler == 'onnxruntime':
+        elif name == 'onnxruntime':
             from graphsignal.profilers.onnxruntime import ONNXRuntimeProfiler
             profiler = ONNXRuntimeProfiler()
-        elif with_profiler:
-            raise ValueError('Invalid profiler name: {0}'.format(with_profiler))
+        elif name:
+            raise ValueError('Invalid profiler name: {0}'.format(name))
 
-        tracer = self._tracers[with_profiler] = Tracer(profiler=profiler)
-        return tracer
+        self._profilers[name] = profiler
+        return profiler
 
-    def get_trace_sampler(self, endpoint):
+    def trace_sampler(self, endpoint):
         if endpoint in self._trace_samplers:
             return self._trace_samplers[endpoint]
         else:
@@ -91,13 +90,13 @@ class Agent:
     def reset_metric_store(self, endpoint):
         self._metric_store[endpoint] = MetricStore()
 
-    def get_metric_store(self, endpoint):
+    def metric_store(self, endpoint):
         if endpoint not in self._metric_store:
             self.reset_metric_store(endpoint)
 
         return self._metric_store[endpoint]
 
-    def get_mv_detector(self, endpoint):
+    def mv_detector(self, endpoint):
         if endpoint in self._mv_detectors:
             return self._mv_detectors[endpoint]
         else:

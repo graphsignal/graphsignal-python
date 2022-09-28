@@ -5,7 +5,8 @@ import atexit
 
 from graphsignal.version import __version__
 from graphsignal.agent import Agent
-from graphsignal.tracer import EndpointTrace
+from graphsignal.endpoint_trace import EndpointTrace
+from graphsignal.profilers.operation_profiler import OperationProfiler
 
 logger = logging.getLogger('graphsignal')
 
@@ -82,20 +83,18 @@ def configure(
     logger.debug('Agent configured')
 
 
-def tracer(with_profiler: Union[bool, str] = True):
+def start_trace(
+        endpoint: str,
+        tags: Optional[Dict[str, str]] = None,
+        ensure_sample: Optional[bool] = False,
+        profiler: Optional[Union[bool, str, OperationProfiler]] = True) -> EndpointTrace:
     _check_configured()
 
-    return _agent.tracer(with_profiler=with_profiler)
-
-
-def trace(endpoint: str,
-        tags: Optional[Dict[str, str]] = None,
-        ensure_sample: Optional[bool] = False) -> EndpointTrace:
-
-    return tracer().trace(
+    return EndpointTrace(
         endpoint=endpoint,
         tags=tags,
-        ensure_sample=ensure_sample)
+        ensure_sample=ensure_sample,
+        profiler=profiler)
 
 
 def upload(block=False) -> None:
@@ -118,7 +117,9 @@ def shutdown() -> None:
 __all__ = [
     '__version__',
     'configure',
-    'tracer'
     'upload',
-    'shutdown'
+    'shutdown',
+    'start_trace',
+    'EndpointTrace',
+    'profilers'
 ]

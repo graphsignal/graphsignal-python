@@ -7,6 +7,7 @@ import traceback
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.data import compute_counts, build_stats
+from graphsignal.profilers.operation_profiler import OperationProfiler
 
 logger = logging.getLogger('graphsignal')
 
@@ -39,7 +40,7 @@ class EndpointTrace:
             endpoint,
             tags=None,
             ensure_sample=False, 
-            operation_profiler=None):
+            profiler=None):
         if not endpoint:
             raise ValueError('endpoint is required')
         if not isinstance(endpoint, str):
@@ -55,9 +56,8 @@ class EndpointTrace:
         self._endpoint = endpoint
         self._tags = tags
         self._ensure_sample = ensure_sample
-        self._operation_profiler = operation_profiler
 
-        self._agent = None
+        self._agent = graphsignal._agent
         self._trace_sampler = None
         self._metric_store = None
         self._mv_detector = None
@@ -68,6 +68,13 @@ class EndpointTrace:
         self._exc_info = None
         self._data = None
         self._has_missing_values = False
+
+        if profiler == True:
+            self._operation_profiler = self._agent.profiler('python')
+        if isinstance(profiler, str):
+            self._operation_profiler = self._agent.profiler(profiler)
+        elif isinstance(profiler, OperationProfiler):
+            self._operation_profiler = profiler
 
         try:
             self._start()
@@ -87,10 +94,9 @@ class EndpointTrace:
         if self._is_stopped:
             return
 
-        self._agent = graphsignal._agent
-        self._trace_sampler = self._agent.get_trace_sampler(self._endpoint)
-        self._metric_store = self._agent.get_metric_store(self._endpoint)
-        self._mv_detector = self._agent.get_mv_detector(self._endpoint)
+        self._trace_sampler = self._agent.trace_sampler(self._endpoint)
+        self._metric_store = self._agent.metric_store(self._endpoint)
+        self._mv_detector = self._agent.mv_detector(self._endpoint)
 
         if self._ensure_sample:
             self._is_tracing = self._trace_sampler.lock('ensured')
@@ -312,24 +318,6 @@ class EndpointTrace:
             if len(frames) > 0:
                 profiler_error.stack_trace = ''.join(frames)
 
-
-class Tracer:
-    def __init__(self, profiler=None):
-        self._profiler = profiler
-
-    def profiler(self):
-        return self._profiler
-
-    def trace(self,
-            endpoint: str,
-            tags: Optional[Dict[str, str]] = None,
-            ensure_sample: Optional[bool] = False) -> EndpointTrace:
-
-        return EndpointTrace(
-            endpoint=endpoint,
-            tags=tags,
-            ensure_sample=ensure_sample,
-            operation_profiler=self._profiler)
 
 def _timestamp_us():
     return int(time.time() * 1e6)

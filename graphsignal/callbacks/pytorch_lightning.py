@@ -70,9 +70,10 @@ class GraphsignalCallback(Callback):
 
     def _start_profiler(self, trainer):
         if not self._trace:
-            self._trace = graphsignal.tracer(with_profiler='pytorch').trace(
+            self._trace = graphsignal.start_trace(
                 endpoint=self._endpoint,
-                tags=self._tags)
+                tags=self._tags,
+                profiler='pytorch')
 
     def _stop_profiler(self, trainer):
         if self._trace:

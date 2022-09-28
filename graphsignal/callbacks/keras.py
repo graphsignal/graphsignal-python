@@ -15,7 +15,6 @@ class GraphsignalCallback(Callback):
     def __init__(self, endpoint: str, tags: Optional[dict] = None):
         super().__init__()
         self._keras_version = None
-        self._tracer = graphsignal.tracer(with_profiler='tensorflow')
         self._trace = None
         self._endpoint = endpoint
         self._tags = tags
@@ -53,9 +52,10 @@ class GraphsignalCallback(Callback):
 
     def _start_profiler(self):
         if not self._trace:
-            self._trace = graphsignal.tracer(with_profiler='tensorflow').trace(
+            self._trace = graphsignal.start_trace(
                 endpoint=self._endpoint,
-                tags=self._tags)
+                tags=self._tags,
+                profiler='tensorflow')
 
     def _stop_profiler(self):
         if self._trace:

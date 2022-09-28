@@ -7,7 +7,7 @@ from unittest.mock import patch, Mock
 
 import graphsignal
 from graphsignal.proto import signals_pb2
-from graphsignal.tracer import EndpointTrace
+from graphsignal.endpoint_trace import EndpointTrace
 from graphsignal.profilers.tensorflow import TensorFlowProfiler
 from graphsignal.usage.process_reader import ProcessReader
 from graphsignal.usage.nvml_reader import NvmlReader
@@ -41,7 +41,7 @@ class TracerTest(unittest.TestCase):
             trace = EndpointTrace(
                 endpoint='ep1',
                 tags={'k1': 'v2', 'k3': 3.0},
-                operation_profiler=TensorFlowProfiler())
+                profiler=TensorFlowProfiler())
             trace.set_tag('k4', 'v4')
             trace.set_data('input', np.asarray([[1, 2],[3, 4]]))
             time.sleep(0.01)
@@ -83,7 +83,7 @@ class TracerTest(unittest.TestCase):
         mocked_start.side_effect = Exception('ex1')
         trace = EndpointTrace(
             endpoint='ep1',
-            operation_profiler=TensorFlowProfiler())
+            profiler=TensorFlowProfiler())
         trace.stop()
 
         mocked_start.assert_called_once()
@@ -108,7 +108,7 @@ class TracerTest(unittest.TestCase):
         mocked_stop.side_effect = Exception('ex1')
         trace = EndpointTrace(
             endpoint='ep1',
-            operation_profiler=TensorFlowProfiler())
+            profiler=TensorFlowProfiler())
         trace.stop()
 
         mocked_start.assert_called_once()
@@ -132,7 +132,7 @@ class TracerTest(unittest.TestCase):
 
         for _ in range(2):
             try:
-                with EndpointTrace(endpoint='ep1', operation_profiler=TensorFlowProfiler()):
+                with EndpointTrace(endpoint='ep1', profiler=TensorFlowProfiler()):
                     raise Exception('ex1')
             except Exception as ex:
                 if str(ex) != 'ex1':
@@ -159,7 +159,7 @@ class TracerTest(unittest.TestCase):
     @patch.object(Uploader, 'upload_signal')
     def test_set_exception(self, mocked_upload_signal, mocked_nvml_read, mocked_host_read,
                             mocked_stop, mocked_start):
-        trace = EndpointTrace(endpoint='ep1', operation_profiler=TensorFlowProfiler())
+        trace = EndpointTrace(endpoint='ep1', profiler=TensorFlowProfiler())
         try:
             raise Exception('ex2')
         except Exception as ex:
@@ -185,7 +185,7 @@ class TracerTest(unittest.TestCase):
     @patch.object(Uploader, 'upload_signal')
     def test_set_exception_true(self, mocked_upload_signal, mocked_nvml_read, mocked_host_read,
                             mocked_stop, mocked_start):
-        trace = EndpointTrace(endpoint='ep1', operation_profiler=TensorFlowProfiler())
+        trace = EndpointTrace(endpoint='ep1', profiler=TensorFlowProfiler())
         try:
             raise Exception('ex2')
         except Exception as ex:
@@ -213,9 +213,9 @@ class TracerTest(unittest.TestCase):
                             mocked_stop, mocked_start):
         
         for i in range(MissingValueDetector.MIN_BASELINE_SIZE):
-            with EndpointTrace(endpoint='ep1', operation_profiler=TensorFlowProfiler()) as trace:
+            with EndpointTrace(endpoint='ep1', profiler=TensorFlowProfiler()) as trace:
                 trace.set_data('d1', {'c1': i, 'c2': 1})
-        with EndpointTrace(endpoint='ep1', operation_profiler=TensorFlowProfiler()) as trace:
+        with EndpointTrace(endpoint='ep1', profiler=TensorFlowProfiler()) as trace:
             trace.set_data('d1', {'c1': 100, 'c2': None})
 
         signal = mocked_upload_signal.call_args[0][0]

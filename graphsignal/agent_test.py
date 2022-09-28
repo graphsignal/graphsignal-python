@@ -19,24 +19,14 @@ class AgentTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    def test_tracer_default(self):
-        tracer = graphsignal._agent.tracer()
-        self.assertIsNotNone(tracer)
-        self.assertTrue(isinstance(tracer.profiler(), graphsignal.profilers.python.PythonProfiler))
-
-    def test_tracer_python(self):
-        tracer = graphsignal._agent.tracer(with_profiler='python')
-        self.assertIsNotNone(tracer)
-        self.assertTrue(isinstance(tracer.profiler(), graphsignal.profilers.python.PythonProfiler))
-
-    def test_tracer_disabled(self):
-        tracer = graphsignal._agent.tracer(with_profiler=False)
-        self.assertIsNotNone(tracer)
-        self.assertIsNone(tracer.profiler())
+    def test_profiler_python(self):
+        profiler = graphsignal._agent.profiler('python')
+        self.assertIsNotNone(profiler)
+        self.assertTrue(isinstance(profiler, graphsignal.profilers.python.PythonProfiler))
 
     @patch('time.time', return_value=1)
     def test_update_metric_store(self, mocked_time):
-        store = graphsignal._agent.get_metric_store('ep1')
+        store = graphsignal._agent.metric_store('ep1')
 
         store.inc_call_count(1, 1000 * 1e6)
         store.inc_call_count(1, 1000 * 1e6)
