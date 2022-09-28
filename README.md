@@ -57,7 +57,7 @@ Graphsignal agent is **optimized for production**. All executions wrapped with `
 
 ### Tracing
 
-To measure and trace executions, wrap the code with [`start_trace`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace) method.
+To measure and trace executions, wrap the code with [`start_trace`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method.
 
 ```python
 with graphsignal.start_trace(endpoint='my-model-predict'):
