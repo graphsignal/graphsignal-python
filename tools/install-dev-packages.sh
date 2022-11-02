@@ -18,8 +18,8 @@ else
     pip install tensorflow
 fi
 pip install tensorflow_datasets
-if [ `uname -m` = "x86_64" ]; then
-    pip install torch==1.12.0+cu116 -f https://download.pytorch.org/whl/torch_stable.html
+if [ -x "$(command -v nvcc -V)" ]; then
+    pip install torch==1.13.0+cu117 -f https://download.pytorch.org/whl/torch_stable.html
 else
     pip install torch
 fi
@@ -28,7 +28,7 @@ pip install torchmetrics
 pip install pytorch_lightning
 pip install transformers
 pip install datasets
-if [ `uname -m` = "x86_64" ]; then
+if [ -x "$(command -v nvcc -V)" ]; then
     pip install jax[cuda] -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 fi
 pip install onnxruntime

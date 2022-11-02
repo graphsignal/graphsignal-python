@@ -12,7 +12,7 @@ from graphsignal.uploader import Uploader
 logger = logging.getLogger('graphsignal')
 
 
-class HuggingFaceSubclassTest(unittest.TestCase):
+class HuggingFaceCallbackTest(unittest.TestCase):
     def setUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -23,9 +23,11 @@ class HuggingFaceSubclassTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    @unittest.skip("long test")
-    def test_subclass(self):
+    @patch.object(Uploader, 'upload_signal')
+    def test_callback(self, mocked_upload_signal):
         import torch
+        if not torch.cuda.is_available():
+            return
         from datasets import load_dataset
         raw_datasets = load_dataset("imdb")
 
@@ -44,44 +46,41 @@ class HuggingFaceSubclassTest(unittest.TestCase):
         small_eval_dataset = tokenized_datasets["test"].shuffle(
             seed=42).select(
             range(10))
+        full_train_dataset = tokenized_datasets["train"]
+        full_eval_dataset = tokenized_datasets["test"]
 
         from transformers import AutoModelForSequenceClassification
         model = AutoModelForSequenceClassification.from_pretrained(
             "distilbert-base-cased", cache_dir='temp', num_labels=2)
 
         from transformers import TrainingArguments
-        training_args = TrainingArguments("test_trainer",
-            num_train_epochs=1)
+        training_args = TrainingArguments("test_trainer", num_train_epochs=1)
             
         from transformers import Trainer
-        from graphsignal.profilers.pytorch import PyTorchProfiler
-
-        profiler = PyTorchProfiler()
-        signal = None
-
-        class MyTrainer(Trainer):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-            
-            def prediction_step(self, *args, **kwargs):
-                global signal
-                signal = signals_pb2.WorkerSignal()
-                profiler.start(signal)
-                ret = super().prediction_step(*args, **kwargs)
-                profiler.stop(signal)
-                return ret
-
-        trainer = MyTrainer(
+        from graphsignal.callbacks.huggingface import GraphsignalPTCallback
+        trainer = Trainer(
             model=model,
             args=training_args,
             train_dataset=small_train_dataset,
             eval_dataset=small_eval_dataset)
+        trainer.add_callback(GraphsignalPTCallback())
 
         trainer.train()
 
-        trainer.evaluate()
+        signal = mocked_upload_signal.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
+
+        self.assertEqual(signal.endpoint_name, 'training_step')
+
+        self.assertTrue(
+            signal.agent_info.framework_profiler_type, 
+            signals_pb2.AgentInfo.ProfilerType.HUGGING_FACE_PROFILER)
+
+        self.assertEqual(
+            signal.frameworks[-1].type,
+            signals_pb2.FrameworkInfo.FrameworkType.HUGGING_FACE_FRAMEWORK)
+        self.assertTrue(signal.frameworks[-1].version.major > 0)
 
         self.assertTrue(len(signal.op_stats) > 0)

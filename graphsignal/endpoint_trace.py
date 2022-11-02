@@ -18,14 +18,14 @@ class EndpointTrace:
     MAX_DATA_OBJECTS = 10
 
     __slots__ = [
-        '_operation_profiler',
+        '_active_profiler',
         '_trace_sampler',
         '_metric_store',
         '_mv_detector',
         '_agent',
         '_endpoint',
-        '_ensure_sample',
         '_tags',
+        '_profiler',
         '_is_tracing',
         '_is_profiling',
         '_signal',
@@ -39,7 +39,6 @@ class EndpointTrace:
     def __init__(self, 
             endpoint,
             tags=None,
-            ensure_sample=False, 
             profiler=None):
         if not endpoint:
             raise ValueError('endpoint is required')
@@ -54,8 +53,11 @@ class EndpointTrace:
                 raise ValueError('too many tags (>{0})'.format(EndpointTrace.MAX_TAGS))
 
         self._endpoint = endpoint
-        self._tags = tags
-        self._ensure_sample = ensure_sample
+        if tags is not None:
+            self._tags = dict(tags)
+        else:
+            self._tags = None
+        self._profiler = profiler
 
         self._agent = graphsignal._agent
         self._trace_sampler = None
@@ -68,13 +70,6 @@ class EndpointTrace:
         self._exc_info = None
         self._data = None
         self._has_missing_values = False
-
-        if profiler == True:
-            self._operation_profiler = self._agent.profiler('python')
-        if isinstance(profiler, str):
-            self._operation_profiler = self._agent.profiler(profiler)
-        elif isinstance(profiler, OperationProfiler):
-            self._operation_profiler = profiler
 
         try:
             self._start()
@@ -96,12 +91,13 @@ class EndpointTrace:
 
         self._trace_sampler = self._agent.trace_sampler(self._endpoint)
         self._metric_store = self._agent.metric_store(self._endpoint)
-        self._mv_detector = self._agent.mv_detector(self._endpoint)
+        self._mv_detector = self._agent.mv_detector()
 
-        if self._ensure_sample:
-            self._is_tracing = self._trace_sampler.lock('ensured')
-        else:
-            self._is_tracing = self._trace_sampler.lock('samples', include_trace_idx=PROFILE_TRACES)
+        profiler = self._profiler if self._profiler else self._agent.supported_profiler()
+        if profiler.is_ready():
+            self._is_tracing = self._trace_sampler.lock('profiles', include_trace_idx=PROFILE_TRACES)
+            if self._is_tracing:
+                self._active_profiler = profiler
 
         if self._is_tracing:
             if logger.isEnabledFor(logging.DEBUG):
@@ -109,14 +105,13 @@ class EndpointTrace:
 
             self._signal = self._agent.create_signal()
 
-            # read framework-specific info
-            if self._operation_profiler:
-                self._operation_profiler.read_info(self._signal)
-
             # start profiler
-            if self._operation_profiler and self._trace_sampler.current_trace_idx() in PROFILE_TRACES:
+            if self._active_profiler:
+                # read framework-specific info
+                self._active_profiler.read_info(self._signal)
+
                 try:
-                    self._operation_profiler.start(self._signal)
+                    self._active_profiler.start(self._signal)
                     self._is_profiling = True
                 except Exception as exc:
                     self._add_profiler_exception(exc)
@@ -153,7 +148,7 @@ class EndpointTrace:
         self._is_stopped = True
 
         # if exception, but the trace is not being recorded, try to start tracing
-        if self._exc_info and self._exc_info[0] and not self._is_tracing:
+        if not self._is_tracing and self._exc_info and self._exc_info[0]:
             if self._trace_sampler.lock('exceptions'):
                 self._is_tracing = True
                 self._signal = self._agent.create_signal()
@@ -161,7 +156,7 @@ class EndpointTrace:
         # stop profiler, if profiling
         if self._is_profiling:
             try:
-                self._operation_profiler.stop(self._signal)
+                self._active_profiler.stop(self._signal)
             except Exception as exc:
                 logger.error('Error stopping profiler', exc_info=True)
                 self._add_profiler_exception(exc)
@@ -185,7 +180,7 @@ class EndpointTrace:
                     self._has_missing_values = True
 
         # if missing values detected, but the trace is not being recorded, try to start tracing
-        if self._has_missing_values:
+        if not self._is_tracing and self._has_missing_values:
             if self._trace_sampler.lock('missing-values'):
                 self._is_tracing = True
                 self._signal = self._agent.create_signal()
@@ -214,10 +209,8 @@ class EndpointTrace:
                 self._signal.signal_type = signals_pb2.SignalType.EXCEPTION_SIGNAL
             elif self._has_missing_values:
                 self._signal.signal_type = signals_pb2.SignalType.MISSING_VALUES_SIGNAL
-            elif self._is_profiling:
-                self._signal.signal_type = signals_pb2.SignalType.PROFILE_SIGNAL
             else:
-                self._signal.signal_type = signals_pb2.SignalType.SAMPLE_SIGNAL
+                self._signal.signal_type = signals_pb2.SignalType.PROFILE_SIGNAL
 
             # copy tags
             if self._tags is not None:

@@ -73,25 +73,13 @@ class KerasCallbackTest(unittest.TestCase):
 
         model.evaluate(ds_test,
             batch_size=128,
-            callbacks=[GraphsignalCallback(endpoint='ep1')])
+            callbacks=[GraphsignalCallback()])
 
         signal = mocked_upload_signal.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
 
-        self.assertEqual(signal.endpoint_name, 'ep1')
+        self.assertEqual(signal.endpoint_name, 'test_batch')
 
-        test_op_stats = None
-        for op_stats in signal.op_stats:
-            if 'MatMul' in op_stats.op_type:
-                test_op_stats = op_stats
-                break
-        self.assertIsNotNone(test_op_stats)
-        self.assertTrue(test_op_stats.count >= 1)
-        if len(tf.config.list_physical_devices('GPU')) > 0:
-            self.assertTrue(test_op_stats.total_device_time_us >= 1)
-            self.assertTrue(test_op_stats.self_device_time_us >= 1)
-        else:
-            self.assertTrue(test_op_stats.total_host_time_us >= 1)
-            self.assertTrue(test_op_stats.self_host_time_us >= 1)
+        self.assertTrue(len(signal.op_stats) > 0)

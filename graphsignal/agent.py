@@ -1,4 +1,5 @@
 import logging
+import sys
 import threading
 import random
 import time
@@ -28,8 +29,8 @@ class Agent:
         self._nvml_reader = None
         self._trace_samplers = None
         self._metric_store = None
-        self._profilers = None
-        self._mv_detectors = None
+        self._supported_profiler = None
+        self._mv_detector = None
 
     def start(self):
         self._uploader = Uploader()
@@ -40,8 +41,7 @@ class Agent:
         self._nvml_reader.setup()
         self._trace_samplers = {}
         self._metric_store = {}
-        self._profilers = {}
-        self._mv_detectors = {}
+        self._mv_detector = MissingValueDetector()
 
     def stop(self):
         self.upload(block=True)
@@ -49,37 +49,30 @@ class Agent:
         self._nvml_reader.shutdown()
         self._trace_samplers = None
         self._metric_store = None
-        self._profilers = None
+        self._supported_profiler = None
 
     def uploader(self):
         return self._uploader
 
-    def profiler(self, name=True):
-        if name in self._profilers:
-            return self._profilers[name]
+    def supported_profiler(self):
+        if self._supported_profiler:
+            return self._supported_profiler
 
-        profiler = None
-        if name == 'python':
-            from graphsignal.profilers.python import PythonProfiler
-            profiler = PythonProfiler()
-        elif name == 'tensorflow':
-            from graphsignal.profilers.tensorflow import TensorFlowProfiler
-            profiler = TensorFlowProfiler()
-        elif name == 'pytorch':
+        if _check_module('torch'):
             from graphsignal.profilers.pytorch import PyTorchProfiler
-            profiler = PyTorchProfiler()
-        elif name == 'jax':
+            self._supported_profiler = PyTorchProfiler()
+        elif _check_module('tensorflow'):
+            from graphsignal.profilers.tensorflow import TensorFlowProfiler
+            self._supported_profiler = TensorFlowProfiler()
+        elif _check_module('jax'):
             from graphsignal.profilers.jax import JaxProfiler
-            profiler = JaxProfiler()
-        elif name == 'onnxruntime':
-            from graphsignal.profilers.onnxruntime import ONNXRuntimeProfiler
-            profiler = ONNXRuntimeProfiler()
-        elif name:
-            raise ValueError('Invalid profiler name: {0}'.format(name))
+            self._supported_profiler = JaxProfiler()
+        else:
+            from graphsignal.profilers.python import PythonProfiler
+            self._supported_profiler = PythonProfiler()
 
-        self._profilers[name] = profiler
-        return profiler
-
+        return self._supported_profiler
+        
     def trace_sampler(self, endpoint):
         if endpoint in self._trace_samplers:
             return self._trace_samplers[endpoint]
@@ -96,12 +89,8 @@ class Agent:
 
         return self._metric_store[endpoint]
 
-    def mv_detector(self, endpoint):
-        if endpoint in self._mv_detectors:
-            return self._mv_detectors[endpoint]
-        else:
-            mv_detector = self._mv_detectors[endpoint] = MissingValueDetector()
-            return mv_detector
+    def mv_detector(self):
+        return self._mv_detector
 
     def read_usage(self, signal):
         self._process_reader.read(signal)
@@ -199,6 +188,10 @@ class MetricStore:
         end_sec = int(timestamp_us / 1e6)
         if end_sec not in counter.counter.buckets:
             counter.counter.buckets[end_sec] = 0
+
+
+def _check_module(name):
+    return name in sys.modules
 
 
 def _sha1(text, size=-1):

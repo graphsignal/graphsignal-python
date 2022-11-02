@@ -2,6 +2,7 @@ from typing import Dict, Any, Union, Optional
 import os
 import logging
 import atexit
+import functools
 
 from graphsignal.version import __version__
 from graphsignal.agent import Agent
@@ -86,15 +87,37 @@ def configure(
 def start_trace(
         endpoint: str,
         tags: Optional[Dict[str, str]] = None,
-        ensure_sample: Optional[bool] = False,
-        profiler: Optional[Union[bool, str, OperationProfiler]] = True) -> EndpointTrace:
+        profiler: Optional[OperationProfiler] = None) -> EndpointTrace:
     _check_configured()
 
     return EndpointTrace(
         endpoint=endpoint,
         tags=tags,
-        ensure_sample=ensure_sample,
         profiler=profiler)
+
+
+def trace_function(
+        _func=None, *,
+        endpoint: Optional[str] = None,
+        tags: Optional[Dict[str, str]] = None,
+        profiler: Optional[OperationProfiler] = None):
+
+    def tf_decorator(func):
+        if endpoint is None:
+            endpoint_or_name = func.__name__
+        else:
+            endpoint_or_name = endpoint
+
+        @functools.wraps(func)
+        def tf_wrapper(*args, **kwargs):
+            with start_trace(endpoint=endpoint_or_name, tags=tags, profiler=profiler):
+                return func(*args, **kwargs)
+        return tf_wrapper
+
+    if _func is None:
+        return tf_decorator
+    else:
+        return tf_decorator(func)
 
 
 def upload(block=False) -> None:
@@ -121,5 +144,5 @@ __all__ = [
     'shutdown',
     'start_trace',
     'EndpointTrace',
-    'profilers'
+    'profiler'
 ]

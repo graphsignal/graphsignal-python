@@ -43,7 +43,7 @@ class TensorFlowProfiler(OperationProfiler):
 
             options = tf.profiler.experimental.ProfilerOptions(
                 host_tracer_level=2,
-                python_tracer_level=0,
+                python_tracer_level=1,
                 device_tracer_level=1)
             tf.profiler.experimental.start(self._log_dir, options=options)
         except Exception as e:

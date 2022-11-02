@@ -19,7 +19,10 @@ class ONNXRuntimeProfiler(OperationProfiler):
         self._onnx_version = None
         self._onnx_session = None
         self._log_dir = None
-        self._ended = False
+        self._is_ready = True
+
+    def is_ready(self):
+        return self._is_ready
 
     def read_info(self, signal):
         if not self._onnx_version:
@@ -43,6 +46,9 @@ class ONNXRuntimeProfiler(OperationProfiler):
         self._onnx_session = onnx_session
 
     def start(self, signal):
+        if not self._is_ready:
+            return
+
         if not self._log_dir:
             raise ValueError('ONNX Runtime profiler is not initialized')
 
@@ -52,18 +58,16 @@ class ONNXRuntimeProfiler(OperationProfiler):
         if not self._onnx_session.get_session_options().enable_profiling:
             raise ValueError('ONNX Runtime profiling is not enabled')
 
-        if self._ended:
-            return
-
         logger.debug('Activating ONNX profiler')
 
         # Profiler info
         signal.agent_info.operation_profiler_type = signals_pb2.AgentInfo.ProfilerType.ONNX_PROFILER
 
     def stop(self, signal):
-        if self._ended:
+        if not self._is_ready:
             return
-        self._ended = True
+        # can only profile first inference
+        self._is_ready = False
 
         logger.debug('Deactivating ONNX profiler')
 
@@ -78,4 +82,3 @@ class ONNXRuntimeProfiler(OperationProfiler):
                 signal.trace_data = gzip.compress(trace_json.encode())
         finally:
             remove_log_dir(self._log_dir)
-

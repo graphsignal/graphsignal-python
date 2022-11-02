@@ -19,9 +19,8 @@ class AgentTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    def test_profiler_python(self):
-        profiler = graphsignal._agent.profiler('python')
-        self.assertIsNotNone(profiler)
+    def test_supported_profiler(self):
+        profiler = graphsignal._agent.supported_profiler()
         self.assertTrue(isinstance(profiler, graphsignal.profilers.python.PythonProfiler))
 
     @patch('time.time', return_value=1)

@@ -88,7 +88,7 @@ class PyTorchLightningTest(unittest.TestCase):
             accelerator='gpu' if torch.cuda.is_available() else 'cpu',
             devices=AVAIL_GPUS,
             max_epochs=1,
-            callbacks=[GraphsignalCallback(endpoint='ep1')]
+            callbacks=[GraphsignalCallback()]
         )
 
         trainer.tune(mnist_model)
@@ -102,7 +102,7 @@ class PyTorchLightningTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
 
-        self.assertEqual(signal.endpoint_name, 'ep1')
+        self.assertEqual(signal.endpoint_name, 'test_batch')
 
         self.assertTrue(
             signal.agent_info.framework_profiler_type, 
@@ -118,17 +118,4 @@ class PyTorchLightningTest(unittest.TestCase):
             signals_pb2.ModelInfo.ModelFormat.PYTORCH_FORMAT)
         self.assertTrue(signal.model_info.model_size_bytes > 0)
 
-        test_op_stats = None
-        for op_stats in signal.op_stats:
-            if op_stats.op_name == 'aten::addmm':
-                test_op_stats = op_stats
-                break
-        self.assertIsNotNone(test_op_stats)
-        self.assertTrue(test_op_stats.count >= 1)
-        import torch
-        if torch.cuda.is_available():
-            self.assertTrue(test_op_stats.total_device_time_us >= 1)
-            self.assertTrue(test_op_stats.self_device_time_us >= 1)
-        else:
-            self.assertTrue(test_op_stats.total_host_time_us >= 1)
-            self.assertTrue(test_op_stats.self_host_time_us >= 1)
+        self.assertTrue(len(signal.op_stats) > 0)

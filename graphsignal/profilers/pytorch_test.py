@@ -54,18 +54,11 @@ class PyTorchProfilerTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
 
-        test_op_stats = None
-        for op_stats in signal.op_stats:
-            if op_stats.op_name == 'aten::addmm':
-                test_op_stats = op_stats
-                break
-        self.assertIsNotNone(test_op_stats)
-        self.assertTrue(test_op_stats.count >= 1)
+        self.assertTrue(sum([op_stats.count for op_stats in signal.op_stats]) > 0)
         if torch.cuda.is_available():
-            self.assertTrue(test_op_stats.total_device_time_us >= 1)
-            self.assertTrue(test_op_stats.self_device_time_us >= 1)
+            self.assertTrue(sum([op_stats.total_device_time_us for op_stats in signal.op_stats]) > 0)
+            self.assertTrue(sum([op_stats.self_device_time_us for op_stats in signal.op_stats]) > 0)
         else:
-            self.assertTrue(test_op_stats.total_host_time_us >= 1)
-            self.assertTrue(test_op_stats.self_host_time_us >= 1)
-
+            self.assertTrue(sum([op_stats.total_host_time_us for op_stats in signal.op_stats]) > 0)
+            self.assertTrue(sum([op_stats.self_host_time_us for op_stats in signal.op_stats]) > 0)
         self.assertNotEqual(signal.trace_data, b'')

@@ -19,4 +19,5 @@ python -m unittest graphsignal/profilers/jax_test.py
 python -m unittest graphsignal/profilers/onnxruntime_test.py
 python -m unittest graphsignal/callbacks/keras_test.py
 python -m unittest graphsignal/callbacks/pytorch_lightning_test.py
+python -m unittest graphsignal/callbacks/huggingface_test.py
 deactivate

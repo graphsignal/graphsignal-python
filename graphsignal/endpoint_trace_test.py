@@ -8,7 +8,7 @@ from unittest.mock import patch, Mock
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.endpoint_trace import EndpointTrace
-from graphsignal.profilers.tensorflow import TensorFlowProfiler
+from graphsignal.profilers.python import PythonProfiler
 from graphsignal.usage.process_reader import ProcessReader
 from graphsignal.usage.nvml_reader import NvmlReader
 from graphsignal.uploader import Uploader
@@ -29,8 +29,8 @@ class TracerTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    @patch.object(TensorFlowProfiler, 'start', return_value=True)
-    @patch.object(TensorFlowProfiler, 'stop', return_value=True)
+    @patch.object(PythonProfiler, 'start', return_value=True)
+    @patch.object(PythonProfiler, 'stop', return_value=True)
     @patch.object(ProcessReader, 'read')
     @patch.object(NvmlReader, 'read')
     @patch.object(Uploader, 'upload_signal')
@@ -40,8 +40,7 @@ class TracerTest(unittest.TestCase):
         for i in range(10):
             trace = EndpointTrace(
                 endpoint='ep1',
-                tags={'k1': 'v2', 'k3': 3.0},
-                profiler=TensorFlowProfiler())
+                tags={'k1': 'v2', 'k3': 3.0})
             trace.set_tag('k4', 'v4')
             trace.set_data('input', np.asarray([[1, 2],[3, 4]]))
             time.sleep(0.01)
@@ -73,8 +72,8 @@ class TracerTest(unittest.TestCase):
         self.assertEqual(signal.data_stats[0].data_name, 'input')
         self.assertEqual(signal.data_stats[0].shape, [2, 2])
 
-    @patch.object(TensorFlowProfiler, 'start', return_value=True)
-    @patch.object(TensorFlowProfiler, 'stop', return_value=True)
+    @patch.object(PythonProfiler, 'start', return_value=True)
+    @patch.object(PythonProfiler, 'stop', return_value=True)
     @patch.object(ProcessReader, 'read')
     @patch.object(NvmlReader, 'read')
     @patch.object(Uploader, 'upload_signal')
@@ -83,7 +82,7 @@ class TracerTest(unittest.TestCase):
         mocked_start.side_effect = Exception('ex1')
         trace = EndpointTrace(
             endpoint='ep1',
-            profiler=TensorFlowProfiler())
+            profiler=PythonProfiler())
         trace.stop()
 
         mocked_start.assert_called_once()
@@ -94,12 +93,12 @@ class TracerTest(unittest.TestCase):
         self.assertTrue(signal.worker_id != '')
         self.assertTrue(signal.start_us > 0)
         self.assertTrue(signal.end_us > 0)
-        self.assertEqual(signal.signal_type, signals_pb2.SignalType.SAMPLE_SIGNAL)
+        self.assertEqual(signal.signal_type, signals_pb2.SignalType.PROFILE_SIGNAL)
         self.assertEqual(signal.profiler_errors[0].message, 'ex1')
         self.assertNotEqual(signal.profiler_errors[0].stack_trace, '')
 
-    @patch.object(TensorFlowProfiler, 'start', return_value=True)
-    @patch.object(TensorFlowProfiler, 'stop', return_value=True)
+    @patch.object(PythonProfiler, 'start', return_value=True)
+    @patch.object(PythonProfiler, 'stop', return_value=True)
     @patch.object(ProcessReader, 'read')
     @patch.object(NvmlReader, 'read')
     @patch.object(Uploader, 'upload_signal')
@@ -108,7 +107,7 @@ class TracerTest(unittest.TestCase):
         mocked_stop.side_effect = Exception('ex1')
         trace = EndpointTrace(
             endpoint='ep1',
-            profiler=TensorFlowProfiler())
+            profiler=PythonProfiler())
         trace.stop()
 
         mocked_start.assert_called_once()
@@ -122,8 +121,8 @@ class TracerTest(unittest.TestCase):
         self.assertEqual(signal.profiler_errors[0].message, 'ex1')
         self.assertNotEqual(signal.profiler_errors[0].stack_trace, '')
 
-    @patch.object(TensorFlowProfiler, 'start', return_value=True)
-    @patch.object(TensorFlowProfiler, 'stop', return_value=True)
+    @patch.object(PythonProfiler, 'start', return_value=True)
+    @patch.object(PythonProfiler, 'stop', return_value=True)
     @patch.object(ProcessReader, 'read')
     @patch.object(NvmlReader, 'read')
     @patch.object(Uploader, 'upload_signal')
@@ -132,7 +131,7 @@ class TracerTest(unittest.TestCase):
 
         for _ in range(2):
             try:
-                with EndpointTrace(endpoint='ep1', profiler=TensorFlowProfiler()):
+                with EndpointTrace(endpoint='ep1', profiler=PythonProfiler()):
                     raise Exception('ex1')
             except Exception as ex:
                 if str(ex) != 'ex1':
@@ -152,14 +151,14 @@ class TracerTest(unittest.TestCase):
         self.assertEqual(signal.exceptions[0].message, 'ex1')
         self.assertNotEqual(signal.exceptions[0].stack_trace, '')
 
-    @patch.object(TensorFlowProfiler, 'start', return_value=True)
-    @patch.object(TensorFlowProfiler, 'stop', return_value=True)
+    @patch.object(PythonProfiler, 'start', return_value=True)
+    @patch.object(PythonProfiler, 'stop', return_value=True)
     @patch.object(ProcessReader, 'read')
     @patch.object(NvmlReader, 'read')
     @patch.object(Uploader, 'upload_signal')
     def test_set_exception(self, mocked_upload_signal, mocked_nvml_read, mocked_host_read,
                             mocked_stop, mocked_start):
-        trace = EndpointTrace(endpoint='ep1', profiler=TensorFlowProfiler())
+        trace = EndpointTrace(endpoint='ep1', profiler=PythonProfiler())
         try:
             raise Exception('ex2')
         except Exception as ex:
@@ -178,14 +177,14 @@ class TracerTest(unittest.TestCase):
         self.assertEqual(signal.exceptions[0].message, 'ex2')
         self.assertNotEqual(signal.exceptions[0].stack_trace, '')
 
-    @patch.object(TensorFlowProfiler, 'start', return_value=True)
-    @patch.object(TensorFlowProfiler, 'stop', return_value=True)
+    @patch.object(PythonProfiler, 'start', return_value=True)
+    @patch.object(PythonProfiler, 'stop', return_value=True)
     @patch.object(ProcessReader, 'read')
     @patch.object(NvmlReader, 'read')
     @patch.object(Uploader, 'upload_signal')
     def test_set_exception_true(self, mocked_upload_signal, mocked_nvml_read, mocked_host_read,
                             mocked_stop, mocked_start):
-        trace = EndpointTrace(endpoint='ep1', profiler=TensorFlowProfiler())
+        trace = EndpointTrace(endpoint='ep1', profiler=PythonProfiler())
         try:
             raise Exception('ex2')
         except Exception as ex:
@@ -204,18 +203,14 @@ class TracerTest(unittest.TestCase):
         self.assertEqual(signal.exceptions[0].message, 'ex2')
         self.assertNotEqual(signal.exceptions[0].stack_trace, '')
 
-    @patch.object(TensorFlowProfiler, 'start', return_value=True)
-    @patch.object(TensorFlowProfiler, 'stop', return_value=True)
+    @patch.object(PythonProfiler, 'start', return_value=True)
+    @patch.object(PythonProfiler, 'stop', return_value=True)
     @patch.object(ProcessReader, 'read')
     @patch.object(NvmlReader, 'read')
     @patch.object(Uploader, 'upload_signal')
     def test_set_data(self, mocked_upload_signal, mocked_nvml_read, mocked_host_read,
                             mocked_stop, mocked_start):
-        
-        for i in range(MissingValueDetector.MIN_BASELINE_SIZE):
-            with EndpointTrace(endpoint='ep1', profiler=TensorFlowProfiler()) as trace:
-                trace.set_data('d1', {'c1': i, 'c2': 1})
-        with EndpointTrace(endpoint='ep1', profiler=TensorFlowProfiler()) as trace:
+        with EndpointTrace(endpoint='ep1', profiler=PythonProfiler()) as trace:
             trace.set_data('d1', {'c1': 100, 'c2': None})
 
         signal = mocked_upload_signal.call_args[0][0]

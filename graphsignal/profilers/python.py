@@ -20,6 +20,9 @@ class PythonProfiler(OperationProfiler):
     def start(self, signal):
         logger.debug('Activating Python profiler')
 
+        # Profiler info
+        signal.agent_info.operation_profiler_type = signals_pb2.AgentInfo.ProfilerType.PYTHON_PROFILER
+
         self._profiler = cProfile.Profile()
         self._profiler.enable()
 

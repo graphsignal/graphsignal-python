@@ -1,4 +1,4 @@
-# Graphsignal: AI Application Monitoring
+# Graphsignal: AI Application Monitoring and Profiling
 
 [![License](http://img.shields.io/github/license/graphsignal/graphsignal)](https://github.com/graphsignal/graphsignal/blob/main/LICENSE)
 [![Version](https://img.shields.io/github/v/tag/graphsignal/graphsignal?label=version)](https://github.com/graphsignal/graphsignal)
@@ -7,10 +7,10 @@
 
 Graphsignal is an AI observability platform. It helps ML engineers and MLOps teams make AI applications run faster and reliably by monitoring and analyzing performance, resources, data and errors. Graphsignal's capabilities enable full visibility into AI applications for any model, data and deployment.
 
-* Inference tracing and monitoring.
-* Automatic inference profiling.
+* Application monitoring.
+* Training and inference profiling.
 * Error and exception tracking.
-* Data monitoring and anomaly detection.
+* Data monitoring.
 
 [![Dashboards](https://graphsignal.com/external/screencast-dashboards.gif)](https://graphsignal.com/)
 
@@ -40,48 +40,42 @@ Configure Graphsignal agent by specifying your API key directly or via `GRAPHSIG
 ```python
 import graphsignal
 
-graphsignal.configure(api_key='my-api-key') 
+graphsignal.configure(api_key='my-api-key', deployment='my-model-prod-v1') 
 ```
 
 To get an API key, sign up for a free account at [graphsignal.com](https://graphsignal.com). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.com/settings/api-keys) page.
 
-To track deployments, versions and environments separately, specify a `deployment` parameter, e.g. `graphsignal.configure(deployment='my-model-prod-v1')`.
+To track deployments, versions and environments separately, specify a `deployment` parameter.
 
 
 ## Integrate
 
 Use the following examples to integrate Graphsignal agent into your machine learning application. See integration documentation and [API reference](https://graphsignal.com/docs/reference/python-api/) for full reference.
 
-Graphsignal agent is **optimized for production**. All executions wrapped with `start_trace` method will be measured, but only a few will be recorded and profiled to ensure low overhead.
+Graphsignal agent is **optimized for production**. All executions will be measured, but only a few will be profiled and recorded to ensure low overhead.
 
 
-### Tracing
+### Monitoring and profiling
 
-To measure and trace executions, wrap the code with [`start_trace`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method.
-
-```python
-with graphsignal.start_trace(endpoint='my-model-predict'):
-    # function call or code segment
-```
-
-Other integrations are available as well. See [integration documentation](https://graphsignal.com/docs/) for more information.
-
-
-### Profiling
-
-Enable/disable various code profilers depending on the code and model runtime by passing `profiler` argument to `start_trace` method. By default, `profiler` is `True` and Python profiler is enabled. Set to `False` to disable profiling.
+To measure and profile executions, e.g. single or batch inference or a training step, wrap the code with [`start_trace`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method or use [`trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator. Profiling is supported for Python, TensorFlow, Keras, PyTorch, PyTorch Lightning, Hugging Face, Jax and ONNX Runtime.
 
 ```python
-with graphsignal.start_trace(endpoint='my-model-predict', profiler='pytorch'):
-    # function call or code segment
+with graphsignal.start_trace(endpoint='predict'):
+    pred = model(x)
 ```
 
-The following values are currently supported: `True` (or `python`), `tensorflow`, `pytorch`, `jax`, `onnxruntime`. See [integration documentation](https://graphsignal.com/docs/) for more information on each profiler.
+```python
+@graphsignal.trace_function
+def predict(x):
+    return model(x)
+```
+
+Other integrations and callbacks are available as well. See [integration documentation](https://graphsignal.com/docs/) for more information.
 
 
 ### Exception tracking
 
-When `with` context manager is used with `start_trace` method, exceptions are **automatically recorded**. For other cases, use [`EndpointTrace.set_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalendpointtraceset_exception) method.
+When using `trace_function` decorator, `start_trace` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`EndpointTrace.set_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalendpointtraceset_exception) method.
 
 
 ### Data monitoring
@@ -89,7 +83,7 @@ When `with` context manager is used with `start_trace` method, exceptions are **
 To track data metrics and record data profiles, [`EndpointTrace.set_data`](https://graphsignal.com/docs/reference/python-api/#graphsignalendpointtraceset_data) method can be used.
 
 ```python
-with graphsignal.start_trace(endpoint='my-model-predict') as trace:
+with graphsignal.start_trace(endpoint='predict') as trace:
     trace.set_data('input', input_data)
 ```
 
@@ -110,12 +104,12 @@ After everything is setup, [log in](https://app.graphsignal.com/) to Graphsignal
 ```python
 import graphsignal
 
-graphsignal.configure(api_key='my-api-key', deployment='my-app-prod')
+graphsignal.configure(api_key='my-api-key', deployment='my-model-prod')
 
 ...
 
 def predict(x):
-    with graphsignal.start_trace(endpoint='my-model-predict'):
+    with graphsignal.start_trace(endpoint='predict'):
         return model(x)
 ```
 
@@ -124,12 +118,12 @@ def predict(x):
 ```python
 import graphsignal
 
-graphsignal.configure(api_key='my-api-key')
+graphsignal.configure(api_key='my-api-key', deployment='my-model')
 
-....
+...
 
 for x in data:
-    with graphsignal.start_trace(endpoint='my-model-predict', tags=dict(job_id='job1')):
+    with graphsignal.start_trace(endpoint='predict', tags=dict(job_id='job1')):
         preds = model(x)
 ```
 

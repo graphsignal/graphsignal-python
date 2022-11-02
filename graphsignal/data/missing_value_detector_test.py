@@ -24,7 +24,4 @@ class MissingValueDetectorTest(unittest.TestCase):
 
     def test_build_stats_none(self):
         mvd = MissingValueDetector()
-        for i in range(MissingValueDetector.MIN_BASELINE_SIZE):
-            self.assertFalse(mvd.detect('d1', {'null_count': 0}))
         self.assertTrue(mvd.detect('d1', {'null_count': 1}))
-        self.assertFalse(mvd.detect('d1', {'null_count': 1}))
