@@ -22,6 +22,7 @@ class MissingValueDetectorTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    def test_build_stats_none(self):
+    def test_detect(self):
         mvd = MissingValueDetector()
         self.assertTrue(mvd.detect('d1', {'null_count': 1}))
+        self.assertFalse(mvd.detect('d1', {'null_count': 0}))

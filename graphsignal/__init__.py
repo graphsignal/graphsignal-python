@@ -3,6 +3,7 @@ import os
 import logging
 import atexit
 import functools
+import asyncio
 
 from graphsignal.version import __version__
 from graphsignal.agent import Agent
@@ -97,27 +98,30 @@ def start_trace(
 
 
 def trace_function(
-        _func=None, *,
+        func=None, *,
         endpoint: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
         profiler: Optional[OperationProfiler] = None):
+    if func is None:
+        return functools.partial(trace_function, endpoint=endpoint, tags=tags, profiler=profiler)
 
-    def tf_decorator(func):
-        if endpoint is None:
-            endpoint_or_name = func.__name__
-        else:
-            endpoint_or_name = endpoint
+    if endpoint is None:
+        endpoint_or_name = func.__name__
+    else:
+        endpoint_or_name = endpoint
 
+    if asyncio.iscoroutinefunction(func):
+        @functools.wraps(func)
+        async def tf_async_wrapper(*args, **kwargs):
+            with start_trace(endpoint=endpoint_or_name, tags=tags, profiler=profiler):
+                return await func(*args, **kwargs)
+        return tf_async_wrapper
+    else:
         @functools.wraps(func)
         def tf_wrapper(*args, **kwargs):
             with start_trace(endpoint=endpoint_or_name, tags=tags, profiler=profiler):
                 return func(*args, **kwargs)
         return tf_wrapper
-
-    if _func is None:
-        return tf_decorator
-    else:
-        return tf_decorator(func)
 
 
 def upload(block=False) -> None:

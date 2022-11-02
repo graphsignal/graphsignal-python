@@ -15,7 +15,6 @@ class MissingValueDetector:
         pass
 
     def detect(self, data_name, counts):
-        has_missing = False
         for counter_name in MISSING_COUNTERS:
             if counter_name in counts:
                 if counts[counter_name] > 0:
