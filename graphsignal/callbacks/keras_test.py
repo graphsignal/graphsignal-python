@@ -82,4 +82,7 @@ class KerasCallbackTest(unittest.TestCase):
 
         self.assertEqual(signal.endpoint_name, 'test_batch')
 
-        self.assertTrue(len(signal.op_stats) > 0)
+        self.assertEqual(
+            signal.frameworks[0].type,
+            signals_pb2.FrameworkInfo.FrameworkType.KERAS_FRAMEWORK)
+        self.assertTrue(signal.frameworks[0].version.major > 0)

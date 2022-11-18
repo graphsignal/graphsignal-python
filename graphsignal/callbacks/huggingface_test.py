@@ -26,8 +26,8 @@ class HuggingFaceCallbackTest(unittest.TestCase):
     @patch.object(Uploader, 'upload_signal')
     def test_callback(self, mocked_upload_signal):
         import torch
-        if not torch.cuda.is_available():
-            return
+        #if not torch.cuda.is_available():
+        #    return
         from datasets import load_dataset
         raw_datasets = load_dataset("imdb")
 
@@ -57,13 +57,13 @@ class HuggingFaceCallbackTest(unittest.TestCase):
         training_args = TrainingArguments("test_trainer", num_train_epochs=1)
             
         from transformers import Trainer
-        from graphsignal.callbacks.huggingface import GraphsignalPTCallback
+        from graphsignal.callbacks.huggingface import GraphsignalCallback
         trainer = Trainer(
             model=model,
             args=training_args,
             train_dataset=small_train_dataset,
             eval_dataset=small_eval_dataset)
-        trainer.add_callback(GraphsignalPTCallback())
+        trainer.add_callback(GraphsignalCallback())
 
         trainer.train()
 
@@ -74,13 +74,7 @@ class HuggingFaceCallbackTest(unittest.TestCase):
 
         self.assertEqual(signal.endpoint_name, 'training_step')
 
-        self.assertTrue(
-            signal.agent_info.framework_profiler_type, 
-            signals_pb2.AgentInfo.ProfilerType.HUGGING_FACE_PROFILER)
-
         self.assertEqual(
-            signal.frameworks[-1].type,
+            signal.frameworks[0].type,
             signals_pb2.FrameworkInfo.FrameworkType.HUGGING_FACE_FRAMEWORK)
-        self.assertTrue(signal.frameworks[-1].version.major > 0)
-
-        self.assertTrue(len(signal.op_stats) > 0)
+        self.assertTrue(signal.frameworks[0].version.major > 0)

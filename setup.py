@@ -23,13 +23,7 @@ setup(
     'inference monitoring',
     'model monitoring',
     'data monitoring',
-    'exception tracking',
-    'inference profiling',
-    'machine learning profiler',
-    'tensorflow profiler',
-    'keras profiler',
-    'pytorch profiler',
-    'jax profiler'
+    'exception tracking'
   ],
   classifiers = [
     'Development Status :: 5 - Production/Stable',

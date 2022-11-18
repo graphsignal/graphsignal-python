@@ -1,6 +1,9 @@
 import unittest
 import logging
 import sys
+import os
+import json
+import time
 from unittest.mock import patch, Mock
 from google.protobuf.json_format import MessageToJson
 import pprint
@@ -8,11 +11,12 @@ import pprint
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
+from graphsignal.recorders.onnxruntime_recorder import ONNXRuntimeRecorder
 
 logger = logging.getLogger('graphsignal')
 
 
-class HuggingFaceGeneratorTest(unittest.TestCase):
+class ONNXRuntimeRecorderTest(unittest.TestCase):
     def setUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -23,19 +27,14 @@ class HuggingFaceGeneratorTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    def test_pipeline(self):
-        from transformers import pipeline
-        from graphsignal.profilers.pytorch import PyTorchProfiler
-
-        pipe = pipeline(task="text-generation", model='distilgpt2')
-
-        profiler = PyTorchProfiler()
+    def test_record(self):
+        recorder = ONNXRuntimeRecorder()
+        recorder.setup()
         signal = signals_pb2.WorkerSignal()
-        profiler.start(signal)
-        output = pipe('some text')
-        profiler.stop(signal)
+        context = {}
+        recorder.on_trace_start(signal, context)
+        recorder.on_trace_stop(signal, context)
 
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(signal))
-
-        self.assertTrue(len(signal.op_stats) > 0)
+        self.assertEqual(
+            signal.frameworks[0].type,
+            signals_pb2.FrameworkInfo.FrameworkType.ONNX_FRAMEWORK)

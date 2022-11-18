@@ -8,7 +8,6 @@ import asyncio
 from graphsignal.version import __version__
 from graphsignal.agent import Agent
 from graphsignal.endpoint_trace import EndpointTrace
-from graphsignal.profilers.operation_profiler import OperationProfiler
 
 logger = logging.getLogger('graphsignal')
 
@@ -87,23 +86,18 @@ def configure(
 
 def start_trace(
         endpoint: str,
-        tags: Optional[Dict[str, str]] = None,
-        profiler: Optional[OperationProfiler] = None) -> EndpointTrace:
+        tags: Optional[Dict[str, str]] = None) -> EndpointTrace:
     _check_configured()
 
-    return EndpointTrace(
-        endpoint=endpoint,
-        tags=tags,
-        profiler=profiler)
+    return EndpointTrace(endpoint=endpoint, tags=tags)
 
 
 def trace_function(
         func=None, *,
         endpoint: Optional[str] = None,
-        tags: Optional[Dict[str, str]] = None,
-        profiler: Optional[OperationProfiler] = None):
+        tags: Optional[Dict[str, str]] = None):
     if func is None:
-        return functools.partial(trace_function, endpoint=endpoint, tags=tags, profiler=profiler)
+        return functools.partial(trace_function, endpoint=endpoint, tags=tags)
 
     if endpoint is None:
         endpoint_or_name = func.__name__
@@ -113,13 +107,13 @@ def trace_function(
     if asyncio.iscoroutinefunction(func):
         @functools.wraps(func)
         async def tf_async_wrapper(*args, **kwargs):
-            with start_trace(endpoint=endpoint_or_name, tags=tags, profiler=profiler):
+            with start_trace(endpoint=endpoint_or_name, tags=tags):
                 return await func(*args, **kwargs)
         return tf_async_wrapper
     else:
         @functools.wraps(func)
         def tf_wrapper(*args, **kwargs):
-            with start_trace(endpoint=endpoint_or_name, tags=tags, profiler=profiler):
+            with start_trace(endpoint=endpoint_or_name, tags=tags):
                 return func(*args, **kwargs)
         return tf_wrapper
 
@@ -147,6 +141,6 @@ __all__ = [
     'upload',
     'shutdown',
     'start_trace',
-    'EndpointTrace',
-    'profiler'
+    'function_trace',
+    'EndpointTrace'
 ]

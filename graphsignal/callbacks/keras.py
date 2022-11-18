@@ -15,14 +15,13 @@ class GraphsignalCallback(Callback):
     def __init__(self, tags: Optional[dict] = None):
         super().__init__()
 
-        from graphsignal.profilers.tensorflow import TensorFlowProfiler
-        self._profiler = TensorFlowProfiler()
-        self._keras_version = None
+        self._is_initialized = False
+        self._framework = None
         self._trace = None
         self._tags = tags
 
     def on_train_begin(self, logs=None):
-        self._configure_profiler()
+        self._configure()
 
     def on_train_end(self, logs=None):
         graphsignal.upload()
@@ -34,7 +33,7 @@ class GraphsignalCallback(Callback):
         self._stop_trace()
 
     def on_test_begin(self, logs=None):
-        self._configure_profiler()
+        self._configure()
 
     def on_test_end(self, logs=None):
         graphsignal.upload()
@@ -46,7 +45,7 @@ class GraphsignalCallback(Callback):
         self._stop_trace()
 
     def on_predict_begin(self, logs=None):
-        self._configure_profiler()
+        self._configure()
 
     def on_predict_end(self, logs=None):
         graphsignal.upload()
@@ -57,24 +56,27 @@ class GraphsignalCallback(Callback):
     def on_predict_batch_end(self, batch, logs=None):
         self._stop_trace()
 
-    def _configure_profiler(self):
+    def _configure(self):
         try:
-            self._keras_version = signals_pb2.SemVer()
-            parse_semver(self._keras_version, keras.__version__)
+            if not self._is_initialized:
+                self._is_initialized = True
+
+                self._framework = signals_pb2.FrameworkInfo()
+                self._framework.type = signals_pb2.FrameworkInfo.FrameworkType.KERAS_FRAMEWORK
+                parse_semver(self._framework.version, keras.__version__)
         except Exception:
-            logger.error('Error configuring Keras profiler', exc_info=True)
+            logger.error('Error configuring Keras callback', exc_info=True)
 
     def _start_trace(self, endpoint, batch_idx):
         if not self._trace:
             self._trace = graphsignal.start_trace(
                 endpoint=endpoint,
-                tags=self._tags,
-                profiler=self._profiler)
+                tags=self._tags)
             self._trace.set_tag('batch', batch_idx)
 
     def _stop_trace(self):
         if self._trace:
-            if self._trace.is_tracing():
+            if self._trace.is_sampling():
                 self._update_signal()
             self._trace.stop()
             self._trace = None
@@ -83,11 +85,8 @@ class GraphsignalCallback(Callback):
         try:
             signal = self._trace._signal
 
-            signal.agent_info.framework_profiler_type = signals_pb2.AgentInfo.ProfilerType.KERAS_PROFILER
-
-            framework = signal.frameworks.add()
-            framework.type = signals_pb2.FrameworkInfo.FrameworkType.KERAS_FRAMEWORK
-            framework.version.CopyFrom(self._keras_version)
+            if self._framework:
+                signal.frameworks.append(self._framework)
         except Exception as exc:
             logger.debug('Error in Hugging Face callback', exc_info=True)
-            self._trace._add_profiler_exception(exc)
+            self._trace._add_agent_exception(exc)

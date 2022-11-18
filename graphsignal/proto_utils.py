@@ -34,3 +34,15 @@ def compare_semver(semver_proto, version):
         return 1
     else:
         return 0
+
+
+def add_framework_param(framework_info, name, value):
+    param = framework_info.params.add()
+    param.name = name
+    param.value = str(value)
+
+
+def add_driver(node_info, name, version):
+    driver = node_info.drivers.add()
+    driver.name = name
+    driver.version = version

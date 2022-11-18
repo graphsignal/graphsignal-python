@@ -7,10 +7,10 @@
 
 Graphsignal is an AI observability platform. It helps ML engineers and MLOps teams make AI applications run faster and reliably by monitoring and analyzing performance, resources, data and errors. Graphsignal's capabilities enable full visibility into AI applications for any model, data and deployment.
 
-* Application monitoring.
-* Training and inference profiling.
-* Error and exception tracking.
-* Data monitoring.
+* Measure and monitor latency, throughput and resource utilization.
+* Track GPU utilization in the context of inference and training.
+* Get notified about errors and exceptions with full machine learning context.
+* Monitor data to detect data issues and silent failures.
 
 [![Dashboards](https://graphsignal.com/external/screencast-dashboards.gif)](https://graphsignal.com/)
 
@@ -52,12 +52,12 @@ To track deployments, versions and environments separately, specify a `deploymen
 
 Use the following examples to integrate Graphsignal agent into your machine learning application. See integration documentation and [API reference](https://graphsignal.com/docs/reference/python-api/) for full reference.
 
-Graphsignal agent is **optimized for production**. All executions will be measured, but only a few will be profiled and recorded to ensure low overhead.
+Graphsignal agent is **optimized for production**. All executions will be measured, but only a few will be recorded to ensure low overhead.
 
 
-### Monitoring and profiling
+### Monitoring and tracing
 
-To measure and profile executions, e.g. single or batch inference or a training step, wrap the code with [`start_trace`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method or use [`trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator. Profiling is supported for Python, TensorFlow, Keras, PyTorch, PyTorch Lightning, Hugging Face, Jax and ONNX Runtime.
+To measure executions, e.g. single or batch inference or a training step, wrap the code with [`start_trace`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method or use [`trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
 
 ```python
 with graphsignal.start_trace(endpoint='predict'):
@@ -132,12 +132,12 @@ More integration examples are available in [`examples`](https://github.com/graph
 
 ## Overhead
 
-Although profiling may add some overhead to applications, Graphsignal only profiles certain executions, automatically limiting the overhead.
+Graphsignal agent is very lightweight. While all executions are measured, Graphsignal agent only records certain executions, automatically limiting the overhead.
 
 
 ## Security and Privacy
 
-Graphsignal agent can only open outbound connections to `agent-api.graphsignal.com` and send data, no inbound connections or commands are possible. 
+Graphsignal agent can only open outbound connections to `agent-api.graphsignal.com` and send data, no inbound connections or commands are possible.
 
 No code or data is sent to Graphsignal cloud, only statistics and metadata.
 
@@ -147,9 +147,3 @@ No code or data is sent to Graphsignal cloud, only statistics and metadata.
 To enable debug logging, add `debug_mode=True` to `configure()`. If the debug log doesn't give you any hints on how to fix a problem, please report it to our support team via your account.
 
 In case of connection issues, please make sure outgoing connections to `https://agent-api.graphsignal.com` are allowed.
-
-For GPU profiling, if `libcupti` agent is failing to load, make sure the [NVIDIA® CUDA® Profiling Tools Interface](https://developer.nvidia.com/cupti) (CUPTI) is installed by running:
-
-```console
-/sbin/ldconfig -p | grep libcupti
-```

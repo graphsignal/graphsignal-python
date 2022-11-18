@@ -7,12 +7,14 @@ import uuid
 import hashlib
 
 import graphsignal
+from graphsignal import version
 from graphsignal.uploader import Uploader
-from graphsignal.usage.process_reader import ProcessReader
-from graphsignal.usage.nvml_reader import NvmlReader
+from graphsignal.recorders.process_recorder import ProcessRecorder
+from graphsignal.recorders.nvml_recorder import NvmlRecorder
 from graphsignal.trace_sampler import TraceSampler
 from graphsignal.proto import signals_pb2
 from graphsignal.data.missing_value_detector import MissingValueDetector
+from graphsignal.proto_utils import parse_semver
 
 logger = logging.getLogger('graphsignal')
 
@@ -25,53 +27,63 @@ class Agent:
         self.debug_mode = debug_mode
 
         self._uploader = None
-        self._process_reader = None
-        self._nvml_reader = None
+        self._process_recorder = None
+        self._nvml_recorder = None
+        self._framework_recorders = None
         self._trace_samplers = None
         self._metric_store = None
-        self._supported_profiler = None
         self._mv_detector = None
 
     def start(self):
         self._uploader = Uploader()
         self._uploader.setup()
-        self._process_reader = ProcessReader()
-        self._process_reader.setup()
-        self._nvml_reader = NvmlReader()
-        self._nvml_reader.setup()
+        self._process_recorder = ProcessRecorder()
+        self._process_recorder.setup()
+        self._nvml_recorder = NvmlRecorder()
+        self._nvml_recorder.setup()
         self._trace_samplers = {}
         self._metric_store = {}
         self._mv_detector = MissingValueDetector()
 
     def stop(self):
         self.upload(block=True)
-        self._process_reader.shutdown()
-        self._nvml_reader.shutdown()
+        self._process_recorder.shutdown()
+        self._nvml_recorder.shutdown()
+        self._framework_recorders = None
         self._trace_samplers = None
         self._metric_store = None
-        self._supported_profiler = None
+        self._mv_detector = None
 
     def uploader(self):
         return self._uploader
 
-    def supported_profiler(self):
-        if self._supported_profiler:
-            return self._supported_profiler
+    def framework_recorders(self):
+        if self._framework_recorders is not None:
+            return self._framework_recorders
 
+        self._framework_recorders = []
         if _check_module('torch'):
-            from graphsignal.profilers.pytorch import PyTorchProfiler
-            self._supported_profiler = PyTorchProfiler()
+            from graphsignal.recorders.pytorch_recorder import PyTorchRecorder
+            recorder = PyTorchRecorder()
+            recorder.setup()
+            self._framework_recorders.append(recorder)
         elif _check_module('tensorflow'):
-            from graphsignal.profilers.tensorflow import TensorFlowProfiler
-            self._supported_profiler = TensorFlowProfiler()
+            from graphsignal.recorders.tensorflow_recorder import TensorFlowRecorder
+            recorder = TensorFlowRecorder()
+            recorder.setup()
+            self._framework_recorders.append(recorder)
         elif _check_module('jax'):
-            from graphsignal.profilers.jax import JaxProfiler
-            self._supported_profiler = JaxProfiler()
-        else:
-            from graphsignal.profilers.python import PythonProfiler
-            self._supported_profiler = PythonProfiler()
+            from graphsignal.recorders.jax_recorder import JAXRecorder
+            recorder = JAXRecorder()
+            recorder.setup()
+            self._framework_recorders.append(recorder)
+        elif _check_module('onnxruntime'):
+            from graphsignal.recorders.onnxruntime_recorder import ONNXRuntimeRecorder
+            recorder = ONNXRuntimeRecorder()
+            recorder.setup()
+            self._framework_recorders.append(recorder)
 
-        return self._supported_profiler
+        return self._framework_recorders
         
     def trace_sampler(self, endpoint):
         if endpoint in self._trace_samplers:
@@ -92,9 +104,17 @@ class Agent:
     def mv_detector(self):
         return self._mv_detector
 
-    def read_usage(self, signal):
-        self._process_reader.read(signal)
-        self._nvml_reader.read(signal)
+    def emit_trace_start(self, signal, context):
+        for framework_recorder in self.framework_recorders():
+            framework_recorder.on_trace_start(signal, context)
+        self._nvml_recorder.on_trace_start(signal, context)
+        self._process_recorder.on_trace_start(signal, context)
+
+    def emit_trace_stop(self, signal, context):
+        self._process_recorder.on_trace_stop(signal, context)
+        self._nvml_recorder.on_trace_stop(signal, context)
+        for framework_recorder in self.framework_recorders():
+            framework_recorder.on_trace_stop(signal, context)
 
     def create_signal(self):
         signal = signals_pb2.WorkerSignal()
@@ -102,6 +122,9 @@ class Agent:
         signal.signal_id = _uuid_sha1(size=12)
         if self.deployment:
             signal.deployment_name = self.deployment
+        signal.agent_info.agent_type = signals_pb2.AgentInfo.AgentType.PYTHON_AGENT
+        parse_semver(signal.agent_info.version, version.__version__)
+
         return signal
 
     def upload(self, block=False):

@@ -8,13 +8,13 @@ import pprint
 import time
 
 import graphsignal
-from graphsignal.usage.nvml_reader import NvmlReader
+from graphsignal.recorders.nvml_recorder import NvmlRecorder
 from graphsignal.proto import signals_pb2
 
 logger = logging.getLogger('graphsignal')
 
 
-class NvmlReaderTest(unittest.TestCase):
+class NvmlRecorderTest(unittest.TestCase):
     def setUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -25,31 +25,39 @@ class NvmlReaderTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    def test_read(self):
-        signal = signals_pb2.WorkerSignal()
+    def test_record(self):
+        recorder = NvmlRecorder()
+        recorder.setup()
 
-        x = torch.arange(-50, 50, 0.1).view(-1, 1)
-        y = -5 * x + 0.1 * torch.randn(x.size())
+        signal = signals_pb2.WorkerSignal()
+        context = {}
+        recorder.on_trace_start(signal, context)
+        recorder.on_trace_stop(signal, context)
+
         model = torch.nn.Linear(1, 1)
         if torch.cuda.is_available():
-            x = x.to('cuda:0')
-            y = y.to('cuda:0')
-            model = model.to('cuda:0')
-        criterion = torch.nn.MSELoss()
-        optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+            model = model.cuda()
 
-        reader = NvmlReader()
-        reader.read(signal)
+        signal = signals_pb2.WorkerSignal()
+        context = {}
+        recorder.on_trace_start(signal, context)
 
-        time.sleep(0.2)
+        x = torch.arange(-50, 50, 0.00001).view(-1, 1)
+        if torch.cuda.is_available():
+            x = x.cuda()
+        pred = model(x)
 
-        reader.read(signal)
+        signal = signals_pb2.WorkerSignal()
+        recorder.on_trace_stop(signal, context)
 
         #pp = pprint.PrettyPrinter()
-        # pp.pprint(MessageToJson(signal))
+        #pp.pprint(MessageToJson(signal))
 
         if len(signal.device_usage) > 0:
             self.assertTrue(signal.node_usage.num_devices > 0)
+
+            self.assertEqual(signal.node_usage.drivers[0].name, 'CUDA')
+            self.assertIsNotNone(signal.node_usage.drivers[0].version)
 
             device_usage = signal.device_usage[0]
             self.assertEqual(device_usage.device_type, signals_pb2.DeviceType.GPU)
@@ -67,3 +75,4 @@ class NvmlReaderTest(unittest.TestCase):
             #self.assertTrue(device_usage.fan_speed_percent > 0)
             self.assertTrue(device_usage.gpu_temp_c > 0)
             self.assertTrue(device_usage.power_usage_w > 0)
+            self.assertTrue(signal.trace_sample.gpu_mem_change > 0)

@@ -19,9 +19,9 @@ class AgentTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    def test_supported_profiler(self):
-        profiler = graphsignal._agent.supported_profiler()
-        self.assertTrue(isinstance(profiler, graphsignal.profilers.python.PythonProfiler))
+    def test_create_signal(self):
+        signal = graphsignal._agent.create_signal()
+        self.assertTrue(signal.agent_info.version.major > 0 or signal.agent_info.version.minor > 0)
 
     @patch('time.time', return_value=1)
     def test_update_metric_store(self, mocked_time):
