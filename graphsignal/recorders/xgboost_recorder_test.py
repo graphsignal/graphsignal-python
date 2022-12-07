@@ -7,16 +7,17 @@ import time
 from unittest.mock import patch, Mock
 from google.protobuf.json_format import MessageToJson
 import pprint
+import xgboost as xgb
 
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
-from graphsignal.recorders.onnxruntime_recorder import ONNXRuntimeRecorder
+from graphsignal.recorders.xgboost_recorder import XGBoostRecorder
 
 logger = logging.getLogger('graphsignal')
 
 
-class ONNXRuntimeRecorderTest(unittest.TestCase):
+class XGBoostRecorderTest(unittest.TestCase):
     def setUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -28,7 +29,7 @@ class ONNXRuntimeRecorderTest(unittest.TestCase):
         graphsignal.shutdown()
 
     def test_record(self):
-        recorder = ONNXRuntimeRecorder()
+        recorder = XGBoostRecorder()
         recorder.setup()
         signal = signals_pb2.WorkerSignal()
         context = {}
@@ -38,4 +39,6 @@ class ONNXRuntimeRecorderTest(unittest.TestCase):
 
         self.assertEqual(
             signal.frameworks[0].type,
-            signals_pb2.FrameworkInfo.FrameworkType.ONNX_FRAMEWORK)
+            signals_pb2.FrameworkInfo.FrameworkType.XGBOOST_FRAMEWORK)
+
+        self.assertTrue(len(signal.frameworks[0].params) > 0)

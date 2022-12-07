@@ -8,13 +8,13 @@ import pprint
 import time
 
 import graphsignal
-from graphsignal.recorders.nvml_recorder import NvmlRecorder
+from graphsignal.recorders.nvml_recorder import NVMLRecorder
 from graphsignal.proto import signals_pb2
 
 logger = logging.getLogger('graphsignal')
 
 
-class NvmlRecorderTest(unittest.TestCase):
+class NVMLRecorderTest(unittest.TestCase):
     def setUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -26,13 +26,14 @@ class NvmlRecorderTest(unittest.TestCase):
         graphsignal.shutdown()
 
     def test_record(self):
-        recorder = NvmlRecorder()
+        recorder = NVMLRecorder()
         recorder.setup()
 
         signal = signals_pb2.WorkerSignal()
         context = {}
         recorder.on_trace_start(signal, context)
         recorder.on_trace_stop(signal, context)
+        recorder.on_trace_read(signal, context)
 
         model = torch.nn.Linear(1, 1)
         if torch.cuda.is_available():
@@ -49,6 +50,7 @@ class NvmlRecorderTest(unittest.TestCase):
 
         signal = signals_pb2.WorkerSignal()
         recorder.on_trace_stop(signal, context)
+        recorder.on_trace_read(signal, context)
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
@@ -60,7 +62,7 @@ class NvmlRecorderTest(unittest.TestCase):
             self.assertIsNotNone(signal.node_usage.drivers[0].version)
 
             device_usage = signal.device_usage[0]
-            self.assertEqual(device_usage.device_type, signals_pb2.DeviceType.GPU)
+            self.assertEqual(device_usage.device_type, signals_pb2.DeviceUsage.DeviceType.GPU)
             self.assertNotEqual(device_usage.device_id, '')
             self.assertNotEqual(device_usage.device_name, '')
             self.assertNotEqual(device_usage.architecture, '')

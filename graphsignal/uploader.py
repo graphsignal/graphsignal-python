@@ -23,14 +23,12 @@ class Uploader:
     MAX_BUFFER_SIZE = 25
 
     def __init__(self):
-        self.agent_api_url = 'https://agent-api.graphsignal.com'
         self.buffer = []
         self.buffer_lock = threading.Lock()
         self.flush_lock = threading.Lock()
 
     def setup(self):
-        if 'GRAPHSIGNAL_AGENT_API_URL' in os.environ:
-            self.agent_api_url = os.environ['GRAPHSIGNAL_AGENT_API_URL']
+        pass
 
     def clear(self):
         with self.buffer_lock:
@@ -66,7 +64,7 @@ class Uploader:
                 logger.error('Error uploading signals', exc_info=True)
 
     def _post(self, endpoint, data):
-        logger.debug('Posting data to %s/%s', self.agent_api_url, endpoint)
+        logger.debug('Posting data to %s/%s', graphsignal._agent.api_url, endpoint)
 
         api_key_64 = _base64_encode(graphsignal._agent.api_key + ':').replace('\n', '')
         headers = {
@@ -79,7 +77,7 @@ class Uploader:
         data_gzip = _gzip_data(data)
 
         request = Request(
-            url=self.agent_api_url + '/' + endpoint,
+            url=graphsignal._agent.api_url + '/' + endpoint,
             data=data_gzip,
             headers=headers)
 

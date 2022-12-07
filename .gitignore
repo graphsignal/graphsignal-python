@@ -1,9 +1,11 @@
 .DS_Store
 ._
 ._.*
-conf
 *.pyc
+*.so
+venv*
 build
+lib
 .bin
 log/*
 logs/*
@@ -13,7 +15,6 @@ tmp
 dist
 *.egg-info
 __pycache__
-venv*
 *.h5
 *.pt
 *.pth

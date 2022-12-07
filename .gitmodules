@@ -1,0 +1,4 @@
+[submodule "agentlib"]
+    ignore = dirty
+    path = agentlib
+    url = https://github.com/graphsignal/agentlib.git

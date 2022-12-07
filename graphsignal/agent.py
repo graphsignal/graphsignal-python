@@ -9,8 +9,6 @@ import hashlib
 import graphsignal
 from graphsignal import version
 from graphsignal.uploader import Uploader
-from graphsignal.recorders.process_recorder import ProcessRecorder
-from graphsignal.recorders.nvml_recorder import NvmlRecorder
 from graphsignal.trace_sampler import TraceSampler
 from graphsignal.proto import signals_pb2
 from graphsignal.data.missing_value_detector import MissingValueDetector
@@ -20,36 +18,33 @@ logger = logging.getLogger('graphsignal')
 
 
 class Agent:
-    def __init__(self, api_key, deployment=None, debug_mode=False):
+    def __init__(self, api_key=None, api_url=None, deployment=None, debug_mode=False):
         self.worker_id = _uuid_sha1(size=12)
         self.api_key = api_key
+        if api_url:
+            self.api_url = api_url
+        else:
+            self.api_url = 'https://agent-api.graphsignal.com'            
         self.deployment = deployment
         self.debug_mode = debug_mode
 
         self._uploader = None
-        self._process_recorder = None
-        self._nvml_recorder = None
-        self._framework_recorders = None
+        self._recorders = None
         self._trace_samplers = None
         self._metric_store = None
         self._mv_detector = None
 
+        self._process_start_ms = int(time.time() * 1e3)
+
     def start(self):
         self._uploader = Uploader()
         self._uploader.setup()
-        self._process_recorder = ProcessRecorder()
-        self._process_recorder.setup()
-        self._nvml_recorder = NvmlRecorder()
-        self._nvml_recorder.setup()
         self._trace_samplers = {}
         self._metric_store = {}
-        self._mv_detector = MissingValueDetector()
 
     def stop(self):
         self.upload(block=True)
-        self._process_recorder.shutdown()
-        self._nvml_recorder.shutdown()
-        self._framework_recorders = None
+        self._recorders = None
         self._trace_samplers = None
         self._metric_store = None
         self._mv_detector = None
@@ -57,34 +52,54 @@ class Agent:
     def uploader(self):
         return self._uploader
 
-    def framework_recorders(self):
-        if self._framework_recorders is not None:
-            return self._framework_recorders
+    def recorders(self):
+        if self._recorders is not None:
+            return self._recorders
+        self._recorders = []
 
-        self._framework_recorders = []
+        from graphsignal.recorders.cprofile_recorder import CProfileRecorder
+        recorder = CProfileRecorder()
+        recorder.setup()
+        self._recorders.append(recorder)
+
+        from graphsignal.recorders.process_recorder import ProcessRecorder
+        recorder = ProcessRecorder()
+        recorder.setup()
+        self._recorders.append(recorder)
+
+        from graphsignal.recorders.nvml_recorder import NVMLRecorder
+        recorder = NVMLRecorder()
+        recorder.setup()
+        self._recorders.append(recorder)
+
         if _check_module('torch'):
             from graphsignal.recorders.pytorch_recorder import PyTorchRecorder
             recorder = PyTorchRecorder()
             recorder.setup()
-            self._framework_recorders.append(recorder)
+            self._recorders.append(recorder)
         elif _check_module('tensorflow'):
             from graphsignal.recorders.tensorflow_recorder import TensorFlowRecorder
             recorder = TensorFlowRecorder()
             recorder.setup()
-            self._framework_recorders.append(recorder)
+            self._recorders.append(recorder)
         elif _check_module('jax'):
             from graphsignal.recorders.jax_recorder import JAXRecorder
             recorder = JAXRecorder()
             recorder.setup()
-            self._framework_recorders.append(recorder)
+            self._recorders.append(recorder)
         elif _check_module('onnxruntime'):
             from graphsignal.recorders.onnxruntime_recorder import ONNXRuntimeRecorder
             recorder = ONNXRuntimeRecorder()
             recorder.setup()
-            self._framework_recorders.append(recorder)
+            self._recorders.append(recorder)
+        elif _check_module('xgboost'):
+            from graphsignal.recorders.xgboost_recorder import XGBoostRecorder
+            recorder = XGBoostRecorder()
+            recorder.setup()
+            self._recorders.append(recorder)
 
-        return self._framework_recorders
-        
+        return self._recorders
+
     def trace_sampler(self, endpoint):
         if endpoint in self._trace_samplers:
             return self._trace_samplers[endpoint]
@@ -102,19 +117,21 @@ class Agent:
         return self._metric_store[endpoint]
 
     def mv_detector(self):
+        if self._mv_detector is None:
+            self._mv_detector = MissingValueDetector()
         return self._mv_detector
 
     def emit_trace_start(self, signal, context):
-        for framework_recorder in self.framework_recorders():
-            framework_recorder.on_trace_start(signal, context)
-        self._nvml_recorder.on_trace_start(signal, context)
-        self._process_recorder.on_trace_start(signal, context)
+        for recorder in reversed(self.recorders()):
+            recorder.on_trace_start(signal, context)
 
     def emit_trace_stop(self, signal, context):
-        self._process_recorder.on_trace_stop(signal, context)
-        self._nvml_recorder.on_trace_stop(signal, context)
-        for framework_recorder in self.framework_recorders():
-            framework_recorder.on_trace_stop(signal, context)
+        for recorder in self.recorders():
+            recorder.on_trace_stop(signal, context)
+
+    def emit_trace_read(self, signal, context):
+        for recorder in self.recorders():
+            recorder.on_trace_read(signal, context)
 
     def create_signal(self):
         signal = signals_pb2.WorkerSignal()

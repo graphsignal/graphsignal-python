@@ -33,7 +33,6 @@ class ProcessRecorder(BaseRecorder):
     MIN_CPU_READ_INTERVAL_US = 1 * 1e6
 
     def __init__(self):
-        self._process_start_ms = int(time.time() * 1e3)
         self._last_read_sec = None
         self._last_cpu_time_us = None
 
@@ -48,30 +47,37 @@ class ProcessRecorder(BaseRecorder):
     def on_trace_stop(self, signal, context):
         if not OS_WIN:
             rusage_thread = resource.getrusage(resource.RUSAGE_THREAD)
-            rusage_self = resource.getrusage(resource.RUSAGE_SELF)
             stop_cpu_time_us = _rusage_cpu_time(rusage_thread)
+
+            if 'start_cpu_time_us' in context:
+                start_cpu_time_us = context['start_cpu_time_us']
+                if start_cpu_time_us and stop_cpu_time_us:
+                    signal.trace_sample.thread_cpu_time_us = max(0, stop_cpu_time_us - start_cpu_time_us)
+
+        if OS_LINUX:
+            current_rss = _read_current_rss()
+            if 'start_rss' in context:
+                start_rss = context['start_rss']
+                if start_rss and current_rss:
+                    signal.trace_sample.rss_change = current_rss - start_rss
+
+    def on_trace_read(self, signal, context):
+        if not OS_WIN:
+            rusage_self = resource.getrusage(resource.RUSAGE_SELF)
 
         if OS_LINUX:
             current_rss = _read_current_rss()
             vm_size = _read_vm_size()
-            mem_total = _read_mem_total()
 
         now = time.time()
         pid = str(os.getpid())
 
-        trace_sample = signal.trace_sample
         node_usage = signal.node_usage
         process_usage = signal.process_usage
-        process_usage.start_ms = self._process_start_ms
 
         process_usage.process_id = pid
 
         if not OS_WIN:
-            if 'start_cpu_time_us' in context:
-                start_cpu_time_us = context['start_cpu_time_us']
-                if start_cpu_time_us and stop_cpu_time_us:
-                    trace_sample.thread_cpu_time_us = max(0, stop_cpu_time_us - start_cpu_time_us)
-
             cpu_time_us = _rusage_cpu_time(rusage_self)
             if cpu_time_us is not None:
                 if self._last_cpu_time_us is not None:
@@ -98,17 +104,13 @@ class ProcessRecorder(BaseRecorder):
                 process_usage.max_rss = int(max_rss)
 
         if OS_LINUX:
-            if 'start_rss' in context:
-                start_rss = context['start_rss']
-                if start_rss and current_rss:
-                    trace_sample.rss_change = current_rss - start_rss
-
             if current_rss is not None:
                 process_usage.current_rss = current_rss
 
             if vm_size is not None:
                 process_usage.vm_size = vm_size
 
+            mem_total = _read_mem_total()
             if mem_total is not None:
                 node_usage.mem_total = mem_total
                 mem_free = _read_mem_free()

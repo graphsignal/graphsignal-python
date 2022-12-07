@@ -11,12 +11,12 @@ from graphsignal.vendor.pynvml.pynvml import *
 
 logger = logging.getLogger('graphsignal')
 
-class NvmlRecorder(BaseRecorder):
+class NVMLRecorder(BaseRecorder):
     MIN_SAMPLE_READ_INTERVAL_US = int(10 * 1e6)
 
     def __init__(self):
         self._is_initialized = False
-        self._process_start_us = int(time.time() * 1e6)
+        self._setup_us = None
         self._last_nvlink_throughput_data_tx = {}
         self._last_nvlink_throughput_data_rx = {}
 
@@ -30,6 +30,8 @@ class NvmlRecorder(BaseRecorder):
             logger.debug('Initialized NVML')
         except BaseException:
             logger.debug('Error initializing NVML, skipping GPU usage')
+
+        self._setup_us = int(time.time() * 1e6)
 
     def shutdown(self):
         if not self._is_initialized:
@@ -45,46 +47,7 @@ class NvmlRecorder(BaseRecorder):
         if not self._is_initialized:
             return
 
-        pid = os.getpid()
-
-        start_gpu_mem_self = 0
-        device_count = nvmlDeviceGetCount()
-        for idx in range(0, device_count):
-            try:
-                handle = nvmlDeviceGetHandleByIndex(idx)
-            except NVMLError as err:
-                _log_nvml_error(err)
-                continue
-
-            seen_pids = set()
-            process_info_fns = [
-                nvmlDeviceGetComputeRunningProcesses, 
-                nvmlDeviceGetMPSComputeRunningProcesses, 
-                nvmlDeviceGetGraphicsRunningProcesses]
-            for process_info_fn in process_info_fns:
-                try:
-                    process_infos = process_info_fn(handle)
-                    for process_info in process_infos:
-                        if process_info.pid not in seen_pids:
-                            seen_pids.add(process_info.pid)
-                            if process_info.pid == pid:
-                                start_gpu_mem_self += process_info.usedGpuMemory
-                except NVMLError as err:
-                    _log_nvml_error(err)
-
-            try:
-                nvlink_throughput_data_tx = nvmlDeviceGetFieldValues(handle, [NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_TX])[0]
-                if nvlink_throughput_data_tx.nvmlReturn == NVML_SUCCESS:
-                    self._start_nvlink_throughput_data_tx[idx] = _nvml_value(
-                        nvlink_throughput_data_tx.valueType, nvlink_throughput_data_tx.value)
-
-                nvlink_throughput_data_rx = nvmlDeviceGetFieldValues(handle, [NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_RX])[0]
-                if nvlink_throughput_data_rx.nvmlReturn == NVML_SUCCESS:
-                    self._start_nvlink_throughput_data_rx[idx] = _nvml_value(
-                        nvlink_throughput_data_rx.valueType, nvlink_throughput_data_rx.value)
-            except NVMLError as err:
-                log_nvml_error(err)
-        
+        start_gpu_mem_self = _read_gpu_mem()
         if start_gpu_mem_self > 0:
             context['start_gpu_mem_self'] = start_gpu_mem_self
 
@@ -92,8 +55,17 @@ class NvmlRecorder(BaseRecorder):
         if not self._is_initialized:
             return
 
+        if 'start_gpu_mem_self' in context:
+            start_gpu_mem_self = context['start_gpu_mem_self']
+            stop_gpu_mem_self = _read_gpu_mem()
+            if start_gpu_mem_self and stop_gpu_mem_self:
+                signal.trace_sample.gpu_mem_change = stop_gpu_mem_self - start_gpu_mem_self
+
+    def on_trace_read(self, signal, context):
+        if not self._is_initialized:
+            return
+
         now_us = int(time.time() * 1e6)
-        stop_gpu_mem_self = 0
 
         device_count = nvmlDeviceGetCount()
 
@@ -117,7 +89,7 @@ class NvmlRecorder(BaseRecorder):
                 continue
 
             device_usage = signal.device_usage.add()
-            device_usage.device_type = signals_pb2.DeviceType.GPU
+            device_usage.device_type = signals_pb2.DeviceUsage.DeviceType.GPU
 
             try:
                 pci_info = nvmlDeviceGetPciInfo(handle)
@@ -188,15 +160,15 @@ class NvmlRecorder(BaseRecorder):
                             device_process_usage.pid = process_info.pid
                             device_process_usage.compute_instance_id = process_info.computeInstanceId
                             device_process_usage.gpu_instance_id = process_info.gpuInstanceId
-                            device_process_usage.mem_used = process_info.usedGpuMemory
-                            stop_gpu_mem_self += process_info.usedGpuMemory
+                            if process_info.usedGpuMemory:
+                                device_process_usage.mem_used = process_info.usedGpuMemory
                 except NVMLError as err:
                     _log_nvml_error(err)
 
             try:
                 last_read_us = max(
-                    int(self._process_start_us),
-                    now_us - NvmlRecorder.MIN_SAMPLE_READ_INTERVAL_US)
+                    int(self._setup_us),
+                    now_us - NVMLRecorder.MIN_SAMPLE_READ_INTERVAL_US)
 
                 sample_value_type, gpu_samples = nvmlDeviceGetSamples(handle, NVML_GPU_UTILIZATION_SAMPLES, last_read_us)
                 device_usage.gpu_utilization_percent = _avg_sample_value(sample_value_type, gpu_samples)
@@ -255,11 +227,6 @@ class NvmlRecorder(BaseRecorder):
             except NVMLError as err:
                 _log_nvml_error(err)
 
-        if 'start_gpu_mem_self' in context:
-            start_gpu_mem_self = context['start_gpu_mem_self']
-            if start_gpu_mem_self and stop_gpu_mem_self:
-                signal.trace_sample.gpu_mem_change = stop_gpu_mem_self - start_gpu_mem_self
-
 
 def _avg_sample_value(sample_value_type, samples):
     if not samples:
@@ -306,3 +273,35 @@ def _format_version(version):
     major = int(version / 1000)
     minor = int(version % 1000 / 10)
     return '{0}.{1}'.format(major, minor)
+
+
+def _read_gpu_mem():
+    pid = os.getpid()
+
+    gpu_mem_self = 0
+    device_count = nvmlDeviceGetCount()
+    for idx in range(0, device_count):
+        try:
+            handle = nvmlDeviceGetHandleByIndex(idx)
+        except NVMLError as err:
+            _log_nvml_error(err)
+            continue
+
+        seen_pids = set()
+        process_info_fns = [
+            nvmlDeviceGetComputeRunningProcesses, 
+            nvmlDeviceGetMPSComputeRunningProcesses, 
+            nvmlDeviceGetGraphicsRunningProcesses]
+        for process_info_fn in process_info_fns:
+            try:
+                process_infos = process_info_fn(handle)
+                for process_info in process_infos:
+                    if process_info.usedGpuMemory:
+                        if process_info.pid not in seen_pids:
+                            seen_pids.add(process_info.pid)
+                            if process_info.pid == pid:
+                                gpu_mem_self += process_info.usedGpuMemory
+            except NVMLError as err:
+                _log_nvml_error(err)
+
+    return gpu_mem_self

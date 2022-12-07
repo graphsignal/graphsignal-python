@@ -35,6 +35,7 @@ class ProcessRecorderTest(unittest.TestCase):
         recorder.on_trace_start(signal, context)
         random.random()
         recorder.on_trace_stop(signal, context)
+        recorder.on_trace_read(signal, context)
 
         ProcessRecorder.MIN_CPU_READ_INTERVAL_US = 0
         time.sleep(0.2)
@@ -47,6 +48,7 @@ class ProcessRecorderTest(unittest.TestCase):
         global mem
         mem = [1]*100000
         recorder.on_trace_stop(signal, context)
+        recorder.on_trace_read(signal, context)
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
@@ -54,7 +56,6 @@ class ProcessRecorderTest(unittest.TestCase):
         self.assertNotEqual(signal.node_usage.hostname, '')
         self.assertNotEqual(signal.node_usage.ip_address, '')
         self.assertNotEqual(signal.process_usage.process_id, '')
-        self.assertTrue(signal.process_usage.start_ms > 0)
         if sys.platform != 'win32':
             self.assertTrue(signal.trace_sample.thread_cpu_time_us > 0)
             self.assertTrue(signal.trace_sample.rss_change > 0)

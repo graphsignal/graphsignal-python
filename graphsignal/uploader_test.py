@@ -68,7 +68,7 @@ class UploaderTest(unittest.TestCase):
         self.assertEqual(len(graphsignal._agent.uploader().buffer), 2)
 
     def test_post(self):
-        graphsignal._agent.uploader().agent_api_url = 'http://localhost:5005'
+        graphsignal._agent.api_url = 'http://localhost:5005'
 
         server = TestServer(5005)
         server.set_response_data(
@@ -91,29 +91,6 @@ class UploaderTest(unittest.TestCase):
 
         server.join()
 
-    def test_post(self):
-        graphsignal._agent.uploader().agent_api_url = 'http://localhost:5005'
-
-        server = TestServer(5005)
-        server.set_response_data(
-            signals_pb2.UploadResponse().SerializeToString())
-        server.start()
-
-        signal = signals_pb2.WorkerSignal()
-        signal.endpoint_name = 'ep1'
-        upload_request = signals_pb2.UploadRequest()
-        upload_request.worker_signals.append(signal)
-        upload_request.upload_ms = 123
-        graphsignal._agent.uploader()._post(
-            'signals', upload_request.SerializeToString())
-
-        received_upload_request = signals_pb2.UploadRequest()
-        received_upload_request.ParseFromString(server.get_request_data())
-        self.assertEqual(
-            received_upload_request.worker_signals[0].endpoint_name, 'ep1')
-        self.assertEqual(received_upload_request.upload_ms, 123)
-
-        server.join()
 
 class TestServer(threading.Thread):
     def __init__(self, port, delay=None, handler_func=None):

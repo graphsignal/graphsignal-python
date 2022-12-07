@@ -17,3 +17,7 @@ class BaseRecorder(ABC):
     @abstractmethod
     def on_trace_stop(self, signal, context):
         pass
+
+    @abstractmethod
+    def on_trace_read(self, signal, context):
+        pass

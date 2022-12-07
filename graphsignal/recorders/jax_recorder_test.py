@@ -44,6 +44,7 @@ class JAXRecorderTest(unittest.TestCase):
         context = {}
         recorder.on_trace_start(signal, context)
         recorder.on_trace_stop(signal, context)
+        recorder.on_trace_read(signal, context)
 
         self.assertEqual(
             signal.frameworks[0].type,

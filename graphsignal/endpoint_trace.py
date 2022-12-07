@@ -14,6 +14,7 @@ SAMPLE_TRACES = {1, 10, 100, 1000}
 
 class EndpointTrace:
     MAX_TAGS = 10
+    MAX_PARAMS = 10
     MAX_DATA_OBJECTS = 10
 
     __slots__ = [
@@ -29,6 +30,7 @@ class EndpointTrace:
         '_is_stopped',
         '_start_counter',
         '_exc_info',
+        '_params',
         '_data',
         '_has_missing_values'
     ]
@@ -61,6 +63,7 @@ class EndpointTrace:
         self._context = False
         self._signal = None
         self._exc_info = None
+        self._params = None
         self._data = None
         self._has_missing_values = False
 
@@ -114,6 +117,14 @@ class EndpointTrace:
             return
         self._is_stopped = True
 
+        if self._is_sampling:
+            # emit stop event
+            try:
+                self._agent.emit_trace_stop(self._signal, self._context)
+            except Exception as exc:
+                logger.error('Error in trace stop event handlers', exc_info=True)
+                self._add_agent_exception(exc)
+
         # if exception, but the trace is not being recorded, try to start tracing
         if not self._is_sampling and self._exc_info and self._exc_info[0]:
             if self._trace_sampler.lock('exceptions'):
@@ -146,11 +157,11 @@ class EndpointTrace:
 
         # fill and upload signal
         if self._is_sampling:
-            # emit stop event
+            # emit read event
             try:
-                self._agent.emit_trace_stop(self._signal, self._context)
+                self._agent.emit_trace_read(self._signal, self._context)
             except Exception as exc:
-                logger.error('Error in trace stop event handlers', exc_info=True)
+                logger.error('Error in trace read event handlers', exc_info=True)
                 self._add_agent_exception(exc)
 
             # copy data to signal
@@ -163,6 +174,7 @@ class EndpointTrace:
                 self._signal.signal_type = signals_pb2.SignalType.MISSING_VALUES_SIGNAL
             else:
                 self._signal.signal_type = signals_pb2.SignalType.SAMPLE_SIGNAL
+            self._signal.process_usage.start_ms = self._agent._process_start_ms
 
             # copy tags
             if self._tags is not None:
@@ -201,6 +213,13 @@ class EndpointTrace:
                     frames = traceback.format_tb(self._exc_info[2])
                     if len(frames) > 0:
                         exception.stack_trace = ''.join(frames)
+
+            # copy params
+            if self._params is not None:
+                for name, value in self._params.items():
+                    param = self._signal.trace_sample.params.add()
+                    param.name = name[:50]
+                    param.value = str(value)[:50]
 
             # copy data stats
             if self._data is not None:
@@ -242,6 +261,20 @@ class EndpointTrace:
             raise ValueError('set_tag: too many tags (>{0})'.format(EndpointTrace.MAX_TAGS))
 
         self._tags[key] = value
+
+    def set_param(self, name: str, value: str) -> None:
+        if not name:
+            raise ValueError('set_param: name must be provided')
+        if value is None:
+            raise ValueError('set_param: value must be provided')
+
+        if self._params is None:
+            self._params = {}
+
+        if len(self._params) > EndpointTrace.MAX_PARAMS:
+            raise ValueError('set_param: too many params (>{0})'.format(EndpointTrace.MAX_PARAMS))
+
+        self._params[name] = value
 
     def set_exception(self, exc: Optional[Exception] = None, exc_info: Optional[bool] = None) -> None:
         if exc is not None and not isinstance(exc, Exception):

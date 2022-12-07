@@ -52,6 +52,9 @@ class PyTorchRecorder(BaseRecorder):
         pass
 
     def on_trace_stop(self, signal, context):
+        pass
+
+    def on_trace_read(self, signal, context):
         if self._framework:
             signal.frameworks.append(self._framework)
 
