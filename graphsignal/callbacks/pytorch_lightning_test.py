@@ -46,7 +46,6 @@ class PyTorchLightningTest(unittest.TestCase):
                 self.batch_size = BATCH_SIZE
                 self.l1 = torch.nn.Linear(28 * 28, 10)
                 self.train_acc = Accuracy()
-                self.test_acc = Accuracy()
 
             def forward(self, x):
                 return torch.relu(self.l1(x.view(x.size(0), -1)))
@@ -59,13 +58,9 @@ class PyTorchLightningTest(unittest.TestCase):
                 self.log('train_acc', self.train_acc, on_step=True, on_epoch=False)
                 return loss
 
-            def test_step(self, batch, batch_nb):
+            def predict_step(self, batch, batch_nb):
                 x, y = batch
-                preds = self(x)
-                loss = F.cross_entropy(preds, y)
-                self.test_acc(preds, y)
-                self.log('test_acc', self.test_acc, on_step=True, on_epoch=False)
-                return loss
+                return self(x)
 
             def train_dataloader(self):
                 train_ds = MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
@@ -73,11 +68,11 @@ class PyTorchLightningTest(unittest.TestCase):
                 train_loader = DataLoader(train_ds, batch_size=self.batch_size)
                 return train_loader
 
-            def test_dataloader(self):
-                test_ds = MNIST(PATH_DATASETS, train=False, download=True, transform=transforms.ToTensor())
-                test_ds = torch.utils.data.Subset(test_ds, torch.arange(1000))
-                test_loader = DataLoader(test_ds, batch_size=self.batch_size)
-                return test_loader
+            def predict_dataloader(self):
+                predict_ds = MNIST(PATH_DATASETS, train=False, download=True, transform=transforms.ToTensor())
+                predict_ds = torch.utils.data.Subset(predict_ds, torch.arange(1000))
+                predict_loader = DataLoader(predict_ds, batch_size=self.batch_size)
+                return predict_loader
 
             def configure_optimizers(self):
                 return torch.optim.Adam(self.parameters(), lr=0.02)
@@ -95,14 +90,14 @@ class PyTorchLightningTest(unittest.TestCase):
 
         trainer.fit(mnist_model)
 
-        trainer.test(mnist_model)
+        trainer.predict(mnist_model)
 
         signal = mocked_upload_signal.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
 
-        self.assertEqual(signal.endpoint_name, 'test_batch')
+        self.assertEqual(signal.endpoint_name, 'predict_batch')
 
         self.assertEqual(
             signal.frameworks[0].type,

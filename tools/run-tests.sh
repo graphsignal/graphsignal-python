@@ -19,5 +19,4 @@ python -m unittest graphsignal/data/torch_tensor_test.py
 python -m unittest graphsignal/data/missing_value_detector_test.py
 python -m unittest graphsignal/callbacks/keras_test.py
 python -m unittest graphsignal/callbacks/pytorch_lightning_test.py
-python -m unittest graphsignal/callbacks/huggingface_test.py
 deactivate

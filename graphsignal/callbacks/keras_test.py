@@ -71,7 +71,7 @@ class KerasCallbackTest(unittest.TestCase):
             epochs=1,
             validation_data=ds_test)
 
-        model.evaluate(ds_test,
+        model.predict(ds_test,
             batch_size=128,
             callbacks=[GraphsignalCallback()])
 
@@ -80,7 +80,7 @@ class KerasCallbackTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
 
-        self.assertEqual(signal.endpoint_name, 'test_batch')
+        self.assertEqual(signal.endpoint_name, 'predict_batch')
 
         self.assertEqual(
             signal.frameworks[0].type,

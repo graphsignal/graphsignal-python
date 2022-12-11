@@ -20,30 +20,6 @@ class GraphsignalCallback(Callback):
         self._trace = None
         self._tags = tags
 
-    def on_train_begin(self, logs=None):
-        self._configure()
-
-    def on_train_end(self, logs=None):
-        graphsignal.upload()
-
-    def on_train_batch_begin(self, batch, logs=None):
-        self._start_trace('train_batch', batch)
-
-    def on_train_batch_end(self, batch, logs=None):
-        self._stop_trace()
-
-    def on_test_begin(self, logs=None):
-        self._configure()
-
-    def on_test_end(self, logs=None):
-        graphsignal.upload()
-
-    def on_test_batch_begin(self, batch, logs=None):
-        self._start_trace('test_batch', batch)
-
-    def on_test_batch_end(self, batch, logs=None):
-        self._stop_trace()
-
     def on_predict_begin(self, logs=None):
         self._configure()
 

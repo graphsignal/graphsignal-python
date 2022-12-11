@@ -131,7 +131,8 @@ class EndpointTrace:
                 self._init_sampling()
 
         # update time and counters
-        self._metric_store.add_time(duration_us)
+        if not self._is_sampling:
+            self._metric_store.add_time(duration_us)
         self._metric_store.inc_call_count(1, end_us)
 
         # update data counters and check for missing values

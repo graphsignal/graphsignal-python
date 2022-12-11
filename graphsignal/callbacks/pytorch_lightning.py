@@ -23,42 +23,6 @@ class GraphsignalCallback(Callback):
         self._tags = tags
         self._model_size_mb = None
 
-    def on_train_start(self, trainer, pl_module):
-        self._configure(trainer, pl_module)
-
-    def on_train_end(self, trainer, pl_module):
-        graphsignal.upload()
-
-    def on_train_batch_start(self, trainer, pl_module, batch, batch_idx):
-        self._start_trace('train_batch', batch_idx)
-
-    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
-        self._stop_trace()
-
-    def on_validation_start(self, trainer, pl_module):
-        self._configure(trainer, pl_module)
-
-    def on_validation_end(self, trainer, pl_module):
-        graphsignal.upload()
-
-    def on_validation_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx):
-        self._start_trace('validate_batch', batch_idx)
-
-    def on_validation_batch_end(self, trainer, pl_module, batch, batch_idx, dataloader_idx):
-        self._stop_trace()
-
-    def on_test_start(self, trainer, pl_module):
-        self._configure(trainer, pl_module)
-
-    def on_test_end(self, trainer, pl_module):
-        graphsignal.upload()
-
-    def on_test_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx):
-        self._start_trace('test_batch', batch_idx)
-
-    def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
-        self._stop_trace()
-
     def on_predict_start(self, trainer, pl_module):
         self._configure(trainer, pl_module)
 

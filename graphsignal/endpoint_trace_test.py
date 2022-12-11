@@ -51,7 +51,7 @@ class EndpointTraceTest(unittest.TestCase):
         self.assertEqual(signal.signal_type, signals_pb2.SignalType.SAMPLE_SIGNAL)
         self.assertTrue(signal.process_usage.start_ms > 0)
         self.assertEqual(len(signal.trace_metrics.call_count.counter.buckets), 1)
-        self.assertEqual(len(signal.trace_metrics.latency_us.reservoir.values), 9)
+        self.assertEqual(len(signal.trace_metrics.latency_us.reservoir.values), 8)
         self.assertEqual(signal.data_metrics[0].data_name, 'input')
         self.assertEqual(signal.data_metrics[0].metric_name, 'element_count')
         self.assertEqual(len(signal.data_metrics[0].metric.counter.buckets), 1)

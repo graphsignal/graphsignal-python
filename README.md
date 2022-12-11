@@ -7,8 +7,8 @@
 
 Graphsignal is an AI observability platform. It helps ML engineers and MLOps teams make AI applications run faster and reliably by monitoring and analyzing performance, resources, data and errors. Graphsignal's capabilities enable full visibility into AI applications for any model, data and deployment.
 
-* Measure and monitor latency, throughput and resource utilization.
-* Track GPU utilization in the context of inference and training.
+* Monitor and analyze inference latency, throughput and resource utilization.
+* Track GPU utilization in the context of inference.
 * Get notified about errors and exceptions with full machine learning context.
 * Monitor data to detect data issues and silent failures.
 
@@ -57,7 +57,7 @@ Graphsignal agent is **optimized for production**. All executions will be measur
 
 ### Monitoring and tracing
 
-To measure executions, e.g. single or batch inference or a training step, wrap the code with [`start_trace`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method or use [`trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
+To measure executions, e.g. single or batch inference, wrap the code with [`start_trace`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method or use [`trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
 
 ```python
 with graphsignal.start_trace(endpoint='predict'):
