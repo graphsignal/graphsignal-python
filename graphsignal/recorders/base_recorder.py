@@ -11,13 +11,13 @@ class BaseRecorder(ABC):
         pass
 
     @abstractmethod
-    def on_trace_start(self, signal, context):
+    def on_trace_start(self, signal, context, options):
         pass
 
     @abstractmethod
-    def on_trace_stop(self, signal, context):
+    def on_trace_stop(self, signal, context, options):
         pass
 
     @abstractmethod
-    def on_trace_read(self, signal, context):
+    def on_trace_read(self, signal, context, options):
         pass

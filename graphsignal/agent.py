@@ -18,14 +18,16 @@ logger = logging.getLogger('graphsignal')
 
 
 class Agent:
-    def __init__(self, api_key=None, api_url=None, deployment=None, debug_mode=False):
+    def __init__(self, api_key=None, api_url=None, deployment=None, tags=None, debug_mode=False):
         self.worker_id = _uuid_sha1(size=12)
         self.api_key = api_key
         if api_url:
             self.api_url = api_url
         else:
-            self.api_url = 'https://agent-api.graphsignal.com'            
+            self.api_url = 'https://agent-api.graphsignal.com'
         self.deployment = deployment
+        self.tags = tags
+        self.params = None
         self.debug_mode = debug_mode
 
         self._uploader = None
@@ -55,48 +57,56 @@ class Agent:
     def recorders(self):
         if self._recorders is not None:
             return self._recorders
-        self._recorders = []
+        
+        supported_recorders = []
 
         from graphsignal.recorders.cprofile_recorder import CProfileRecorder
         recorder = CProfileRecorder()
-        recorder.setup()
-        self._recorders.append(recorder)
+        supported_recorders.append(recorder)
 
         from graphsignal.recorders.process_recorder import ProcessRecorder
         recorder = ProcessRecorder()
-        recorder.setup()
-        self._recorders.append(recorder)
+        supported_recorders.append(recorder)
 
         from graphsignal.recorders.nvml_recorder import NVMLRecorder
         recorder = NVMLRecorder()
-        recorder.setup()
-        self._recorders.append(recorder)
+        supported_recorders.append(recorder)
 
         if _check_module('torch'):
             from graphsignal.recorders.pytorch_recorder import PyTorchRecorder
             recorder = PyTorchRecorder()
-            recorder.setup()
-            self._recorders.append(recorder)
-        elif _check_module('tensorflow'):
+            supported_recorders.append(recorder)
+        if _check_module('tensorflow'):
             from graphsignal.recorders.tensorflow_recorder import TensorFlowRecorder
             recorder = TensorFlowRecorder()
-            recorder.setup()
-            self._recorders.append(recorder)
-        elif _check_module('jax'):
+            supported_recorders.append(recorder)
+        if _check_module('jax'):
             from graphsignal.recorders.jax_recorder import JAXRecorder
             recorder = JAXRecorder()
-            recorder.setup()
-            self._recorders.append(recorder)
-        elif _check_module('onnxruntime'):
+            supported_recorders.append(recorder)
+        if _check_module('onnxruntime'):
             from graphsignal.recorders.onnxruntime_recorder import ONNXRuntimeRecorder
             recorder = ONNXRuntimeRecorder()
-            recorder.setup()
-            self._recorders.append(recorder)
-        elif _check_module('xgboost'):
+            supported_recorders.append(recorder)
+        if _check_module('xgboost'):
             from graphsignal.recorders.xgboost_recorder import XGBoostRecorder
             recorder = XGBoostRecorder()
-            recorder.setup()
-            self._recorders.append(recorder)
+            supported_recorders.append(recorder)
+        if _check_module('deepspeed'):
+            from graphsignal.recorders.deepspeed_recorder import DeepSpeedRecorder
+            recorder = DeepSpeedRecorder()
+            supported_recorders.append(recorder)
+
+        self._recorders = []
+        last_exc = None
+        for recorder in supported_recorders:
+            try:
+                recorder.setup()
+                self._recorders.append(recorder)
+            except Exception as exc:
+                last_exc = exc
+        if last_exc:
+            raise last_exc
 
         return self._recorders
 
@@ -121,17 +131,35 @@ class Agent:
             self._mv_detector = MissingValueDetector()
         return self._mv_detector
 
-    def emit_trace_start(self, signal, context):
+    def emit_trace_start(self, signal, context, options):
+        last_exc = None
         for recorder in reversed(self.recorders()):
-            recorder.on_trace_start(signal, context)
+            try:
+                recorder.on_trace_start(signal, context, options)
+            except Exception as exc:
+                last_exc = exc
+        if last_exc:
+            raise last_exc
 
-    def emit_trace_stop(self, signal, context):
+    def emit_trace_stop(self, signal, context, options):
+        last_exc = None
         for recorder in self.recorders():
-            recorder.on_trace_stop(signal, context)
+            try:
+                recorder.on_trace_stop(signal, context, options)
+            except Exception as exc:
+                last_exc = exc
+        if last_exc:
+            raise last_exc
 
-    def emit_trace_read(self, signal, context):
+    def emit_trace_read(self, signal, context, options):
+        last_exc = None
         for recorder in self.recorders():
-            recorder.on_trace_read(signal, context)
+            try:
+                recorder.on_trace_read(signal, context, options)
+            except Exception as exc:
+                last_exc = exc
+        if last_exc:
+            raise last_exc
 
     def create_signal(self):
         signal = signals_pb2.WorkerSignal()
@@ -141,7 +169,6 @@ class Agent:
             signal.deployment_name = self.deployment
         signal.agent_info.agent_type = signals_pb2.AgentInfo.AgentType.PYTHON_AGENT
         parse_semver(signal.agent_info.version, version.__version__)
-
         return signal
 
     def upload(self, block=False):

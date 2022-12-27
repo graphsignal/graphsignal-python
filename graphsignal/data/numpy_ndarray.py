@@ -19,6 +19,7 @@ class NumpyNDArrayProfiler(DataProfiler):
         np = self.check_module('numpy')
         counts = {}
         counts['element_count'] = data.size
+        counts['byte_count'] = data.nbytes
         counts['null_count'] = np.count_nonzero(data == None)
         if np.issubdtype(data.dtype, np.number):
             counts['nan_count'] = np.count_nonzero(np.isnan(data))

@@ -9,11 +9,11 @@ import graphsignal
 
 logger = logging.getLogger('graphsignal')
 
-
 class AgentTest(unittest.TestCase):
     def setUp(self):
         graphsignal.configure(
             api_key='k1',
+            deployment='d1',
             debug_mode=True)
 
     def tearDown(self):

@@ -19,7 +19,8 @@ class TorchTensorProfiler(DataProfiler):
     def compute_counts(self, data):
         torch = self.check_module('torch')
         counts = {}
-        counts['element_count'] = functools.reduce(lambda x, y: x*y, list(data.size()))
+        counts['element_count'] = data.nelement()
+        counts['byte_count'] = counts['element_count'] * data.element_size()
         counts['nan_count'] = int(torch.count_nonzero(torch.isnan(data)))
         counts['inf_count'] = int(torch.count_nonzero(torch.isinf(data)))
         counts['zero_count'] = int(torch.count_nonzero(torch.eq(data, 0)))

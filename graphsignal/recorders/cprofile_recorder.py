@@ -20,17 +20,26 @@ class CProfileRecorder(BaseRecorder):
     def setup(self):
         pass
 
-    def on_trace_start(self, signal, context):
+    def on_trace_start(self, signal, context, options):
+        if not options.enable_profiling:
+            return
+
         self._profiler = cProfile.Profile()
         self._profiler.enable()
 
-    def on_trace_stop(self, signal, context):
+    def on_trace_stop(self, signal, context, options):
+        if not options.enable_profiling:
+            return
+
         if not self._profiler:
             return
 
         self._profiler.disable()
         
-    def on_trace_read(self, signal, context):
+    def on_trace_read(self, signal, context, options):
+        if not options.enable_profiling:
+            return
+
         if not self._profiler:
             return
 
@@ -38,6 +47,7 @@ class CProfileRecorder(BaseRecorder):
         self._profiler = None
 
     def _convert_to_profile(self, signal):
+        signal.call_profile.profile_type = signals_pb2.Profile.ProfileType.PROFILE_TYPE_PYTHON
         stats = pstats.Stats(self._profiler)
 
         stats.sort_stats('time')
@@ -56,13 +66,15 @@ class CProfileRecorder(BaseRecorder):
             total_tt += tt
 
         for file_name, line_num, func_name, nc, tt, ct in func_list[:25]:
-            op_stats = signal.operations.add()
-            op_stats.op_name = _format_frame(file_name, line_num, func_name)
-            op_stats.count = int(nc)
-            op_stats.total_self_wall_time_ns = _to_ns(tt)
-            op_stats.total_cum_wall_time_ns = _to_ns(ct)
+            call_stats = signal.call_profile.stats.add()
+            call_stats.file_name = file_name
+            call_stats.line_num = line_num
+            call_stats.func_name = func_name
+            call_stats.count = int(nc)
+            call_stats.total_self_wall_time_ns = _to_ns(tt)
+            call_stats.total_cum_wall_time_ns = _to_ns(ct)
             if total_tt > 0:
-                op_stats.total_self_wall_time_percent = tt / total_tt * 100
+                call_stats.total_self_wall_time_percent = tt / total_tt * 100
 
     def _has_exclude_func(self, stats, func_key, visited):
         if func_key in visited:
@@ -86,22 +98,3 @@ class CProfileRecorder(BaseRecorder):
 
 def _to_ns(sec):
     return int(sec * 1e9)
-
-
-def _format_frame(file_name, line_num, func_name):
-    if file_name == '~':
-        file_name = ''
-
-    if file_name and line_num and func_name:
-        return '{func_name} ({file_name}:{line_num})'.format(
-            file_name=file_name,
-            func_name=func_name,
-            line_num=line_num)
-    elif file_name and func_name:
-        return '{func_name} ({file_name})'.format(
-            file_name=file_name,
-            func_name=func_name)
-    elif func_name:
-        return func_name
-    else:
-        return 'unknown'

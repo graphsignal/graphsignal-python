@@ -12,6 +12,7 @@ import xgboost as xgb
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
+from graphsignal.endpoint_trace import DEFAULT_OPTIONS
 from graphsignal.recorders.xgboost_recorder import XGBoostRecorder
 
 logger = logging.getLogger('graphsignal')
@@ -23,6 +24,7 @@ class XGBoostRecorderTest(unittest.TestCase):
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
+            deployment='d1',
             debug_mode=True)
 
     def tearDown(self):
@@ -33,9 +35,9 @@ class XGBoostRecorderTest(unittest.TestCase):
         recorder.setup()
         signal = signals_pb2.WorkerSignal()
         context = {}
-        recorder.on_trace_start(signal, context)
-        recorder.on_trace_stop(signal, context)
-        recorder.on_trace_read(signal, context)
+        recorder.on_trace_start(signal, context, DEFAULT_OPTIONS)
+        recorder.on_trace_stop(signal, context, DEFAULT_OPTIONS)
+        recorder.on_trace_read(signal, context, DEFAULT_OPTIONS)
 
         self.assertEqual(
             signal.frameworks[0].type,

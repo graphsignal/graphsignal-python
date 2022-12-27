@@ -8,8 +8,9 @@ import pprint
 import time
 
 import graphsignal
-from graphsignal.recorders.nvml_recorder import NVMLRecorder
 from graphsignal.proto import signals_pb2
+from graphsignal.endpoint_trace import DEFAULT_OPTIONS
+from graphsignal.recorders.nvml_recorder import NVMLRecorder
 
 logger = logging.getLogger('graphsignal')
 
@@ -20,6 +21,7 @@ class NVMLRecorderTest(unittest.TestCase):
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
+            deployment='d1',
             debug_mode=True)
 
     def tearDown(self):
@@ -31,9 +33,9 @@ class NVMLRecorderTest(unittest.TestCase):
 
         signal = signals_pb2.WorkerSignal()
         context = {}
-        recorder.on_trace_start(signal, context)
-        recorder.on_trace_stop(signal, context)
-        recorder.on_trace_read(signal, context)
+        recorder.on_trace_start(signal, context, DEFAULT_OPTIONS)
+        recorder.on_trace_stop(signal, context, DEFAULT_OPTIONS)
+        recorder.on_trace_read(signal, context, DEFAULT_OPTIONS)
 
         model = torch.nn.Linear(1, 1)
         if torch.cuda.is_available():
@@ -41,7 +43,7 @@ class NVMLRecorderTest(unittest.TestCase):
 
         signal = signals_pb2.WorkerSignal()
         context = {}
-        recorder.on_trace_start(signal, context)
+        recorder.on_trace_start(signal, context, DEFAULT_OPTIONS)
 
         x = torch.arange(-50, 50, 0.00001).view(-1, 1)
         if torch.cuda.is_available():
@@ -49,8 +51,8 @@ class NVMLRecorderTest(unittest.TestCase):
         pred = model(x)
 
         signal = signals_pb2.WorkerSignal()
-        recorder.on_trace_stop(signal, context)
-        recorder.on_trace_read(signal, context)
+        recorder.on_trace_stop(signal, context, DEFAULT_OPTIONS)
+        recorder.on_trace_read(signal, context, DEFAULT_OPTIONS)
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
@@ -63,6 +65,7 @@ class NVMLRecorderTest(unittest.TestCase):
 
             device_usage = signal.device_usage[0]
             self.assertEqual(device_usage.device_type, signals_pb2.DeviceUsage.DeviceType.GPU)
+            self.assertNotEqual(device_usage.device_id, 0)
             self.assertNotEqual(device_usage.device_id, '')
             self.assertNotEqual(device_usage.device_name, '')
             self.assertNotEqual(device_usage.architecture, '')
@@ -77,4 +80,3 @@ class NVMLRecorderTest(unittest.TestCase):
             #self.assertTrue(device_usage.fan_speed_percent > 0)
             self.assertTrue(device_usage.gpu_temp_c > 0)
             self.assertTrue(device_usage.power_usage_w > 0)
-            self.assertTrue(signal.trace_sample.gpu_mem_change > 0)

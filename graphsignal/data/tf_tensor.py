@@ -20,6 +20,7 @@ class TFTensorProfiler(DataProfiler):
         tf = self.check_module('tensorflow')
         counts = {}
         counts['element_count'] = functools.reduce(lambda x, y: x*y, list(data.get_shape()))
+        counts['byte_count'] = counts['element_count'] * data.dtype.size
         counts['nan_count'] = int(tf.math.count_nonzero(tf.math.is_nan(data)))
         counts['inf_count'] = int(tf.math.count_nonzero(tf.math.is_inf(data)))
         counts['zero_count'] = int(tf.math.count_nonzero(tf.math.equal(data, 0)))

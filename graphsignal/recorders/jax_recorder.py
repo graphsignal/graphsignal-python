@@ -17,15 +17,15 @@ class JAXRecorder(BaseRecorder):
         self._framework.type = signals_pb2.FrameworkInfo.FrameworkType.JAX_FRAMEWORK
         parse_semver(self._framework.version, jax.__version__)
 
-    def on_trace_start(self, signal, context):
+    def on_trace_start(self, signal, context, options):
         pass
 
-    def on_trace_stop(self, signal, context):
+    def on_trace_stop(self, signal, context, options):
         pass
 
-    def on_trace_read(self, signal, context):
+    def on_trace_read(self, signal, context, options):
         pass
 
-    def on_trace_read(self, signal, context):
+    def on_trace_read(self, signal, context, options):
         if self._framework:
             signal.frameworks.append(self._framework)

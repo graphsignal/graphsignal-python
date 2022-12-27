@@ -19,6 +19,7 @@ class TorchTensorProfilerTest(unittest.TestCase):
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
+            deployment='d1',
             debug_mode=True)
 
     def tearDown(self):
@@ -33,6 +34,7 @@ class TorchTensorProfilerTest(unittest.TestCase):
         self.assertEqual(
             profiler.compute_counts(torch.tensor(np.asarray([[-1, 2.0, 0, np.inf], [1, 0, 0, np.nan]]))), 
             {'element_count': 8,
+             'byte_count': 64,
              'nan_count': 1,
              'inf_count': 1,
              'zero_count': 3,

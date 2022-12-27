@@ -12,7 +12,8 @@ import re
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
-from graphsignal.recorders.cprofile_recorder import CProfileRecorder, _format_frame
+from graphsignal.endpoint_trace import DEFAULT_OPTIONS
+from graphsignal.recorders.cprofile_recorder import CProfileRecorder
 
 logger = logging.getLogger('graphsignal')
 
@@ -23,6 +24,7 @@ class CProfileRecorderTest(unittest.TestCase):
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
+            deployment='d1',
             debug_mode=True)
 
     def tearDown(self):
@@ -38,23 +40,17 @@ class CProfileRecorderTest(unittest.TestCase):
         def slow_method():
             time.sleep(0.1)
 
-        recorder.on_trace_start(signal, context)
+        recorder.on_trace_start(signal, context, graphsignal.TraceOptions(enable_profiling=True))
         slow_method()
         slow_method()
-        recorder.on_trace_stop(signal, context)
-        recorder.on_trace_read(signal, context)
+        recorder.on_trace_stop(signal, context, graphsignal.TraceOptions(enable_profiling=True))
+        recorder.on_trace_read(signal, context, graphsignal.TraceOptions(enable_profiling=True))
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
 
-        slow_op = next(op for op in signal.operations if 'slow_method' in op.op_name)
-        self.assertTrue(slow_op.total_self_wall_time_ns > 0)
-        self.assertTrue(slow_op.total_cum_wall_time_ns > 0)
-        self.assertTrue(slow_op.total_self_wall_time_percent > 0)
-
-
-    def test_format_frame(self):
-        self.assertEqual(_format_frame('p', 1, 'f'), 'f (p:1)')
-        self.assertEqual(_format_frame('p', None, 'f'), 'f (p)')
-        self.assertEqual(_format_frame(None, None, 'f'), 'f')
-        self.assertEqual(_format_frame(None, None, None), 'unknown')
+        self.assertEqual(signal.call_profile.profile_type, signals_pb2.Profile.PROFILE_TYPE_PYTHON)
+        slow_call = next(call for call in signal.call_profile.stats if 'slow_method' in call.func_name)
+        self.assertTrue(slow_call.total_self_wall_time_ns > 0)
+        self.assertTrue(slow_call.total_cum_wall_time_ns > 0)
+        self.assertTrue(slow_call.total_self_wall_time_percent > 0)

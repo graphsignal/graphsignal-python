@@ -17,6 +17,7 @@ class GraphsignalAsyncTest(unittest.IsolatedAsyncioTestCase):
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
+            deployment='d1',
             debug_mode=True)
 
     async def asyncTearDown(self):

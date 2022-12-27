@@ -18,11 +18,7 @@ else
     pip install tensorflow
 fi
 pip install tensorflow_datasets
-if [ -x "$(command -v nvcc -V)" ]; then
-    pip install torch==1.13.0+cu117 -f https://download.pytorch.org/whl/torch_stable.html
-else
-    pip install torch
-fi
+pip install torch
 pip install torchvision
 pip install torchmetrics
 pip install pytorch_lightning
@@ -34,4 +30,5 @@ fi
 pip install onnxruntime
 pip install sklearn
 pip install xgboost
+pip install deepspeed
 deactivate

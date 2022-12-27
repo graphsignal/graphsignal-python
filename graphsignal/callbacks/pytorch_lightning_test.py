@@ -19,6 +19,7 @@ class PyTorchLightningTest(unittest.TestCase):
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
+            deployment='d1',
             debug_mode=True)
 
     def tearDown(self):
@@ -45,7 +46,6 @@ class PyTorchLightningTest(unittest.TestCase):
                 super().__init__()
                 self.batch_size = BATCH_SIZE
                 self.l1 = torch.nn.Linear(28 * 28, 10)
-                self.train_acc = Accuracy()
 
             def forward(self, x):
                 return torch.relu(self.l1(x.view(x.size(0), -1)))
@@ -54,8 +54,6 @@ class PyTorchLightningTest(unittest.TestCase):
                 x, y = batch
                 preds = self(x)
                 loss = F.cross_entropy(preds, y)
-                self.train_acc(preds, y)
-                self.log('train_acc', self.train_acc, on_step=True, on_epoch=False)
                 return loss
 
             def predict_step(self, batch, batch_nb):

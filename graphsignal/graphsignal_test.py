@@ -16,6 +16,7 @@ class GraphsignalTest(unittest.TestCase):
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
+            deployment='d1',
             debug_mode=True)
 
     def tearDown(self):
@@ -45,6 +46,14 @@ class GraphsignalTest(unittest.TestCase):
         os.environ['GRAPHSIGNAL_ARG7'] = 'str'
         with self.assertRaises(ValueError):
             arg7 = graphsignal._check_and_set_arg('arg7', None, is_int=True, required=True)
+
+        os.environ['GRAPHSIGNAL_ARG8'] = 'a=1, b = c '
+        arg8 = graphsignal._check_and_set_arg('arg8', None, is_kv=True, required=True)
+        self.assertEqual(arg8, {'a': '1', 'b': 'c'})
+
+        os.environ['GRAPHSIGNAL_ARG9'] = 'a'
+        with self.assertRaises(ValueError):
+            arg9 = graphsignal._check_and_set_arg('arg9', None, is_kv=True, required=False)
 
     def test_configure(self):
         self.assertIsNotNone(graphsignal._agent.worker_id)

@@ -15,6 +15,8 @@ class PyTorchRecorder(BaseRecorder):
     def __init__(self):
         self._framework = None
         self._comm_info = None
+        self._rank = None
+        self._is_cuda_available = False
 
     def setup(self):
         self._framework = signals_pb2.FrameworkInfo()
@@ -47,16 +49,41 @@ class PyTorchRecorder(BaseRecorder):
                 add_framework_param(self._framework, 'torch.distributed.get_backend', torch.distributed.get_backend())
                 add_framework_param(self._framework, 'torch.distributed.get_world_size', torch.distributed.get_world_size())
                 add_framework_param(self._framework, 'torch.distributed.get_rank', torch.distributed.get_rank())
+                self._rank = torch.distributed.get_rank()
 
-    def on_trace_start(self, signal, context):
-        pass
+        if torch.cuda.is_available():
+            self._is_cuda_available = True
 
-    def on_trace_stop(self, signal, context):
-        pass
+    def on_trace_start(self, signal, context, options):
+        if self._is_cuda_available:
+            context['pytorch_mem_stats'] = {}
+            for device in range(torch.cuda.device_count()):
+                context['pytorch_mem_stats'][device] = _read_mem_stats(device)
 
-    def on_trace_read(self, signal, context):
+    def on_trace_stop(self, signal, context, options):
+        if self._is_cuda_available:
+            for device in range(torch.cuda.device_count()):
+                if 'pytorch_mem_stats' in context and device in context['pytorch_mem_stats']: 
+                    start_mem_stats = context['pytorch_mem_stats'][device]
+                    stop_mem_stats = _read_mem_stats(device)
+
+                    mem_diff = _compute_diff(start_mem_stats, stop_mem_stats)
+                    mem_alloc = signal.alloc_summary.add()
+                    mem_alloc.allocator_type = signals_pb2.MemoryAllocation.AllocatorType.PYTORCH_CUDA_ALLOCATOR
+                    mem_alloc.device_idx = device
+                    mem_alloc.allocated_size = mem_diff.get('allocated_size', 0)
+                    mem_alloc.reserved_size = mem_diff.get('reserved_size', 0)
+                    mem_alloc.freed_size = mem_diff.get('freed_size', 0)
+                    mem_alloc.num_allocations = mem_diff.get('num_allocations', 0)
+                    mem_alloc.num_alloc_retries = mem_diff.get('num_alloc_retries', 0)
+                    mem_alloc.num_ooms = mem_diff.get('num_ooms', 0)
+
+    def on_trace_read(self, signal, context, options):
         if self._framework:
             signal.frameworks.append(self._framework)
+        if self._rank is not None:
+            signal.process_usage.rank = self._rank
+            signal.process_usage.has_rank = True
 
 
 def _format_version(version):
@@ -64,3 +91,25 @@ def _format_version(version):
     minor = int(version % 1000 / 100)
     patch = int(version % 10)
     return '{0}.{1}.{2}'.format(major, minor, patch)
+
+
+def _read_mem_stats(device):
+    mem_stats = torch.cuda.memory_stats(device)
+
+    return dict(
+        allocated_size=mem_stats.get("allocated_bytes.all.allocated", 0),
+        reserved_size=mem_stats.get("allocated_bytes.all.reserved", 0),
+        freed_size=mem_stats.get("allocated_bytes.all.freed", 0),
+        num_allocations=mem_stats.get("allocation.all.allocated", 0),
+        num_alloc_retries=mem_stats.get("num_alloc_retries", 0),
+        num_ooms=mem_stats.get("num_ooms", 0)
+    )
+
+def _compute_diff(start_mem_stats, stop_mem_stats):
+    diff = {}
+    for key, stop_value in stop_mem_stats.items():
+        start_value = start_mem_stats.get(key, 0)
+        change = stop_value - start_value
+        if change > 0:
+            diff[key] = change
+    return diff

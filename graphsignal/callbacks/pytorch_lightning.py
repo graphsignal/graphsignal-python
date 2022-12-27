@@ -19,6 +19,9 @@ class GraphsignalCallback(Callback):
         self._is_initialized = False
         self._framework = None
         self._model_info = None
+        self._rank = None
+        self._local_rank = None
+        self._node_rank = None
         self._trace = None
         self._tags = tags
         self._model_size_mb = None
@@ -48,10 +51,13 @@ class GraphsignalCallback(Callback):
                     add_framework_param(self._framework, 'world_size', trainer.world_size)
                 if self._check_param(trainer, 'node_rank') and trainer.node_rank >= 0:
                     add_framework_param(self._framework, 'node_rank', trainer.node_rank)
+                    self._node_rank = trainer.node_rank
                 if self._check_param(trainer, 'local_rank') and trainer.local_rank >= 0:
                     add_framework_param(self._framework, 'local_rank', trainer.local_rank)
+                    self._local_rank = trainer.local_rank
                 if self._check_param(trainer, 'global_rank') and trainer.global_rank >= 0:
                     add_framework_param(self._framework, 'global_rank', trainer.global_rank)
+                    self._rank = trainer.global_rank
 
                 self._model_info = signals_pb2.ModelInfo()
                 self._model_info.model_format = signals_pb2.ModelInfo.ModelFormat.PYTORCH_FORMAT
@@ -81,9 +87,17 @@ class GraphsignalCallback(Callback):
 
             if self._framework:
                 signal.frameworks.append(self._framework)
-
             if self._model_info:
                 signal.model_info.CopyFrom(self._model_info)
+            if self._rank is not None:
+                signal.process_usage.rank = self._rank
+                signal.process_usage.has_rank = True
+            if self._local_rank is not None:
+                signal.process_usage.local_rank = self._local_rank
+                signal.process_usage.has_local_rank = True
+            if self._node_rank is not None:
+                signal.node_usage.node_rank = self._node_rank
+                signal.node_usage.has_node_rank = True
 
         except Exception as exc:
             logger.debug('Error in Hugging Face callback', exc_info=True)

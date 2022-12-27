@@ -34,19 +34,18 @@ class TensorFlowRecorder(BaseRecorder):
                     add_framework_param(self._framework, 'cluster_size', cluster_size)
 
                 add_framework_param(self._framework, 'task_index', tf_config['task']['index'])
-
             except:
                 logger.warning('Error parsing TF_CONFIG', exc_info=True)
 
         add_framework_param(self._framework, 'tf.test.is_built_with_gpu_support', tf.test.is_built_with_gpu_support())
         add_framework_param(self._framework, 'tf.test.is_built_with_cuda', tf.test.is_built_with_cuda())
 
-    def on_trace_start(self, signal, context):
+    def on_trace_start(self, signal, context, options):
         pass
 
-    def on_trace_stop(self, signal, context):
+    def on_trace_stop(self, signal, context, options):
         pass
 
-    def on_trace_read(self, signal, context):
+    def on_trace_read(self, signal, context, options):
         if self._framework:
             signal.frameworks.append(self._framework)

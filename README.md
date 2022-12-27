@@ -45,7 +45,7 @@ graphsignal.configure(api_key='my-api-key', deployment='my-model-prod-v1')
 
 To get an API key, sign up for a free account at [graphsignal.com](https://graphsignal.com). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.com/settings/api-keys) page.
 
-To track deployments, versions and environments separately, specify a `deployment` parameter.
+To track deployments, versions and environments separately, specify a `deployment` parameter or environment variable.
 
 
 ## Integrate

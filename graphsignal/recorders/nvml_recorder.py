@@ -21,9 +21,6 @@ class NVMLRecorder(BaseRecorder):
         self._last_nvlink_throughput_data_rx = {}
 
     def setup(self):
-        if self._is_initialized:
-            return
-
         try:
             nvmlInit()
             self._is_initialized = True
@@ -43,25 +40,13 @@ class NVMLRecorder(BaseRecorder):
         except BaseException:
             logger.error('Error shutting down NVML', exc_info=True)
 
-    def on_trace_start(self, signal, context):
-        if not self._is_initialized:
-            return
+    def on_trace_start(self, signal, context, options):
+        pass
 
-        start_gpu_mem_self = _read_gpu_mem()
-        if start_gpu_mem_self > 0:
-            context['start_gpu_mem_self'] = start_gpu_mem_self
+    def on_trace_stop(self, signal, context, options):
+        pass
 
-    def on_trace_stop(self, signal, context):
-        if not self._is_initialized:
-            return
-
-        if 'start_gpu_mem_self' in context:
-            start_gpu_mem_self = context['start_gpu_mem_self']
-            stop_gpu_mem_self = _read_gpu_mem()
-            if start_gpu_mem_self and stop_gpu_mem_self:
-                signal.trace_sample.gpu_mem_change = stop_gpu_mem_self - start_gpu_mem_self
-
-    def on_trace_read(self, signal, context):
+    def on_trace_read(self, signal, context, options):
         if not self._is_initialized:
             return
 
@@ -90,6 +75,7 @@ class NVMLRecorder(BaseRecorder):
 
             device_usage = signal.device_usage.add()
             device_usage.device_type = signals_pb2.DeviceUsage.DeviceType.GPU
+            device_usage.device_idx = idx
 
             try:
                 pci_info = nvmlDeviceGetPciInfo(handle)
@@ -195,7 +181,7 @@ class NVMLRecorder(BaseRecorder):
                         last_value = _nvml_value(last_data.valueType, last_data.value)
                         interval_us = nvlink_throughput_data_tx.timestamp - last_data.timestamp
                         if interval_us > 0:
-                            device_usage.nvlink_throughput_tx_kibs = (value - last_value) / (interval_us * 1e6)
+                            device_usage.nvlink_throughput_data_tx_kibs = (value - last_value) / (interval_us * 1e6)
                     self._last_nvlink_throughput_data_tx[idx] = nvlink_throughput_data_tx
 
                 nvlink_throughput_data_rx = nvmlDeviceGetFieldValues(handle, [NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_RX])[0]
@@ -206,7 +192,7 @@ class NVMLRecorder(BaseRecorder):
                         last_value = _nvml_value(last_data.valueType, last_data.value)
                         interval_us = nvlink_throughput_data_rx.timestamp - last_data.timestamp
                         if interval_us > 0:
-                            device_usage.nvlink_throughput_rx_kibs = (value - last_value) / (interval_us * 1e6)
+                            device_usage.nvlink_throughput_data_rx_kibs = (value - last_value) / (interval_us * 1e6)
                     self._last_nvlink_throughput_data_rx[idx] = nvlink_throughput_data_rx
             except NVMLError as err:
                 log_nvml_error(err)
@@ -273,35 +259,3 @@ def _format_version(version):
     major = int(version / 1000)
     minor = int(version % 1000 / 10)
     return '{0}.{1}'.format(major, minor)
-
-
-def _read_gpu_mem():
-    pid = os.getpid()
-
-    gpu_mem_self = 0
-    device_count = nvmlDeviceGetCount()
-    for idx in range(0, device_count):
-        try:
-            handle = nvmlDeviceGetHandleByIndex(idx)
-        except NVMLError as err:
-            _log_nvml_error(err)
-            continue
-
-        seen_pids = set()
-        process_info_fns = [
-            nvmlDeviceGetComputeRunningProcesses, 
-            nvmlDeviceGetMPSComputeRunningProcesses, 
-            nvmlDeviceGetGraphicsRunningProcesses]
-        for process_info_fn in process_info_fns:
-            try:
-                process_infos = process_info_fn(handle)
-                for process_info in process_infos:
-                    if process_info.usedGpuMemory:
-                        if process_info.pid not in seen_pids:
-                            seen_pids.add(process_info.pid)
-                            if process_info.pid == pid:
-                                gpu_mem_self += process_info.usedGpuMemory
-            except NVMLError as err:
-                _log_nvml_error(err)
-
-    return gpu_mem_self

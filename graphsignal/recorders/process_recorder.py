@@ -36,32 +36,22 @@ class ProcessRecorder(BaseRecorder):
         self._last_read_sec = None
         self._last_cpu_time_us = None
 
-    def on_trace_start(self, signal, context):
+    def on_trace_start(self, signal, context, options):
         if not OS_WIN:
             rusage_thread = resource.getrusage(resource.RUSAGE_THREAD)
-            context['start_cpu_time_us'] = _rusage_cpu_time(rusage_thread)
+            context['process_start_cpu_time_us'] = _rusage_cpu_time(rusage_thread)
 
-        if OS_LINUX:
-            context['start_rss'] = _read_current_rss()
-
-    def on_trace_stop(self, signal, context):
+    def on_trace_stop(self, signal, context, options):
         if not OS_WIN:
             rusage_thread = resource.getrusage(resource.RUSAGE_THREAD)
             stop_cpu_time_us = _rusage_cpu_time(rusage_thread)
 
-            if 'start_cpu_time_us' in context:
-                start_cpu_time_us = context['start_cpu_time_us']
+            if 'process_start_cpu_time_us' in context:
+                start_cpu_time_us = context['process_start_cpu_time_us']
                 if start_cpu_time_us and stop_cpu_time_us:
                     signal.trace_sample.thread_cpu_time_us = max(0, stop_cpu_time_us - start_cpu_time_us)
 
-        if OS_LINUX:
-            current_rss = _read_current_rss()
-            if 'start_rss' in context:
-                start_rss = context['start_rss']
-                if start_rss and current_rss:
-                    signal.trace_sample.rss_change = current_rss - start_rss
-
-    def on_trace_read(self, signal, context):
+    def on_trace_read(self, signal, context, options):
         if not OS_WIN:
             rusage_self = resource.getrusage(resource.RUSAGE_SELF)
 
@@ -70,12 +60,12 @@ class ProcessRecorder(BaseRecorder):
             vm_size = _read_vm_size()
 
         now = time.time()
-        pid = str(os.getpid())
+        pid = os.getpid()
 
         node_usage = signal.node_usage
         process_usage = signal.process_usage
 
-        process_usage.process_id = pid
+        process_usage.pid = pid
 
         if not OS_WIN:
             cpu_time_us = _rusage_cpu_time(rusage_self)
