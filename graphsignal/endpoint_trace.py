@@ -121,8 +121,16 @@ class EndpointTrace:
         self._metric_store = self._agent.metric_store(self._endpoint)
         self._mv_detector = self._agent.mv_detector()
 
-        if ((self._options.auto_sampling and self._trace_sampler.lock('auto-samples', include_trace_idx=SAMPLE_TRACES)) or
-                (self._options.ensure_sample and self._trace_sampler.lock('ensured-samples', limit_per_interval=2))):
+        lock_group = 'samples'
+        if self._options.auto_sampling:
+            lock_group += '-auto'
+        if self._options.ensure_sample:
+            lock_group += '-ensured'
+        if self._options.enable_profiling:
+            lock_group += '-profiled'
+
+        if ((self._options.auto_sampling and self._trace_sampler.lock(lock_group, include_trace_idx=SAMPLE_TRACES)) or
+                (self._options.ensure_sample and self._trace_sampler.lock(lock_group, limit_per_interval=2))):
             self._init_sampling()
 
             # emit start event
@@ -243,6 +251,8 @@ class EndpointTrace:
             # copy trace measurements
             self._signal.trace_sample.trace_idx = self._trace_sampler.current_trace_idx()
             self._signal.trace_sample.latency_us = self._latency_us
+            self._signal.trace_sample.is_ensured = self._options.ensure_sample
+            self._signal.trace_sample.is_profiled = self._options.enable_profiling
 
             # copy exception
             if self._exc_info and self._exc_info[0]:

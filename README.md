@@ -45,7 +45,7 @@ graphsignal.configure(api_key='my-api-key', deployment='my-model-prod-v1')
 
 To get an API key, sign up for a free account at [graphsignal.com](https://graphsignal.com). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.com/settings/api-keys) page.
 
-To track deployments, versions and environments separately, specify a `deployment` parameter or environment variable.
+To track deployments, versions and environments separately, specify a `deployment` parameter or environment variable `GRAPHSIGNAL_DEPLOYMENT`.
 
 
 ## Integrate
@@ -72,6 +72,14 @@ def predict(x):
 
 Other integrations and callbacks are available as well. See [integration documentation](https://graphsignal.com/docs/) for more information.
 
+Enable profiling to additionally record code-level statistics. Profiling is disabled by default due to potential overhead. To enable, provide [`TraceOptions`](https://graphsignal.com/docs/reference/python-api/#graphsignaltraceoptions) object.
+
+```python
+with graphsignal.start_trace(
+        endpoint='predict', 
+        options=graphsignal.TraceOptions(enable_profiling=True)):
+    pred = model(x)
+```
 
 ### Exception tracking
 
