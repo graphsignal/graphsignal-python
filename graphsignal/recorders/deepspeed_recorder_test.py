@@ -66,11 +66,11 @@ class DeepSpeedRecorderTest(unittest.TestCase):
         self.assertEqual(signal.frameworks[0].params[0].name, 'deepspeed.comm.get_world_size')
         self.assertEqual(signal.frameworks[0].params[0].value, str(2))
 
-        self.assertEqual(signal.op_profile[0].op_type, signals_pb2.OpStats.OpType.OP_TYPE_COMMUNICATION)
+        self.assertEqual(signal.op_profile[0].op_type, signals_pb2.OpStats.OpType.OP_TYPE_COLLECTIVE_OP)
         self.assertEqual(signal.op_profile[0].op_name, 'send')
         self.assertEqual(signal.op_profile[0].count, 1)
-        self.assertTrue(signal.op_profile[0].total_time_ns > 0)
-        self.assertTrue(signal.op_profile[0].total_data_size > 0)
+        self.assertTrue(signal.op_profile[0].host_time_ns > 0)
+        self.assertTrue(signal.op_profile[0].data_size > 0)
         self.assertTrue(signal.op_profile[0].data_per_sec > 0)
 
         p2.terminate()

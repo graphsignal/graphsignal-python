@@ -60,9 +60,14 @@ class Agent:
         
         supported_recorders = []
 
-        from graphsignal.recorders.cprofile_recorder import CProfileRecorder
-        recorder = CProfileRecorder()
-        supported_recorders.append(recorder)
+        if _check_module('torch'):
+            from graphsignal.recorders.kineto_recorder import KinetoRecorder
+            recorder = KinetoRecorder()
+            supported_recorders.append(recorder)
+        else:
+            from graphsignal.recorders.cprofile_recorder import CProfileRecorder
+            recorder = CProfileRecorder()
+            supported_recorders.append(recorder)
 
         from graphsignal.recorders.process_recorder import ProcessRecorder
         recorder = ProcessRecorder()

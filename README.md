@@ -126,12 +126,12 @@ def predict(x):
 ```python
 import graphsignal
 
-graphsignal.configure(api_key='my-api-key', deployment='my-model')
+graphsignal.configure(api_key='my-api-key', deployment='my-model', tags=dict(job_id='job1'))
 
 ...
 
 for x in data:
-    with graphsignal.start_trace(endpoint='predict', tags=dict(job_id='job1')):
+    with graphsignal.start_trace(endpoint='predict'):
         preds = model(x)
 ```
 

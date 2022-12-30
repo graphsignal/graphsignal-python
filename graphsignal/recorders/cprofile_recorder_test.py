@@ -13,7 +13,7 @@ import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
 from graphsignal.endpoint_trace import DEFAULT_OPTIONS
-from graphsignal.recorders.cprofile_recorder import CProfileRecorder
+from graphsignal.recorders.cprofile_recorder import CProfileRecorder, _format_frame
 
 logger = logging.getLogger('graphsignal')
 
@@ -49,8 +49,14 @@ class CProfileRecorderTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
 
-        self.assertEqual(signal.call_profile.profile_type, signals_pb2.Profile.PROFILE_TYPE_PYTHON)
-        slow_call = next(call for call in signal.call_profile.stats if 'slow_method' in call.func_name)
-        self.assertTrue(slow_call.total_self_wall_time_ns > 0)
-        self.assertTrue(slow_call.total_cum_wall_time_ns > 0)
-        self.assertTrue(slow_call.total_self_wall_time_percent > 0)
+        slow_call = next(call for call in signal.op_profile if 'slow_method' in call.op_name)
+        self.assertEqual(slow_call.op_type, signals_pb2.OpStats.OpType.OP_TYPE_PYTHON_CALL)
+        self.assertTrue(slow_call.self_host_time_ns > 0)
+        self.assertTrue(slow_call.host_time_ns > 0)
+        self.assertTrue(slow_call.self_host_time_percent > 0)
+
+    def test_format_frame(self):
+        self.assertEqual(_format_frame('p', 1, 'f'), 'f (p:1)')
+        self.assertEqual(_format_frame('p', None, 'f'), 'f (p)')
+        self.assertEqual(_format_frame(None, None, 'f'), 'f')
+        self.assertEqual(_format_frame(None, None, None), 'unknown')

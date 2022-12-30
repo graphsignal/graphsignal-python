@@ -125,13 +125,13 @@ class DeepSpeedRecorder(BaseRecorder):
         if self._op_profile:
             for name, stats in self._op_profile.items():
                 op_stats = signal.op_profile.add()
-                op_stats.op_type = signals_pb2.OpStats.OpType.OP_TYPE_COMMUNICATION
+                op_stats.op_type = signals_pb2.OpStats.OpType.OP_TYPE_COLLECTIVE_OP
                 op_stats.op_name = name
                 op_stats.count = stats['count']
-                op_stats.total_time_ns = int(stats['total_time_us'] * 1e3)
-                op_stats.total_data_size = stats['total_data_size']
-                if op_stats.total_time_ns > 0:
-                    op_stats.data_per_sec = op_stats.total_data_size / (op_stats.total_time_ns / 1e9)
+                op_stats.host_time_ns = int(stats['total_time_us'] * 1e3)
+                op_stats.data_size = stats['total_data_size']
+                if op_stats.host_time_ns > 0:
+                    op_stats.data_per_sec = op_stats.data_size / (op_stats.host_time_ns / 1e9)
 
             self._op_profile = None
 

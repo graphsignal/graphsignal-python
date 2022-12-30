@@ -7,6 +7,7 @@ python -m unittest graphsignal/*_test.py
 python -m unittest graphsignal/recorders/recorder_utils_test.py
 python -m unittest graphsignal/recorders/process_recorder_test.py
 python -m unittest graphsignal/recorders/cprofile_recorder_test.py
+python -m unittest graphsignal/recorders/kineto_recorder_test.py
 python -m unittest graphsignal/recorders/nvml_recorder_test.py
 python -m unittest graphsignal/recorders/pytorch_recorder_test.py
 python -m unittest graphsignal/recorders/tensorflow_recorder_test.py
