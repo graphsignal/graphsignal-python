@@ -104,7 +104,8 @@ class EndpointTrace:
         return self
 
     def __exit__(self, *exc_info):
-        self._exc_info = exc_info
+        if exc_info and exc_info[1] and isinstance(exc_info[1], Exception):
+            self._exc_info = exc_info
         self.stop()
         return False
 
@@ -225,6 +226,8 @@ class EndpointTrace:
                     tag = self._signal.tags.add()
                     tag.key = key[:50]
                     tag.value = str(value)[:50]
+                    if self._tags and key in self._tags:
+                        tag.is_trace_level = True
 
             # copy params
             if self._agent.params is not None:
@@ -234,19 +237,7 @@ class EndpointTrace:
                     param.value = str(value)[:50]
 
             # copy metrics
-            self._metric_store.finalize(end_us)
-            if self._metric_store.latency_us:
-                self._signal.trace_metrics.latency_us.CopyFrom(
-                    self._metric_store.latency_us)
-            if self._metric_store.call_count:
-                self._signal.trace_metrics.call_count.CopyFrom(
-                    self._metric_store.call_count)
-            if self._metric_store.exception_count:
-                self._signal.trace_metrics.exception_count.CopyFrom(
-                    self._metric_store.exception_count)
-            for counter in self._metric_store.data_counters.values():
-                self._signal.data_metrics.append(counter)
-            self._agent.reset_metric_store(self._endpoint)
+            self._metric_store.convert_to_proto(self._signal, end_us)
 
             # copy trace measurements
             self._signal.trace_sample.trace_idx = self._trace_sampler.current_trace_idx()
