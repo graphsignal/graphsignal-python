@@ -52,12 +52,14 @@ To track deployments, versions and environments separately, specify a `deploymen
 
 Use the following examples to integrate Graphsignal agent into your machine learning application. See integration documentation and [API reference](https://graphsignal.com/docs/reference/python-api/) for full reference.
 
-Graphsignal agent is **optimized for production**. All executions will be measured, but only a few will be recorded to ensure low overhead.
+Graphsignal agent is **optimized for production**. All executions are measured, but only a few are recorded to ensure low overhead.
 
 
 ### Monitoring and tracing
 
-To measure executions, e.g. single or batch inference, wrap the code with [`start_trace`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method or use [`trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
+Some libraries and frameworks, e.g. OpenAI client, are **auto-instrumented** and traced automatically.
+
+To measure and monitor any other executions, e.g. model inference or inference API calls, wrap the code with [`start_trace`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method or use [`trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
 
 ```python
 with graphsignal.start_trace(endpoint='predict'):
@@ -83,12 +85,12 @@ with graphsignal.start_trace(
 
 ### Exception tracking
 
-When using `trace_function` decorator, `start_trace` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`EndpointTrace.set_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalendpointtraceset_exception) method.
+For auto-instrumented libraries, or when using `trace_function` decorator, `start_trace` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`EndpointTrace.set_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalendpointtraceset_exception) method.
 
 
 ### Data monitoring
 
-To track data metrics and record data profiles, [`EndpointTrace.set_data`](https://graphsignal.com/docs/reference/python-api/#graphsignalendpointtraceset_data) method can be used.
+Data is automatically monitored for auto-instrumented libraries. To track data metrics and record data profiles for other cases, [`EndpointTrace.set_data`](https://graphsignal.com/docs/reference/python-api/#graphsignalendpointtraceset_data) method can be used.
 
 ```python
 with graphsignal.start_trace(endpoint='predict') as trace:

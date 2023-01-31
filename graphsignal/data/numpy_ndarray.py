@@ -2,12 +2,12 @@ import logging
 
 import graphsignal
 from graphsignal.proto import signals_pb2
-from graphsignal.data.data_profiler import DataProfiler, add_counts
+from graphsignal.data.base_data_profiler import BaseDataProfiler, DataStats
 
 logger = logging.getLogger('graphsignal')
 
 
-class NumpyNDArrayProfiler(DataProfiler):
+class NumpyNDArrayProfiler(BaseDataProfiler):
     def __init__(self):
         super().__init__()
 
@@ -15,7 +15,7 @@ class NumpyNDArrayProfiler(DataProfiler):
         np = self.check_module('numpy')        
         return np is not None and isinstance(data, np.ndarray)
 
-    def compute_counts(self, data):
+    def compute_stats(self, data):
         np = self.check_module('numpy')
         counts = {}
         counts['element_count'] = data.size
@@ -27,12 +27,5 @@ class NumpyNDArrayProfiler(DataProfiler):
         counts['zero_count'] = np.count_nonzero(data == 0)
         counts['negative_count'] = np.count_nonzero(data < 0)
         counts['positive_count'] = np.count_nonzero(data > 0)
-        return counts
+        return DataStats(type_name='numpy.ndarray', shape=list(data.shape), counts=counts)
 
-    def build_stats(self, data):
-        counts = self.compute_counts(data)
-        data_stats = signals_pb2.DataStats()
-        data_stats.data_type = 'numpy.ndarray'
-        data_stats.shape[:] = list(data.shape)
-        add_counts(data_stats, counts)
-        return data_stats

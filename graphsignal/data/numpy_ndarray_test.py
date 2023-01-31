@@ -28,22 +28,19 @@ class NumpyNDArrayProfilerTest(unittest.TestCase):
         profiler = NumpyNDArrayProfiler()
         self.assertTrue(profiler.is_instance(np.asarray([])))
 
-    def test_compute_counts(self):
+    def test_compute_stats(self):
         profiler = NumpyNDArrayProfiler()
+        stats = profiler.compute_stats(np.asarray([[-1, 2.0, 0, np.inf], [1, 0, 0, np.nan]]))
         self.assertEqual(
-            profiler.compute_counts(np.asarray([[-1, 2.0, 0, np.inf], [1, 0, 0, np.nan]])), 
+            stats.counts, 
             {'element_count': 8, 
             'byte_count': 64,
-            'null_count': 0, 
             'nan_count': 1, 
             'inf_count': 1, 
             'zero_count': 3,
             'negative_count': 1,
             'positive_count': 3})
+        self.assertEqual(stats.type_name, 'numpy.ndarray')
+        self.assertEqual(stats.shape, [2, 4])
 
-    def test_build_stats(self):
-        profiler = NumpyNDArrayProfiler()
-        ds = profiler.build_stats(np.asarray([[1.], [2]]))
-        self.assertEqual(ds.data_type, 'numpy.ndarray')
-        self.assertEqual(ds.shape, [2, 1])
 

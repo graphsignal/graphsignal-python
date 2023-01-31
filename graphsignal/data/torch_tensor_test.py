@@ -29,10 +29,11 @@ class TorchTensorProfilerTest(unittest.TestCase):
         profiler = TorchTensorProfiler()
         self.assertTrue(profiler.is_instance(torch.tensor([])))
 
-    def test_compute_counts(self):
+    def test_compute_stats(self):
         profiler = TorchTensorProfiler()
+        stats = profiler.compute_stats(torch.tensor(np.asarray([[-1, 2.0, 0, np.inf], [1, 0, 0, np.nan]])))
         self.assertEqual(
-            profiler.compute_counts(torch.tensor(np.asarray([[-1, 2.0, 0, np.inf], [1, 0, 0, np.nan]]))), 
+            stats.counts, 
             {'element_count': 8,
              'byte_count': 64,
              'nan_count': 1,
@@ -40,9 +41,5 @@ class TorchTensorProfilerTest(unittest.TestCase):
              'zero_count': 3,
              'negative_count': 1,
              'positive_count': 3,})
-
-    def test_build_stats(self):
-        profiler = TorchTensorProfiler()
-        ds = profiler.build_stats(torch.tensor(np.asarray([[1.], [2]])))
-        self.assertEqual(ds.data_type, 'torch.Tensor')
-        self.assertEqual(ds.shape, [2, 1])
+        self.assertEqual(stats.type_name, 'torch.Tensor')
+        self.assertEqual(stats.shape, [2, 4])

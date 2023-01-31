@@ -3,12 +3,12 @@ import functools
 
 import graphsignal
 from graphsignal.proto import signals_pb2
-from graphsignal.data.data_profiler import DataProfiler, add_counts
+from graphsignal.data.base_data_profiler import BaseDataProfiler, DataStats
 
 logger = logging.getLogger('graphsignal')
 
 
-class TFTensorProfiler(DataProfiler):
+class TFTensorProfiler(BaseDataProfiler):
     def __init__(self):
         super().__init__()
 
@@ -16,7 +16,7 @@ class TFTensorProfiler(DataProfiler):
         tf = self.check_module('tensorflow')
         return tf is not None and tf.is_tensor(data)
 
-    def compute_counts(self, data):
+    def compute_stats(self, data):
         tf = self.check_module('tensorflow')
         counts = {}
         counts['element_count'] = functools.reduce(lambda x, y: x*y, list(data.get_shape()))
@@ -26,12 +26,4 @@ class TFTensorProfiler(DataProfiler):
         counts['zero_count'] = int(tf.math.count_nonzero(tf.math.equal(data, 0)))
         counts['negative_count'] = int(tf.math.count_nonzero(tf.math.less(data, 0)))
         counts['positive_count'] = int(tf.math.count_nonzero(tf.math.greater(data, 0)))
-        return counts
-
-    def build_stats(self, data):
-        counts = self.compute_counts(data)
-        data_stats = signals_pb2.DataStats()
-        data_stats.data_type = 'tf.Tensor'
-        data_stats.shape[:] = list(data.get_shape())
-        add_counts(data_stats, counts)
-        return data_stats
+        return DataStats(type_name='tf.Tensor', shape=list(data.get_shape()), counts=counts)

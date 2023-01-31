@@ -6,7 +6,7 @@ import traceback
 
 import graphsignal
 from graphsignal.proto import signals_pb2
-from graphsignal.data import compute_counts, build_stats
+from graphsignal.data import compute_data_stats
 
 logger = logging.getLogger('graphsignal')
 
@@ -17,26 +17,40 @@ class TraceOptions:
     __slots__ = [
         'auto_sampling',
         'ensure_sample',
-        'enable_profiling',
-        'enable_missing_value_detection'
+        'enable_profiling'
     ]
 
     def __init__(self, 
             auto_sampling: bool = True, 
             ensure_sample: bool = False, 
-            enable_profiling: bool = False, 
-            enable_missing_value_detection: bool = True):
+            enable_profiling: bool = False):
         self.auto_sampling = auto_sampling
         self.ensure_sample = ensure_sample
         self.enable_profiling = enable_profiling
-        self.enable_missing_value_detection = enable_missing_value_detection
 
 DEFAULT_OPTIONS = TraceOptions()
+
+
+class DataObject:
+    __slots__ = [
+        'name',
+        'obj',
+        'extra_counts',
+        'check_missing_values'
+    ]
+
+    def __init__(self, name, obj, extra_counts=None, check_missing_values=False):
+        self.name = name
+        self.obj = obj
+        self.extra_counts = extra_counts
+        self.check_missing_values = check_missing_values
+
 
 class EndpointTrace:
     MAX_RUN_TAGS = 10
     MAX_TRACE_TAGS = 10
-    MAX_PARAMS = 10
+    MAX_RUN_PARAMS = 10
+    MAX_TRACE_PARAMS = 10
     MAX_DATA_OBJECTS = 10
 
     __slots__ = [
@@ -46,6 +60,7 @@ class EndpointTrace:
         '_agent',
         '_endpoint',
         '_tags',
+        '_params',
         '_options',
         '_is_sampling',
         '_latency_us',
@@ -53,8 +68,9 @@ class EndpointTrace:
         '_signal',
         '_is_stopped',
         '_start_counter',
+        '_stop_counter',
         '_exc_info',
-        '_data',
+        '_data_objects',
         '_has_missing_values'
     ]
 
@@ -76,6 +92,7 @@ class EndpointTrace:
             self._tags = dict(tags)
         else:
             self._tags = None
+        self._params = None
         if options is None:
             self._options = DEFAULT_OPTIONS
         else:
@@ -86,10 +103,13 @@ class EndpointTrace:
         self._mv_detector = None
         self._is_stopped = False
         self._is_sampling = False
+        self._latency_us = None
+        self._start_counter = None
+        self._stop_counter = None
         self._context = False
         self._signal = None
         self._exc_info = None
-        self._data = None
+        self._data_objects = None
         self._has_missing_values = False
 
         try:
@@ -143,14 +163,18 @@ class EndpointTrace:
 
         self._start_counter = time.perf_counter()
 
-    def _stop(self) -> None:
-        stop_counter = time.perf_counter()
-        self._latency_us = int((stop_counter - self._start_counter) * 1e6)
-        end_us = _timestamp_us()
+    def _measure(self) -> None:
+        self._stop_counter = time.perf_counter()
 
+    def _stop(self) -> None:
         if self._is_stopped:
             return
         self._is_stopped = True
+
+        if self._stop_counter is None:
+            self._measure()
+        self._latency_us = int((self._stop_counter - self._start_counter) * 1e6)
+        end_us = _timestamp_us()
 
         if self._is_sampling:
             # emit stop event
@@ -170,18 +194,33 @@ class EndpointTrace:
             self._metric_store.add_time(self._latency_us)
         self._metric_store.inc_call_count(1, end_us)
 
-        # update data counters and check for missing values
-        if self._data is not None:
-            for data_name, data in self._data.items():
-                data_counts = compute_counts(data)
+        # compute data statistics
+        data_stats = None
+        if self._data_objects is not None:
+            data_stats = {}
+            for data_obj in self._data_objects.values():
+                try:
+                    stats = compute_data_stats(data_obj.obj)
+                    if not stats:
+                        continue
+                    data_stats[data_obj.name] = stats
 
-                for count_name, count in data_counts.items():
-                    self._metric_store.inc_data_counter(
-                        data_name, count_name, count, end_us)
+                    # add/update extra counts to computed counts
+                    if data_obj.extra_counts is not None:
+                        stats.counts.update(data_obj.extra_counts)
 
-                if self._options.enable_missing_value_detection:
-                    if self._mv_detector.detect(data_name, data_counts):
-                        self._has_missing_values = True
+                    # check missing values
+                    if data_obj.check_missing_values:
+                        if self._mv_detector.detect(data_obj.name, stats.counts):
+                            self._has_missing_values = True
+
+                    # update data metrics
+                    for count_name, count in stats.counts.items():
+                        self._metric_store.inc_data_counter(
+                            data_obj.name, count_name, count, end_us)
+                except Exception as exc:
+                    logger.error('Error computing data stats', exc_info=True)
+                    self._add_agent_exception(exc)
 
         # if missing values detected, but the trace is not being recorded, try to start tracing
         if not self._is_sampling and self._has_missing_values:
@@ -230,11 +269,20 @@ class EndpointTrace:
                         tag.is_trace_level = True
 
             # copy params
+            params = None
             if self._agent.params is not None:
-                for name, value in self._agent.params.items():
+                params = self._agent.params.copy()
+                if self._params is not None:
+                    params.update(self._params)
+            elif self._params is not None:
+                params = self._params
+            if params is not None:
+                for name, value in params.items():
                     param = self._signal.params.add()
                     param.name = name[:50]
                     param.value = str(value)[:50]
+                    if self._params and name in self._params:
+                        param.is_trace_level = True
 
             # copy metrics
             self._metric_store.convert_to_proto(self._signal, end_us)
@@ -257,21 +305,28 @@ class EndpointTrace:
                     if len(frames) > 0:
                         exception.stack_trace = ''.join(frames)
 
-            # copy data stats
-            if self._data is not None:
-                for name, data in self._data.items():
-                    try:
-                        data_stats_proto = build_stats(data)
-                        data_stats_proto.data_name = name
-                        if data_stats_proto:
-                            self._signal.data_profile.append(data_stats_proto)
-                    except Exception as exc:
-                        logger.error('Error computing data stats', exc_info=True)
-                        self._add_agent_exception(exc)
+            # copy data counts
+            if data_stats is not None:
+                for name, stats in data_stats.items():
+                    data_stats_proto = self._signal.data_profile.add()
+                    data_stats_proto.data_name = name
+                    if stats.type_name:
+                        data_stats_proto.data_type = stats.type_name
+                    if stats.shape:
+                        data_stats_proto.shape[:] = stats.shape
+                    for name, count in stats.counts.items():
+                        if count > 0:
+                            dc = data_stats_proto.counts.add()
+                            dc.name = name
+                            dc.count = count
 
             # queue signal for upload
             self._agent.uploader().upload_signal(self._signal)
             self._agent.tick()
+
+    def measure(self) -> None:
+        if not self._is_stopped:
+            self._measure()
 
     def stop(self) -> None:
         try:
@@ -298,6 +353,20 @@ class EndpointTrace:
 
         self._tags[key] = value
 
+    def set_param(self, name: str, value: str) -> None:
+        if not name:
+            raise ValueError('set_param: name must be provided')
+        if value is None:
+            raise ValueError('set_param: value must be provided')
+
+        if self._params is None:
+            self._params = {}
+
+        if len(self._params) > EndpointTrace.MAX_TRACE_PARAMS:
+            raise ValueError('set_param: too many params (>{0})'.format(EndpointTrace.MAX_TRACE_PARAMS))
+
+        self._params[name] = value
+
     def set_exception(self, exc: Optional[Exception] = None, exc_info: Optional[bool] = None) -> None:
         if exc is not None and not isinstance(exc, Exception):
             raise ValueError('set_exception: exc must be instance of Exception')
@@ -310,22 +379,30 @@ class EndpointTrace:
         elif exc_info == True:
             self._exc_info = sys.exc_info()
 
-    def set_data(self, name: str, obj: Any) -> None:
-        if self._data is None:
-            self._data = {}
-
-        if len(self._data) > EndpointTrace.MAX_DATA_OBJECTS:
-            raise ValueError('set_data: too many data objects (>{0})'.format(EndpointTrace.MAX_DATA_OBJECTS))
+    def set_data(self, 
+            name: str, 
+            obj: Any, 
+            extra_counts: Optional[Dict[str, int]] = None, 
+            check_missing_values: Optional[bool] = False) -> None:
+        if self._data_objects is None:
+            self._data_objects = {}
 
         if name and not isinstance(name, str):
             raise ValueError('set_data: name must be string')
 
-        self._data[name] = obj
+        if len(self._data_objects) > EndpointTrace.MAX_DATA_OBJECTS:
+            raise ValueError('set_data: too many data objects (>{0})'.format(EndpointTrace.MAX_DATA_OBJECTS))
+
+        self._data_objects[name] = DataObject(
+            name=name, obj=obj, extra_counts=extra_counts, check_missing_values=check_missing_values)
 
     def get_latency_us(self):
         return self._latency_us
 
     def _add_agent_exception(self, exc):
+        if not self._is_sampling:
+            return
+
         agent_error = self._signal.agent_errors.add()
         agent_error.message = str(exc)
         if exc.__traceback__:
@@ -333,6 +410,8 @@ class EndpointTrace:
             if len(frames) > 0:
                 agent_error.stack_trace = ''.join(frames)
 
+    def repr(self):
+        return 'EndpointTrace({0})'.format(self._endpoint)
 
 def _timestamp_us():
     return int(time.time() * 1e6)

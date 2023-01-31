@@ -41,7 +41,8 @@ class EndpointTraceTest(unittest.TestCase):
                 endpoint='ep1',
                 tags={'k3': 'v33', 'k4': 4.0})
             trace.set_tag('k5', 'v5')
-            trace.set_data('input', np.asarray([[1, 2],[3, 4]]))
+            trace.set_param('p2', 'v2')
+            trace.set_data('input', np.asarray([[1, 2],[3, 4]]), extra_counts=dict(c1=1, c2=2))
             time.sleep(0.01)
             trace.stop()
 
@@ -59,6 +60,10 @@ class EndpointTraceTest(unittest.TestCase):
         self.assertEqual(signal.data_metrics[0].data_name, 'input')
         self.assertEqual(signal.data_metrics[0].metric_name, 'element_count')
         self.assertEqual(signal.data_metrics[0].metric.gauge, 40.0)
+        self.assertEqual(signal.data_metrics[-2].metric_name, 'c1')
+        self.assertEqual(signal.data_metrics[-2].metric.gauge, 10.0)
+        self.assertEqual(signal.data_metrics[-1].metric_name, 'c2')
+        self.assertEqual(signal.data_metrics[-1].metric.gauge, 20.0)
         self.assertEqual(signal.tags[0].key, 'k1')
         self.assertEqual(signal.tags[0].value, 'v1')
         self.assertTrue(not signal.tags[0].is_trace_level)
@@ -73,10 +78,17 @@ class EndpointTraceTest(unittest.TestCase):
         self.assertTrue(signal.tags[4].is_trace_level)
         self.assertEqual(signal.params[0].name, 'p1')
         self.assertEqual(signal.params[0].value, 'v1')
+        self.assertEqual(signal.params[1].name, 'p2')
+        self.assertEqual(signal.params[1].value, 'v2')
+        self.assertTrue(signal.params[1].is_trace_level)
         self.assertEqual(signal.trace_sample.trace_idx, 10)
         self.assertTrue(signal.trace_sample.latency_us > 0)
         self.assertEqual(signal.data_profile[0].data_name, 'input')
         self.assertEqual(signal.data_profile[0].shape, [2, 2])
+        self.assertEqual(signal.data_profile[0].counts[-2].name, 'c1')
+        self.assertEqual(signal.data_profile[0].counts[-2].count, 1)
+        self.assertEqual(signal.data_profile[0].counts[-1].name, 'c2')
+        self.assertEqual(signal.data_profile[0].counts[-1].count, 2)
 
     @patch.object(ProcessRecorder, 'on_trace_start')
     @patch.object(Uploader, 'upload_signal')
@@ -182,7 +194,7 @@ class EndpointTraceTest(unittest.TestCase):
     @patch.object(Uploader, 'upload_signal')
     def test_set_data(self, mocked_upload_signal):
         with EndpointTrace(endpoint='ep1') as trace:
-            trace.set_data('d1', {'c1': 100, 'c2': None})
+            trace.set_data('d1', {'c1': 100, 'c2': None}, check_missing_values=True)
 
         signal = mocked_upload_signal.call_args[0][0]
 

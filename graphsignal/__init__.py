@@ -55,6 +55,7 @@ def configure(
         api_url: Optional[str] = None,
         deployment: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
+        auto_instrument: Optional[bool] = True,
         debug_mode: Optional[bool] = False) -> None:
     global _agent
 
@@ -77,8 +78,9 @@ def configure(
         api_url=api_url,
         deployment=deployment,
         tags=tags,
+        auto_instrument=auto_instrument,
         debug_mode=debug_mode)
-    _agent.start()
+    _agent.setup()
 
     atexit.register(shutdown)
 
@@ -111,8 +113,8 @@ def log_param(name: str, value: str) -> None:
     if _agent.params is None:
         _agent.params = {}
 
-    if len(_agent.params) > EndpointTrace.MAX_PARAMS:
-        raise ValueError('set_param: too many params (>{0})'.format(EndpointTrace.MAX_PARAMS))
+    if len(_agent.params) > EndpointTrace.MAX_RUN_PARAMS:
+        raise ValueError('set_param: too many params (>{0})'.format(EndpointTrace.MAX_RUN_PARAMS))
 
     _agent.params[name] = value
 
@@ -164,7 +166,7 @@ def shutdown() -> None:
     _check_configured()
 
     atexit.unregister(shutdown)
-    _agent.stop()
+    _agent.shutdown()
     _agent = None
 
     logger.debug('Agent shutdown')

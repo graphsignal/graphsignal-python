@@ -41,7 +41,7 @@ class DeepSpeedRecorder(BaseRecorder):
         self._rank = None
         self._local_rank = None
         self._world_size = None
-        self._is_trace_started = False
+        self._is_sampling = False
         self._op_profile = None
 
     def setup(self):
@@ -70,12 +70,12 @@ class DeepSpeedRecorder(BaseRecorder):
 
     def _instrument_op(self, op_name):
         def before_op(args, kwargs):
-            if self._is_trace_started:
+            if self._is_sampling:
                 return time.perf_counter()
             return None
 
         def after_op(args, kwargs, ret, exc, start_counter):
-            if self._is_trace_started and start_counter is not None:
+            if self._is_sampling and start_counter is not None:
                 stop_counter = time.perf_counter()
                 latency_us = int((stop_counter - start_counter) * 1e6)
                 data_size = self._get_data_size(op_name, args, kwargs)
@@ -101,15 +101,18 @@ class DeepSpeedRecorder(BaseRecorder):
         if not self._is_initialized:
             return
 
-        self._is_trace_started = True
+        self._is_sampling = True
 
     def on_trace_stop(self, signal, context, options):
         if not self._is_initialized:
             return
 
-        self._is_trace_started = False
+        self._is_sampling = False
 
     def on_trace_read(self, signal, context, options):
+        if not self._is_initialized:
+            return
+
         if self._framework:
             signal.frameworks.append(self._framework)
         if self._rank is not None:
@@ -118,9 +121,6 @@ class DeepSpeedRecorder(BaseRecorder):
         if self._local_rank is not None:
             signal.process_usage.local_rank = self._local_rank
             signal.process_usage.has_local_rank = True
-
-        if not self._is_initialized:
-            return
 
         if self._op_profile:
             for name, stats in self._op_profile.items():

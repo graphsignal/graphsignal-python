@@ -31,4 +31,5 @@ pip install onnxruntime
 pip install sklearn
 pip install xgboost
 pip install deepspeed
+pip install openai
 deactivate

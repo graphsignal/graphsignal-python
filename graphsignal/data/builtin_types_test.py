@@ -27,11 +27,13 @@ class BuiltInTypesProfilerTest(unittest.TestCase):
         profiler = BuiltInTypesProfiler()
         self.assertTrue(profiler.is_instance([]))
 
-    def test_compute_counts(self):
+    def test_compute_stats(self):
         profiler = BuiltInTypesProfiler()
+        stats = profiler.compute_stats([[0, -1, 1, 2.0, 3, float('nan'), float('inf')], [0, None, ''],[6,7]])
         self.assertEqual(
-            profiler.compute_counts(dict(a=[0, -1, 1, 2.0, 3, float('nan'), float('inf')], b=[0, None, ''], c=set([6,7]))), 
-            {'element_count': 12,
+            stats.counts,
+            {'byte_count': 260,
+             'element_count': 12,
              'inf_count': 1,
              'nan_count': 1,
              'null_count': 1,
@@ -39,26 +41,14 @@ class BuiltInTypesProfilerTest(unittest.TestCase):
              'empty_count': 1,
              'negative_count': 1,
              'positive_count': 6})
+        self.assertEqual(stats.type_name, 'list')
+        self.assertEqual(stats.shape, [3, 7])
 
-    def test_compute_counts_none(self):
+    def test_compute_stats_none(self):
         profiler = BuiltInTypesProfiler()
+        stats = profiler.compute_stats(None)
         self.assertEqual(
-            profiler.compute_counts(None), 
+            stats.counts, 
             {'element_count': 1,
-             'inf_count': 0,
-             'nan_count': 0,
-             'null_count': 1,
-             'zero_count': 0,
-             'empty_count': 0,
-             'negative_count': 0,
-             'positive_count': 0})
-
-    def test_build_stats(self):
-        profiler = BuiltInTypesProfiler()
-        ds = profiler.build_stats([1, 2])
-        self.assertEqual(ds.data_type, 'list')
-
-    def test_build_stats_none(self):
-        profiler = BuiltInTypesProfiler()
-        ds = profiler.build_stats(None)
-        self.assertEqual(ds.data_type, 'NoneType')
+             'null_count': 1})
+        self.assertEqual(stats.type_name, 'NoneType')

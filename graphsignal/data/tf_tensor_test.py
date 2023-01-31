@@ -29,10 +29,11 @@ class TFTensorProfilerTest(unittest.TestCase):
         profiler = TFTensorProfiler()
         self.assertTrue(profiler.is_instance(tf.constant([])))
 
-    def test_compute_counts(self):
+    def test_compute_stats(self):
         profiler = TFTensorProfiler()
+        stats = profiler.compute_stats(tf.constant(np.asarray([[-1, 2.0, 0, np.inf], [1, 0, 0, np.nan]])))
         self.assertEqual(
-            profiler.compute_counts(tf.constant(np.asarray([[-1, 2.0, 0, np.inf], [1, 0, 0, np.nan]]))), 
+            stats.counts, 
             {'element_count': 8,
              'byte_count': 64,
              'nan_count': 1,
@@ -40,9 +41,5 @@ class TFTensorProfilerTest(unittest.TestCase):
              'zero_count': 3,
              'negative_count': 1,
              'positive_count': 3})
-
-    def test_build_stats(self):
-        profiler = TFTensorProfiler()
-        ds = profiler.build_stats(tf.constant(np.asarray([[1.], [2]])))
-        self.assertEqual(ds.data_type, 'tf.Tensor')
-        self.assertEqual(ds.shape, [2, 1])
+        self.assertEqual(stats.type_name, 'tf.Tensor')
+        self.assertEqual(stats.shape, [2, 4])

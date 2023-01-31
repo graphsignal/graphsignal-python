@@ -14,18 +14,12 @@ logger = logging.getLogger('graphsignal')
 data_profilers = [
     BuiltInTypesProfiler(),
     NumpyNDArrayProfiler(),
-    TFTensorProfiler(),
-    TorchTensorProfiler()
+    TorchTensorProfiler(),
+    TFTensorProfiler()
 ]
 
 
-def compute_counts(data):
+def compute_data_stats(data):
     for dp in data_profilers:
         if dp.is_instance(data):
-            return dp.compute_counts(data)
-
-
-def build_stats(data):
-    for dp in data_profilers:
-        if dp.is_instance(data):
-            return dp.build_stats(data)
+            return dp.compute_stats(data)
