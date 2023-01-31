@@ -273,7 +273,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
                 }
             }
 
-        openai.api_key = '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'
         response = openai.Embedding.create(
             engine="text-embedding-ada-002", 
             input=['test text 1', 'test text 2'])
