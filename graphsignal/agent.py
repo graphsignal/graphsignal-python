@@ -20,7 +20,14 @@ logger = logging.getLogger('graphsignal')
 
 
 class Agent:
-    def __init__(self, api_key=None, api_url=None, deployment=None, tags=None, auto_instrument=True, debug_mode=False):
+    def __init__(
+            self, 
+            api_key=None, 
+            api_url=None, 
+            deployment=None, 
+            tags=None, 
+            auto_instrument=True, 
+            debug_mode=False):
         self.worker_id = _uuid_sha1(size=12)
         self.api_key = api_key
         if api_url:
@@ -68,7 +75,8 @@ class Agent:
 
     def recorders(self):
         recorder_specs = [
-            ('graphsignal.recorders.cprofile_recorder', 'CProfileRecorder', None, 'torch'),
+            ('graphsignal.recorders.cprofile_recorder', 'CProfileRecorder', None, ['torch', 'yappi']),
+            ('graphsignal.recorders.yappi_recorder', 'YappiRecorder', 'yappi', 'torch'),
             ('graphsignal.recorders.kineto_recorder', 'KinetoRecorder', 'torch', None),
             ('graphsignal.recorders.process_recorder', 'ProcessRecorder', None, None),
             ('graphsignal.recorders.nvml_recorder', 'NVMLRecorder', None, None),
@@ -79,16 +87,24 @@ class Agent:
             ('graphsignal.recorders.xgboost_recorder', 'XGBoostRecorder', 'xgboost', None),
             ('graphsignal.recorders.deepspeed_recorder', 'DeepSpeedRecorder', 'deepspeed', None),
             ('graphsignal.recorders.openai_recorder', 'OpenAIRecorder', 'openai', None),
+            ('graphsignal.recorders.langchain_recorder', 'LangChainRecorder', 'langchain', None),
         ]
         last_exc = None
         for module_name, class_name, include, exclude in recorder_specs:
             try:
                 key = (module_name, class_name)
 
-                if exclude and _check_module(exclude):
-                    if key in self._recorders:
-                        del self._recorders[key]
-                    continue
+                if exclude:
+                    exclude = [exclude] if isinstance(exclude, str) else exclude
+                    is_excluded = False
+                    for mod in exclude:
+                        if _check_module(mod):
+                            if key in self._recorders:
+                                del self._recorders[key]
+                            is_excluded = True
+                            break
+                    if is_excluded:
+                        continue
 
                 if key not in self._recorders:
                     if not include or _check_module(include):

@@ -71,13 +71,13 @@ class DeepSpeedRecorder(BaseRecorder):
     def _instrument_op(self, op_name):
         def before_op(args, kwargs):
             if self._is_sampling:
-                return time.perf_counter()
+                return time.perf_counter_ns()
             return None
 
         def after_op(args, kwargs, ret, exc, start_counter):
             if self._is_sampling and start_counter is not None:
-                stop_counter = time.perf_counter()
-                latency_us = int((stop_counter - start_counter) * 1e6)
+                stop_counter = time.perf_counter_ns()
+                latency_us = int((stop_counter - start_counter) / 1e3)
                 data_size = self._get_data_size(op_name, args, kwargs)
 
                 if not self._op_profile:
@@ -125,7 +125,7 @@ class DeepSpeedRecorder(BaseRecorder):
         if self._op_profile:
             for name, stats in self._op_profile.items():
                 op_stats = signal.op_profile.add()
-                op_stats.op_type = signals_pb2.OpStats.OpType.OP_TYPE_COLLECTIVE_OP
+                op_stats.op_type = signals_pb2.OpStats.OpType.COLLECTIVE_OP
                 op_stats.op_name = name
                 op_stats.count = stats['count']
                 op_stats.host_time_ns = int(stats['total_time_us'] * 1e3)

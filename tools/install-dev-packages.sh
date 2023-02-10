@@ -32,4 +32,6 @@ pip install sklearn
 pip install xgboost
 pip install deepspeed
 pip install openai
+pip install langchain
+pip install yappi
 deactivate

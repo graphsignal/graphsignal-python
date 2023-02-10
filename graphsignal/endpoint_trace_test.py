@@ -56,7 +56,7 @@ class EndpointTraceTest(unittest.TestCase):
         self.assertEqual(signal.signal_type, signals_pb2.SignalType.SAMPLE_SIGNAL)
         self.assertTrue(signal.process_usage.start_ms > 0)
         self.assertEqual(signal.trace_metrics.call_count.gauge, 10.0)
-        self.assertEqual(len(signal.trace_metrics.latency_us.reservoir.values), 8)
+        self.assertEqual(len(signal.trace_metrics.latency_us.reservoir.values), 10)
         self.assertEqual(signal.data_metrics[0].data_name, 'input')
         self.assertEqual(signal.data_metrics[0].metric_name, 'element_count')
         self.assertEqual(signal.data_metrics[0].metric.gauge, 40.0)
@@ -203,3 +203,36 @@ class EndpointTraceTest(unittest.TestCase):
         self.assertTrue(signal.start_us > 0)
         self.assertTrue(signal.end_us > 0)
         self.assertEqual(signal.signal_type, signals_pb2.SignalType.MISSING_VALUES_SIGNAL)
+
+    @patch.object(Uploader, 'upload_signal')
+    def test_spans(self, mocked_upload_signal):
+        trace = EndpointTrace(endpoint='ep1')
+        trace2 = EndpointTrace(endpoint='ep2')
+        trace3 = EndpointTrace(endpoint='ep3')
+        trace3.stop()
+        trace2.stop()
+        trace4 = EndpointTrace(endpoint='ep4')
+        trace4.stop()
+        trace.stop()
+
+        signal = mocked_upload_signal.call_args[0][0]
+
+        self.assertEqual(signal.endpoint_name, 'ep1')
+
+        self.assertEqual(signal.root_span.name, 'ep1')
+        self.assertTrue(signal.root_span.start_ns > 0)
+        self.assertTrue(signal.root_span.end_ns > 0)
+
+        self.assertEqual(signal.root_span.spans[0].name, 'ep2')
+        self.assertTrue(signal.root_span.spans[0].is_endpoint)
+        self.assertTrue(signal.root_span.spans[0].start_ns > signal.root_span.start_ns)
+        self.assertTrue(signal.root_span.spans[0].end_ns < signal.root_span.end_ns)
+
+        self.assertEqual(signal.root_span.spans[0].spans[0].name, 'ep3')
+        self.assertTrue(signal.root_span.spans[0].spans[0].is_endpoint)
+        self.assertTrue(signal.root_span.spans[0].spans[0].start_ns > signal.root_span.spans[0].start_ns)
+        self.assertTrue(signal.root_span.spans[0].spans[0].end_ns < signal.root_span.spans[0].end_ns)
+
+        self.assertEqual(signal.root_span.spans[1].name, 'ep4')
+        self.assertTrue(signal.root_span.spans[1].start_ns > signal.root_span.spans[0].end_ns)
+        self.assertTrue(signal.root_span.spans[1].end_ns < signal.root_span.end_ns)

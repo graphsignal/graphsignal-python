@@ -38,7 +38,7 @@ setup(
         'Topic :: Scientific/Engineering',
         'Topic :: Scientific/Engineering :: Artificial Intelligence'
     ],
-    python_requires='>=3.5',
+    python_requires='>=3.7',
     install_requires=[
         'protobuf>3.0'
     ],

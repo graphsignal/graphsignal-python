@@ -44,11 +44,13 @@ class KinetoRecorder(BaseRecorder):
         if not options.enable_profiling:
             return
 
+        total_self_host_time_ns = 0
         for event_avg in self._torch_prof.key_averages():
             if event_avg.key and event_avg.key.startswith('ProfilerStep'):
                 continue
             op_stats = signal.op_profile.add()
-            op_stats.op_type = signals_pb2.OpStats.OpType.OP_TYPE_PYTORCH_OP
+            op_stats.profiler_type = signals_pb2.OpStats.ProfilerType.KINETO_PROFILER
+            op_stats.op_type = signals_pb2.OpStats.OpType.PYTORCH_OP
             op_stats.op_name = event_avg.key
             op_stats.count = _uint(event_avg.count)
             op_stats.host_time_ns = _ns(event_avg.cpu_time_total)
@@ -60,6 +62,11 @@ class KinetoRecorder(BaseRecorder):
             op_stats.self_host_memory = _uint(event_avg.self_cpu_memory_usage)
             op_stats.self_device_memory = _uint(event_avg.self_cuda_memory_usage)
             op_stats.flops = _uint(event_avg.flops)
+            total_self_host_time_ns += op_stats.self_host_time_ns
+
+        if total_self_host_time_ns > 0:
+            for op_stats in signal.op_profile:
+                op_stats.self_host_time_percent = op_stats.self_host_time_ns / total_self_host_time_ns * 100
 
         kernel_index = {}
         for event in self._torch_prof.events():

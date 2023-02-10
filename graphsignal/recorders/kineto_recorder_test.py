@@ -59,10 +59,13 @@ class KinetoRecorderTest(unittest.TestCase):
                 break
         self.assertIsNotNone(test_op_stats)
         self.assertTrue(test_op_stats.count >= 1)
-        self.assertEqual(test_op_stats.op_type, signals_pb2.OpStats.OpType.OP_TYPE_PYTORCH_OP)
+        
+        self.assertEqual(test_op_stats.profiler_type, signals_pb2.OpStats.ProfilerType.KINETO_PROFILER)
+        self.assertEqual(test_op_stats.op_type, signals_pb2.OpStats.OpType.PYTORCH_OP)
         if torch.cuda.is_available():
             self.assertTrue(test_op_stats.device_time_ns >= 1)
             self.assertTrue(test_op_stats.self_device_time_ns >= 1)
         else:
             self.assertTrue(test_op_stats.host_time_ns >= 1)
             self.assertTrue(test_op_stats.self_host_time_ns >= 1)
+            self.assertTrue(test_op_stats.self_host_time_percent > 0)

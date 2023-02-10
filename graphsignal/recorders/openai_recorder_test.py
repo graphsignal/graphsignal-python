@@ -393,6 +393,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_metric(signal, 'input', 'byte_count'), 9.0)
         self.assertEqual(find_data_metric(signal, 'input', 'element_count'), 1.0)
 
+
 def find_param(signal, name):
     for param in signal.params:
         if param.name == name:

@@ -2,7 +2,7 @@ import logging
 import os
 import json
 import re
-import cProfile, pstats
+import yappi
 
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
@@ -12,9 +12,8 @@ from graphsignal.proto_utils import add_framework_param
 
 logger = logging.getLogger('graphsignal')
 
-class CProfileRecorder(BaseRecorder):
+class YappiRecorder(BaseRecorder):
     def __init__(self):
-        self._profiler = None
         self._exclude_path = os.path.dirname(os.path.realpath(graphsignal.__file__))
 
     def setup(self):
@@ -24,30 +23,25 @@ class CProfileRecorder(BaseRecorder):
         if not options.enable_profiling:
             return
 
-        self._profiler = cProfile.Profile()
-        self._profiler.enable()
+        yappi.set_clock_type("wall")
+        yappi.start()
 
     def on_trace_stop(self, signal, context, options):
         if not options.enable_profiling:
             return
 
-        if not self._profiler:
-            return
-
-        self._profiler.disable()
+        if yappi.is_running():
+            yappi.stop()
         
     def on_trace_read(self, signal, context, options):
         if not options.enable_profiling:
             return
 
-        if not self._profiler:
-            return
+        self._convert_to_profile(signal, yappi.get_func_stats())
+        yappi.clear_stats()
 
-        self._convert_to_profile(signal)
-        self._profiler = None
-
-    def _convert_to_profile(self, signal):
-        stats = pstats.Stats(self._profiler)
+    def _convert_to_profile(self, signal, ystats):
+        stats = yappi.convert2pstats(ystats)
 
         stats.sort_stats('cumtime')
         func_keys = stats.fcn_list[:] if stats.fcn_list else list(stats.stats.keys())
@@ -66,7 +60,7 @@ class CProfileRecorder(BaseRecorder):
 
         for file_name, line_num, func_name, nc, tt, ct in func_list[:250]:
             op_stats = signal.op_profile.add()
-            op_stats.profiler_type = signals_pb2.OpStats.ProfilerType.CPROFILE_PROFILER
+            op_stats.profiler_type = signals_pb2.OpStats.ProfilerType.YAPPI_PROFILER
             op_stats.op_type = signals_pb2.OpStats.OpType.PYTHON_OP
             op_stats.op_name = _format_frame(file_name, line_num, func_name)
             op_stats.count = int(nc)

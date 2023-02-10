@@ -7,6 +7,7 @@ import traceback
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.data import compute_data_stats
+from graphsignal.span_context import start_root_span, start_span, stop_span
 
 logger = logging.getLogger('graphsignal')
 
@@ -71,6 +72,7 @@ class EndpointTrace:
         '_stop_counter',
         '_exc_info',
         '_data_objects',
+        '_root_span',
         '_has_missing_values'
     ]
 
@@ -110,6 +112,7 @@ class EndpointTrace:
         self._signal = None
         self._exc_info = None
         self._data_objects = None
+        self._root_span = None
         self._has_missing_values = False
 
         try:
@@ -161,10 +164,18 @@ class EndpointTrace:
                 logger.error('Error in trace start event handlers', exc_info=True)
                 self._add_agent_exception(exc)
 
-        self._start_counter = time.perf_counter()
+        self._start_counter = time.perf_counter_ns()
+
+        # start current span
+        if self._is_sampling:
+            # root span represents the current trace
+            # only recording nested spans of a trace that is being sampled
+            self._root_span = start_root_span(name=self._endpoint, start_ns=self._start_counter, is_endpoint=True)
+        else:
+            start_span(name=self._endpoint, start_ns=self._start_counter, is_endpoint=True)
 
     def _measure(self) -> None:
-        self._stop_counter = time.perf_counter()
+        self._stop_counter = time.perf_counter_ns()
 
     def _stop(self) -> None:
         if self._is_stopped:
@@ -173,8 +184,11 @@ class EndpointTrace:
 
         if self._stop_counter is None:
             self._measure()
-        self._latency_us = int((self._stop_counter - self._start_counter) * 1e6)
+        self._latency_us = int((self._stop_counter - self._start_counter) / 1e3)
         end_us = _timestamp_us()
+
+        # stop current span
+        stop_span(end_ns=self._stop_counter, has_exception=bool(self._exc_info and self._exc_info[0]))
 
         if self._is_sampling:
             # emit stop event
@@ -190,8 +204,7 @@ class EndpointTrace:
                 self._init_sampling()
 
         # update time and counters
-        if not self._is_sampling:
-            self._metric_store.add_time(self._latency_us)
+        self._metric_store.add_time(self._latency_us)
         self._metric_store.inc_call_count(1, end_us)
 
         # compute data statistics
@@ -320,6 +333,10 @@ class EndpointTrace:
                             dc.name = name
                             dc.count = count
 
+            # copy spans
+            if self._root_span:
+                _convert_span_to_proto(self._signal.root_span, self._root_span)
+
             # queue signal for upload
             self._agent.uploader().upload_signal(self._signal)
             self._agent.tick()
@@ -413,5 +430,17 @@ class EndpointTrace:
     def repr(self):
         return 'EndpointTrace({0})'.format(self._endpoint)
 
+
 def _timestamp_us():
     return int(time.time() * 1e6)
+
+
+def _convert_span_to_proto(proto, span):
+    proto.name = span.name
+    proto.start_ns = span.start_ns
+    proto.end_ns = span.end_ns
+    proto.has_exception = span.has_exception
+    proto.is_endpoint = span.is_endpoint
+    if span.children is not None:
+        for child in span.children:
+            _convert_span_to_proto(proto.spans.add(), child)

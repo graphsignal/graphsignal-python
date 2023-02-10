@@ -103,7 +103,6 @@ class OpenAIRecorder(BaseRecorder):
             for param_arg in param_args:
                 if param_arg in kwargs:
                     trace.set_param(param_arg, kwargs[param_arg])
-
         if 'stream' in kwargs and kwargs['stream']:
             if 'prompt' in kwargs:
                 trace.set_data('prompt', kwargs['prompt'])
@@ -114,7 +113,7 @@ class OpenAIRecorder(BaseRecorder):
             'finish_reason_stop': 0,
             'finish_reason_length': 0
         }
-        if 'usage' in ret:
+        if ret and 'usage' in ret:
             if 'prompt_tokens' in ret['usage']:
                 prompt_usage['token_count'] = ret['usage']['prompt_tokens']
             if 'completion_tokens' in ret['usage']:
@@ -123,7 +122,7 @@ class OpenAIRecorder(BaseRecorder):
         if 'prompt' in kwargs:
             trace.set_data('prompt', kwargs['prompt'], extra_counts=prompt_usage)
 
-        if 'choices' in ret:
+        if ret and 'choices' in ret:
             completion = []
             for choice in ret['choices']:
                 if 'finish_reason' in choice:
@@ -161,7 +160,7 @@ class OpenAIRecorder(BaseRecorder):
         if 'instruction' in kwargs:
             trace.set_data('instruction', kwargs['instruction'], extra_counts=prompt_usage)
 
-        if 'choices' in ret:
+        if ret and 'choices' in ret:
             edits = []
             for choice in ret['choices']:
                 if 'text' in choice:
@@ -185,7 +184,7 @@ class OpenAIRecorder(BaseRecorder):
         if 'input' in kwargs:
             trace.set_data('input', kwargs['input'], extra_counts=prompt_usage)
 
-        if 'data' in ret:
+        if ret and 'data' in ret:
             embedding = []
             for choice in ret['data']:
                 if 'embedding' in choice:
@@ -206,7 +205,7 @@ class OpenAIRecorder(BaseRecorder):
         if 'prompt' in kwargs:
             trace.set_data('prompt', kwargs['prompt'])
 
-        if 'data' in ret:
+        if ret and 'data' in ret:
             image_data = []
             for image in ret['data']:
                 if 'url' in image:

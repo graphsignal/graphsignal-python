@@ -74,6 +74,7 @@ def predict(x):
 
 Other integrations and callbacks are available as well. See [integration documentation](https://graphsignal.com/docs/) for more information.
 
+
 Enable profiling to additionally record code-level statistics. Profiling is disabled by default due to potential overhead. To enable, provide [`TraceOptions`](https://graphsignal.com/docs/reference/python-api/#graphsignaltraceoptions) object.
 
 ```python
@@ -82,6 +83,9 @@ with graphsignal.start_trace(
         options=graphsignal.TraceOptions(enable_profiling=True)):
     pred = model(x)
 ```
+
+The agent will automatically choose a profiler depending on available modules. Currently, CProfile, PyTorch Kineto and Yappi are supported. The Kineto profiler is used if `torch` module is found and Yappi profiler is used if `yappi` module is found. Otherwise, CProfile is used. To properly profile `asyncio` coroutines, just `pip install yappi`.
+
 
 ### Exception tracking
 
