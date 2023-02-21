@@ -48,6 +48,4 @@ class JAXRecorderTest(unittest.TestCase):
         recorder.on_trace_stop(signal, context, DEFAULT_OPTIONS)
         recorder.on_trace_read(signal, context, DEFAULT_OPTIONS)
 
-        self.assertEqual(
-            signal.frameworks[0].type,
-            signals_pb2.FrameworkInfo.FrameworkType.JAX_FRAMEWORK)
+        self.assertEqual(signal.frameworks[0].name, 'JAX')

@@ -1,7 +1,7 @@
 # Graphsignal: AI Application Monitoring
 
-[![License](http://img.shields.io/github/license/graphsignal/graphsignal)](https://github.com/graphsignal/graphsignal/blob/main/LICENSE)
-[![Version](https://img.shields.io/github/v/tag/graphsignal/graphsignal?label=version)](https://github.com/graphsignal/graphsignal)
+[![License](http://img.shields.io/github/license/graphsignal/graphsignal-python)](https://github.com/graphsignal/graphsignal-python/blob/main/LICENSE)
+[![Version](https://img.shields.io/github/v/tag/graphsignal/graphsignal-python?label=version)](https://github.com/graphsignal/graphsignal-python)
 [![Status](https://img.shields.io/uptimerobot/status/m787882560-d6b932eb0068e8e4ade7f40c?label=SaaS%20status)](https://stats.uptimerobot.com/gMBNpCqqqJ)
 
 
@@ -9,7 +9,7 @@ Graphsignal is an AI observability platform. It helps ML engineers and MLOps tea
 
 * Monitor and analyze inference latency, throughput and resource utilization.
 * Track GPU utilization in the context of inference.
-* Get notified about errors and exceptions with full machine learning context.
+* Get notified about errors and anomalies with full machine learning context.
 * Monitor data to detect data issues and silent failures.
 
 [![Dashboards](https://graphsignal.com/external/screencast-dashboards.gif)](https://graphsignal.com/)
@@ -25,10 +25,10 @@ Install Graphsignal agent by running:
 pip install graphsignal
 ```
 
-Or clone and install the [GitHub repository](https://github.com/graphsignal/graphsignal):
+Or clone and install the [GitHub repository](https://github.com/graphsignal/graphsignal-python):
 
 ```
-git clone https://github.com/graphsignal/graphsignal.git
+git clone https://github.com/graphsignal/graphsignal-python.git
 python setup.py install
 ```
 

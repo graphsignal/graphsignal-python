@@ -18,7 +18,7 @@ class XGBoostRecorder(BaseRecorder):
 
     def setup(self):
         self._framework = signals_pb2.FrameworkInfo()
-        self._framework.type = signals_pb2.FrameworkInfo.FrameworkType.XGBOOST_FRAMEWORK
+        self._framework.name = 'XGBoost'
         parse_semver(self._framework.version, xgb.__version__)
 
         for key, value in xgb.get_config().items():

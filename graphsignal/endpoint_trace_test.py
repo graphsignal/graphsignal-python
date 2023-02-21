@@ -192,6 +192,22 @@ class EndpointTraceTest(unittest.TestCase):
         self.assertNotEqual(signal.exceptions[0].stack_trace, '')
 
     @patch.object(Uploader, 'upload_signal')
+    def test_outlier(self, mocked_upload_signal):
+        for _ in range(500):
+            with EndpointTrace(endpoint='ep1'):
+                time.sleep(0.00001)
+        with EndpointTrace(endpoint='ep1'):
+            time.sleep(0.01)
+
+        has_outliers = False
+        for call_args in mocked_upload_signal.call_args_list:
+            signal = call_args[0][0]
+            if signal.signal_type == signals_pb2.SignalType.LATENCY_OUTLIER_SIGNAL:
+                has_outliers = True
+                break
+        self.assertTrue(has_outliers)
+
+    @patch.object(Uploader, 'upload_signal')
     def test_set_data(self, mocked_upload_signal):
         with EndpointTrace(endpoint='ep1') as trace:
             trace.set_data('d1', {'c1': 100, 'c2': None}, check_missing_values=True)

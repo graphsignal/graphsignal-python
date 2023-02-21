@@ -8,7 +8,7 @@ import deepspeed.comm as dist
 import graphsignal
 from graphsignal.endpoint_trace import TraceOptions
 from graphsignal.recorders.base_recorder import BaseRecorder
-from graphsignal.recorders.recorder_utils import patch_method
+from graphsignal.recorders.instrumentation import patch_method
 from graphsignal.proto_utils import parse_semver, compare_semver
 from graphsignal.proto import signals_pb2
 from graphsignal.proto_utils import add_framework_param, add_driver
@@ -46,7 +46,7 @@ class DeepSpeedRecorder(BaseRecorder):
 
     def setup(self):
         self._framework = signals_pb2.FrameworkInfo()
-        self._framework.type = signals_pb2.FrameworkInfo.FrameworkType.DEEPSPEED_FRAMEWORK
+        self._framework.name = 'DeepSpeed'
         parse_semver(self._framework.version, deepspeed.__version__)
 
         if dist.is_initialized():

@@ -56,9 +56,7 @@ class PyTorchRecorderTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
 
-        self.assertEqual(
-            signal.frameworks[0].type,
-            signals_pb2.FrameworkInfo.FrameworkType.PYTORCH_FRAMEWORK)
+        self.assertEqual(signal.frameworks[0].name, 'PyTorch')
 
         self.assertEqual(signal.frameworks[0].params[0].name, 'torch.cuda.is_available')
         self.assertEqual(signal.frameworks[0].params[0].value, str(torch.cuda.is_available()))

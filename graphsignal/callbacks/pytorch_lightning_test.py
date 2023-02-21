@@ -97,12 +97,8 @@ class PyTorchLightningTest(unittest.TestCase):
 
         self.assertEqual(signal.endpoint_name, 'predict_batch')
 
-        self.assertEqual(
-            signal.frameworks[0].type,
-            signals_pb2.FrameworkInfo.FrameworkType.PYTORCH_LIGHTNING_FRAMEWORK)
+        self.assertEqual(signal.frameworks[0].name, 'PyTorch Lightning')
         self.assertTrue(signal.frameworks[0].version.major > 0)
 
-        self.assertEqual(
-            signal.model_info.model_format,
-            signals_pb2.ModelInfo.ModelFormat.PYTORCH_FORMAT)
+        self.assertEqual(signal.model_info.model_format, 'PyTorch')
         self.assertTrue(signal.model_info.model_size_bytes > 0)

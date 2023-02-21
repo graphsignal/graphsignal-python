@@ -10,7 +10,7 @@ from langchain.schema import AgentAction, AgentFinish, LLMResult
 import graphsignal
 from graphsignal.endpoint_trace import TraceOptions
 from graphsignal.recorders.base_recorder import BaseRecorder
-from graphsignal.recorders.recorder_utils import patch_method, unpatch_method
+from graphsignal.recorders.instrumentation import patch_method, unpatch_method
 from graphsignal.proto_utils import parse_semver, compare_semver
 from graphsignal.proto import signals_pb2
 from graphsignal.proto_utils import add_framework_param, add_driver
@@ -142,7 +142,7 @@ class LangChainRecorder(BaseRecorder):
             return
 
         self._framework = signals_pb2.FrameworkInfo()
-        self._framework.type = signals_pb2.FrameworkInfo.FrameworkType.LANGCHAIN_FRAMEWORK
+        self._framework.name = 'LangChain'
 
         if hasattr(langchain.callbacks, 'get_callback_manager'):
             self._handler = GraphsignalHandler()

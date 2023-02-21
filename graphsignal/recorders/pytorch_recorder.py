@@ -20,7 +20,7 @@ class PyTorchRecorder(BaseRecorder):
 
     def setup(self):
         self._framework = signals_pb2.FrameworkInfo()
-        self._framework.type = signals_pb2.FrameworkInfo.FrameworkType.PYTORCH_FRAMEWORK
+        self._framework.name = 'PyTorch'
         parse_semver(self._framework.version, torch.__version__)
 
         add_framework_param(self._framework, 'torch.cuda.is_available', torch.cuda.is_available())

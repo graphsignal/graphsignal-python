@@ -14,7 +14,7 @@ class JAXRecorder(BaseRecorder):
 
     def setup(self):
         self._framework = signals_pb2.FrameworkInfo()
-        self._framework.type = signals_pb2.FrameworkInfo.FrameworkType.JAX_FRAMEWORK
+        self._framework.name = 'JAX'
         parse_semver(self._framework.version, jax.__version__)
 
     def on_trace_start(self, signal, context, options):

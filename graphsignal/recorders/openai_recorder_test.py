@@ -7,6 +7,7 @@ import time
 from unittest.mock import patch, Mock
 from google.protobuf.json_format import MessageToJson
 import pprint
+import types
 import openai
 
 import graphsignal
@@ -39,9 +40,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         recorder.on_trace_stop(signal, context, DEFAULT_OPTIONS)
         recorder.on_trace_read(signal, context, DEFAULT_OPTIONS)
 
-        self.assertEqual(
-            signal.frameworks[0].type,
-            signals_pb2.FrameworkInfo.FrameworkType.OPENAI_FRAMEWORK)
+        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
 
     @patch.object(Uploader, 'upload_signal')
     @patch.object(openai.Completion, 'create')
@@ -93,9 +92,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
 
-        self.assertEqual(
-            signal.frameworks[0].type,
-            signals_pb2.FrameworkInfo.FrameworkType.OPENAI_FRAMEWORK)
+        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
 
         self.assertEqual(find_param(signal, 'model'), 'text-davinci-003')
         self.assertEqual(find_param(signal, 'max_tokens'), '1024')
@@ -112,6 +109,74 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_metric(signal, 'completion', 'token_count'), 96.0)
         self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_stop'), 1.0)
         self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_length'), 1.0)
+
+    @patch.object(Uploader, 'upload_signal')
+    @patch.object(openai.Completion, 'create')
+    async def test_completion_create_stream(self, mocked_create, mocked_upload_signal):
+        # mocking overrides autoinstrumentation, reinstrument
+        recorder = OpenAIRecorder()
+        recorder.setup()
+        recorder._is_sampling = True
+
+        test_ret = [
+            {
+                "choices": [
+                    {
+                    "finish_reason": None,
+                    "index": 1,
+                    "logprobs": None,
+                    "text": "\n"
+                    }
+                ],
+                "created": 1676896808,
+                "id": "cmpl-6lzkernKqOvF4ewZGhHlZ63HZJcbc",
+                "model": "text-davinci-003",
+                "object": "text_completion"
+            },
+            {
+                "choices": [
+                    {
+                    "finish_reason": None,
+                    "index": 1,
+                    "logprobs": None,
+                    "text": "\n"
+                    }
+                ],
+                "created": 1676896808,
+                "id": "cmpl-6lzkernKqOvF4ewZGhHlZ63HZJcbc",
+                "model": "text-davinci-003",
+                "object": "text_completion"
+            }
+        ]
+        def test_ret_gen():
+            for item in test_ret:
+                yield item
+        mocked_create.return_value = test_ret_gen()
+
+        response = openai.Completion.create(
+            model="text-davinci-003", 
+            prompt=['count 1 to 3', 'generate 2 random letters'],
+            temperature=0.1,
+            top_p=1,
+            max_tokens=1024,
+            frequency_penalty=0,
+            presence_penalty=0,
+            stream=True)
+
+        for r in response:
+            pass
+
+        recorder.shutdown()
+
+        signal = mocked_upload_signal.call_args[0][0]
+
+        #pp = pprint.PrettyPrinter()
+        #pp.pprint(MessageToJson(signal))
+
+        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
+        self.assertEqual(signal.root_span.spans[0].name, 'response')
+        self.assertTrue(signal.root_span.spans[0].start_ns > 0)
+        self.assertTrue(signal.root_span.spans[0].end_ns > 0)
 
     @patch.object(Uploader, 'upload_signal')
     @patch.object(openai.Completion, 'acreate')
@@ -163,9 +228,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
 
-        self.assertEqual(
-            signal.frameworks[0].type,
-            signals_pb2.FrameworkInfo.FrameworkType.OPENAI_FRAMEWORK)
+        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
 
         self.assertEqual(find_param(signal, 'model'), 'text-davinci-003')
         self.assertEqual(find_param(signal, 'max_tokens'), '1024')
@@ -219,9 +282,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
 
-        self.assertEqual(
-            signal.frameworks[0].type,
-            signals_pb2.FrameworkInfo.FrameworkType.OPENAI_FRAMEWORK)
+        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
 
         self.assertEqual(find_param(signal, 'model'), 'text-davinci-edit-001')
         self.assertEqual(find_param(signal, 'temperature'), '0.1')
@@ -284,9 +345,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
 
-        self.assertEqual(
-            signal.frameworks[0].type,
-            signals_pb2.FrameworkInfo.FrameworkType.OPENAI_FRAMEWORK)
+        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
 
         self.assertEqual(find_param(signal, 'engine'), 'text-embedding-ada-002')
 
@@ -326,9 +385,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
 
-        self.assertEqual(
-            signal.frameworks[0].type,
-            signals_pb2.FrameworkInfo.FrameworkType.OPENAI_FRAMEWORK)
+        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
 
         self.assertEqual(find_param(signal, 'n'), '1')
         self.assertEqual(find_param(signal, 'size'), '256x256')
@@ -384,9 +441,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
 
-        self.assertEqual(
-            signal.frameworks[0].type,
-            signals_pb2.FrameworkInfo.FrameworkType.OPENAI_FRAMEWORK)
+        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
 
         self.assertEqual(find_param(signal, 'model'), 'text-moderation-latest')
 

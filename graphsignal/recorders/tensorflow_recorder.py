@@ -18,7 +18,7 @@ class TensorFlowRecorder(BaseRecorder):
 
     def setup(self):
         self._framework = signals_pb2.FrameworkInfo()
-        self._framework.type = signals_pb2.FrameworkInfo.FrameworkType.TENSORFLOW_FRAMEWORK
+        self._framework.name = 'TensorFlow'
         parse_semver(self._framework.version, tf.__version__)
 
         if 'TF_CONFIG' in os.environ:

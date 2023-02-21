@@ -49,7 +49,6 @@ class KinetoRecorder(BaseRecorder):
             if event_avg.key and event_avg.key.startswith('ProfilerStep'):
                 continue
             op_stats = signal.op_profile.add()
-            op_stats.profiler_type = signals_pb2.OpStats.ProfilerType.KINETO_PROFILER
             op_stats.op_type = signals_pb2.OpStats.OpType.PYTORCH_OP
             op_stats.op_name = event_avg.key
             op_stats.count = _uint(event_avg.count)

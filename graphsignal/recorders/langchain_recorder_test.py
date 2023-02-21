@@ -56,9 +56,7 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
         recorder.on_trace_stop(signal, context, DEFAULT_OPTIONS)
         recorder.on_trace_read(signal, context, DEFAULT_OPTIONS)
 
-        self.assertEqual(
-            signal.frameworks[0].type,
-            signals_pb2.FrameworkInfo.FrameworkType.LANGCHAIN_FRAMEWORK)
+        self.assertEqual(signal.frameworks[0].name, 'LangChain')
 
     @patch.object(Uploader, 'upload_signal')
     async def test_chain(self, mocked_upload_signal):
@@ -75,9 +73,7 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
 
-        self.assertEqual(
-            signal.frameworks[0].type,
-            signals_pb2.FrameworkInfo.FrameworkType.LANGCHAIN_FRAMEWORK)
+        self.assertEqual(signal.frameworks[0].name, 'LangChain')
 
         self.assertEqual(find_data_metric(signal, 'inputs', 'byte_count'), 34.0)
         self.assertEqual(find_data_metric(signal, 'inputs', 'element_count'), 1.0)
@@ -92,13 +88,6 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(signal.root_span.spans[0].spans[0].start_ns > 0)
         self.assertTrue(signal.root_span.spans[0].spans[0].end_ns > 0)
         self.assertTrue(signal.root_span.spans[0].spans[0].is_endpoint)
-
-
-def find_param(signal, name):
-    for param in signal.params:
-        if param.name == name:
-            return param.value
-    return None
 
 
 def find_data_metric(signal, data_name, metric_name):

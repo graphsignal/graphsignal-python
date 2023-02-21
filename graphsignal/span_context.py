@@ -36,7 +36,7 @@ class TraceSpan:
         'is_endpoint'
     ]
 
-    def __init__(self, name=None, start_ns=None, is_endpoint=False):
+    def __init__(self, name, start_ns=None, is_endpoint=False):
         self.name = name
         self.start_ns = start_ns if start_ns is not None else time.perf_counter_ns()
         self.end_ns = None
@@ -54,22 +54,13 @@ class TraceSpan:
         self.children.append(child)
 
 
-def start_root_span(name, start_ns=None, is_endpoint=False):
-    root_span = TraceSpan(
-        name, start_ns=start_ns, is_endpoint=is_endpoint)
-    push_span(root_span)
-    return root_span
-
-
 def start_span(name, start_ns=None, is_endpoint=False):
     current_span = get_current_span()
-    # only add add span if there is a current span, i.e. some parent trace is sampling
+    child_span = TraceSpan(name, start_ns=start_ns, is_endpoint=is_endpoint)
+    push_span(child_span)
     if current_span:
-        child_span = TraceSpan(
-            name, start_ns=start_ns, is_endpoint=is_endpoint)
         current_span.add_child(child_span)
-        push_span(child_span)
-        return child_span
+    return child_span
 
 
 def stop_span(end_ns=None, has_exception=False):
@@ -77,3 +68,10 @@ def stop_span(end_ns=None, has_exception=False):
     if current_span:
         current_span.stop(end_ns=end_ns, has_exception=has_exception)
         return current_span
+
+
+def is_current_span(span):
+    span_stack = span_stack_var.get()
+    if len(span_stack) > 0 and span_stack[-1] == span:
+        return True
+    return False

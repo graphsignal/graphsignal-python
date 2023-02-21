@@ -14,7 +14,7 @@ class ONNXRuntimeRecorder(BaseRecorder):
 
     def setup(self):
         self._framework = signals_pb2.FrameworkInfo()
-        self._framework.type = signals_pb2.FrameworkInfo.FrameworkType.ONNX_FRAMEWORK
+        self._framework.name = 'ONNX Runtime'
         parse_semver(self._framework.version, onnxruntime.__version__)
 
     def on_trace_start(self, signal, context, options):

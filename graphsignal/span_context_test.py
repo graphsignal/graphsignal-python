@@ -7,7 +7,7 @@ import asyncio
 import random
 
 import graphsignal
-from graphsignal.span_context import start_root_span, start_span, stop_span, get_current_span
+from graphsignal.span_context import start_span, stop_span, get_current_span
 
 logger = logging.getLogger('graphsignal')
 
@@ -22,7 +22,7 @@ class SpanContextTest(unittest.IsolatedAsyncioTestCase):
         graphsignal.shutdown()
 
     async def test_start_span(self):
-        start_root_span(name='s1', start_ns=1000)
+        start_span(name='s1', start_ns=1000)
         start_span(name='s2', start_ns=1001)
         self.assertEqual(get_current_span().name, 's2')
         start_span(name='s3', start_ns=1002)
@@ -43,7 +43,7 @@ class SpanContextTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(get_current_span().name, ep)
             stop_span(end_ns=1002)
 
-        start_root_span(name='r1', start_ns=1000)
+        start_span(name='r1', start_ns=1000)
 
         tasks = []
         for i in range(10):

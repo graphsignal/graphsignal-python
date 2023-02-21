@@ -1,9 +1,9 @@
 import logging
 import sys
 import threading
-import random
 import time
 from collections import OrderedDict
+import statistics
 
 import graphsignal
 from graphsignal import version
@@ -14,23 +14,37 @@ logger = logging.getLogger('graphsignal')
 
 class MetricStore:
     MAX_RESERVOIR_SIZE = 250
+    MIN_SAMPLES = 30
     MAX_INTERVAL_SEC = 600
 
     def __init__(self):
         self._update_lock = threading.Lock()
-        self.latency_us = None
+        self.latency_reservoir = []
+        self.latency_mean = 0
+        self.latency_stdev = 0
         self.call_count = None
         self.exception_count = None
         self.data_counters = {}
 
-    def add_time(self, duration_us):
+    def add_latency(self, latency_us, timestamp_us):
         with self._update_lock:
-            if not self.latency_us:
-                self.latency_us = []
-            if len(self.latency_us) < MetricStore.MAX_RESERVOIR_SIZE:
-                self.latency_us.append(duration_us)
+            if len(self.latency_reservoir) < MetricStore.MAX_RESERVOIR_SIZE:
+                self.latency_reservoir.append(latency_us)
             else:
-                self.latency_us[random.randint(0, MetricStore.MAX_RESERVOIR_SIZE - 1)] = duration_us
+                rand = timestamp_us % MetricStore.MAX_RESERVOIR_SIZE
+                self.latency_reservoir[rand] = latency_us
+
+    def is_latency_outlier(self, latency_us, timestamp_us):
+        # Update mean and stdev approx every 10 samples to control overhead
+        if (len(self.latency_reservoir) > MetricStore.MIN_SAMPLES and 
+                (self.latency_mean == 0 or int(timestamp_us % 10) == 0)):
+            self.latency_mean = statistics.mean(self.latency_reservoir)
+            self.latency_stdev = statistics.stdev(self.latency_reservoir)
+
+        # Samples worth investigating
+        if self.latency_mean > 0:
+            return self.latency_mean and latency_us > self.latency_mean + 6 * self.latency_stdev
+        return False
 
     def inc_call_count(self, value, timestamp_us):
         with self._update_lock:
@@ -59,20 +73,22 @@ class MetricStore:
         start_bucket = bucket - MetricStore.MAX_INTERVAL_SEC + 1
 
         has_expired = False
-        for current_bucket in list(counter.keys()):
+        for current_bucket in counter.keys():
             if current_bucket < start_bucket:
                 del counter[current_bucket]
                 has_expired = True
             else:
                 break
+        # Any bucket expiration means the process is running for more than MAX_INTERVAL_SEC
+        # Add a start bucket to properly compute rates in the backend
         if has_expired and start_bucket not in counter:
             counter[start_bucket] = 0
 
         counter[bucket] = counter.get(bucket, 0) + value
 
     def convert_to_proto(self, signal, timestamp_us):
-        if self.latency_us and len(self.latency_us) > 0:
-            self._convert_reservoir_to_proto(self.latency_us, signal.trace_metrics.latency_us, timestamp_us)
+        if self.latency_reservoir and len(self.latency_reservoir) > 0:
+            self._convert_reservoir_to_proto(self.latency_reservoir, signal.trace_metrics.latency_us, timestamp_us)
         if self.call_count and len(self.call_count) > 0:
             self._convert_counter_to_proto(self.call_count, signal.trace_metrics.call_count, timestamp_us)
         if self.exception_count and len(self.exception_count) > 0:

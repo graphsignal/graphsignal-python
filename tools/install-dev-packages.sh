@@ -34,4 +34,5 @@ pip install deepspeed
 pip install openai
 pip install langchain
 pip install yappi
+pip install banana-dev
 deactivate

@@ -60,7 +60,6 @@ class YappiRecorder(BaseRecorder):
 
         for file_name, line_num, func_name, nc, tt, ct in func_list[:250]:
             op_stats = signal.op_profile.add()
-            op_stats.profiler_type = signals_pb2.OpStats.ProfilerType.YAPPI_PROFILER
             op_stats.op_type = signals_pb2.OpStats.OpType.PYTHON_OP
             op_stats.op_name = _format_frame(file_name, line_num, func_name)
             op_stats.count = int(nc)

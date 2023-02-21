@@ -44,7 +44,7 @@ class GraphsignalCallback(Callback):
                 self._is_initialized = True
 
                 self._framework = signals_pb2.FrameworkInfo()
-                self._framework.type = signals_pb2.FrameworkInfo.FrameworkType.PYTORCH_LIGHTNING_FRAMEWORK
+                self._framework.name = 'PyTorch Lightning'
                 parse_semver(self._framework.version, pytorch_lightning.__version__)
 
                 if self._check_param(trainer, 'world_size') and trainer.world_size >= 0:
@@ -60,7 +60,7 @@ class GraphsignalCallback(Callback):
                     self._rank = trainer.global_rank
 
                 self._model_info = signals_pb2.ModelInfo()
-                self._model_info.model_format = signals_pb2.ModelInfo.ModelFormat.PYTORCH_FORMAT
+                self._model_info.model_format = 'PyTorch'
                 model_size_mb = pytorch_lightning.utilities.memory.get_model_size_mb(pl_module)
                 if model_size_mb:
                     self._model_info.model_size_bytes = int(model_size_mb * 1e6)

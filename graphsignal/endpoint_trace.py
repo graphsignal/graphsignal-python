@@ -7,7 +7,7 @@ import traceback
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.data import compute_data_stats
-from graphsignal.span_context import start_root_span, start_span, stop_span
+from graphsignal.span_context import start_span, stop_span, is_current_span
 
 logger = logging.getLogger('graphsignal')
 
@@ -17,15 +17,18 @@ SAMPLE_TRACES = {1, 10, 100, 1000}
 class TraceOptions:
     __slots__ = [
         'auto_sampling',
+        'outlier_sampling',
         'ensure_sample',
         'enable_profiling'
     ]
 
     def __init__(self, 
-            auto_sampling: bool = True, 
+            auto_sampling: bool = True,
+            outlier_sampling: bool = True, 
             ensure_sample: bool = False, 
             enable_profiling: bool = False):
         self.auto_sampling = auto_sampling
+        self.outlier_sampling = outlier_sampling
         self.ensure_sample = ensure_sample
         self.enable_profiling = enable_profiling
 
@@ -73,6 +76,7 @@ class EndpointTrace:
         '_exc_info',
         '_data_objects',
         '_root_span',
+        '_is_latency_outlier',
         '_has_missing_values'
     ]
 
@@ -113,6 +117,7 @@ class EndpointTrace:
         self._exc_info = None
         self._data_objects = None
         self._root_span = None
+        self._is_latency_outlier = False
         self._has_missing_values = False
 
         try:
@@ -166,13 +171,8 @@ class EndpointTrace:
 
         self._start_counter = time.perf_counter_ns()
 
-        # start current span
-        if self._is_sampling:
-            # root span represents the current trace
-            # only recording nested spans of a trace that is being sampled
-            self._root_span = start_root_span(name=self._endpoint, start_ns=self._start_counter, is_endpoint=True)
-        else:
-            start_span(name=self._endpoint, start_ns=self._start_counter, is_endpoint=True)
+        # stop current span
+        self._root_span = start_span(name=self._endpoint, start_ns=self._start_counter, is_endpoint=True)
 
     def _measure(self) -> None:
         self._stop_counter = time.perf_counter_ns()
@@ -188,7 +188,10 @@ class EndpointTrace:
         end_us = _timestamp_us()
 
         # stop current span
-        stop_span(end_ns=self._stop_counter, has_exception=bool(self._exc_info and self._exc_info[0]))
+        if is_current_span(self._root_span):
+            stop_span(end_ns=self._stop_counter, has_exception=bool(self._exc_info and self._exc_info[0]))
+        else:
+            logger.error('Root span is not current span for endpoint {0}'.format(self._endpoint))
 
         if self._is_sampling:
             # emit stop event
@@ -203,8 +206,13 @@ class EndpointTrace:
             if self._trace_sampler.lock('exceptions'):
                 self._init_sampling()
 
-        # update time and counters
-        self._metric_store.add_time(self._latency_us)
+        # update latency and counters
+        if self._options.outlier_sampling:
+            self._is_latency_outlier = self._metric_store.is_latency_outlier(self._latency_us, end_us)
+            if not self._is_sampling and self._is_latency_outlier:
+                if self._trace_sampler.lock('latency-outliers'):
+                    self._init_sampling()
+        self._metric_store.add_latency(self._latency_us, end_us)
         self._metric_store.inc_call_count(1, end_us)
 
         # compute data statistics
@@ -259,6 +267,8 @@ class EndpointTrace:
             self._signal.end_us = end_us
             if self._exc_info and self._exc_info[0]:
                 self._signal.signal_type = signals_pb2.SignalType.EXCEPTION_SIGNAL
+            elif self._is_latency_outlier:
+                self._signal.signal_type = signals_pb2.SignalType.LATENCY_OUTLIER_SIGNAL
             elif self._has_missing_values:
                 self._signal.signal_type = signals_pb2.SignalType.MISSING_VALUES_SIGNAL
             else:
@@ -436,6 +446,8 @@ def _timestamp_us():
 
 
 def _convert_span_to_proto(proto, span):
+    if span.end_ns is None:
+        return
     proto.name = span.name
     proto.start_ns = span.start_ns
     proto.end_ns = span.end_ns

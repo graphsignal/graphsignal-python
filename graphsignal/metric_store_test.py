@@ -6,6 +6,7 @@ import time
 from unittest.mock import patch, Mock
 from google.protobuf.json_format import MessageToJson
 import pprint
+import random
 
 import graphsignal
 from graphsignal.proto import signals_pb2
@@ -23,16 +24,16 @@ class MetricStoreTest(unittest.TestCase):
         graphsignal.shutdown()
 
     @patch('time.time', return_value=1)
-    def test_update_metric_store(self, mocked_time):
+    def test_update(self, mocked_time):
         store = graphsignal._agent.metric_store('ep1')
 
-        store.add_time(20)
-        store.add_time(30)
+        store.add_latency(20, 1000 * 1e6)
+        store.add_latency(30, 1000 * 1e6)
 
         store.inc_call_count(1, 1000 * 1e6)
         store.inc_call_count(1, 1000 * 1e6)
         store.inc_call_count(1, 1001 * 1e6)
-        
+    
         store.inc_exception_count(1, 100 * 1e6)
         store.inc_exception_count(300, 1001 * 1e6)
 
@@ -56,3 +57,13 @@ class MetricStoreTest(unittest.TestCase):
         self.assertEqual(signal.data_metrics[1].data_name, 'd1')
         self.assertEqual(signal.data_metrics[1].metric_name, 'c2')
         self.assertEqual(signal.data_metrics[1].metric.gauge, 1.0)
+
+    def test_is_latency_outlier(self):
+        store = graphsignal._agent.metric_store('ep1')
+
+        for i in range(1000):
+            val = random.randint(100, 200)
+            now = int(time.time() / 1e6) + i
+            store.add_latency(val, now)
+            self.assertFalse(store.is_latency_outlier(val, now))
+        self.assertTrue(store.is_latency_outlier(1000, now + 1))

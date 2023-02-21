@@ -38,7 +38,7 @@ class GraphsignalCallback(Callback):
                 self._is_initialized = True
 
                 self._framework = signals_pb2.FrameworkInfo()
-                self._framework.type = signals_pb2.FrameworkInfo.FrameworkType.KERAS_FRAMEWORK
+                self._framework.name = 'Keras'
                 parse_semver(self._framework.version, keras.__version__)
         except Exception:
             logger.error('Error configuring Keras callback', exc_info=True)

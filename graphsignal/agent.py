@@ -88,6 +88,7 @@ class Agent:
             ('graphsignal.recorders.deepspeed_recorder', 'DeepSpeedRecorder', 'deepspeed', None),
             ('graphsignal.recorders.openai_recorder', 'OpenAIRecorder', 'openai', None),
             ('graphsignal.recorders.langchain_recorder', 'LangChainRecorder', 'langchain', None),
+            ('graphsignal.recorders.banana_recorder', 'BananaRecorder', 'banana_dev', None),
         ]
         last_exc = None
         for module_name, class_name, include, exclude in recorder_specs:

@@ -59,9 +59,7 @@ class DeepSpeedRecorderTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
 
-        self.assertEqual(
-            signal.frameworks[0].type,
-            signals_pb2.FrameworkInfo.FrameworkType.DEEPSPEED_FRAMEWORK)
+        self.assertEqual(signal.frameworks[0].name, 'DeepSpeed')
 
         self.assertEqual(signal.frameworks[0].params[0].name, 'deepspeed.comm.get_world_size')
         self.assertEqual(signal.frameworks[0].params[0].value, str(2))
