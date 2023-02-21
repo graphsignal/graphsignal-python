@@ -3,7 +3,7 @@ import logging
 import time
 from torch import Tensor
 import pytorch_lightning
-from pytorch_lightning.callbacks.base import Callback
+from pytorch_lightning import Callback
 
 import graphsignal
 from graphsignal.proto import signals_pb2

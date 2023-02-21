@@ -79,7 +79,6 @@ class PyTorchLightningTest(unittest.TestCase):
 
         trainer = Trainer(
             accelerator='gpu' if torch.cuda.is_available() else 'cpu',
-            devices=AVAIL_GPUS,
             max_epochs=1,
             callbacks=[GraphsignalCallback()]
         )

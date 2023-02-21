@@ -48,6 +48,9 @@ class GraphsignalHandler(BaseCallbackHandler):
         if prompts:
             trace.set_data('prompts', prompts)
 
+    def on_llm_new_token(self, token: str, **kwargs: Any) -> Any:
+        pass
+
     def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
         trace = pop_trace()
         if not trace:
