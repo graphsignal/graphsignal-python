@@ -33,6 +33,8 @@ class OpenAIRecorder(BaseRecorder):
 
         instrument_method(openai.Completion, 'create', 'openai.Completion.create', self.trace_completion)
         instrument_method(openai.Completion, 'acreate', 'openai.Completion.acreate', self.trace_completion)
+        instrument_method(openai.ChatCompletion, 'create', 'openai.ChatCompletion.create', self.trace_chat_completion)
+        instrument_method(openai.ChatCompletion, 'acreate', 'openai.ChatCompletion.acreate', self.trace_chat_completion)
         instrument_method(openai.Edit, 'create', 'openai.Edit.create', self.trace_edits)
         instrument_method(openai.Edit, 'acreate', 'openai.Edit.acreate', self.trace_edits)
         instrument_method(openai.Embedding, 'create', 'openai.Embedding.create', self.trace_embedding)
@@ -49,6 +51,8 @@ class OpenAIRecorder(BaseRecorder):
     def shutdown(self):
         uninstrument_method(openai.Completion, 'create', 'openai.Completion.create')
         uninstrument_method(openai.Completion, 'acreate', 'openai.Completion.acreate')
+        uninstrument_method(openai.ChatCompletion, 'create', 'openai.ChatCompletion.create')
+        uninstrument_method(openai.ChatCompletion, 'acreate', 'openai.ChatCompletion.acreate')
         uninstrument_method(openai.Edit, 'create', 'openai.Edit.create')
         uninstrument_method(openai.Edit, 'acreate', 'openai.Edit.acreate')
         uninstrument_method(openai.Embedding, 'create', 'openai.Embedding.create')
@@ -110,6 +114,57 @@ class OpenAIRecorder(BaseRecorder):
                         completion_usage['finish_reason_length'] += 1
                 if 'text' in choice:
                     completion.append(choice['text'])
+            trace.set_data('completion', completion, extra_counts=completion_usage)
+
+    def trace_chat_completion(self, trace, args, kwargs, ret, exc):
+        if self._is_sampling:
+            param_args = [
+                'model',
+                'max_tokens',
+                'temperature',
+                'top_p',
+                'n',
+                'stream',
+                'logprobs',
+                'stop',
+                'presence_penalty',
+                'frequency_penalty',
+                'best_of'
+            ]
+            for param_arg in param_args:
+                if param_arg in kwargs:
+                    trace.set_param(param_arg, kwargs[param_arg])
+        if 'stream' in kwargs and kwargs['stream']:
+            if 'messages' in kwargs:
+                content = [message['content'] for message in kwargs['messages']]
+                trace.set_data('messages', content)
+            return
+
+        prompt_usage = {}
+        completion_usage = {
+            'finish_reason_stop': 0,
+            'finish_reason_length': 0
+        }
+        if ret and 'usage' in ret:
+            if 'prompt_tokens' in ret['usage']:
+                prompt_usage['token_count'] = ret['usage']['prompt_tokens']
+            if 'completion_tokens' in ret['usage']:
+                completion_usage['token_count'] = ret['usage']['completion_tokens']
+
+        if 'messages' in kwargs:
+            content = [message['content'] for message in kwargs['messages']]
+            trace.set_data('messages', content, extra_counts=prompt_usage)
+
+        if ret and 'choices' in ret:
+            completion = []
+            for choice in ret['choices']:
+                if 'finish_reason' in choice:
+                    if choice['finish_reason'] == 'stop':
+                        completion_usage['finish_reason_stop'] += 1
+                    elif choice['finish_reason'] == 'length':
+                        completion_usage['finish_reason_length'] += 1
+                if 'message' in choice and 'content' in choice['message']:
+                    completion.append(choice['message']['content'])
             trace.set_data('completion', completion, extra_counts=completion_usage)
 
     def trace_edits(self, trace, args, kwargs, ret, exc):

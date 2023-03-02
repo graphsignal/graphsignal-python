@@ -21,7 +21,6 @@ pip install tensorflow_datasets
 pip install torch
 pip install torchvision
 pip install torchmetrics
-pip install pytorch_lightning
 pip install transformers
 pip install datasets
 if [ -x "$(command -v nvcc -V)" ]; then

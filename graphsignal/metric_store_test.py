@@ -18,6 +18,7 @@ class MetricStoreTest(unittest.TestCase):
         graphsignal.configure(
             api_key='k1',
             deployment='d1',
+            upload_on_shutdown=False,
             debug_mode=True)
 
     def tearDown(self):
@@ -43,7 +44,7 @@ class MetricStoreTest(unittest.TestCase):
         store.inc_data_counter('d1', 'c2', 1, 1001 * 1e6)
 
         signal = signals_pb2.WorkerSignal()
-        store.convert_to_proto(signal, 1001 * 1e6)
+        store.export(signal, 1001 * 1e6)
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))

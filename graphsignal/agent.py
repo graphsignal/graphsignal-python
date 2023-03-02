@@ -12,6 +12,7 @@ from graphsignal import version
 from graphsignal.uploader import Uploader
 from graphsignal.metric_store import MetricStore
 from graphsignal.trace_sampler import TraceSampler
+from graphsignal.endpoint_trace import EndpointTrace
 from graphsignal.proto import signals_pb2
 from graphsignal.data.missing_value_detector import MissingValueDetector
 from graphsignal.proto_utils import parse_semver
@@ -27,6 +28,7 @@ class Agent:
             deployment=None, 
             tags=None, 
             auto_instrument=True, 
+            upload_on_shutdown=True, 
             debug_mode=False):
         self.worker_id = _uuid_sha1(size=12)
         self.api_key = api_key
@@ -38,6 +40,7 @@ class Agent:
         self.tags = tags
         self.params = None
         self.auto_instrument = auto_instrument
+        self.upload_on_shutdown = upload_on_shutdown
         self.debug_mode = debug_mode
 
         self._uploader = None
@@ -61,9 +64,17 @@ class Agent:
         self.recorders()
 
     def shutdown(self):
+        # Create snapshot signals to send final metrics.
+        if self.upload_on_shutdown:
+            for endpoint, store in self._metric_store.items():
+                if store.is_updated:
+                    EndpointTrace(endpoint=endpoint, is_snapshot=True).stop()
+
         for recorder in self._recorders.values():
             recorder.shutdown()
+
         self.upload(block=True)
+
         self._recorders = None
         self._trace_samplers = None
         self._metric_store = None

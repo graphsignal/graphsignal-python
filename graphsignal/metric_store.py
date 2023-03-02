@@ -19,6 +19,7 @@ class MetricStore:
 
     def __init__(self):
         self._update_lock = threading.Lock()
+        self.is_updated = False
         self.latency_reservoir = []
         self.latency_mean = 0
         self.latency_stdev = 0
@@ -33,6 +34,8 @@ class MetricStore:
             else:
                 rand = timestamp_us % MetricStore.MAX_RESERVOIR_SIZE
                 self.latency_reservoir[rand] = latency_us
+
+        self.is_updated = True
 
     def is_latency_outlier(self, latency_us, timestamp_us):
         # Update mean and stdev approx every 10 samples to control overhead
@@ -51,12 +54,16 @@ class MetricStore:
             if not self.call_count:
                 self.call_count = OrderedDict()
             self._inc_counter(self.call_count, value, timestamp_us)
+        
+        self.is_updated = True
 
     def inc_exception_count(self, value, timestamp_us):
         with self._update_lock:
             if not self.exception_count:
                 self.exception_count = OrderedDict()
             self._inc_counter(self.exception_count, value, timestamp_us)
+
+        self.is_updated = True
 
     def inc_data_counter(self, data_name, counter_name, value, timestamp_us):
         with self._update_lock:
@@ -67,6 +74,8 @@ class MetricStore:
             else:
                 counter = self.data_counters[key]
             self._inc_counter(counter, value, timestamp_us)
+
+        self.is_updated = True
 
     def _inc_counter(self, counter, value, timestamp_us):
         bucket = int(timestamp_us / 1e6)
@@ -86,7 +95,7 @@ class MetricStore:
 
         counter[bucket] = counter.get(bucket, 0) + value
 
-    def convert_to_proto(self, signal, timestamp_us):
+    def export(self, signal, timestamp_us):
         if self.latency_reservoir and len(self.latency_reservoir) > 0:
             self._convert_reservoir_to_proto(self.latency_reservoir, signal.trace_metrics.latency_us, timestamp_us)
         if self.call_count and len(self.call_count) > 0:
@@ -98,6 +107,7 @@ class MetricStore:
             data_metric.data_name = data_name
             data_metric.metric_name = counter_name
             self._convert_counter_to_proto(data_counter, data_metric.metric, timestamp_us)
+        self.is_updated = False
 
     def _convert_reservoir_to_proto(self, reservoir, metric, timestamp_us):
         metric.type = signals_pb2.Metric.MetricType.RESERVOIR_METRIC

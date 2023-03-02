@@ -50,14 +50,12 @@ To track deployments, versions and environments separately, specify a `deploymen
 
 ## Integrate
 
-Use the following examples to integrate Graphsignal agent into your machine learning application. See integration documentation and [API reference](https://graphsignal.com/docs/reference/python-api/) for full reference.
-
-Graphsignal agent is **optimized for production**. All executions are measured, but only a few are recorded to ensure low overhead.
+Use the following examples to integrate Graphsignal agent into your machine learning application. See integration documentation and [API reference](https://graphsignal.com/docs/reference/python-api/) for full reference. More integration examples are available in [examples](https://github.com/graphsignal/examples) repo.
 
 
 ### Monitoring and tracing
 
-Some libraries and frameworks, e.g. OpenAI client, are **auto-instrumented** and traced automatically.
+Some libraries and frameworks, such as OpenAI client, are **auto-instrumented** and traced automatically.
 
 To measure and monitor any other executions, e.g. model inference or inference API calls, wrap the code with [`start_trace`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method or use [`trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
 
@@ -109,39 +107,6 @@ The following data types are currently supported: `list`, `dict`, `set`, `tuple`
 ## Observe
 
 After everything is setup, [log in](https://app.graphsignal.com/) to Graphsignal to monitor and analyze execution performance and monitor for issues.
-
-
-## Examples
-
-### Model serving
-
-```python
-import graphsignal
-
-graphsignal.configure(api_key='my-api-key', deployment='my-model-prod')
-
-...
-
-def predict(x):
-    with graphsignal.start_trace(endpoint='predict'):
-        return model(x)
-```
-
-### Batch job
-
-```python
-import graphsignal
-
-graphsignal.configure(api_key='my-api-key', deployment='my-model', tags=dict(job_id='job1'))
-
-...
-
-for x in data:
-    with graphsignal.start_trace(endpoint='predict'):
-        preds = model(x)
-```
-
-More integration examples are available in [`examples`](https://github.com/graphsignal/examples) repo.
 
 
 ## Overhead

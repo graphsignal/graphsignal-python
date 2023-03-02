@@ -26,6 +26,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         graphsignal.configure(
             api_key='k1',
             deployment='d1',
+            upload_on_shutdown=False,
             debug_mode=True)
 
     async def asyncTearDown(self):

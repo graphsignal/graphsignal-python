@@ -26,6 +26,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         graphsignal.configure(
             api_key='k1',
             deployment='d1',
+            upload_on_shutdown=False,
             debug_mode=True)
 
     async def asyncTearDown(self):
@@ -243,6 +244,81 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_metric(signal, 'completion', 'byte_count'), 40.0)
         self.assertEqual(find_data_metric(signal, 'completion', 'element_count'), 2.0)
         self.assertEqual(find_data_metric(signal, 'completion', 'token_count'), 96.0)
+
+
+    @patch.object(Uploader, 'upload_signal')
+    @patch.object(openai.ChatCompletion, 'create')
+    async def test_chat_completion_create(self, mocked_create, mocked_upload_signal):
+        # mocking overrides autoinstrumentation, reinstrument
+        recorder = OpenAIRecorder()
+        recorder.setup()
+        recorder._is_sampling = True
+
+        mocked_create.return_value = {
+            "choices": [
+                {
+                    "finish_reason": "stop",
+                    "index": 0,
+                    "logprobs": None,
+                    "message": {
+                        "content": "\n\ntest completion 1"
+                    }
+                },
+                {
+                    "finish_reason": "length",
+                    "index": 1,
+                    "logprobs": None,
+                    "message": {
+                        "content": "\n\ntest completion 222"
+                    }
+                }
+            ],
+            "created": 1675070122,
+            "id": "cmpl-id",
+            "model": "gpt-3.5-turbo",
+            "object": "text_completion",
+            "usage": {
+                "completion_tokens": 96,
+                "prompt_tokens": 6,
+                "total_tokens": 102
+            }
+        }
+
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo", 
+            messages=[
+                {'role': 'system', 'content': 'test prompt 1'}, 
+                {'role': 'system', 'content': 'test prompt 2'}],
+            temperature=0.1,
+            top_p=1,
+            max_tokens=1024,
+            frequency_penalty=0,
+            presence_penalty=0)
+
+        recorder.shutdown()
+
+        signal = mocked_upload_signal.call_args[0][0]
+
+        #pp = pprint.PrettyPrinter()
+        #pp.pprint(MessageToJson(signal))
+
+        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
+
+        self.assertEqual(find_param(signal, 'model'), 'gpt-3.5-turbo')
+        self.assertEqual(find_param(signal, 'max_tokens'), '1024')
+        self.assertEqual(find_param(signal, 'temperature'), '0.1')
+        self.assertEqual(find_param(signal, 'top_p'), '1')
+        self.assertEqual(find_param(signal, 'presence_penalty'), '0')
+        self.assertEqual(find_param(signal, 'frequency_penalty'), '0')
+
+        self.assertEqual(find_data_metric(signal, 'messages', 'byte_count'), 26.0)
+        self.assertEqual(find_data_metric(signal, 'messages', 'element_count'), 2.0)
+        self.assertEqual(find_data_metric(signal, 'messages', 'token_count'), 6.0)
+        self.assertEqual(find_data_metric(signal, 'completion', 'byte_count'), 40.0)
+        self.assertEqual(find_data_metric(signal, 'completion', 'element_count'), 2.0)
+        self.assertEqual(find_data_metric(signal, 'completion', 'token_count'), 96.0)
+        self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_stop'), 1.0)
+        self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_length'), 1.0)
 
     @patch.object(Uploader, 'upload_signal')
     @patch.object(openai.Edit, 'create')

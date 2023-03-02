@@ -17,6 +17,7 @@ class GraphsignalTest(unittest.TestCase):
         graphsignal.configure(
             api_key='k1',
             deployment='d1',
+            upload_on_shutdown=False,
             debug_mode=True)
 
     def tearDown(self):

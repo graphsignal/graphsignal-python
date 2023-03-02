@@ -77,10 +77,11 @@ class EndpointTrace:
         '_data_objects',
         '_root_span',
         '_is_latency_outlier',
-        '_has_missing_values'
+        '_has_missing_values',
+        '_is_snapshot'
     ]
 
-    def __init__(self, endpoint, tags=None, options=None):
+    def __init__(self, endpoint, tags=None, options=None, is_snapshot=False):
         if not endpoint:
             raise ValueError('endpoint is required')
         if not isinstance(endpoint, str):
@@ -119,6 +120,7 @@ class EndpointTrace:
         self._root_span = None
         self._is_latency_outlier = False
         self._has_missing_values = False
+        self._is_snapshot = is_snapshot
 
         try:
             self._start()
@@ -150,13 +152,16 @@ class EndpointTrace:
         self._metric_store = self._agent.metric_store(self._endpoint)
         self._mv_detector = self._agent.mv_detector()
 
-        lock_group = 'samples'
-        if self._options.auto_sampling:
-            lock_group += '-auto'
-        if self._options.ensure_sample:
-            lock_group += '-ensured'
-        if self._options.enable_profiling:
-            lock_group += '-profiled'
+        if self._is_snapshot:
+            lock_group = 'snapshots'
+        else:
+            lock_group = 'samples'
+            if self._options.auto_sampling:
+                lock_group += '-auto'
+            if self._options.ensure_sample:
+                lock_group += '-ensured'
+            if self._options.enable_profiling:
+                lock_group += '-profiled'
 
         if ((self._options.auto_sampling and self._trace_sampler.lock(lock_group, include_trace_idx=SAMPLE_TRACES)) or
                 (self._options.ensure_sample and self._trace_sampler.lock(lock_group, limit_per_interval=2))):
@@ -212,8 +217,10 @@ class EndpointTrace:
             if not self._is_sampling and self._is_latency_outlier:
                 if self._trace_sampler.lock('latency-outliers'):
                     self._init_sampling()
-        self._metric_store.add_latency(self._latency_us, end_us)
-        self._metric_store.inc_call_count(1, end_us)
+
+        if not self._is_snapshot:
+            self._metric_store.add_latency(self._latency_us, end_us)
+            self._metric_store.inc_call_count(1, end_us)
 
         # compute data statistics
         data_stats = None
@@ -265,7 +272,9 @@ class EndpointTrace:
             self._signal.endpoint_name = self._endpoint
             self._signal.start_us = end_us - self._latency_us
             self._signal.end_us = end_us
-            if self._exc_info and self._exc_info[0]:
+            if self._is_snapshot:
+                self._signal.signal_type = signals_pb2.SignalType.SNAPSHOT_SIGNAL
+            elif self._exc_info and self._exc_info[0]:
                 self._signal.signal_type = signals_pb2.SignalType.EXCEPTION_SIGNAL
             elif self._is_latency_outlier:
                 self._signal.signal_type = signals_pb2.SignalType.LATENCY_OUTLIER_SIGNAL
@@ -307,9 +316,6 @@ class EndpointTrace:
                     if self._params and name in self._params:
                         param.is_trace_level = True
 
-            # copy metrics
-            self._metric_store.convert_to_proto(self._signal, end_us)
-
             # copy trace measurements
             self._signal.trace_sample.trace_idx = self._trace_sampler.current_trace_idx()
             self._signal.trace_sample.latency_us = self._latency_us
@@ -347,7 +353,10 @@ class EndpointTrace:
             if self._root_span:
                 _convert_span_to_proto(self._signal.root_span, self._root_span)
 
-            # queue signal for upload
+            # copy metrics
+            self._metric_store.export(self._signal, end_us)
+
+            # queue trace signal for upload
             self._agent.uploader().upload_signal(self._signal)
             self._agent.tick()
 

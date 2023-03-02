@@ -24,6 +24,7 @@ class EndpointTraceTest(unittest.TestCase):
             api_key='k1',
             deployment='d1',
             tags={'k1': 'v1', 'k2': 'v2'},
+            upload_on_shutdown=False,
             debug_mode=True)
 
     def tearDown(self):
