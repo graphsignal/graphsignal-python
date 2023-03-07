@@ -72,7 +72,7 @@ def configure(
     api_key = _check_and_set_arg('api_key', api_key, is_str=True, required=True)
     api_url = _check_and_set_arg('api_url', api_url, is_str=True, required=False)
     deployment = _check_and_set_arg('deployment', deployment, is_str=True, required=True)
-    tags = _check_and_set_arg('deployment', tags, is_kv=True, required=False)
+    tags = _check_and_set_arg('tags', tags, is_kv=True, required=False)
 
     _agent = Agent(
         api_key=api_key,
