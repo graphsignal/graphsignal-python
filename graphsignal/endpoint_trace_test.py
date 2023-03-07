@@ -82,7 +82,6 @@ class EndpointTraceTest(unittest.TestCase):
         self.assertEqual(signal.params[1].name, 'p2')
         self.assertEqual(signal.params[1].value, 'v2')
         self.assertTrue(signal.params[1].is_trace_level)
-        self.assertEqual(signal.trace_sample.trace_idx, 10)
         self.assertTrue(signal.trace_sample.latency_us > 0)
         self.assertEqual(signal.data_profile[0].data_name, 'input')
         self.assertEqual(signal.data_profile[0].shape, [2, 2])

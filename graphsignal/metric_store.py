@@ -82,7 +82,7 @@ class MetricStore:
         start_bucket = bucket - MetricStore.MAX_INTERVAL_SEC + 1
 
         has_expired = False
-        for current_bucket in counter.keys():
+        for current_bucket in list(counter.keys()):
             if current_bucket < start_bucket:
                 del counter[current_bucket]
                 has_expired = True

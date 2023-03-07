@@ -317,7 +317,6 @@ class EndpointTrace:
                         param.is_trace_level = True
 
             # copy trace measurements
-            self._signal.trace_sample.trace_idx = self._trace_sampler.current_trace_idx()
             self._signal.trace_sample.latency_us = self._latency_us
             self._signal.trace_sample.is_ensured = self._options.ensure_sample
             self._signal.trace_sample.is_profiled = self._options.enable_profiling
