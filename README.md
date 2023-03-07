@@ -55,7 +55,7 @@ Use the following examples to integrate Graphsignal agent into your machine lear
 
 ### Monitoring and tracing
 
-Some libraries and frameworks, such as OpenAI client, are **auto-instrumented** and traced automatically.
+Graphsignal **auto-instruments** and traces libraries and frameworks, such as [OpenAI](https://graphsignal.com/docs/integrations/openai/), [LangChain](https://graphsignal.com/docs/integrations/langchain/), and many others.
 
 To measure and monitor any other executions, e.g. model inference or inference API calls, wrap the code with [`start_trace`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method or use [`trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
 

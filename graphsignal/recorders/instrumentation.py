@@ -9,7 +9,7 @@ from graphsignal.span_context import TraceSpan
 logger = logging.getLogger('graphsignal')
 
 
-def instrument_method(obj, func_name, endpoint, trace_func):
+def instrument_method(obj, func_name, endpoint, trace_func, data_func=None):
     def before_func(args, kwargs):
         return dict(trace=graphsignal.start_trace(endpoint=endpoint))
 
@@ -35,12 +35,17 @@ def instrument_method(obj, func_name, endpoint, trace_func):
 
         if idx == 0:
             context['span'] = TraceSpan('response')
-        if idx == -1:
+            if data_func:
+                data_func(trace, item)
+        elif idx == -1:
             if 'span' in context:
                 span = context['span']
                 span.stop()
                 trace._root_span.add_child(span)
             trace.stop()
+        else:
+            if data_func:
+                data_func(trace, item)
 
     if not patch_method(obj, func_name, before_func=before_func, after_func=after_func, yield_func=yield_func):
         logger.debug('Cannot instrument %s.', endpoint)
@@ -162,3 +167,11 @@ def unpatch_method(obj, func_name):
 
 def is_generator(obj):
     return obj and isinstance(obj, types.GeneratorType)
+
+
+def read_args(args, kwargs, names):
+    values = {}
+    for name, arg in zip(names, args):
+        values[name] = arg
+    values.update(kwargs)
+    return values

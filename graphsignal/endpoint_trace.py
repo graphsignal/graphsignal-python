@@ -39,14 +39,14 @@ class DataObject:
     __slots__ = [
         'name',
         'obj',
-        'extra_counts',
+        'counts',
         'check_missing_values'
     ]
 
-    def __init__(self, name, obj, extra_counts=None, check_missing_values=False):
+    def __init__(self, name, obj, counts=None, check_missing_values=False):
         self.name = name
         self.obj = obj
-        self.extra_counts = extra_counts
+        self.counts = counts
         self.check_missing_values = check_missing_values
 
 
@@ -234,8 +234,8 @@ class EndpointTrace:
                     data_stats[data_obj.name] = stats
 
                     # add/update extra counts to computed counts
-                    if data_obj.extra_counts is not None:
-                        stats.counts.update(data_obj.extra_counts)
+                    if data_obj.counts is not None:
+                        stats.counts.update(data_obj.counts)
 
                     # check missing values
                     if data_obj.check_missing_values:
@@ -418,7 +418,7 @@ class EndpointTrace:
     def set_data(self, 
             name: str, 
             obj: Any, 
-            extra_counts: Optional[Dict[str, int]] = None, 
+            counts: Optional[Dict[str, int]] = None, 
             check_missing_values: Optional[bool] = False) -> None:
         if self._data_objects is None:
             self._data_objects = {}
@@ -426,11 +426,46 @@ class EndpointTrace:
         if name and not isinstance(name, str):
             raise ValueError('set_data: name must be string')
 
+        if counts and not isinstance(counts, dict):
+            raise ValueError('append_data: name must be dict')
+
         if len(self._data_objects) > EndpointTrace.MAX_DATA_OBJECTS:
             raise ValueError('set_data: too many data objects (>{0})'.format(EndpointTrace.MAX_DATA_OBJECTS))
 
         self._data_objects[name] = DataObject(
-            name=name, obj=obj, extra_counts=extra_counts, check_missing_values=check_missing_values)
+            name=name, obj=obj, counts=counts, check_missing_values=check_missing_values)
+
+    def append_data(self, 
+            name: str, 
+            obj: Any, 
+            counts: Optional[Dict[str, int]] = None, 
+            check_missing_values: Optional[bool] = False) -> None:
+        if self._data_objects is None:
+            self._data_objects = {}
+
+        if name and not isinstance(name, str):
+            raise ValueError('append_data: name must be string')
+
+        if counts and not isinstance(counts, dict):
+            raise ValueError('append_data: name must be dict')
+
+        if len(self._data_objects) > EndpointTrace.MAX_DATA_OBJECTS:
+            raise ValueError('append_data: too many data objects (>{0})'.format(EndpointTrace.MAX_DATA_OBJECTS))
+
+        if name in self._data_objects:
+            data_obj = self._data_objects[name]
+            data_obj.obj += obj
+            if counts:
+                if data_obj.counts is None:
+                    data_obj.counts = {}
+                for count_name, value in counts.items():
+                    if count_name in data_obj.counts:
+                        data_obj.counts[count_name] += value
+                    else:
+                        data_obj.counts[count_name] = value
+        else:
+            self._data_objects[name] = DataObject(
+                name=name, obj=obj, counts=counts, check_missing_values=check_missing_values)
 
     def get_latency_us(self):
         return self._latency_us

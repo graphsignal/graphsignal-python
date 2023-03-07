@@ -7,7 +7,6 @@ logger = logging.getLogger('graphsignal')
 
 span_stack_var = contextvars.ContextVar('span_stack', default=[])
 
-
 def push_span(span):
     span_stack_var.set(span_stack_var.get() + [span])
 
@@ -36,6 +35,8 @@ class TraceSpan:
         'is_endpoint'
     ]
 
+    MAX_CHILD_SPANS = 100
+
     def __init__(self, name, start_ns=None, is_endpoint=False):
         self.name = name
         self.start_ns = start_ns if start_ns is not None else time.perf_counter_ns()
@@ -51,7 +52,8 @@ class TraceSpan:
     def add_child(self, child):
         if self.children is None:
             self.children = []
-        self.children.append(child)
+        if len(self.children) < self.MAX_CHILD_SPANS:
+            self.children.append(child)
 
 
 def start_span(name, start_ns=None, is_endpoint=False):

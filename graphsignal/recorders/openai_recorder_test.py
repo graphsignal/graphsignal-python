@@ -126,7 +126,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
                     "finish_reason": None,
                     "index": 1,
                     "logprobs": None,
-                    "text": "\n"
+                    "text": "abc"
                     }
                 ],
                 "created": 1676896808,
@@ -137,7 +137,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
             {
                 "choices": [
                     {
-                    "finish_reason": None,
+                    "finish_reason": "stop",
                     "index": 1,
                     "logprobs": None,
                     "text": "\n"
@@ -178,6 +178,11 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(signal.root_span.spans[0].name, 'response')
         self.assertTrue(signal.root_span.spans[0].start_ns > 0)
         self.assertTrue(signal.root_span.spans[0].end_ns > 0)
+        self.assertEqual(find_data_metric(signal, 'prompt', 'byte_count'), 37.0)
+        self.assertEqual(find_data_metric(signal, 'prompt', 'element_count'), 2.0)
+        self.assertEqual(find_data_metric(signal, 'completion', 'byte_count'), 4.0)
+        self.assertEqual(find_data_metric(signal, 'completion', 'element_count'), 2.0)
+        self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_stop'), 1.0)
 
     @patch.object(Uploader, 'upload_signal')
     @patch.object(openai.Completion, 'acreate')
@@ -244,7 +249,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_metric(signal, 'completion', 'byte_count'), 40.0)
         self.assertEqual(find_data_metric(signal, 'completion', 'element_count'), 2.0)
         self.assertEqual(find_data_metric(signal, 'completion', 'token_count'), 96.0)
-
 
     @patch.object(Uploader, 'upload_signal')
     @patch.object(openai.ChatCompletion, 'create')
@@ -319,6 +323,85 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_metric(signal, 'completion', 'token_count'), 96.0)
         self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_stop'), 1.0)
         self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_length'), 1.0)
+
+    @patch.object(Uploader, 'upload_signal')
+    @patch.object(openai.ChatCompletion, 'create')
+    async def test_chat_completion_create_stream(self, mocked_create, mocked_upload_signal):
+        # mocking overrides autoinstrumentation, reinstrument
+        recorder = OpenAIRecorder()
+        recorder.setup()
+        recorder._is_sampling = True
+
+        test_ret = [
+            {
+                "choices": [
+                    {
+                        "finish_reason": None,
+                        "index": 1,
+                        "logprobs": None,
+                        "delta": {
+                            "content": "abc"
+                        }
+                    }
+                ],
+                "created": 1676896808,
+                "id": "cmpl-6lzkernKqOvF4ewZGhHlZ63HZJcbc",
+                "model": "gpt-3.5-turbo",
+                "object": "chat.completion.chunk"
+            },
+            {
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "index": 1,
+                        "logprobs": None,
+                        "delta": {
+                            "content": "\n"
+                        }
+                    }
+                ],
+                "created": 1676896808,
+                "id": "cmpl-6lzkernKqOvF4ewZGhHlZ63HZJcbc",
+                "model": "gpt-3.5-turbo",
+                "object": "chat.completion.chunk"
+            }
+        ]
+        def test_ret_gen():
+            for item in test_ret:
+                yield item
+        mocked_create.return_value = test_ret_gen()
+
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo", 
+            messages=[
+                {'role': 'system', 'content': 'count 1 to 3'}, 
+                {'role': 'system', 'content': 'generate 2 random letters'}],            
+            temperature=0.1,
+            top_p=1,
+            max_tokens=1024,
+            frequency_penalty=0,
+            presence_penalty=0,
+            stream=True)
+
+        for r in response:
+            pass
+
+        recorder.shutdown()
+
+        signal = mocked_upload_signal.call_args[0][0]
+
+        #pp = pprint.PrettyPrinter()
+        #pp.pprint(MessageToJson(signal))
+
+        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
+        self.assertEqual(signal.root_span.spans[0].name, 'response')
+        self.assertTrue(signal.root_span.spans[0].start_ns > 0)
+        self.assertTrue(signal.root_span.spans[0].end_ns > 0)
+        self.assertEqual(find_data_metric(signal, 'messages', 'byte_count'), 37.0)
+        self.assertEqual(find_data_metric(signal, 'messages', 'element_count'), 2.0)
+        self.assertEqual(find_data_metric(signal, 'completion', 'byte_count'), 4.0)
+        self.assertEqual(find_data_metric(signal, 'completion', 'element_count'), 2.0)
+        self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_stop'), 1.0)
 
     @patch.object(Uploader, 'upload_signal')
     @patch.object(openai.Edit, 'create')
@@ -469,6 +552,91 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(find_data_metric(signal, 'image', 'byte_count'), 14.0)
         self.assertEqual(find_data_metric(signal, 'image', 'element_count'), 1.0)
+
+    @patch.object(Uploader, 'upload_signal')
+    @patch.object(openai.Audio, 'transcribe')
+    async def test_audio_transcription(self, mocked_create, mocked_upload_signal):
+        # mocking overrides autoinstrumentation, reinstrument
+        recorder = OpenAIRecorder()
+        recorder.setup()
+        recorder._is_sampling = True
+
+        mocked_create.return_value = {
+            "text": 'some text'
+        }
+
+        import tempfile
+        with tempfile.NamedTemporaryFile() as tmp_file:
+            tmp_file.write('test content'.encode('utf-8'))
+            tmp_file.flush()
+
+            response = openai.Audio.transcribe(
+                file=tmp_file,
+                model='whisper-1',
+                response_format='json',
+                prompt='test prompt',
+                temperature=0.1,
+                language='en')
+
+        recorder.shutdown()
+
+        signal = mocked_upload_signal.call_args[0][0]
+
+        #pp = pprint.PrettyPrinter()
+        #pp.pprint(MessageToJson(signal))
+
+        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
+
+        self.assertEqual(find_param(signal, 'model'), 'whisper-1')
+        self.assertEqual(find_param(signal, 'response_format'), 'json')
+        self.assertEqual(find_param(signal, 'temperature'), '0.1')
+        self.assertEqual(find_param(signal, 'language'), 'en')
+
+        self.assertEqual(find_data_metric(signal, 'file', 'byte_count'), 12.0)
+        self.assertEqual(find_data_metric(signal, 'prompt', 'byte_count'), 11.0)
+        self.assertEqual(find_data_metric(signal, 'prompt', 'element_count'), 1.0)
+
+
+    @patch.object(Uploader, 'upload_signal')
+    @patch.object(openai.Audio, 'translate')
+    async def test_audio_translate(self, mocked_create, mocked_upload_signal):
+        # mocking overrides autoinstrumentation, reinstrument
+        recorder = OpenAIRecorder()
+        recorder.setup()
+        recorder._is_sampling = True
+
+        mocked_create.return_value = {
+            "text": 'some text'
+        }
+
+        import tempfile
+        with tempfile.NamedTemporaryFile() as tmp_file:
+            tmp_file.write('test content'.encode('utf-8'))
+            tmp_file.flush()
+
+            response = openai.Audio.translate(
+                file=tmp_file,
+                model='whisper-1',
+                response_format='json',
+                prompt='test prompt',
+                temperature=0.1)
+
+        recorder.shutdown()
+
+        signal = mocked_upload_signal.call_args[0][0]
+
+        #pp = pprint.PrettyPrinter()
+        #pp.pprint(MessageToJson(signal))
+
+        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
+
+        self.assertEqual(find_param(signal, 'model'), 'whisper-1')
+        self.assertEqual(find_param(signal, 'response_format'), 'json')
+        self.assertEqual(find_param(signal, 'temperature'), '0.1')
+
+        self.assertEqual(find_data_metric(signal, 'file', 'byte_count'), 12.0)
+        self.assertEqual(find_data_metric(signal, 'prompt', 'byte_count'), 11.0)
+        self.assertEqual(find_data_metric(signal, 'prompt', 'element_count'), 1.0)
 
     @patch.object(Uploader, 'upload_signal')
     @patch.object(openai.Moderation, 'create')

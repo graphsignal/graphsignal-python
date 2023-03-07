@@ -43,7 +43,7 @@ class EndpointTraceTest(unittest.TestCase):
                 tags={'k3': 'v33', 'k4': 4.0})
             trace.set_tag('k5', 'v5')
             trace.set_param('p2', 'v2')
-            trace.set_data('input', np.asarray([[1, 2],[3, 4]]), extra_counts=dict(c1=1, c2=2))
+            trace.set_data('input', np.asarray([[1, 2],[3, 4]]), counts=dict(c1=1, c2=2))
             time.sleep(0.01)
             trace.stop()
 

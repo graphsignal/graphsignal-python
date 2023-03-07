@@ -10,7 +10,7 @@ from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
-from graphsignal.recorders.instrumentation import patch_method, instrument_method
+from graphsignal.recorders.instrumentation import patch_method, instrument_method, read_args
 from graphsignal.uploader import Uploader
 
 logger = logging.getLogger('graphsignal')
@@ -142,3 +142,10 @@ class RecorderUtilsTest(unittest.IsolatedAsyncioTestCase):
             pass
 
         self.assertTrue(yield_func_called)
+
+    async def test_read_args(self):
+        def test(*args, **kwargs):
+            values = read_args(args, kwargs, ['a', 'b', 'c'])
+            self.assertEqual(values, {'a': 1, 'b': 2, 'c': 3})
+
+        test(1, 2, c=3)
