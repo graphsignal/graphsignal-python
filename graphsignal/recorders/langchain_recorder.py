@@ -129,6 +129,10 @@ class GraphsignalHandler(BaseCallbackHandler):
             **kwargs: Optional[str]) -> None:
         pass
 
+
+    def on_agent_action(self, action: AgentAction, **kwargs: Any) -> Any:
+        pass
+
     def on_agent_finish(
             self, finish: AgentFinish, color: Optional[str] = None, **kwargs: Any) -> None:
         pass
