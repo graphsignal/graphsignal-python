@@ -35,7 +35,7 @@ class CProfileRecorderTest(unittest.TestCase):
         recorder = CProfileRecorder()
         recorder._exclude_path = 'donotmatchpath'
         recorder.setup()
-        signal = signals_pb2.WorkerSignal()
+        signal = signals_pb2.Trace()
         context = {}
 
         def slow_method():

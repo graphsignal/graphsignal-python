@@ -42,7 +42,7 @@ class TensorFlowRecorderTest(unittest.TestCase):
 
         recorder = TensorFlowRecorder()
         recorder.setup()
-        signal = signals_pb2.WorkerSignal()
+        signal = signals_pb2.Trace()
         context = {}
         recorder.on_trace_start(signal, context, DEFAULT_OPTIONS)
         recorder.on_trace_stop(signal, context, DEFAULT_OPTIONS)

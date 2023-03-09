@@ -44,8 +44,8 @@ class RecorderUtilsTest(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         graphsignal.shutdown()
 
-    @patch.object(Uploader, 'upload_signal')
-    async def test_instrument_method(self, mocked_upload_signal):
+    @patch.object(Uploader, 'upload_trace')
+    async def test_instrument_method(self, mocked_upload_trace):
         obj = Dummy()
 
         trace_func_called = False
@@ -57,13 +57,13 @@ class RecorderUtilsTest(unittest.IsolatedAsyncioTestCase):
 
         obj.test(1, 2, c=3)
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         self.assertTrue(trace_func_called)
         self.assertEqual(signal.endpoint_name, 'ep1')
 
-    @patch.object(Uploader, 'upload_signal')
-    async def test_instrument_method_generator(self, mocked_upload_signal):
+    @patch.object(Uploader, 'upload_trace')
+    async def test_instrument_method_generator(self, mocked_upload_trace):
         obj = Dummy()
 
         trace_func_called = None
@@ -76,7 +76,7 @@ class RecorderUtilsTest(unittest.IsolatedAsyncioTestCase):
         for item in obj.test_gen():
             pass
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         self.assertTrue(trace_func_called)
         self.assertEqual(signal.endpoint_name, 'ep1')

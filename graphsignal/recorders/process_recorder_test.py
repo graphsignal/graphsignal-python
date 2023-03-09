@@ -33,7 +33,7 @@ class ProcessRecorderTest(unittest.TestCase):
     def test_record(self):
         recorder = ProcessRecorder()
         recorder.setup()
-        signal = signals_pb2.WorkerSignal()
+        signal = signals_pb2.Trace()
         context = {}
         recorder.on_trace_start(signal, context, DEFAULT_OPTIONS)
         random.random()
@@ -43,7 +43,7 @@ class ProcessRecorderTest(unittest.TestCase):
         ProcessRecorder.MIN_CPU_READ_INTERVAL_US = 0
         time.sleep(0.2)
 
-        signal = signals_pb2.WorkerSignal()
+        signal = signals_pb2.Trace()
         context = {}
         recorder.on_trace_start(signal, context, DEFAULT_OPTIONS)
         for _ in range(100000):
@@ -60,7 +60,7 @@ class ProcessRecorderTest(unittest.TestCase):
         self.assertNotEqual(signal.node_usage.ip_address, '')
         self.assertNotEqual(signal.process_usage.pid, '')
         if sys.platform != 'win32':
-            self.assertTrue(signal.trace_sample.thread_cpu_time_us > 0)
+            self.assertTrue(signal.trace_info.thread_cpu_time_us > 0)
             self.assertTrue(signal.node_usage.mem_total > 0)
             self.assertTrue(signal.node_usage.mem_used > 0)
             self.assertTrue(signal.process_usage.cpu_usage_percent > 0)

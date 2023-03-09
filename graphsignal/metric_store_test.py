@@ -43,7 +43,7 @@ class MetricStoreTest(unittest.TestCase):
         store.inc_data_counter('d1', 'c1', 1, 1001 * 1e6)
         store.inc_data_counter('d1', 'c2', 1, 1001 * 1e6)
 
-        signal = signals_pb2.WorkerSignal()
+        signal = signals_pb2.Trace()
         store.export(signal, 1001 * 1e6)
 
         #pp = pprint.PrettyPrinter()

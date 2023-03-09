@@ -51,7 +51,7 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
     async def test_record(self):
         recorder = LangChainRecorder()
         recorder.setup()
-        signal = signals_pb2.WorkerSignal()
+        signal = signals_pb2.Trace()
         context = {}
         recorder.on_trace_start(signal, context, DEFAULT_OPTIONS)
         recorder.on_trace_stop(signal, context, DEFAULT_OPTIONS)
@@ -59,8 +59,8 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(signal.frameworks[0].name, 'LangChain')
 
-    @patch.object(Uploader, 'upload_signal')
-    async def test_chain(self, mocked_upload_signal):
+    @patch.object(Uploader, 'upload_trace')
+    async def test_chain(self, mocked_upload_trace):
         llm = OpenAI(temperature=0)
         llm = DummyLLM()
         tools = load_tools(["llm-math"], llm=llm)
@@ -69,7 +69,7 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
         )
         agent.run("What is 2 raised to .123243 power?")
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))

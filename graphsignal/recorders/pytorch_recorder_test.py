@@ -40,7 +40,7 @@ class PyTorchRecorderTest(unittest.TestCase):
             mem1 = mem1.cuda()
             torch.cuda.synchronize()
 
-        signal = signals_pb2.WorkerSignal()
+        signal = signals_pb2.Trace()
         context = {}
         recorder.on_trace_start(signal, context, DEFAULT_OPTIONS)
 

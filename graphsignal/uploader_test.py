@@ -39,8 +39,8 @@ class UploaderTest(unittest.TestCase):
 
     @patch.object(Uploader, '_post')
     def test_flush(self, mocked_post):
-        signal = signals_pb2.WorkerSignal()
-        graphsignal._agent.uploader().upload_signal(signal)
+        signal = signals_pb2.Trace()
+        graphsignal._agent.uploader().upload_trace(signal)
         graphsignal._agent.uploader().flush()
 
         mocked_post.assert_called_once()
@@ -49,8 +49,8 @@ class UploaderTest(unittest.TestCase):
     @patch.object(Uploader, '_post',
                   return_value=signals_pb2.UploadResponse().SerializeToString())
     def test_flush_in_thread(self, mocked_post):
-        signal = signals_pb2.WorkerSignal()
-        graphsignal._agent.uploader().upload_signal(signal)
+        signal = signals_pb2.Trace()
+        graphsignal._agent.uploader().upload_trace(signal)
         graphsignal._agent.uploader().flush_in_thread()
 
         mocked_post.assert_called_once()
@@ -62,9 +62,9 @@ class UploaderTest(unittest.TestCase):
             raise URLError("Ex1")
         mocked_post.side_effect = side_effect
 
-        signal = signals_pb2.WorkerSignal()
-        graphsignal._agent.uploader().upload_signal(signal)
-        graphsignal._agent.uploader().upload_signal(signal)
+        signal = signals_pb2.Trace()
+        graphsignal._agent.uploader().upload_trace(signal)
+        graphsignal._agent.uploader().upload_trace(signal)
         graphsignal._agent.uploader().flush()
 
         self.assertEqual(len(graphsignal._agent.uploader().buffer), 2)
@@ -77,10 +77,10 @@ class UploaderTest(unittest.TestCase):
             signals_pb2.UploadResponse().SerializeToString())
         server.start()
 
-        signal = signals_pb2.WorkerSignal()
+        signal = signals_pb2.Trace()
         signal.endpoint_name = 'ep1'
         upload_request = signals_pb2.UploadRequest()
-        upload_request.worker_signals.append(signal)
+        upload_request.traces.append(signal)
         upload_request.upload_ms = 123
         graphsignal._agent.uploader()._post(
             'signals', upload_request.SerializeToString())
@@ -88,7 +88,7 @@ class UploaderTest(unittest.TestCase):
         received_upload_request = signals_pb2.UploadRequest()
         received_upload_request.ParseFromString(server.get_request_data())
         self.assertEqual(
-            received_upload_request.worker_signals[0].endpoint_name, 'ep1')
+            received_upload_request.traces[0].endpoint_name, 'ep1')
         self.assertEqual(received_upload_request.upload_ms, 123)
 
         server.join()

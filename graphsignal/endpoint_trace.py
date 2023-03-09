@@ -77,11 +77,10 @@ class EndpointTrace:
         '_data_objects',
         '_root_span',
         '_is_latency_outlier',
-        '_has_missing_values',
-        '_is_snapshot'
+        '_has_missing_values'
     ]
 
-    def __init__(self, endpoint, tags=None, options=None, is_snapshot=False):
+    def __init__(self, endpoint, tags=None, options=None):
         if not endpoint:
             raise ValueError('endpoint is required')
         if not isinstance(endpoint, str):
@@ -120,7 +119,6 @@ class EndpointTrace:
         self._root_span = None
         self._is_latency_outlier = False
         self._has_missing_values = False
-        self._is_snapshot = is_snapshot
 
         try:
             self._start()
@@ -152,16 +150,13 @@ class EndpointTrace:
         self._metric_store = self._agent.metric_store(self._endpoint)
         self._mv_detector = self._agent.mv_detector()
 
-        if self._is_snapshot:
-            lock_group = 'snapshots'
-        else:
-            lock_group = 'samples'
-            if self._options.auto_sampling:
-                lock_group += '-auto'
-            if self._options.ensure_sample:
-                lock_group += '-ensured'
-            if self._options.enable_profiling:
-                lock_group += '-profiled'
+        lock_group = 'samples'
+        if self._options.auto_sampling:
+            lock_group += '-auto'
+        if self._options.ensure_sample:
+            lock_group += '-ensured'
+        if self._options.enable_profiling:
+            lock_group += '-profiled'
 
         if ((self._options.auto_sampling and self._trace_sampler.lock(lock_group, include_trace_idx=SAMPLE_TRACES)) or
                 (self._options.ensure_sample and self._trace_sampler.lock(lock_group, limit_per_interval=2))):
@@ -218,9 +213,8 @@ class EndpointTrace:
                 if self._trace_sampler.lock('latency-outliers'):
                     self._init_sampling()
 
-        if not self._is_snapshot:
-            self._metric_store.add_latency(self._latency_us, end_us)
-            self._metric_store.inc_call_count(1, end_us)
+        self._metric_store.add_latency(self._latency_us, end_us)
+        self._metric_store.inc_call_count(1, end_us)
 
         # compute data statistics
         data_stats = None
@@ -272,16 +266,14 @@ class EndpointTrace:
             self._signal.endpoint_name = self._endpoint
             self._signal.start_us = end_us - self._latency_us
             self._signal.end_us = end_us
-            if self._is_snapshot:
-                self._signal.signal_type = signals_pb2.SignalType.SNAPSHOT_SIGNAL
-            elif self._exc_info and self._exc_info[0]:
-                self._signal.signal_type = signals_pb2.SignalType.EXCEPTION_SIGNAL
+            if self._exc_info and self._exc_info[0]:
+                self._signal.trace_type = signals_pb2.TraceType.EXCEPTION_TRACE
             elif self._is_latency_outlier:
-                self._signal.signal_type = signals_pb2.SignalType.LATENCY_OUTLIER_SIGNAL
+                self._signal.trace_type = signals_pb2.TraceType.LATENCY_OUTLIER_TRACE
             elif self._has_missing_values:
-                self._signal.signal_type = signals_pb2.SignalType.MISSING_VALUES_SIGNAL
+                self._signal.trace_type = signals_pb2.TraceType.MISSING_VALUES_TRACE
             else:
-                self._signal.signal_type = signals_pb2.SignalType.SAMPLE_SIGNAL
+                self._signal.trace_type = signals_pb2.TraceType.SAMPLE_TRACE
             self._signal.process_usage.start_ms = self._agent._process_start_ms
 
             # copy tags
@@ -317,9 +309,9 @@ class EndpointTrace:
                         param.is_trace_level = True
 
             # copy trace measurements
-            self._signal.trace_sample.latency_us = self._latency_us
-            self._signal.trace_sample.is_ensured = self._options.ensure_sample
-            self._signal.trace_sample.is_profiled = self._options.enable_profiling
+            self._signal.trace_info.latency_us = self._latency_us
+            self._signal.trace_info.is_ensured = self._options.ensure_sample
+            self._signal.trace_info.is_profiled = self._options.enable_profiling
 
             # copy exception
             if self._exc_info and self._exc_info[0]:
@@ -356,7 +348,7 @@ class EndpointTrace:
             self._metric_store.export(self._signal, end_us)
 
             # queue trace signal for upload
-            self._agent.uploader().upload_signal(self._signal)
+            self._agent.uploader().upload_trace(self._signal)
             self._agent.tick()
 
     def measure(self) -> None:

@@ -35,7 +35,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
     async def test_record(self):
         recorder = OpenAIRecorder()
         recorder.setup()
-        signal = signals_pb2.WorkerSignal()
+        signal = signals_pb2.Trace()
         context = {}
         recorder.on_trace_start(signal, context, DEFAULT_OPTIONS)
         recorder.on_trace_stop(signal, context, DEFAULT_OPTIONS)
@@ -43,9 +43,9 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
 
-    @patch.object(Uploader, 'upload_signal')
+    @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Completion, 'create')
-    async def test_completion_create(self, mocked_create, mocked_upload_signal):
+    async def test_completion_create(self, mocked_create, mocked_upload_trace):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
@@ -88,7 +88,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
@@ -111,9 +111,9 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_stop'), 1.0)
         self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_length'), 1.0)
 
-    @patch.object(Uploader, 'upload_signal')
+    @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Completion, 'create')
-    async def test_completion_create_stream(self, mocked_create, mocked_upload_signal):
+    async def test_completion_create_stream(self, mocked_create, mocked_upload_trace):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
@@ -169,7 +169,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
@@ -184,9 +184,9 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_metric(signal, 'completion', 'element_count'), 2.0)
         self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_stop'), 1.0)
 
-    @patch.object(Uploader, 'upload_signal')
+    @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Completion, 'acreate')
-    async def test_completion_acreate(self, mocked_create, mocked_upload_signal):
+    async def test_completion_acreate(self, mocked_create, mocked_upload_trace):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
@@ -229,7 +229,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
@@ -250,9 +250,9 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_metric(signal, 'completion', 'element_count'), 2.0)
         self.assertEqual(find_data_metric(signal, 'completion', 'token_count'), 96.0)
 
-    @patch.object(Uploader, 'upload_signal')
+    @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.ChatCompletion, 'create')
-    async def test_chat_completion_create(self, mocked_create, mocked_upload_signal):
+    async def test_chat_completion_create(self, mocked_create, mocked_upload_trace):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
@@ -301,7 +301,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
@@ -324,9 +324,9 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_stop'), 1.0)
         self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_length'), 1.0)
 
-    @patch.object(Uploader, 'upload_signal')
+    @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.ChatCompletion, 'create')
-    async def test_chat_completion_create_stream(self, mocked_create, mocked_upload_signal):
+    async def test_chat_completion_create_stream(self, mocked_create, mocked_upload_trace):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
@@ -388,7 +388,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
@@ -403,9 +403,9 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_metric(signal, 'completion', 'element_count'), 2.0)
         self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_stop'), 1.0)
 
-    @patch.object(Uploader, 'upload_signal')
+    @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Edit, 'create')
-    async def test_edits_create(self, mocked_create, mocked_upload_signal):
+    async def test_edits_create(self, mocked_create, mocked_upload_trace):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
@@ -436,7 +436,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
@@ -456,9 +456,9 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_metric(signal, 'edits', 'element_count'), 1.0)
         self.assertEqual(find_data_metric(signal, 'edits', 'token_count'), 13.0)
 
-    @patch.object(Uploader, 'upload_signal')
+    @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Embedding, 'create')
-    async def test_embedding_create(self, mocked_create, mocked_upload_signal):
+    async def test_embedding_create(self, mocked_create, mocked_upload_trace):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
@@ -499,7 +499,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
@@ -514,9 +514,9 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_metric(signal, 'embedding', 'byte_count'), 144.0)
         self.assertEqual(find_data_metric(signal, 'embedding', 'element_count'), 6.0)
 
-    @patch.object(Uploader, 'upload_signal')
+    @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Image, 'create')
-    async def test_image_create(self, mocked_create, mocked_upload_signal):
+    async def test_image_create(self, mocked_create, mocked_upload_trace):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
@@ -539,7 +539,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
@@ -553,9 +553,9 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_metric(signal, 'image', 'byte_count'), 14.0)
         self.assertEqual(find_data_metric(signal, 'image', 'element_count'), 1.0)
 
-    @patch.object(Uploader, 'upload_signal')
+    @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Audio, 'transcribe')
-    async def test_audio_transcription(self, mocked_create, mocked_upload_signal):
+    async def test_audio_transcription(self, mocked_create, mocked_upload_trace):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
@@ -580,7 +580,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
@@ -597,9 +597,9 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_metric(signal, 'prompt', 'element_count'), 1.0)
 
 
-    @patch.object(Uploader, 'upload_signal')
+    @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Audio, 'translate')
-    async def test_audio_translate(self, mocked_create, mocked_upload_signal):
+    async def test_audio_translate(self, mocked_create, mocked_upload_trace):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
@@ -623,7 +623,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))
@@ -638,9 +638,9 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_metric(signal, 'prompt', 'byte_count'), 11.0)
         self.assertEqual(find_data_metric(signal, 'prompt', 'element_count'), 1.0)
 
-    @patch.object(Uploader, 'upload_signal')
+    @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Moderation, 'create')
-    async def test_moderation_create(self, mocked_create, mocked_upload_signal):
+    async def test_moderation_create(self, mocked_create, mocked_upload_trace):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
@@ -680,7 +680,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))

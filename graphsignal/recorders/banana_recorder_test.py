@@ -34,7 +34,7 @@ class BananaRecorderTest(unittest.IsolatedAsyncioTestCase):
     async def test_record(self):
         recorder = BananaRecorder()
         recorder.setup()
-        signal = signals_pb2.WorkerSignal()
+        signal = signals_pb2.Trace()
         context = {}
         recorder.on_trace_start(signal, context, DEFAULT_OPTIONS)
         recorder.on_trace_stop(signal, context, DEFAULT_OPTIONS)
@@ -42,9 +42,9 @@ class BananaRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(signal.frameworks[0].name, 'Banana Python SDK')
 
-    @patch.object(Uploader, 'upload_signal')
+    @patch.object(Uploader, 'upload_trace')
     @patch.object(banana, 'run')
-    async def test_trace_run(self, mocked_run, mocked_upload_signal):
+    async def test_trace_run(self, mocked_run, mocked_upload_trace):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = BananaRecorder()
         recorder.setup()
@@ -72,7 +72,7 @@ class BananaRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(signal))

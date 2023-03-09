@@ -49,7 +49,7 @@ class ProcessRecorder(BaseRecorder):
             if 'process_start_cpu_time_us' in context:
                 start_cpu_time_us = context['process_start_cpu_time_us']
                 if start_cpu_time_us and stop_cpu_time_us:
-                    signal.trace_sample.thread_cpu_time_us = max(0, stop_cpu_time_us - start_cpu_time_us)
+                    signal.trace_info.thread_cpu_time_us = max(0, stop_cpu_time_us - start_cpu_time_us)
 
     def on_trace_read(self, signal, context, options):
         if not OS_WIN:

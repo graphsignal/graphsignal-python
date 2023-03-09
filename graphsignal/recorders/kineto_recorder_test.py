@@ -41,7 +41,7 @@ class KinetoRecorderTest(unittest.TestCase):
             x = x.to('cuda:0')
             model = model.to('cuda:0')
 
-        signal = signals_pb2.WorkerSignal()
+        signal = signals_pb2.Trace()
         context = {}
         recorder.on_trace_start(signal, context, graphsignal.TraceOptions(enable_profiling=True))
 

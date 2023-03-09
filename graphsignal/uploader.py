@@ -34,7 +34,7 @@ class Uploader:
         with self.buffer_lock:
             self.buffer = []
 
-    def upload_signal(self, signal):
+    def upload_trace(self, signal):
         with self.buffer_lock:
             self.buffer.append(signal)
             if len(self.buffer) > self.MAX_BUFFER_SIZE:
@@ -98,7 +98,7 @@ class Uploader:
 
 def _create_upload_request(outgoing):
     upload_request = signals_pb2.UploadRequest()
-    upload_request.worker_signals.extend(outgoing)
+    upload_request.traces.extend(outgoing)
     upload_request.upload_ms = int(time.time() * 1e3)
     return upload_request.SerializeToString()
 

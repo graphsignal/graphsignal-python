@@ -36,7 +36,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         recorder = YappiRecorder()
         recorder._exclude_path = 'donotmatchpath'
         recorder.setup()
-        signal = signals_pb2.WorkerSignal()
+        signal = signals_pb2.Trace()
         context = {}
 
         async def slow_method():

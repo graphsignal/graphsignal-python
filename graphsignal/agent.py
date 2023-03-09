@@ -12,7 +12,6 @@ from graphsignal import version
 from graphsignal.uploader import Uploader
 from graphsignal.metric_store import MetricStore
 from graphsignal.trace_sampler import TraceSampler
-from graphsignal.endpoint_trace import EndpointTrace
 from graphsignal.proto import signals_pb2
 from graphsignal.data.missing_value_detector import MissingValueDetector
 from graphsignal.proto_utils import parse_semver
@@ -68,7 +67,8 @@ class Agent:
         if self.upload_on_shutdown:
             for endpoint, store in self._metric_store.items():
                 if store.is_updated:
-                    EndpointTrace(endpoint=endpoint, is_snapshot=True).stop()
+                    # upload metrics here
+                    pass
 
         for recorder in self._recorders.values():
             recorder.shutdown()
@@ -184,9 +184,9 @@ class Agent:
             raise last_exc
 
     def create_signal(self):
-        signal = signals_pb2.WorkerSignal()
+        signal = signals_pb2.Trace()
         signal.worker_id = graphsignal._agent.worker_id
-        signal.signal_id = _uuid_sha1(size=12)
+        signal.trace_id = _uuid_sha1(size=12)
         if self.deployment:
             signal.deployment_name = self.deployment
         signal.agent_info.agent_type = signals_pb2.AgentInfo.AgentType.PYTHON_AGENT

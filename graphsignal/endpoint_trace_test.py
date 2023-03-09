@@ -31,9 +31,9 @@ class EndpointTraceTest(unittest.TestCase):
         graphsignal.shutdown()
 
     @patch.object(ProcessRecorder, 'on_trace_stop')
-    @patch.object(Uploader, 'upload_signal')
+    @patch.object(Uploader, 'upload_trace')
     @patch('time.time', return_value=1000)
-    def test_start_stop(self, mocked_time, mocked_upload_signal, mocked_process_on_trace_stop):
+    def test_start_stop(self, mocked_time, mocked_upload_trace, mocked_process_on_trace_stop):
         graphsignal.set_tag('k3', 'v3')
         graphsignal.log_param('p1', 'v1')
 
@@ -47,14 +47,14 @@ class EndpointTraceTest(unittest.TestCase):
             time.sleep(0.01)
             trace.stop()
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         self.assertEqual(signal.deployment_name, 'd1')
         self.assertEqual(signal.endpoint_name, 'ep1')
         self.assertTrue(signal.worker_id != '')
         self.assertTrue(signal.start_us > 0)
         self.assertTrue(signal.end_us > 0)
-        self.assertEqual(signal.signal_type, signals_pb2.SignalType.SAMPLE_SIGNAL)
+        self.assertEqual(signal.trace_type, signals_pb2.TraceType.SAMPLE_TRACE)
         self.assertTrue(signal.process_usage.start_ms > 0)
         self.assertEqual(signal.trace_metrics.call_count.gauge, 10.0)
         self.assertEqual(len(signal.trace_metrics.latency_us.reservoir.values), 10)
@@ -82,7 +82,7 @@ class EndpointTraceTest(unittest.TestCase):
         self.assertEqual(signal.params[1].name, 'p2')
         self.assertEqual(signal.params[1].value, 'v2')
         self.assertTrue(signal.params[1].is_trace_level)
-        self.assertTrue(signal.trace_sample.latency_us > 0)
+        self.assertTrue(signal.trace_info.latency_us > 0)
         self.assertEqual(signal.data_profile[0].data_name, 'input')
         self.assertEqual(signal.data_profile[0].shape, [2, 2])
         self.assertEqual(signal.data_profile[0].counts[-2].name, 'c1')
@@ -91,31 +91,31 @@ class EndpointTraceTest(unittest.TestCase):
         self.assertEqual(signal.data_profile[0].counts[-1].count, 2)
 
     @patch.object(ProcessRecorder, 'on_trace_start')
-    @patch.object(Uploader, 'upload_signal')
-    def test_start_exception(self, mocked_upload_signal, mocked_process_on_trace_start):
+    @patch.object(Uploader, 'upload_trace')
+    def test_start_exception(self, mocked_upload_trace, mocked_process_on_trace_start):
         mocked_process_on_trace_start.side_effect = Exception('ex1')
         trace = EndpointTrace(endpoint='ep1')
         trace.stop()
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         self.assertEqual(signal.endpoint_name, 'ep1')
         self.assertTrue(signal.worker_id != '')
         self.assertTrue(signal.start_us > 0)
         self.assertTrue(signal.end_us > 0)
-        self.assertEqual(signal.signal_type, signals_pb2.SignalType.SAMPLE_SIGNAL)
+        self.assertEqual(signal.trace_type, signals_pb2.TraceType.SAMPLE_TRACE)
         self.assertEqual(signal.agent_errors[0].message, 'ex1')
         self.assertNotEqual(signal.agent_errors[0].stack_trace, '')
 
     @patch.object(ProcessRecorder, 'on_trace_stop')
-    @patch.object(Uploader, 'upload_signal')
-    def test_agent_exception(self, mocked_upload_signal, mocked_process_on_trace_stop):
+    @patch.object(Uploader, 'upload_trace')
+    def test_agent_exception(self, mocked_upload_trace, mocked_process_on_trace_stop):
         mocked_process_on_trace_stop.side_effect = Exception('ex1')
         trace = EndpointTrace(
             endpoint='ep1')
         trace.stop()
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         self.assertEqual(signal.endpoint_name, 'ep1')
         self.assertTrue(signal.worker_id != '')
@@ -124,8 +124,8 @@ class EndpointTraceTest(unittest.TestCase):
         self.assertEqual(signal.agent_errors[0].message, 'ex1')
         self.assertNotEqual(signal.agent_errors[0].stack_trace, '')
 
-    @patch.object(Uploader, 'upload_signal')
-    def test_inference_exception(self, mocked_upload_signal):
+    @patch.object(Uploader, 'upload_trace')
+    def test_inference_exception(self, mocked_upload_trace):
 
         for _ in range(2):
             try:
@@ -135,22 +135,22 @@ class EndpointTraceTest(unittest.TestCase):
                 if str(ex) != 'ex1':
                     raise ex
 
-        self.assertEqual(mocked_upload_signal.call_count, 2)
-        signal = mocked_upload_signal.call_args[0][0]
+        self.assertEqual(mocked_upload_trace.call_count, 2)
+        signal = mocked_upload_trace.call_args[0][0]
 
         self.assertEqual(signal.endpoint_name, 'ep1')
         self.assertTrue(signal.worker_id != '')
-        self.assertTrue(signal.signal_id != '')
+        self.assertTrue(signal.trace_id != '')
         self.assertTrue(signal.start_us > 0)
         self.assertTrue(signal.end_us > 0)
-        self.assertEqual(signal.signal_type, signals_pb2.SignalType.EXCEPTION_SIGNAL)
+        self.assertEqual(signal.trace_type, signals_pb2.TraceType.EXCEPTION_TRACE)
         self.assertEqual(signal.trace_metrics.exception_count.gauge, 2.0)
         self.assertEqual(signal.exceptions[0].exc_type, 'Exception')
         self.assertEqual(signal.exceptions[0].message, 'ex1')
         self.assertNotEqual(signal.exceptions[0].stack_trace, '')
 
-    @patch.object(Uploader, 'upload_signal')
-    def test_set_exception(self, mocked_upload_signal):
+    @patch.object(Uploader, 'upload_trace')
+    def test_set_exception(self, mocked_upload_trace):
         trace = EndpointTrace(endpoint='ep1')
         try:
             raise Exception('ex2')
@@ -158,20 +158,20 @@ class EndpointTraceTest(unittest.TestCase):
             trace.set_exception(ex)
         trace.stop()
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         self.assertEqual(signal.endpoint_name, 'ep1')
         self.assertTrue(signal.worker_id != '')
         self.assertTrue(signal.start_us > 0)
         self.assertTrue(signal.end_us > 0)
-        self.assertEqual(signal.signal_type, signals_pb2.SignalType.EXCEPTION_SIGNAL)
+        self.assertEqual(signal.trace_type, signals_pb2.TraceType.EXCEPTION_TRACE)
         self.assertEqual(signal.trace_metrics.exception_count.gauge, 1)
         self.assertEqual(signal.exceptions[0].exc_type, 'Exception')
         self.assertEqual(signal.exceptions[0].message, 'ex2')
         self.assertNotEqual(signal.exceptions[0].stack_trace, '')
 
-    @patch.object(Uploader, 'upload_signal')
-    def test_set_exception_true(self, mocked_upload_signal):
+    @patch.object(Uploader, 'upload_trace')
+    def test_set_exception_true(self, mocked_upload_trace):
         trace = EndpointTrace(endpoint='ep1')
         try:
             raise Exception('ex2')
@@ -179,20 +179,20 @@ class EndpointTraceTest(unittest.TestCase):
             trace.set_exception(exc_info=True)
         trace.stop()
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         self.assertEqual(signal.endpoint_name, 'ep1')
         self.assertTrue(signal.worker_id != '')
         self.assertTrue(signal.start_us > 0)
         self.assertTrue(signal.end_us > 0)
-        self.assertEqual(signal.signal_type, signals_pb2.SignalType.EXCEPTION_SIGNAL)
+        self.assertEqual(signal.trace_type, signals_pb2.TraceType.EXCEPTION_TRACE)
         self.assertEqual(signal.trace_metrics.exception_count.gauge, 1)
         self.assertEqual(signal.exceptions[0].exc_type, 'Exception')
         self.assertEqual(signal.exceptions[0].message, 'ex2')
         self.assertNotEqual(signal.exceptions[0].stack_trace, '')
 
-    @patch.object(Uploader, 'upload_signal')
-    def test_outlier(self, mocked_upload_signal):
+    @patch.object(Uploader, 'upload_trace')
+    def test_outlier(self, mocked_upload_trace):
         for _ in range(500):
             with EndpointTrace(endpoint='ep1'):
                 time.sleep(0.00001)
@@ -200,28 +200,28 @@ class EndpointTraceTest(unittest.TestCase):
             time.sleep(0.01)
 
         has_outliers = False
-        for call_args in mocked_upload_signal.call_args_list:
+        for call_args in mocked_upload_trace.call_args_list:
             signal = call_args[0][0]
-            if signal.signal_type == signals_pb2.SignalType.LATENCY_OUTLIER_SIGNAL:
+            if signal.trace_type == signals_pb2.TraceType.LATENCY_OUTLIER_TRACE:
                 has_outliers = True
                 break
         self.assertTrue(has_outliers)
 
-    @patch.object(Uploader, 'upload_signal')
-    def test_set_data(self, mocked_upload_signal):
+    @patch.object(Uploader, 'upload_trace')
+    def test_set_data(self, mocked_upload_trace):
         with EndpointTrace(endpoint='ep1') as trace:
             trace.set_data('d1', {'c1': 100, 'c2': None}, check_missing_values=True)
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         self.assertEqual(signal.endpoint_name, 'ep1')
         self.assertTrue(signal.worker_id != '')
         self.assertTrue(signal.start_us > 0)
         self.assertTrue(signal.end_us > 0)
-        self.assertEqual(signal.signal_type, signals_pb2.SignalType.MISSING_VALUES_SIGNAL)
+        self.assertEqual(signal.trace_type, signals_pb2.TraceType.MISSING_VALUES_TRACE)
 
-    @patch.object(Uploader, 'upload_signal')
-    def test_spans(self, mocked_upload_signal):
+    @patch.object(Uploader, 'upload_trace')
+    def test_spans(self, mocked_upload_trace):
         trace = EndpointTrace(endpoint='ep1')
         trace2 = EndpointTrace(endpoint='ep2')
         trace3 = EndpointTrace(endpoint='ep3')
@@ -231,7 +231,7 @@ class EndpointTraceTest(unittest.TestCase):
         trace4.stop()
         trace.stop()
 
-        signal = mocked_upload_signal.call_args[0][0]
+        signal = mocked_upload_trace.call_args[0][0]
 
         self.assertEqual(signal.endpoint_name, 'ep1')
 
