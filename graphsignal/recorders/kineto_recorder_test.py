@@ -12,7 +12,7 @@ import torch
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
-from graphsignal.endpoint_trace import DEFAULT_OPTIONS
+from graphsignal.traces import DEFAULT_OPTIONS
 from graphsignal.recorders.kineto_recorder import KinetoRecorder
 
 logger = logging.getLogger('graphsignal')
@@ -41,20 +41,20 @@ class KinetoRecorderTest(unittest.TestCase):
             x = x.to('cuda:0')
             model = model.to('cuda:0')
 
-        signal = signals_pb2.Trace()
+        proto = signals_pb2.Trace()
         context = {}
-        recorder.on_trace_start(signal, context, graphsignal.TraceOptions(enable_profiling=True))
+        recorder.on_trace_start(proto, context, graphsignal.TraceOptions(enable_profiling=True))
 
         pred = model(x)
 
-        recorder.on_trace_stop(signal, context, graphsignal.TraceOptions(enable_profiling=True))
-        recorder.on_trace_read(signal, context, graphsignal.TraceOptions(enable_profiling=True))
+        recorder.on_trace_stop(proto, context, graphsignal.TraceOptions(enable_profiling=True))
+        recorder.on_trace_read(proto, context, graphsignal.TraceOptions(enable_profiling=True))
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(signal))
+        #pp.pprint(MessageToJson(proto))
 
         test_op_stats = None
-        for op_stats in signal.op_profile:
+        for op_stats in proto.op_profile:
             if op_stats.op_name == 'aten::addmm':
                 test_op_stats = op_stats
                 break

@@ -20,14 +20,14 @@ class CProfileRecorder(BaseRecorder):
     def setup(self):
         pass
 
-    def on_trace_start(self, signal, context, options):
+    def on_trace_start(self, proto, context, options):
         if not options.enable_profiling:
             return
 
         self._profiler = cProfile.Profile()
         self._profiler.enable()
 
-    def on_trace_stop(self, signal, context, options):
+    def on_trace_stop(self, proto, context, options):
         if not options.enable_profiling:
             return
 
@@ -36,17 +36,20 @@ class CProfileRecorder(BaseRecorder):
 
         self._profiler.disable()
         
-    def on_trace_read(self, signal, context, options):
+    def on_trace_read(self, proto, context, options):
         if not options.enable_profiling:
             return
 
         if not self._profiler:
             return
 
-        self._convert_to_profile(signal)
+        self._convert_to_profile(proto)
         self._profiler = None
 
-    def _convert_to_profile(self, signal):
+    def on_metric_update(self):
+        pass
+
+    def _convert_to_profile(self, proto):
         stats = pstats.Stats(self._profiler)
 
         stats.sort_stats('cumtime')
@@ -65,7 +68,7 @@ class CProfileRecorder(BaseRecorder):
             total_tt += tt
 
         for file_name, line_num, func_name, nc, tt, ct in func_list[:250]:
-            op_stats = signal.op_profile.add()
+            op_stats = proto.op_profile.add()
             op_stats.op_type = signals_pb2.OpStats.OpType.PYTHON_OP
             op_stats.op_name = _format_frame(file_name, line_num, func_name)
             op_stats.count = int(nc)

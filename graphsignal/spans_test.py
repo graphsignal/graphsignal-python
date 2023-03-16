@@ -7,7 +7,7 @@ import asyncio
 import random
 
 import graphsignal
-from graphsignal.span_context import start_span, stop_span, get_current_span
+from graphsignal.spans import start_span, stop_span, get_current_span
 
 logger = logging.getLogger('graphsignal')
 

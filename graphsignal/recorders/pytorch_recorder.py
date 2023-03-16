@@ -54,13 +54,13 @@ class PyTorchRecorder(BaseRecorder):
         if torch.cuda.is_available():
             self._is_cuda_available = True
 
-    def on_trace_start(self, signal, context, options):
+    def on_trace_start(self, proto, context, options):
         if self._is_cuda_available:
             context['pytorch_mem_stats'] = {}
             for device in range(torch.cuda.device_count()):
                 context['pytorch_mem_stats'][device] = _read_mem_stats(device)
 
-    def on_trace_stop(self, signal, context, options):
+    def on_trace_stop(self, proto, context, options):
         if self._is_cuda_available:
             for device in range(torch.cuda.device_count()):
                 if 'pytorch_mem_stats' in context and device in context['pytorch_mem_stats']: 
@@ -68,7 +68,7 @@ class PyTorchRecorder(BaseRecorder):
                     stop_mem_stats = _read_mem_stats(device)
 
                     mem_diff = _compute_diff(start_mem_stats, stop_mem_stats)
-                    mem_alloc = signal.alloc_summary.add()
+                    mem_alloc = proto.alloc_summary.add()
                     mem_alloc.allocator_type = signals_pb2.MemoryAllocation.AllocatorType.PYTORCH_CUDA_ALLOCATOR
                     mem_alloc.device_idx = device
                     mem_alloc.allocated_size = mem_diff.get('allocated_size', 0)
@@ -78,13 +78,15 @@ class PyTorchRecorder(BaseRecorder):
                     mem_alloc.num_alloc_retries = mem_diff.get('num_alloc_retries', 0)
                     mem_alloc.num_ooms = mem_diff.get('num_ooms', 0)
 
-    def on_trace_read(self, signal, context, options):
+    def on_trace_read(self, proto, context, options):
         if self._framework:
-            signal.frameworks.append(self._framework)
+            proto.frameworks.append(self._framework)
         if self._rank is not None:
-            signal.process_usage.rank = self._rank
-            signal.process_usage.has_rank = True
+            proto.process_usage.rank = self._rank
+            proto.process_usage.has_rank = True
 
+    def on_metric_update(self):
+        pass
 
 def _format_version(version):
     major = int(version / 1000)

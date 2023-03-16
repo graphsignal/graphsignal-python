@@ -12,7 +12,7 @@ import banana_dev as banana
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
-from graphsignal.endpoint_trace import DEFAULT_OPTIONS
+from graphsignal.traces import DEFAULT_OPTIONS
 from graphsignal.recorders.banana_recorder import BananaRecorder
 
 logger = logging.getLogger('graphsignal')
@@ -34,13 +34,13 @@ class BananaRecorderTest(unittest.IsolatedAsyncioTestCase):
     async def test_record(self):
         recorder = BananaRecorder()
         recorder.setup()
-        signal = signals_pb2.Trace()
+        proto = signals_pb2.Trace()
         context = {}
-        recorder.on_trace_start(signal, context, DEFAULT_OPTIONS)
-        recorder.on_trace_stop(signal, context, DEFAULT_OPTIONS)
-        recorder.on_trace_read(signal, context, DEFAULT_OPTIONS)
+        recorder.on_trace_start(proto, context, DEFAULT_OPTIONS)
+        recorder.on_trace_stop(proto, context, DEFAULT_OPTIONS)
+        recorder.on_trace_read(proto, context, DEFAULT_OPTIONS)
 
-        self.assertEqual(signal.frameworks[0].name, 'Banana Python SDK')
+        self.assertEqual(proto.frameworks[0].name, 'Banana Python SDK')
 
     @patch.object(Uploader, 'upload_trace')
     @patch.object(banana, 'run')
@@ -72,30 +72,32 @@ class BananaRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_trace.call_args[0][0]
+        proto = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(signal))
+        #pp.pprint(MessageToJson(proto))
 
-        self.assertEqual(signal.frameworks[0].name, 'Banana Python SDK')
+        self.assertEqual(proto.frameworks[0].name, 'Banana Python SDK')
 
-        self.assertEqual(find_param(signal, 'model_key'), 'model-key-1')
+        self.assertEqual(find_param(proto, 'model_key'), 'model-key-1')
 
-        self.assertEqual(find_data_metric(signal, 'model_inputs', 'byte_count'), 24.0)
-        self.assertEqual(find_data_metric(signal, 'model_inputs', 'element_count'), 2.0)
-        self.assertEqual(find_data_metric(signal, 'model_outputs', 'byte_count'), 65.0)
-        self.assertEqual(find_data_metric(signal, 'model_outputs', 'element_count'), 2.0)
+        self.assertEqual(find_data_count(proto, 'model_inputs', 'byte_count'), 24.0)
+        self.assertEqual(find_data_count(proto, 'model_inputs', 'element_count'), 2.0)
+        self.assertEqual(find_data_count(proto, 'model_outputs', 'byte_count'), 65.0)
+        self.assertEqual(find_data_count(proto, 'model_outputs', 'element_count'), 2.0)
 
 
-def find_param(signal, name):
-    for param in signal.params:
+def find_param(proto, name):
+    for param in proto.params:
         if param.name == name:
             return param.value
     return None
 
 
-def find_data_metric(signal, data_name, metric_name):
-    for data_metric in signal.data_metrics:
-        if data_metric.data_name == data_name and data_metric.metric_name == metric_name:
-            return data_metric.metric.gauge
+def find_data_count(proto, data_name, count_name):
+    for data_stats in proto.data_profile:
+        if data_stats.data_name == data_name:
+            for data_count in data_stats.counts:
+                if data_count.name == count_name:
+                    return data_count.count
     return None

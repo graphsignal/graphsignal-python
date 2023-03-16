@@ -87,12 +87,12 @@ The agent will automatically choose a profiler depending on available modules. C
 
 ### Exception tracking
 
-For auto-instrumented libraries, or when using `trace_function` decorator, `start_trace` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`EndpointTrace.set_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalendpointtraceset_exception) method.
+For auto-instrumented libraries, or when using `trace_function` decorator, `start_trace` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`Trace.set_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalendpointtraceset_exception) method.
 
 
 ### Data monitoring
 
-Data is automatically monitored for auto-instrumented libraries. To track data metrics and record data profiles for other cases, [`EndpointTrace.set_data`](https://graphsignal.com/docs/reference/python-api/#graphsignalendpointtraceset_data) method can be used.
+Data is automatically monitored for auto-instrumented libraries. To track data metrics and record data profiles for other cases, [`Trace.set_data`](https://graphsignal.com/docs/reference/python-api/#graphsignalendpointtraceset_data) method can be used.
 
 ```python
 with graphsignal.start_trace(endpoint='predict') as trace:

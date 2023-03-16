@@ -19,28 +19,31 @@ class YappiRecorder(BaseRecorder):
     def setup(self):
         pass
 
-    def on_trace_start(self, signal, context, options):
+    def on_trace_start(self, proto, context, options):
         if not options.enable_profiling:
             return
 
         yappi.set_clock_type("wall")
         yappi.start()
 
-    def on_trace_stop(self, signal, context, options):
+    def on_trace_stop(self, proto, context, options):
         if not options.enable_profiling:
             return
 
         if yappi.is_running():
             yappi.stop()
         
-    def on_trace_read(self, signal, context, options):
+    def on_trace_read(self, proto, context, options):
         if not options.enable_profiling:
             return
 
-        self._convert_to_profile(signal, yappi.get_func_stats())
+        self._convert_to_profile(proto, yappi.get_func_stats())
         yappi.clear_stats()
 
-    def _convert_to_profile(self, signal, ystats):
+    def on_metric_update(self):
+        pass
+
+    def _convert_to_profile(self, proto, ystats):
         stats = yappi.convert2pstats(ystats)
 
         stats.sort_stats('cumtime')
@@ -59,7 +62,7 @@ class YappiRecorder(BaseRecorder):
             total_tt += tt
 
         for file_name, line_num, func_name, nc, tt, ct in func_list[:250]:
-            op_stats = signal.op_profile.add()
+            op_stats = proto.op_profile.add()
             op_stats.op_type = signals_pb2.OpStats.OpType.PYTHON_OP
             op_stats.op_name = _format_frame(file_name, line_num, func_name)
             op_stats.count = int(nc)

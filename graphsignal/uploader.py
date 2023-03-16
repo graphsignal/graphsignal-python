@@ -20,7 +20,7 @@ logger = logging.getLogger('graphsignal')
 
 
 class Uploader:
-    MAX_BUFFER_SIZE = 25
+    MAX_BUFFER_SIZE = 10000
 
     def __init__(self):
         self.buffer = []
@@ -34,7 +34,13 @@ class Uploader:
         with self.buffer_lock:
             self.buffer = []
 
-    def upload_trace(self, signal):
+    def upload_trace(self, trace):
+        self.upload_signal(trace)
+    
+    def upload_metric(self, metric):
+        self.upload_signal(metric)
+
+    def upload_signal(self, signal):
         with self.buffer_lock:
             self.buffer.append(signal)
             if len(self.buffer) > self.MAX_BUFFER_SIZE:
@@ -98,7 +104,11 @@ class Uploader:
 
 def _create_upload_request(outgoing):
     upload_request = signals_pb2.UploadRequest()
-    upload_request.traces.extend(outgoing)
+    for signal in outgoing:
+        if isinstance(signal, signals_pb2.Trace):
+            upload_request.traces.append(signal)
+        elif isinstance(signal, signals_pb2.Metric):
+            upload_request.metrics.append(signal)
     upload_request.upload_ms = int(time.time() * 1e3)
     return upload_request.SerializeToString()
 

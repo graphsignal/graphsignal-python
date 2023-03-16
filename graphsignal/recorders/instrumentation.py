@@ -4,7 +4,7 @@ import asyncio
 import types
 
 import graphsignal
-from graphsignal.span_context import TraceSpan
+from graphsignal.spans import TraceSpan
 
 logger = logging.getLogger('graphsignal')
 

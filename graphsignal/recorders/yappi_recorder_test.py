@@ -13,7 +13,7 @@ import asyncio
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
-from graphsignal.endpoint_trace import DEFAULT_OPTIONS
+from graphsignal.traces import DEFAULT_OPTIONS
 from graphsignal.recorders.yappi_recorder import YappiRecorder, _format_frame
 
 logger = logging.getLogger('graphsignal')
@@ -36,23 +36,23 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         recorder = YappiRecorder()
         recorder._exclude_path = 'donotmatchpath'
         recorder.setup()
-        signal = signals_pb2.Trace()
+        proto = signals_pb2.Trace()
         context = {}
 
         async def slow_method():
             time.sleep(0.1)
             await asyncio.sleep(0.1)
 
-        recorder.on_trace_start(signal, context, graphsignal.TraceOptions(enable_profiling=True))
+        recorder.on_trace_start(proto, context, graphsignal.TraceOptions(enable_profiling=True))
         await slow_method()
         await slow_method()
-        recorder.on_trace_stop(signal, context, graphsignal.TraceOptions(enable_profiling=True))
-        recorder.on_trace_read(signal, context, graphsignal.TraceOptions(enable_profiling=True))
+        recorder.on_trace_stop(proto, context, graphsignal.TraceOptions(enable_profiling=True))
+        recorder.on_trace_read(proto, context, graphsignal.TraceOptions(enable_profiling=True))
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(signal))
+        #pp.pprint(MessageToJson(proto))
 
-        slow_call = next(call for call in signal.op_profile if 'slow_method' in call.op_name)
+        slow_call = next(call for call in proto.op_profile if 'slow_method' in call.op_name)
         self.assertEqual(slow_call.op_type, signals_pb2.OpStats.OpType.PYTHON_OP)
         self.assertTrue(slow_call.self_host_time_ns > 0)
         self.assertTrue(slow_call.host_time_ns > 0)

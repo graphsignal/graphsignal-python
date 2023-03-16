@@ -12,7 +12,7 @@ import re
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
-from graphsignal.endpoint_trace import DEFAULT_OPTIONS
+from graphsignal.traces import DEFAULT_OPTIONS
 from graphsignal.recorders.cprofile_recorder import CProfileRecorder, _format_frame
 
 logger = logging.getLogger('graphsignal')
@@ -35,22 +35,22 @@ class CProfileRecorderTest(unittest.TestCase):
         recorder = CProfileRecorder()
         recorder._exclude_path = 'donotmatchpath'
         recorder.setup()
-        signal = signals_pb2.Trace()
+        proto = signals_pb2.Trace()
         context = {}
 
         def slow_method():
             time.sleep(0.1)
 
-        recorder.on_trace_start(signal, context, graphsignal.TraceOptions(enable_profiling=True))
+        recorder.on_trace_start(proto, context, graphsignal.TraceOptions(enable_profiling=True))
         slow_method()
         slow_method()
-        recorder.on_trace_stop(signal, context, graphsignal.TraceOptions(enable_profiling=True))
-        recorder.on_trace_read(signal, context, graphsignal.TraceOptions(enable_profiling=True))
+        recorder.on_trace_stop(proto, context, graphsignal.TraceOptions(enable_profiling=True))
+        recorder.on_trace_read(proto, context, graphsignal.TraceOptions(enable_profiling=True))
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(signal))
+        #pp.pprint(MessageToJson(proto))
 
-        slow_call = next(call for call in signal.op_profile if 'slow_method' in call.op_name)
+        slow_call = next(call for call in proto.op_profile if 'slow_method' in call.op_name)
         self.assertEqual(slow_call.op_type, signals_pb2.OpStats.OpType.PYTHON_OP)
         self.assertTrue(slow_call.self_host_time_ns > 0)
         self.assertTrue(slow_call.host_time_ns > 0)

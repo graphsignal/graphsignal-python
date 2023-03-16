@@ -7,7 +7,7 @@ import traceback
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.data import compute_data_stats
-from graphsignal.span_context import start_span, stop_span, is_current_span
+from graphsignal.spans import start_span, stop_span, is_current_span
 
 logger = logging.getLogger('graphsignal')
 
@@ -16,18 +16,15 @@ SAMPLE_TRACES = {1, 10, 100, 1000}
 
 class TraceOptions:
     __slots__ = [
-        'auto_sampling',
         'outlier_sampling',
         'ensure_sample',
         'enable_profiling'
     ]
 
     def __init__(self, 
-            auto_sampling: bool = True,
             outlier_sampling: bool = True, 
             ensure_sample: bool = False, 
             enable_profiling: bool = False):
-        self.auto_sampling = auto_sampling
         self.outlier_sampling = outlier_sampling
         self.ensure_sample = ensure_sample
         self.enable_profiling = enable_profiling
@@ -50,7 +47,7 @@ class DataObject:
         self.check_missing_values = check_missing_values
 
 
-class EndpointTrace:
+class Trace:
     MAX_RUN_TAGS = 10
     MAX_TRACE_TAGS = 10
     MAX_RUN_PARAMS = 10
@@ -59,7 +56,7 @@ class EndpointTrace:
 
     __slots__ = [
         '_trace_sampler',
-        '_metric_store',
+        '_lo_detector',
         '_mv_detector',
         '_agent',
         '_endpoint',
@@ -67,9 +64,9 @@ class EndpointTrace:
         '_params',
         '_options',
         '_is_sampling',
-        '_latency_us',
+        '_latency_ns',
         '_context',
-        '_signal',
+        '_proto',
         '_is_stopped',
         '_start_counter',
         '_stop_counter',
@@ -90,8 +87,8 @@ class EndpointTrace:
         if tags is not None:
             if not isinstance(tags, dict):
                 raise ValueError('tags must be dict')
-            if len(tags) > EndpointTrace.MAX_TRACE_TAGS:
-                raise ValueError('too many tags (>{0})'.format(EndpointTrace.MAX_TRACE_TAGS))
+            if len(tags) > Trace.MAX_TRACE_TAGS:
+                raise ValueError('too many tags (>{0})'.format(Trace.MAX_TRACE_TAGS))
 
         self._endpoint = endpoint
         if tags is not None:
@@ -105,15 +102,15 @@ class EndpointTrace:
             self._options = options
         self._agent = graphsignal._agent
         self._trace_sampler = None
-        self._metric_store = None
+        self._lo_detector = None
         self._mv_detector = None
         self._is_stopped = False
         self._is_sampling = False
-        self._latency_us = None
+        self._latency_ns = None
         self._start_counter = None
         self._stop_counter = None
         self._context = False
-        self._signal = None
+        self._proto = None
         self._exc_info = None
         self._data_objects = None
         self._root_span = None
@@ -139,7 +136,7 @@ class EndpointTrace:
 
     def _init_sampling(self):
         self._is_sampling = True
-        self._signal = self._agent.create_signal()
+        self._proto = self._agent.create_trace_proto()
         self._context = {}
 
     def _start(self):
@@ -147,24 +144,22 @@ class EndpointTrace:
             return
 
         self._trace_sampler = self._agent.trace_sampler(self._endpoint)
-        self._metric_store = self._agent.metric_store(self._endpoint)
+        self._lo_detector = self._agent.lo_detector(self._endpoint)
         self._mv_detector = self._agent.mv_detector()
 
         lock_group = 'samples'
-        if self._options.auto_sampling:
-            lock_group += '-auto'
         if self._options.ensure_sample:
             lock_group += '-ensured'
         if self._options.enable_profiling:
             lock_group += '-profiled'
 
-        if ((self._options.auto_sampling and self._trace_sampler.lock(lock_group, include_trace_idx=SAMPLE_TRACES)) or
+        if (self._trace_sampler.lock(lock_group, include_trace_idx=SAMPLE_TRACES) or
                 (self._options.ensure_sample and self._trace_sampler.lock(lock_group, limit_per_interval=2))):
             self._init_sampling()
 
             # emit start event
             try:
-                self._agent.emit_trace_start(self._signal, self._context, self._options)
+                self._agent.emit_trace_start(self._proto, self._context, self._options)
             except Exception as exc:
                 logger.error('Error in trace start event handlers', exc_info=True)
                 self._add_agent_exception(exc)
@@ -184,8 +179,12 @@ class EndpointTrace:
 
         if self._stop_counter is None:
             self._measure()
-        self._latency_us = int((self._stop_counter - self._start_counter) / 1e3)
-        end_us = _timestamp_us()
+        self._latency_ns = self._stop_counter - self._start_counter
+
+        now = time.time()
+        end_us = int(now * 1e6)
+        start_us = int(end_us - self._latency_ns / 1e3)
+        now = int(now)
 
         # stop current span
         if is_current_span(self._root_span):
@@ -193,10 +192,10 @@ class EndpointTrace:
         else:
             logger.error('Root span is not current span for endpoint {0}'.format(self._endpoint))
 
+        # emit stop event
         if self._is_sampling:
-            # emit stop event
             try:
-                self._agent.emit_trace_stop(self._signal, self._context, self._options)
+                self._agent.emit_trace_stop(self._proto, self._context, self._options)
             except Exception as exc:
                 logger.error('Error in trace stop event handlers', exc_info=True)
                 self._add_agent_exception(exc)
@@ -206,15 +205,23 @@ class EndpointTrace:
             if self._trace_sampler.lock('exceptions'):
                 self._init_sampling()
 
-        # update latency and counters
+        # check for outliers
         if self._options.outlier_sampling:
-            self._is_latency_outlier = self._metric_store.is_latency_outlier(self._latency_us, end_us)
+            self._is_latency_outlier = self._lo_detector.detect(self._latency_ns / 1e9)
             if not self._is_sampling and self._is_latency_outlier:
                 if self._trace_sampler.lock('latency-outliers'):
                     self._init_sampling()
+        self._lo_detector.update(self._latency_ns / 1e9)
 
-        self._metric_store.add_latency(self._latency_us, end_us)
-        self._metric_store.inc_call_count(1, end_us)
+        # update RED metrics
+        metric_tags = self._trace_tags()
+        self._agent.metric_store().update_histogram(
+            scope='performance', name='latency', tags=metric_tags, value=self._latency_ns, update_ts=now, is_time=True)
+        self._agent.metric_store().inc_counter(
+            scope='performance', name='call_count', tags=metric_tags, value=1, update_ts=now)
+        if self._exc_info and self._exc_info[0]:
+            self._agent.metric_store().inc_counter(
+                scope='performance', name='exception_count', tags=metric_tags, value=1, update_ts=now)
 
         # compute data statistics
         data_stats = None
@@ -237,9 +244,10 @@ class EndpointTrace:
                             self._has_missing_values = True
 
                     # update data metrics
+                    data_tags = self._trace_tags({'data': data_obj.name})
                     for count_name, count in stats.counts.items():
-                        self._metric_store.inc_data_counter(
-                            data_obj.name, count_name, count, end_us)
+                        self._agent.metric_store().inc_counter(
+                            scope='data', name=count_name, tags=data_tags, value=count, update_ts=now)
                 except Exception as exc:
                     logger.error('Error computing data stats', exc_info=True)
                     self._add_agent_exception(exc)
@@ -249,48 +257,43 @@ class EndpointTrace:
             if self._trace_sampler.lock('missing-values'):
                 self._init_sampling()
 
-        # update exception counter
-        if self._exc_info and self._exc_info[0]:
-            self._metric_store.inc_exception_count(1, end_us)
-
-        # fill and upload signal
+        # emit read event
         if self._is_sampling:
-            # emit read event
             try:
-                self._agent.emit_trace_read(self._signal, self._context, self._options)
+                self._agent.emit_trace_read(self._proto, self._context, self._options)
+            except Exception as exc:
+                logger.error('Error in trace read event handlers', exc_info=True)
+                self._add_agent_exception(exc)
+        
+        # update recorder metrics
+        if self._agent.check_metric_read_interval(now):
+            try:
+                self._agent.emit_metric_update()
+                self._agent.set_metric_read(now)
             except Exception as exc:
                 logger.error('Error in trace read event handlers', exc_info=True)
                 self._add_agent_exception(exc)
 
-            # copy data to signal
-            self._signal.endpoint_name = self._endpoint
-            self._signal.start_us = end_us - self._latency_us
-            self._signal.end_us = end_us
+        # fill and upload trace
+        if self._is_sampling:
+            # copy data to trace proto
+            self._proto.start_us = start_us
+            self._proto.end_us = end_us
             if self._exc_info and self._exc_info[0]:
-                self._signal.trace_type = signals_pb2.TraceType.EXCEPTION_TRACE
+                self._proto.trace_type = signals_pb2.TraceType.EXCEPTION_TRACE
             elif self._is_latency_outlier:
-                self._signal.trace_type = signals_pb2.TraceType.LATENCY_OUTLIER_TRACE
+                self._proto.trace_type = signals_pb2.TraceType.LATENCY_OUTLIER_TRACE
             elif self._has_missing_values:
-                self._signal.trace_type = signals_pb2.TraceType.MISSING_VALUES_TRACE
+                self._proto.trace_type = signals_pb2.TraceType.MISSING_VALUES_TRACE
             else:
-                self._signal.trace_type = signals_pb2.TraceType.SAMPLE_TRACE
-            self._signal.process_usage.start_ms = self._agent._process_start_ms
+                self._proto.trace_type = signals_pb2.TraceType.SAMPLE_TRACE
+            self._proto.process_usage.start_ms = self._agent._process_start_ms
 
             # copy tags
-            tags = None
-            if self._agent.tags is not None:
-                tags = self._agent.tags.copy()
-                if self._tags is not None:
-                    tags.update(self._tags)
-            elif self._tags is not None:
-                tags = self._tags
-            if tags is not None:
-                for key, value in tags.items():
-                    tag = self._signal.tags.add()
-                    tag.key = key[:50]
-                    tag.value = str(value)[:50]
-                    if self._tags and key in self._tags:
-                        tag.is_trace_level = True
+            for key, value in self._trace_tags().items():
+                tag = self._proto.tags.add()
+                tag.key = str(key)[:50]
+                tag.value = str(value)[:50]
 
             # copy params
             params = None
@@ -302,20 +305,18 @@ class EndpointTrace:
                 params = self._params
             if params is not None:
                 for name, value in params.items():
-                    param = self._signal.params.add()
-                    param.name = name[:50]
+                    param = self._proto.params.add()
+                    param.name = str(name)[:50]
                     param.value = str(value)[:50]
-                    if self._params and name in self._params:
-                        param.is_trace_level = True
 
             # copy trace measurements
-            self._signal.trace_info.latency_us = self._latency_us
-            self._signal.trace_info.is_ensured = self._options.ensure_sample
-            self._signal.trace_info.is_profiled = self._options.enable_profiling
+            self._proto.trace_info.latency_us = int(self._latency_ns / 1e3)
+            self._proto.trace_info.is_ensured = self._options.ensure_sample
+            self._proto.trace_info.is_profiled = self._options.enable_profiling
 
             # copy exception
             if self._exc_info and self._exc_info[0]:
-                exception = self._signal.exceptions.add()
+                exception = self._proto.exceptions.add()
                 if self._exc_info[0] and hasattr(self._exc_info[0], '__name__'):
                     exception.exc_type = str(self._exc_info[0].__name__)
                 if self._exc_info[1]:
@@ -328,7 +329,7 @@ class EndpointTrace:
             # copy data counts
             if data_stats is not None:
                 for name, stats in data_stats.items():
-                    data_stats_proto = self._signal.data_profile.add()
+                    data_stats_proto = self._proto.data_profile.add()
                     data_stats_proto.data_name = name
                     if stats.type_name:
                         data_stats_proto.data_type = stats.type_name
@@ -342,14 +343,13 @@ class EndpointTrace:
 
             # copy spans
             if self._root_span:
-                _convert_span_to_proto(self._signal.root_span, self._root_span)
+                _convert_span_to_proto(self._proto.root_span, self._root_span)
 
-            # copy metrics
-            self._metric_store.export(self._signal, end_us)
+            # queue trace proto for upload
+            self._agent.uploader().upload_trace(self._proto)
 
-            # queue trace signal for upload
-            self._agent.uploader().upload_trace(self._signal)
-            self._agent.tick()
+        # trigger upload
+        self._agent.tick(now)
 
     def measure(self) -> None:
         if not self._is_stopped:
@@ -375,8 +375,8 @@ class EndpointTrace:
         if self._tags is None:
             self._tags = {}
 
-        if len(self._tags) > EndpointTrace.MAX_TRACE_TAGS:
-            raise ValueError('set_tag: too many tags (>{0})'.format(EndpointTrace.MAX_TRACE_TAGS))
+        if len(self._tags) > Trace.MAX_TRACE_TAGS:
+            raise ValueError('set_tag: too many tags (>{0})'.format(Trace.MAX_TRACE_TAGS))
 
         self._tags[key] = value
 
@@ -389,8 +389,8 @@ class EndpointTrace:
         if self._params is None:
             self._params = {}
 
-        if len(self._params) > EndpointTrace.MAX_TRACE_PARAMS:
-            raise ValueError('set_param: too many params (>{0})'.format(EndpointTrace.MAX_TRACE_PARAMS))
+        if len(self._params) > Trace.MAX_TRACE_PARAMS:
+            raise ValueError('set_param: too many params (>{0})'.format(Trace.MAX_TRACE_PARAMS))
 
         self._params[name] = value
 
@@ -420,8 +420,8 @@ class EndpointTrace:
         if counts and not isinstance(counts, dict):
             raise ValueError('append_data: name must be dict')
 
-        if len(self._data_objects) > EndpointTrace.MAX_DATA_OBJECTS:
-            raise ValueError('set_data: too many data objects (>{0})'.format(EndpointTrace.MAX_DATA_OBJECTS))
+        if len(self._data_objects) > Trace.MAX_DATA_OBJECTS:
+            raise ValueError('set_data: too many data objects (>{0})'.format(Trace.MAX_DATA_OBJECTS))
 
         self._data_objects[name] = DataObject(
             name=name, obj=obj, counts=counts, check_missing_values=check_missing_values)
@@ -440,8 +440,8 @@ class EndpointTrace:
         if counts and not isinstance(counts, dict):
             raise ValueError('append_data: name must be dict')
 
-        if len(self._data_objects) > EndpointTrace.MAX_DATA_OBJECTS:
-            raise ValueError('append_data: too many data objects (>{0})'.format(EndpointTrace.MAX_DATA_OBJECTS))
+        if len(self._data_objects) > Trace.MAX_DATA_OBJECTS:
+            raise ValueError('append_data: too many data objects (>{0})'.format(Trace.MAX_DATA_OBJECTS))
 
         if name in self._data_objects:
             data_obj = self._data_objects[name]
@@ -458,26 +458,33 @@ class EndpointTrace:
             self._data_objects[name] = DataObject(
                 name=name, obj=obj, counts=counts, check_missing_values=check_missing_values)
 
-    def get_latency_us(self):
-        return self._latency_us
-
     def _add_agent_exception(self, exc):
         if not self._is_sampling:
             return
 
-        agent_error = self._signal.agent_errors.add()
+        agent_error = self._proto.agent_errors.add()
         agent_error.message = str(exc)
         if exc.__traceback__:
             frames = traceback.format_tb(exc.__traceback__)
             if len(frames) > 0:
                 agent_error.stack_trace = ''.join(frames)
 
+    def _trace_tags(self, extra_tags=None):
+        metric_tags = {
+            'deployment': self._agent.deployment, 
+            'endpoint': self._endpoint}
+        if self._agent.hostname:
+            metric_tags['hostname'] = self._agent.hostname
+        if self._agent.tags is not None:
+            metric_tags.update(self._agent.tags)
+        if self._tags is not None:
+            metric_tags.update(self._tags)
+        if extra_tags is not None:
+            metric_tags.update(extra_tags)
+        return metric_tags
+
     def repr(self):
-        return 'EndpointTrace({0})'.format(self._endpoint)
-
-
-def _timestamp_us():
-    return int(time.time() * 1e6)
+        return 'Trace({0})'.format(self._endpoint)
 
 
 def _convert_span_to_proto(proto, span):

@@ -6,7 +6,7 @@ import types
 import openai
 
 import graphsignal
-from graphsignal.endpoint_trace import TraceOptions
+from graphsignal.traces import TraceOptions
 from graphsignal.recorders.base_recorder import BaseRecorder
 from graphsignal.recorders.instrumentation import instrument_method, uninstrument_method, read_args
 from graphsignal.proto_utils import parse_semver, compare_semver
@@ -76,8 +76,13 @@ class OpenAIRecorder(BaseRecorder):
         uninstrument_method(openai.Moderation, 'acreate', 'openai.Moderation.acreate')
 
     def trace_completion(self, trace, args, kwargs, ret, exc):
+        params = kwargs # no positional args
+
+        if 'model' in params:
+            trace.set_tag('model', params['model'])
+
         if self._is_sampling:
-            param_name = [
+            param_names = [
                 'model',
                 'max_tokens',
                 'temperature',
@@ -91,12 +96,13 @@ class OpenAIRecorder(BaseRecorder):
                 'frequency_penalty',
                 'best_of'
             ]
-            for param_name in param_name:
-                if param_name in kwargs:
-                    trace.set_param(param_name, kwargs[param_name])
-        if 'stream' in kwargs and kwargs['stream']:
-            if 'prompt' in kwargs:
-                trace.set_data('prompt', kwargs['prompt'])
+            for param_name in param_names:
+                if param_name in params:
+                    trace.set_param(param_name, params[param_name])
+
+        if 'stream' in params and params['stream']:
+            if 'prompt' in params:
+                trace.set_data('prompt', params['prompt'])
             return
 
         prompt_usage = {}
@@ -110,8 +116,8 @@ class OpenAIRecorder(BaseRecorder):
             if 'completion_tokens' in ret['usage']:
                 completion_usage['token_count'] = ret['usage']['completion_tokens']
 
-        if 'prompt' in kwargs:
-            trace.set_data('prompt', kwargs['prompt'], counts=prompt_usage)
+        if 'prompt' in params:
+            trace.set_data('prompt', params['prompt'], counts=prompt_usage)
 
         if ret and 'choices' in ret:
             completion = []
@@ -144,8 +150,13 @@ class OpenAIRecorder(BaseRecorder):
             trace.append_data('completion', completion, counts=completion_usage)
 
     def trace_chat_completion(self, trace, args, kwargs, ret, exc):
+        params = kwargs # no positional args
+
+        if 'model' in params:
+            trace.set_tag('model', params['model'])
+
         if self._is_sampling:
-            param_name = [
+            param_names = [
                 'model',
                 'max_tokens',
                 'temperature',
@@ -158,12 +169,13 @@ class OpenAIRecorder(BaseRecorder):
                 'frequency_penalty',
                 'best_of'
             ]
-            for param_name in param_name:
-                if param_name in kwargs:
-                    trace.set_param(param_name, kwargs[param_name])
-        if 'stream' in kwargs and kwargs['stream']:
-            if 'messages' in kwargs:
-                content = [message['content'] for message in kwargs['messages']]
+            for param_name in param_names:
+                if param_name in params:
+                    trace.set_param(param_name, params[param_name])
+
+        if 'stream' in params and params['stream']:
+            if 'messages' in params:
+                content = [message['content'] for message in params['messages']]
                 trace.set_data('messages', content)
             return
 
@@ -178,8 +190,8 @@ class OpenAIRecorder(BaseRecorder):
             if 'completion_tokens' in ret['usage']:
                 completion_usage['token_count'] = ret['usage']['completion_tokens']
 
-        if 'messages' in kwargs:
-            content = [message['content'] for message in kwargs['messages']]
+        if 'messages' in params:
+            content = [message['content'] for message in params['messages']]
             trace.set_data('messages', content, counts=prompt_usage)
 
         if ret and 'choices' in ret:
@@ -213,16 +225,21 @@ class OpenAIRecorder(BaseRecorder):
             trace.append_data('completion', completion, counts=completion_usage)
 
     def trace_edits(self, trace, args, kwargs, ret, exc):
+        params = kwargs # no positional args
+
+        if 'model' in params:
+            trace.set_tag('model', params['model'])
+
         if self._is_sampling:
-            param_name = [
+            param_names = [
                 'model',
                 'temperature',
                 'top_p',
                 'n'
             ]
-            for param_name in param_name:
-                if param_name in kwargs:
-                    trace.set_param(param_name, kwargs[param_name])
+            for param_name in param_names:
+                if param_name in params:
+                    trace.set_param(param_name, params[param_name])
 
         prompt_usage = {}
         completion_usage = {}
@@ -232,11 +249,11 @@ class OpenAIRecorder(BaseRecorder):
             if 'completion_tokens' in ret['usage']:
                 completion_usage['token_count'] = ret['usage']['completion_tokens']
 
-        if 'input' in kwargs:
-            trace.set_data('input', kwargs['input'])
+        if 'input' in params:
+            trace.set_data('input', params['input'])
 
-        if 'instruction' in kwargs:
-            trace.set_data('instruction', kwargs['instruction'], counts=prompt_usage)
+        if 'instruction' in params:
+            trace.set_data('instruction', params['instruction'], counts=prompt_usage)
 
         if ret and 'choices' in ret:
             edits = []
@@ -246,21 +263,26 @@ class OpenAIRecorder(BaseRecorder):
             trace.set_data('edits', edits, counts=completion_usage)
 
     def trace_embedding(self, trace, args, kwargs, ret, exc):
+        params = kwargs # no positional args
+
+        if 'engine' in params:
+            trace.set_tag('model', params['engine'])
+
         if self._is_sampling:
-            param_name = [
+            param_names = [
                 'engine'
             ]
-            for param_name in param_name:
-                if param_name in kwargs:
-                    trace.set_param(param_name, kwargs[param_name])
+            for param_name in param_names:
+                if param_name in params:
+                    trace.set_param(param_name, params[param_name])
 
         prompt_usage = {}
         if 'usage' in ret:
             if 'prompt_tokens' in ret['usage']:
                 prompt_usage['token_count'] = ret['usage']['prompt_tokens']
 
-        if 'input' in kwargs:
-            trace.set_data('input', kwargs['input'], counts=prompt_usage)
+        if 'input' in params:
+            trace.set_data('input', params['input'], counts=prompt_usage)
 
         if ret and 'data' in ret:
             embedding = []
@@ -270,18 +292,20 @@ class OpenAIRecorder(BaseRecorder):
             trace.set_data('embedding', embedding)
 
     def trace_image_generation(self, trace, args, kwargs, ret, exc):
+        params = kwargs # no positional args
+
         if self._is_sampling:
-            param_name = [
+            param_names = [
                 'n',
                 'size',
                 'response_format'
             ]
-            for param_name in param_name:
-                if param_name in kwargs:
-                    trace.set_param(param_name, kwargs[param_name])
+            for param_name in param_names:
+                if param_name in params:
+                    trace.set_param(param_name, params[param_name])
 
-        if 'prompt' in kwargs:
-            trace.set_data('prompt', kwargs['prompt'])
+        if 'prompt' in params:
+            trace.set_data('prompt', params['prompt'])
 
         if ret and 'data' in ret:
             image_data = []
@@ -293,79 +317,87 @@ class OpenAIRecorder(BaseRecorder):
             trace.set_data('image', image_data)
 
     def trace_audio_transcription(self, trace, args, kwargs, ret, exc):
+        params = read_args(args, kwargs, ['model', 'file', 'prompt', 'response_format', 'temperature', 'language'])
+
+        if 'model' in params:
+            trace.set_tag('model', params['model'])
+
         if self._is_sampling:
-            param_name = [
+            param_names = [
                 'model',
-                'prompt',
-                'response_format',
                 'temperature',
+                'response_format',
                 'language'
             ]
-            if len(args) > 0:
-                trace.set_param('model', args[0])
-            for param_name in param_name:
-                if param_name in kwargs:
-                    trace.set_param(param_name, kwargs[param_name])
+            for param_name in param_names:
+                if param_name in params:
+                    trace.set_param(param_name, params[param_name])
 
-        if 'file' in kwargs and hasattr(kwargs['file'], 'name'):
+        if 'file' in params and hasattr(params['file'], 'name'):
             try:
-                file_size = os.path.getsize(kwargs['file'].name)
-                trace.set_data('file', kwargs['file'], counts={'byte_count': file_size})
+                file_size = os.path.getsize(params['file'].name)
+                trace.set_data('file', params['file'], counts={'byte_count': file_size})
             except OSError:
                 pass
 
-        if 'prompt' in kwargs:
-            trace.set_data('prompt', kwargs['prompt'])
+        if 'prompt' in params:
+            trace.set_data('prompt', params['prompt'])
 
         if ret and 'text' in ret:
             trace.set_data('text', ret['text'])
 
     def trace_audio_translation(self, trace, args, kwargs, ret, exc):
-        if self._is_sampling:
-            param_name = [
-                'model',
-                'file',
-                'prompt',
-                'response_format',
-                'temperature'
-            ]
-            if len(args) > 0:
-                trace.set_param('model', args[0])
-            for param_name in param_name:
-                if param_name in kwargs:
-                    trace.set_param(param_name, kwargs[param_name])
+        params = read_args(args, kwargs, ['model', 'file', 'prompt', 'response_format', 'temperature'])
 
-        if 'file' in kwargs and hasattr(kwargs['file'], 'name'):
+        if 'model' in params:
+            trace.set_tag('model', params['model'])
+
+        if self._is_sampling:
+            param_names = [
+                'model',
+                'temperature',
+                'response_format'
+            ]
+            for param_name in param_names:
+                if param_name in params:
+                    trace.set_param(param_name, params[param_name])
+
+        if 'file' in params and hasattr(params['file'], 'name'):
             try:
-                file_size = os.path.getsize(kwargs['file'].name)
-                trace.set_data('file', kwargs['file'], counts={'byte_count': file_size})
+                file_size = os.path.getsize(params['file'].name)
+                trace.set_data('file', params['file'], counts={'byte_count': file_size})
             except OSError:
                 pass
 
-        if 'prompt' in kwargs:
-            trace.set_data('prompt', kwargs['prompt'])
+        if 'prompt' in params:
+            trace.set_data('prompt', params['prompt'])
 
         if ret and 'text' in ret:
             trace.set_data('text', ret['text'])
 
     def trace_moderation(self, trace, args, kwargs, ret, exc):
+        params = read_args(args, kwargs, ['input', 'model'])
+
+        if 'model' in params:
+            trace.set_tag('model', params['model'])
+
         if self._is_sampling:
-            param_name = [
-                'model'
-            ]
-            for param_name in param_name:
-                if param_name in kwargs:
-                    trace.set_param(param_name, kwargs[param_name])
+            for param_name in params:
+                if param_name in params:
+                    trace.set_param(param_name, params[param_name])
 
-        if 'input' in kwargs:
-            trace.set_data('input', kwargs['input'])
+        if 'input' in params:
+            trace.set_data('input', params['input'])
 
-    def on_trace_start(self, signal, context, options):
+    def on_trace_start(self, proto, context, options):
         self._is_sampling = True
 
-    def on_trace_stop(self, signal, context, options):
+    def on_trace_stop(self, proto, context, options):
         self._is_sampling = False
 
-    def on_trace_read(self, signal, context, options):
+    def on_trace_read(self, proto, context, options):
         if self._framework:
-            signal.frameworks.append(self._framework)
+            proto.frameworks.append(self._framework)
+
+    def on_metric_update(self):
+        pass

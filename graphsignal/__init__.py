@@ -7,7 +7,7 @@ import asyncio
 
 from graphsignal.version import __version__
 from graphsignal.agent import Agent
-from graphsignal.endpoint_trace import EndpointTrace, TraceOptions
+from graphsignal.traces import Trace, TraceOptions
 
 logger = logging.getLogger('graphsignal')
 
@@ -100,8 +100,8 @@ def set_tag(key: str, value: str) -> None:
     if _agent.tags is None:
         _agent.tags = {}
 
-    if len(_agent.tags) > EndpointTrace.MAX_RUN_TAGS:
-        raise ValueError('set_tag: too many tags (>{0})'.format(EndpointTrace.MAX_RUN_TAGS))
+    if len(_agent.tags) > Trace.MAX_RUN_TAGS:
+        raise ValueError('set_tag: too many tags (>{0})'.format(Trace.MAX_RUN_TAGS))
 
     _agent.tags[key] = value
 
@@ -115,8 +115,8 @@ def log_param(name: str, value: str) -> None:
     if _agent.params is None:
         _agent.params = {}
 
-    if len(_agent.params) > EndpointTrace.MAX_RUN_PARAMS:
-        raise ValueError('set_param: too many params (>{0})'.format(EndpointTrace.MAX_RUN_PARAMS))
+    if len(_agent.params) > Trace.MAX_RUN_PARAMS:
+        raise ValueError('set_param: too many params (>{0})'.format(Trace.MAX_RUN_PARAMS))
 
     _agent.params[name] = value
 
@@ -124,10 +124,10 @@ def log_param(name: str, value: str) -> None:
 def start_trace(
         endpoint: str,
         tags: Optional[Dict[str, str]] = None,
-        options: Optional[TraceOptions] = None) -> EndpointTrace:
+        options: Optional[TraceOptions] = None) -> Trace:
     _check_configured()
 
-    return EndpointTrace(endpoint=endpoint, tags=tags, options=options)
+    return Trace(endpoint=endpoint, tags=tags, options=options)
 
 
 def trace_function(
@@ -182,6 +182,6 @@ __all__ = [
     'shutdown',
     'start_trace',
     'function_trace',
-    'EndpointTrace',
+    'Trace',
     'TraceOptions'
 ]

@@ -18,7 +18,7 @@ class KinetoRecorder(BaseRecorder):
     def setup(self):
         pass
 
-    def on_trace_start(self, signal, context, options):
+    def on_trace_start(self, proto, context, options):
         if not options.enable_profiling:
             return
 
@@ -34,13 +34,13 @@ class KinetoRecorder(BaseRecorder):
 
         self._torch_prof.start()
 
-    def on_trace_stop(self, signal, context, options):
+    def on_trace_stop(self, proto, context, options):
         if not options.enable_profiling:
             return
 
         self._torch_prof.stop()
 
-    def on_trace_read(self, signal, context, options):
+    def on_trace_read(self, proto, context, options):
         if not options.enable_profiling:
             return
 
@@ -48,7 +48,7 @@ class KinetoRecorder(BaseRecorder):
         for event_avg in self._torch_prof.key_averages():
             if event_avg.key and event_avg.key.startswith('ProfilerStep'):
                 continue
-            op_stats = signal.op_profile.add()
+            op_stats = proto.op_profile.add()
             op_stats.op_type = signals_pb2.OpStats.OpType.PYTORCH_OP
             op_stats.op_name = event_avg.key
             op_stats.count = _uint(event_avg.count)
@@ -64,7 +64,7 @@ class KinetoRecorder(BaseRecorder):
             total_self_host_time_ns += op_stats.self_host_time_ns
 
         if total_self_host_time_ns > 0:
-            for op_stats in signal.op_profile:
+            for op_stats in proto.op_profile:
                 op_stats.self_host_time_percent = op_stats.self_host_time_ns / total_self_host_time_ns * 100
 
         kernel_index = {}
@@ -84,8 +84,10 @@ class KinetoRecorder(BaseRecorder):
                     kernel_stats.duration_ns = _ns(kernel.duration)
 
         for kernel_stats in kernel_index.values():
-            signal.kernel_profile.append(kernel_stats)
+            proto.kernel_profile.append(kernel_stats)
 
+    def on_metric_update(self):
+        pass
 
 def _ns(val):
     return int(max(val, 0) * 1e3)

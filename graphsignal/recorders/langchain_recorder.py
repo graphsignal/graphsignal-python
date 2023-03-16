@@ -8,7 +8,7 @@ from langchain.callbacks.base import BaseCallbackHandler
 from langchain.schema import AgentAction, AgentFinish, LLMResult
 
 import graphsignal
-from graphsignal.endpoint_trace import TraceOptions
+from graphsignal.traces import TraceOptions
 from graphsignal.recorders.base_recorder import BaseRecorder
 from graphsignal.recorders.instrumentation import patch_method, unpatch_method
 from graphsignal.proto_utils import parse_semver, compare_semver
@@ -90,22 +90,12 @@ class GraphsignalHandler(BaseCallbackHandler):
         trace.stop()
 
     def on_tool_start(
-            self,
-            serialized: Dict[str, Any],
-            action: AgentAction,
-            color: Optional[str] = None,
-            **kwargs: Any) -> None:
-        name = 'langchain.agents.tools.' + action.tool
+            self, serialized: Dict[str, Any], input_str: str, **kwargs: Any) -> None:
+        name = 'langchain.agents.tools.' + serialized.get('name', 'Tool')
         trace = graphsignal.start_trace(endpoint=name)
         push_trace(trace)
 
-    def on_tool_end(
-            self,
-            output: str,
-            color: Optional[str] = None,
-            observation_prefix: Optional[str] = None,
-            llm_prefix: Optional[str] = None,
-            **kwargs: Any) -> None:
+    def on_tool_end(self, output: str, **kwargs: Any) -> None:
         trace = pop_trace()
         if not trace:
             return
@@ -121,12 +111,7 @@ class GraphsignalHandler(BaseCallbackHandler):
         trace.set_exception(error)
         trace.stop()
 
-    def on_text(
-            self,
-            text: str,
-            color: Optional[str] = None,
-            end: str = "",
-            **kwargs: Optional[str]) -> None:
+    def on_text(self, text: str, **kwargs: Optional[str]) -> None:
         pass
 
 
@@ -134,7 +119,7 @@ class GraphsignalHandler(BaseCallbackHandler):
         pass
 
     def on_agent_finish(
-            self, finish: AgentFinish, color: Optional[str] = None, **kwargs: Any) -> None:
+            self, finish: AgentFinish, **kwargs: Any) -> None:
         pass
 
 
@@ -160,12 +145,15 @@ class LangChainRecorder(BaseRecorder):
             langchain.callbacks.get_callback_manager().remove_handler(self._handler)
             self._handler = None
 
-    def on_trace_start(self, signal, context, options):
+    def on_trace_start(self, proto, context, options):
         self._is_sampling = True
 
-    def on_trace_stop(self, signal, context, options):
+    def on_trace_stop(self, proto, context, options):
         self._is_sampling = False
 
-    def on_trace_read(self, signal, context, options):
+    def on_trace_read(self, proto, context, options):
         if self._framework:
-            signal.frameworks.append(self._framework)
+            proto.frameworks.append(self._framework)
+
+    def on_metric_update(self):
+        pass

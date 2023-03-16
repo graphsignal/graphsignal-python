@@ -11,7 +11,7 @@ import pprint
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
-from graphsignal.endpoint_trace import DEFAULT_OPTIONS
+from graphsignal.traces import DEFAULT_OPTIONS
 from graphsignal.recorders.onnxruntime_recorder import ONNXRuntimeRecorder
 
 logger = logging.getLogger('graphsignal')
@@ -33,10 +33,10 @@ class ONNXRuntimeRecorderTest(unittest.TestCase):
     def test_record(self):
         recorder = ONNXRuntimeRecorder()
         recorder.setup()
-        signal = signals_pb2.Trace()
+        proto = signals_pb2.Trace()
         context = {}
-        recorder.on_trace_start(signal, context, DEFAULT_OPTIONS)
-        recorder.on_trace_stop(signal, context, DEFAULT_OPTIONS)
-        recorder.on_trace_read(signal, context, DEFAULT_OPTIONS)
+        recorder.on_trace_start(proto, context, DEFAULT_OPTIONS)
+        recorder.on_trace_stop(proto, context, DEFAULT_OPTIONS)
+        recorder.on_trace_read(proto, context, DEFAULT_OPTIONS)
 
-        self.assertEqual(signal.frameworks[0].name, 'ONNX Runtime')
+        self.assertEqual(proto.frameworks[0].name, 'ONNX Runtime')

@@ -14,7 +14,7 @@ import deepspeed
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
-from graphsignal.endpoint_trace import DEFAULT_OPTIONS
+from graphsignal.traces import DEFAULT_OPTIONS
 from graphsignal.recorders.deepspeed_recorder import DeepSpeedRecorder
 
 logger = logging.getLogger('graphsignal')
@@ -35,7 +35,7 @@ class DeepSpeedRecorderTest(unittest.TestCase):
 
     def test_record(self):
         import torch
-        if not torch.cuda.is_available() and torch.cuda.device_count() < 2:
+        if not torch.cuda.is_available() or torch.cuda.device_count() < 2:
             return
 
         mp.set_start_method("spawn")
@@ -46,31 +46,31 @@ class DeepSpeedRecorderTest(unittest.TestCase):
 
         recorder = DeepSpeedRecorder()
         recorder.setup()
-        signal = signals_pb2.Trace()
+        proto = signals_pb2.Trace()
         context = {}
-        recorder.on_trace_start(signal, context, DEFAULT_OPTIONS)
+        recorder.on_trace_start(proto, context, DEFAULT_OPTIONS)
 
         tensor = torch.zeros(1)
         tensor += 1
         deepspeed.comm.send(tensor=tensor.cuda(), dst=1)
 
-        recorder.on_trace_stop(signal, context, DEFAULT_OPTIONS)
-        recorder.on_trace_read(signal, context, DEFAULT_OPTIONS)
+        recorder.on_trace_stop(proto, context, DEFAULT_OPTIONS)
+        recorder.on_trace_read(proto, context, DEFAULT_OPTIONS)
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(signal))
+        #pp.pprint(MessageToJson(proto))
 
-        self.assertEqual(signal.frameworks[0].name, 'DeepSpeed')
+        self.assertEqual(proto.frameworks[0].name, 'DeepSpeed')
 
-        self.assertEqual(signal.frameworks[0].params[0].name, 'deepspeed.comm.get_world_size')
-        self.assertEqual(signal.frameworks[0].params[0].value, str(2))
+        self.assertEqual(proto.frameworks[0].params[0].name, 'deepspeed.comm.get_world_size')
+        self.assertEqual(proto.frameworks[0].params[0].value, str(2))
 
-        self.assertEqual(signal.op_profile[0].op_type, signals_pb2.OpStats.OpType.COLLECTIVE_OP)
-        self.assertEqual(signal.op_profile[0].op_name, 'send')
-        self.assertEqual(signal.op_profile[0].count, 1)
-        self.assertTrue(signal.op_profile[0].host_time_ns > 0)
-        self.assertTrue(signal.op_profile[0].data_size > 0)
-        self.assertTrue(signal.op_profile[0].data_per_sec > 0)
+        self.assertEqual(proto.op_profile[0].op_type, signals_pb2.OpStats.OpType.COLLECTIVE_OP)
+        self.assertEqual(proto.op_profile[0].op_name, 'send')
+        self.assertEqual(proto.op_profile[0].count, 1)
+        self.assertTrue(proto.op_profile[0].host_time_ns > 0)
+        self.assertTrue(proto.op_profile[0].data_size > 0)
+        self.assertTrue(proto.op_profile[0].data_per_sec > 0)
 
         p2.terminate()
 

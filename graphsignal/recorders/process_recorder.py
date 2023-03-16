@@ -36,12 +36,12 @@ class ProcessRecorder(BaseRecorder):
         self._last_read_sec = None
         self._last_cpu_time_us = None
 
-    def on_trace_start(self, signal, context, options):
+    def on_trace_start(self, proto, context, options):
         if not OS_WIN and hasattr(resource, 'RUSAGE_THREAD'):
             rusage_thread = resource.getrusage(resource.RUSAGE_THREAD)
             context['process_start_cpu_time_us'] = _rusage_cpu_time(rusage_thread)
 
-    def on_trace_stop(self, signal, context, options):
+    def on_trace_stop(self, proto, context, options):
         if not OS_WIN and hasattr(resource, 'RUSAGE_THREAD'):
             rusage_thread = resource.getrusage(resource.RUSAGE_THREAD)
             stop_cpu_time_us = _rusage_cpu_time(rusage_thread)
@@ -49,9 +49,9 @@ class ProcessRecorder(BaseRecorder):
             if 'process_start_cpu_time_us' in context:
                 start_cpu_time_us = context['process_start_cpu_time_us']
                 if start_cpu_time_us and stop_cpu_time_us:
-                    signal.trace_info.thread_cpu_time_us = max(0, stop_cpu_time_us - start_cpu_time_us)
+                    proto.trace_info.thread_cpu_time_us = max(0, stop_cpu_time_us - start_cpu_time_us)
 
-    def on_trace_read(self, signal, context, options):
+    def on_trace_read(self, proto, context, options):
         if not OS_WIN:
             rusage_self = resource.getrusage(resource.RUSAGE_SELF)
 
@@ -62,8 +62,8 @@ class ProcessRecorder(BaseRecorder):
         now = time.time()
         pid = os.getpid()
 
-        node_usage = signal.node_usage
-        process_usage = signal.process_usage
+        node_usage = proto.node_usage
+        process_usage = proto.process_usage
 
         process_usage.pid = pid
 
@@ -131,6 +131,33 @@ class ProcessRecorder(BaseRecorder):
             process_usage.runtime_impl = platform.python_implementation()
         except BaseException:
             logger.error('Error reading process information', exc_info=True)
+
+    def on_metric_update(self):
+        now = int(time.time())
+        proto = signals_pb2.Trace()
+        self.on_trace_read(proto, {}, {})
+
+        store = graphsignal._agent.metric_store()
+        metric_tags = {'deployment': graphsignal._agent.deployment}
+        if graphsignal._agent.hostname:
+            metric_tags['hostname'] = graphsignal._agent.hostname
+
+        if proto.process_usage.cpu_usage_percent > 0:
+            store.set_gauge(
+                scope='system', name='process_cpu_usage', tags=metric_tags, 
+                value=proto.process_usage.cpu_usage_percent, update_ts=now, unit='%')
+        if proto.process_usage.current_rss > 0:
+            store.set_gauge(
+                scope='system', name='process_memory', tags=metric_tags, 
+                value=proto.process_usage.current_rss, update_ts=now, is_size=True)
+        if proto.process_usage.vm_size > 0:
+            store.set_gauge(
+                scope='system', name='virtual_memory', tags=metric_tags, 
+                value=proto.process_usage.vm_size, update_ts=now, is_size=True)
+        if proto.node_usage.mem_used > 0:
+            store.set_gauge(
+                scope='system', name='node_memory_used', tags=metric_tags, 
+                value=proto.node_usage.mem_used, update_ts=now, is_size=True)
 
 
 def _rusage_cpu_time(rusage):

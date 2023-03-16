@@ -57,10 +57,10 @@ class RecorderUtilsTest(unittest.IsolatedAsyncioTestCase):
 
         obj.test(1, 2, c=3)
 
-        signal = mocked_upload_trace.call_args[0][0]
+        proto = mocked_upload_trace.call_args[0][0]
 
         self.assertTrue(trace_func_called)
-        self.assertEqual(signal.endpoint_name, 'ep1')
+        self.assertEqual(proto.tags[1].value, 'ep1')
 
     @patch.object(Uploader, 'upload_trace')
     async def test_instrument_method_generator(self, mocked_upload_trace):
@@ -76,11 +76,11 @@ class RecorderUtilsTest(unittest.IsolatedAsyncioTestCase):
         for item in obj.test_gen():
             pass
 
-        signal = mocked_upload_trace.call_args[0][0]
+        proto = mocked_upload_trace.call_args[0][0]
 
         self.assertTrue(trace_func_called)
-        self.assertEqual(signal.endpoint_name, 'ep1')
-        self.assertEqual(signal.root_span.spans[0].name, 'response')
+        self.assertEqual(proto.tags[1].value, 'ep1')
+        self.assertEqual(proto.root_span.spans[0].name, 'response')
 
     async def test_patch_method(self):
         obj = Dummy()

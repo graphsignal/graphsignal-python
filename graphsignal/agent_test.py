@@ -23,18 +23,16 @@ class AgentTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    def test_create_signal(self):
-        signal = graphsignal._agent.create_signal()
-        self.assertTrue(signal.agent_info.version.major > 0 or signal.agent_info.version.minor > 0)
+    def test_create_trace_proto(self):
+        proto = graphsignal._agent.create_trace_proto()
+        self.assertTrue(proto.agent_info.version.major > 0 or proto.agent_info.version.minor > 0)
 
-    @patch.object(Uploader, 'upload_trace')
-    def test_shutdown_upload(self, mocked_upload_trace):
-        with graphsignal.start_trace('test', options=graphsignal.TraceOptions(auto_sampling=False)):
-            pass
+    @patch.object(Uploader, 'upload_metric')
+    def test_shutdown_upload(self, mocked_upload_metric):
+        graphsignal._agent.metric_store().set_gauge(scope='s1', name='n1', tags={}, value=1, update_ts=1)
         graphsignal.shutdown()
 
-        #signal = mocked_upload_trace.call_args[0][0]
+        proto = mocked_upload_metric.call_args[0][0]
 
-        #self.assertEqual(signal.deployment_name, 'd1')
-        #self.assertEqual(signal.endpoint_name, 'test')
-        #self.assertEqual(signal.trace_type, signals_pb2.TraceType.SNAPSHOT_TRACE)
+        self.assertEqual(proto.scope, 's1')
+        self.assertEqual(proto.name, 'n1')

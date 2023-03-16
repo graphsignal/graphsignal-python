@@ -6,20 +6,25 @@ import time
 import uuid
 import hashlib
 import importlib
+import socket
 
 import graphsignal
 from graphsignal import version
 from graphsignal.uploader import Uploader
-from graphsignal.metric_store import MetricStore
+from graphsignal.metrics import MetricStore
 from graphsignal.trace_sampler import TraceSampler
 from graphsignal.proto import signals_pb2
-from graphsignal.data.missing_value_detector import MissingValueDetector
+from graphsignal.detectors.latency_outlier_detector import LatencyOutlierDetector
+from graphsignal.detectors.missing_value_detector import MissingValueDetector
 from graphsignal.proto_utils import parse_semver
 
 logger = logging.getLogger('graphsignal')
 
 
 class Agent:
+    METRIC_READ_INTERVAL_SEC = 10
+    METRIC_UPLOAD_INTERVAL_SEC = 20
+
     def __init__(
             self, 
             api_key=None, 
@@ -29,7 +34,6 @@ class Agent:
             auto_instrument=True, 
             upload_on_shutdown=True, 
             debug_mode=False):
-        self.worker_id = _uuid_sha1(size=12)
         self.api_key = api_key
         if api_url:
             self.api_url = api_url
@@ -41,21 +45,31 @@ class Agent:
         self.auto_instrument = auto_instrument
         self.upload_on_shutdown = upload_on_shutdown
         self.debug_mode = debug_mode
+        self.hostname = None
+        try:
+            self.hostname = socket.gethostname()
+        except BaseException:
+            logger.debug('Error reading hostname', exc_info=True)
 
         self._uploader = None
         self._trace_samplers = None
         self._metric_store = None
-        self._mv_detector = None
         self._recorders = None
+        self._lo_detectors = None
+        self._mv_detector = None
 
         self._process_start_ms = int(time.time() * 1e3)
+
+        self.last_metric_read_ts = 0
+        self.last_metric_upload_ts = int(self._process_start_ms / 1e3)
 
     def setup(self):
         self._uploader = Uploader()
         self._uploader.setup()
         self._trace_samplers = {}
-        self._metric_store = {}
+        self._metric_store = MetricStore()
         self._recorders = {}
+        self._lo_detectors = {}
 
         # pre-initialize recorders to enable auto-instrumentation for packages imported before graphsignal.configure()
         # as a fallback, any other trace sample will try to initialize uninitialized supported recorders
@@ -65,10 +79,10 @@ class Agent:
     def shutdown(self):
         # Create snapshot signals to send final metrics.
         if self.upload_on_shutdown:
-            for endpoint, store in self._metric_store.items():
-                if store.is_updated:
-                    # upload metrics here
-                    pass
+            if self._metric_store.has_unexported():
+                metrics = self._metric_store.export()
+                for metric in metrics:
+                    self._uploader.upload_metric(metric)
 
         for recorder in self._recorders.values():
             recorder.shutdown()
@@ -78,6 +92,7 @@ class Agent:
         self._recorders = None
         self._trace_samplers = None
         self._metric_store = None
+        self._lo_detectors = None
         self._mv_detector = None
         self._uploader = None
 
@@ -139,59 +154,67 @@ class Agent:
             trace_sampler = self._trace_samplers[endpoint] = TraceSampler()
             return trace_sampler
 
-    def reset_metric_store(self, endpoint):
-        self._metric_store[endpoint] = MetricStore()
+    def metric_store(self):
+        return self._metric_store
 
-    def metric_store(self, endpoint):
-        if endpoint not in self._metric_store:
-            self.reset_metric_store(endpoint)
-
-        return self._metric_store[endpoint]
+    def lo_detector(self, endpoint):
+        if endpoint in self._lo_detectors:
+            return self._lo_detectors[endpoint]
+        else:
+            lo_detector = self._lo_detectors[endpoint] = LatencyOutlierDetector()
+            return lo_detector
 
     def mv_detector(self):
         if self._mv_detector is None:
             self._mv_detector = MissingValueDetector()
         return self._mv_detector
 
-    def emit_trace_start(self, signal, context, options):
+    def emit_trace_start(self, proto, context, options):
         last_exc = None
         for recorder in reversed(self.recorders()):
             try:
-                recorder.on_trace_start(signal, context, options)
+                recorder.on_trace_start(proto, context, options)
             except Exception as exc:
                 last_exc = exc
         if last_exc:
             raise last_exc
 
-    def emit_trace_stop(self, signal, context, options):
+    def emit_trace_stop(self, proto, context, options):
         last_exc = None
         for recorder in self.recorders():
             try:
-                recorder.on_trace_stop(signal, context, options)
+                recorder.on_trace_stop(proto, context, options)
             except Exception as exc:
                 last_exc = exc
         if last_exc:
             raise last_exc
 
-    def emit_trace_read(self, signal, context, options):
+    def emit_trace_read(self, proto, context, options):
         last_exc = None
         for recorder in self.recorders():
             try:
-                recorder.on_trace_read(signal, context, options)
+                recorder.on_trace_read(proto, context, options)
             except Exception as exc:
                 last_exc = exc
         if last_exc:
             raise last_exc
 
-    def create_signal(self):
-        signal = signals_pb2.Trace()
-        signal.worker_id = graphsignal._agent.worker_id
-        signal.trace_id = _uuid_sha1(size=12)
-        if self.deployment:
-            signal.deployment_name = self.deployment
-        signal.agent_info.agent_type = signals_pb2.AgentInfo.AgentType.PYTHON_AGENT
-        parse_semver(signal.agent_info.version, version.__version__)
-        return signal
+    def emit_metric_update(self):
+        last_exc = None
+        for recorder in self.recorders():
+            try:
+                recorder.on_metric_update()
+            except Exception as exc:
+                last_exc = exc
+        if last_exc:
+            raise last_exc
+
+    def create_trace_proto(self):
+        proto = signals_pb2.Trace()
+        proto.trace_id = _uuid_sha1(size=12)
+        proto.agent_info.agent_type = signals_pb2.AgentInfo.AgentType.PYTHON_AGENT
+        parse_semver(proto.agent_info.version, version.__version__)
+        return proto
 
     def upload(self, block=False):
         if block:
@@ -199,7 +222,32 @@ class Agent:
         else:
             self._uploader.flush_in_thread()
 
-    def tick(self, block=False):
+    def check_metric_read_interval(self, now=None):
+        if now is None:
+            now = time.time()
+        return (self.last_metric_read_ts < now - Agent.METRIC_READ_INTERVAL_SEC)
+    
+    def set_metric_read(self, now=None):
+        self.last_metric_read_ts = now if now else time.time()
+
+    def check_metric_upload_interval(self, now=None):
+        if now is None:
+            now = time.time()
+        return (self.last_metric_upload_ts < now - Agent.METRIC_UPLOAD_INTERVAL_SEC)
+
+    def set_metric_upload(self, now=None):
+        self.last_metric_upload_ts = now if now else time.time()
+
+    def tick(self, block=False, now=None):
+        if now is None:
+            now = time.time()
+        if self.check_metric_upload_interval(now):
+            if self._metric_store.has_unexported():
+                metrics = self._metric_store.export()
+                for metric in metrics:
+                    self.uploader().upload_metric(metric)
+                self.set_metric_upload(now)
+
         self.upload(block=False)
 
 

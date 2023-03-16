@@ -5,7 +5,7 @@ import os
 from unittest.mock import patch, Mock
 
 import graphsignal
-from graphsignal.endpoint_trace import EndpointTrace
+from graphsignal.traces import Trace
 
 logger = logging.getLogger('graphsignal')
 
@@ -57,12 +57,11 @@ class GraphsignalTest(unittest.TestCase):
             arg9 = graphsignal._check_and_set_arg('arg9', None, is_kv=True, required=False)
 
     def test_configure(self):
-        self.assertIsNotNone(graphsignal._agent.worker_id)
         self.assertEqual(graphsignal._agent.api_key, 'k1')
         self.assertEqual(graphsignal._agent.debug_mode, True)
 
-    @patch.object(EndpointTrace, '_stop', return_value=None)
-    @patch.object(EndpointTrace, '_start', return_value=None)
+    @patch.object(Trace, '_stop', return_value=None)
+    @patch.object(Trace, '_start', return_value=None)
     def test_trace_function(self, mocked_start, mocked_stop):
         @graphsignal.trace_function
         def test_func(p):
@@ -74,8 +73,8 @@ class GraphsignalTest(unittest.TestCase):
         mocked_start.assert_called_once()
         mocked_stop.assert_called_once()
 
-    @patch.object(EndpointTrace, '_stop', return_value=None)
-    @patch.object(EndpointTrace, '_start', return_value=None)
+    @patch.object(Trace, '_stop', return_value=None)
+    @patch.object(Trace, '_start', return_value=None)
     def test_trace_function_with_args(self, mocked_start, mocked_stop):
         @graphsignal.trace_function(endpoint='ep1', tags=dict(t1='v1'))
         def test_func(p):

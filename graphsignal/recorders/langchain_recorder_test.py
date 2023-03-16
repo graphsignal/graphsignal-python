@@ -16,7 +16,7 @@ from langchain.llms.base import LLM
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
-from graphsignal.endpoint_trace import DEFAULT_OPTIONS
+from graphsignal.traces import DEFAULT_OPTIONS
 from graphsignal.recorders.langchain_recorder import LangChainRecorder
 
 logger = logging.getLogger('graphsignal')
@@ -51,16 +51,17 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
     async def test_record(self):
         recorder = LangChainRecorder()
         recorder.setup()
-        signal = signals_pb2.Trace()
+        proto = signals_pb2.Trace()
         context = {}
-        recorder.on_trace_start(signal, context, DEFAULT_OPTIONS)
-        recorder.on_trace_stop(signal, context, DEFAULT_OPTIONS)
-        recorder.on_trace_read(signal, context, DEFAULT_OPTIONS)
+        recorder.on_trace_start(proto, context, DEFAULT_OPTIONS)
+        recorder.on_trace_stop(proto, context, DEFAULT_OPTIONS)
+        recorder.on_trace_read(proto, context, DEFAULT_OPTIONS)
 
-        self.assertEqual(signal.frameworks[0].name, 'LangChain')
+        self.assertEqual(proto.frameworks[0].name, 'LangChain')
 
     @patch.object(Uploader, 'upload_trace')
     async def test_chain(self, mocked_upload_trace):
+        os.environ['OPENAI_API_KEY'] = 'dummy-api-key'
         llm = OpenAI(temperature=0)
         llm = DummyLLM()
         tools = load_tools(["llm-math"], llm=llm)
@@ -69,30 +70,32 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
         )
         agent.run("What is 2 raised to .123243 power?")
 
-        signal = mocked_upload_trace.call_args[0][0]
+        proto = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(signal))
+        #pp.pprint(MessageToJson(proto))
 
-        self.assertEqual(signal.frameworks[0].name, 'LangChain')
+        self.assertEqual(proto.frameworks[0].name, 'LangChain')
 
-        self.assertEqual(find_data_metric(signal, 'inputs', 'byte_count'), 34.0)
-        self.assertEqual(find_data_metric(signal, 'inputs', 'element_count'), 1.0)
-        self.assertEqual(find_data_metric(signal, 'outputs', 'byte_count'), 2.0)
-        self.assertEqual(find_data_metric(signal, 'outputs', 'element_count'), 1.0)
+        self.assertEqual(find_data_count(proto, 'inputs', 'byte_count'), 34.0)
+        self.assertEqual(find_data_count(proto, 'inputs', 'element_count'), 1.0)
+        self.assertEqual(find_data_count(proto, 'outputs', 'byte_count'), 2.0)
+        self.assertEqual(find_data_count(proto, 'outputs', 'element_count'), 1.0)
 
-        self.assertEqual(signal.root_span.spans[0].name, 'langchain.chains.LLMChain')
-        self.assertTrue(signal.root_span.spans[0].start_ns > 0)
-        self.assertTrue(signal.root_span.spans[0].end_ns > 0)
-        self.assertTrue(signal.root_span.spans[0].is_endpoint)
-        self.assertEqual(signal.root_span.spans[0].spans[0].name, 'langchain.llms.DummyLLM')
-        self.assertTrue(signal.root_span.spans[0].spans[0].start_ns > 0)
-        self.assertTrue(signal.root_span.spans[0].spans[0].end_ns > 0)
-        self.assertTrue(signal.root_span.spans[0].spans[0].is_endpoint)
+        self.assertEqual(proto.root_span.spans[0].name, 'langchain.chains.LLMChain')
+        self.assertTrue(proto.root_span.spans[0].start_ns > 0)
+        self.assertTrue(proto.root_span.spans[0].end_ns > 0)
+        self.assertTrue(proto.root_span.spans[0].is_endpoint)
+        self.assertEqual(proto.root_span.spans[0].spans[0].name, 'langchain.llms.DummyLLM')
+        self.assertTrue(proto.root_span.spans[0].spans[0].start_ns > 0)
+        self.assertTrue(proto.root_span.spans[0].spans[0].end_ns > 0)
+        self.assertTrue(proto.root_span.spans[0].spans[0].is_endpoint)
 
 
-def find_data_metric(signal, data_name, metric_name):
-    for data_metric in signal.data_metrics:
-        if data_metric.data_name == data_name and data_metric.metric_name == metric_name:
-            return data_metric.metric.gauge
+def find_data_count(proto, data_name, count_name):
+    for data_stats in proto.data_profile:
+        if data_stats.data_name == data_name:
+            for data_count in data_stats.counts:
+                if data_count.name == count_name:
+                    return data_count.count
     return None

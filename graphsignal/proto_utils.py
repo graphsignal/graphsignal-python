@@ -25,8 +25,7 @@ def parse_semver(semver_proto, version):
 
 
 def compare_semver(semver_proto, version):
-    semver_int = semver_proto.major * 1e6 + \
-        semver_proto.minor * 1e3 + semver_proto.patch
+    semver_int = semver_proto.major * 1e6 + semver_proto.minor * 1e3 + semver_proto.patch
     version_int = version[0] * 1e6 + version[1] * 1e3 + version[2]
     if semver_int < version_int:
         return -1

@@ -6,7 +6,7 @@ from unittest.mock import patch, Mock
 
 import graphsignal
 from graphsignal.proto import signals_pb2
-from graphsignal.data.missing_value_detector import MissingValueDetector
+from graphsignal.detectors.missing_value_detector import MissingValueDetector
 
 logger = logging.getLogger('graphsignal')
 

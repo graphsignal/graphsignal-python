@@ -13,7 +13,7 @@ import openai
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
-from graphsignal.endpoint_trace import DEFAULT_OPTIONS
+from graphsignal.traces import DEFAULT_OPTIONS
 from graphsignal.recorders.openai_recorder import OpenAIRecorder
 
 logger = logging.getLogger('graphsignal')
@@ -35,13 +35,13 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
     async def test_record(self):
         recorder = OpenAIRecorder()
         recorder.setup()
-        signal = signals_pb2.Trace()
+        proto = signals_pb2.Trace()
         context = {}
-        recorder.on_trace_start(signal, context, DEFAULT_OPTIONS)
-        recorder.on_trace_stop(signal, context, DEFAULT_OPTIONS)
-        recorder.on_trace_read(signal, context, DEFAULT_OPTIONS)
+        recorder.on_trace_start(proto, context, DEFAULT_OPTIONS)
+        recorder.on_trace_stop(proto, context, DEFAULT_OPTIONS)
+        recorder.on_trace_read(proto, context, DEFAULT_OPTIONS)
 
-        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
+        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
 
     @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Completion, 'create')
@@ -88,28 +88,28 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_trace.call_args[0][0]
+        proto = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(signal))
+        #pp.pprint(MessageToJson(proto))
 
-        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
+        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
 
-        self.assertEqual(find_param(signal, 'model'), 'text-davinci-003')
-        self.assertEqual(find_param(signal, 'max_tokens'), '1024')
-        self.assertEqual(find_param(signal, 'temperature'), '0.1')
-        self.assertEqual(find_param(signal, 'top_p'), '1')
-        self.assertEqual(find_param(signal, 'presence_penalty'), '0')
-        self.assertEqual(find_param(signal, 'frequency_penalty'), '0')
+        self.assertEqual(find_param(proto, 'model'), 'text-davinci-003')
+        self.assertEqual(find_param(proto, 'max_tokens'), '1024')
+        self.assertEqual(find_param(proto, 'temperature'), '0.1')
+        self.assertEqual(find_param(proto, 'top_p'), '1')
+        self.assertEqual(find_param(proto, 'presence_penalty'), '0')
+        self.assertEqual(find_param(proto, 'frequency_penalty'), '0')
 
-        self.assertEqual(find_data_metric(signal, 'prompt', 'byte_count'), 26.0)
-        self.assertEqual(find_data_metric(signal, 'prompt', 'element_count'), 2.0)
-        self.assertEqual(find_data_metric(signal, 'prompt', 'token_count'), 6.0)
-        self.assertEqual(find_data_metric(signal, 'completion', 'byte_count'), 40.0)
-        self.assertEqual(find_data_metric(signal, 'completion', 'element_count'), 2.0)
-        self.assertEqual(find_data_metric(signal, 'completion', 'token_count'), 96.0)
-        self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_stop'), 1.0)
-        self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_length'), 1.0)
+        self.assertEqual(find_data_count(proto, 'prompt', 'byte_count'), 26.0)
+        self.assertEqual(find_data_count(proto, 'prompt', 'element_count'), 2.0)
+        self.assertEqual(find_data_count(proto, 'prompt', 'token_count'), 6.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'byte_count'), 40.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'element_count'), 2.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'token_count'), 96.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'finish_reason_stop'), 1.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'finish_reason_length'), 1.0)
 
     @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Completion, 'create')
@@ -169,20 +169,20 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_trace.call_args[0][0]
+        proto = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(signal))
+        #pp.pprint(MessageToJson(proto))
 
-        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
-        self.assertEqual(signal.root_span.spans[0].name, 'response')
-        self.assertTrue(signal.root_span.spans[0].start_ns > 0)
-        self.assertTrue(signal.root_span.spans[0].end_ns > 0)
-        self.assertEqual(find_data_metric(signal, 'prompt', 'byte_count'), 37.0)
-        self.assertEqual(find_data_metric(signal, 'prompt', 'element_count'), 2.0)
-        self.assertEqual(find_data_metric(signal, 'completion', 'byte_count'), 4.0)
-        self.assertEqual(find_data_metric(signal, 'completion', 'element_count'), 2.0)
-        self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_stop'), 1.0)
+        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
+        self.assertEqual(proto.root_span.spans[0].name, 'response')
+        self.assertTrue(proto.root_span.spans[0].start_ns > 0)
+        self.assertTrue(proto.root_span.spans[0].end_ns > 0)
+        self.assertEqual(find_data_count(proto, 'prompt', 'byte_count'), 37.0)
+        self.assertEqual(find_data_count(proto, 'prompt', 'element_count'), 2.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'byte_count'), 4.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'element_count'), 2.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'finish_reason_stop'), 1.0)
 
     @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Completion, 'acreate')
@@ -229,26 +229,26 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_trace.call_args[0][0]
+        proto = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(signal))
+        #pp.pprint(MessageToJson(proto))
 
-        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
+        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
 
-        self.assertEqual(find_param(signal, 'model'), 'text-davinci-003')
-        self.assertEqual(find_param(signal, 'max_tokens'), '1024')
-        self.assertEqual(find_param(signal, 'temperature'), '0.1')
-        self.assertEqual(find_param(signal, 'top_p'), '1')
-        self.assertEqual(find_param(signal, 'presence_penalty'), '0')
-        self.assertEqual(find_param(signal, 'frequency_penalty'), '0')
+        self.assertEqual(find_param(proto, 'model'), 'text-davinci-003')
+        self.assertEqual(find_param(proto, 'max_tokens'), '1024')
+        self.assertEqual(find_param(proto, 'temperature'), '0.1')
+        self.assertEqual(find_param(proto, 'top_p'), '1')
+        self.assertEqual(find_param(proto, 'presence_penalty'), '0')
+        self.assertEqual(find_param(proto, 'frequency_penalty'), '0')
 
-        self.assertEqual(find_data_metric(signal, 'prompt', 'byte_count'), 26.0)
-        self.assertEqual(find_data_metric(signal, 'prompt', 'element_count'), 2.0)
-        self.assertEqual(find_data_metric(signal, 'prompt', 'token_count'), 6.0)
-        self.assertEqual(find_data_metric(signal, 'completion', 'byte_count'), 40.0)
-        self.assertEqual(find_data_metric(signal, 'completion', 'element_count'), 2.0)
-        self.assertEqual(find_data_metric(signal, 'completion', 'token_count'), 96.0)
+        self.assertEqual(find_data_count(proto, 'prompt', 'byte_count'), 26.0)
+        self.assertEqual(find_data_count(proto, 'prompt', 'element_count'), 2.0)
+        self.assertEqual(find_data_count(proto, 'prompt', 'token_count'), 6.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'byte_count'), 40.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'element_count'), 2.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'token_count'), 96.0)
 
     @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.ChatCompletion, 'create')
@@ -301,28 +301,28 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_trace.call_args[0][0]
+        proto = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(signal))
+        #pp.pprint(MessageToJson(proto))
 
-        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
+        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
 
-        self.assertEqual(find_param(signal, 'model'), 'gpt-3.5-turbo')
-        self.assertEqual(find_param(signal, 'max_tokens'), '1024')
-        self.assertEqual(find_param(signal, 'temperature'), '0.1')
-        self.assertEqual(find_param(signal, 'top_p'), '1')
-        self.assertEqual(find_param(signal, 'presence_penalty'), '0')
-        self.assertEqual(find_param(signal, 'frequency_penalty'), '0')
+        self.assertEqual(find_param(proto, 'model'), 'gpt-3.5-turbo')
+        self.assertEqual(find_param(proto, 'max_tokens'), '1024')
+        self.assertEqual(find_param(proto, 'temperature'), '0.1')
+        self.assertEqual(find_param(proto, 'top_p'), '1')
+        self.assertEqual(find_param(proto, 'presence_penalty'), '0')
+        self.assertEqual(find_param(proto, 'frequency_penalty'), '0')
 
-        self.assertEqual(find_data_metric(signal, 'messages', 'byte_count'), 26.0)
-        self.assertEqual(find_data_metric(signal, 'messages', 'element_count'), 2.0)
-        self.assertEqual(find_data_metric(signal, 'messages', 'token_count'), 6.0)
-        self.assertEqual(find_data_metric(signal, 'completion', 'byte_count'), 40.0)
-        self.assertEqual(find_data_metric(signal, 'completion', 'element_count'), 2.0)
-        self.assertEqual(find_data_metric(signal, 'completion', 'token_count'), 96.0)
-        self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_stop'), 1.0)
-        self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_length'), 1.0)
+        self.assertEqual(find_data_count(proto, 'messages', 'byte_count'), 26.0)
+        self.assertEqual(find_data_count(proto, 'messages', 'element_count'), 2.0)
+        self.assertEqual(find_data_count(proto, 'messages', 'token_count'), 6.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'byte_count'), 40.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'element_count'), 2.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'token_count'), 96.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'finish_reason_stop'), 1.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'finish_reason_length'), 1.0)
 
     @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.ChatCompletion, 'create')
@@ -388,20 +388,20 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_trace.call_args[0][0]
+        proto = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(signal))
+        #pp.pprint(MessageToJson(proto))
 
-        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
-        self.assertEqual(signal.root_span.spans[0].name, 'response')
-        self.assertTrue(signal.root_span.spans[0].start_ns > 0)
-        self.assertTrue(signal.root_span.spans[0].end_ns > 0)
-        self.assertEqual(find_data_metric(signal, 'messages', 'byte_count'), 37.0)
-        self.assertEqual(find_data_metric(signal, 'messages', 'element_count'), 2.0)
-        self.assertEqual(find_data_metric(signal, 'completion', 'byte_count'), 4.0)
-        self.assertEqual(find_data_metric(signal, 'completion', 'element_count'), 2.0)
-        self.assertEqual(find_data_metric(signal, 'completion', 'finish_reason_stop'), 1.0)
+        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
+        self.assertEqual(proto.root_span.spans[0].name, 'response')
+        self.assertTrue(proto.root_span.spans[0].start_ns > 0)
+        self.assertTrue(proto.root_span.spans[0].end_ns > 0)
+        self.assertEqual(find_data_count(proto, 'messages', 'byte_count'), 37.0)
+        self.assertEqual(find_data_count(proto, 'messages', 'element_count'), 2.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'byte_count'), 4.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'element_count'), 2.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'finish_reason_stop'), 1.0)
 
     @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Edit, 'create')
@@ -436,25 +436,25 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_trace.call_args[0][0]
+        proto = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(signal))
+        #pp.pprint(MessageToJson(proto))
 
-        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
+        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
 
-        self.assertEqual(find_param(signal, 'model'), 'text-davinci-edit-001')
-        self.assertEqual(find_param(signal, 'temperature'), '0.1')
-        self.assertEqual(find_param(signal, 'top_p'), '1')
+        self.assertEqual(find_param(proto, 'model'), 'text-davinci-edit-001')
+        self.assertEqual(find_param(proto, 'temperature'), '0.1')
+        self.assertEqual(find_param(proto, 'top_p'), '1')
 
-        self.assertEqual(find_data_metric(signal, 'input', 'byte_count'), 12.0)
-        self.assertEqual(find_data_metric(signal, 'input', 'element_count'), 1.0)
-        self.assertEqual(find_data_metric(signal, 'instruction', 'byte_count'), 18.0)
-        self.assertEqual(find_data_metric(signal, 'instruction', 'element_count'), 1.0)
-        self.assertEqual(find_data_metric(signal, 'instruction', 'token_count'), 18.0)
-        self.assertEqual(find_data_metric(signal, 'edits', 'byte_count'), 32.0)
-        self.assertEqual(find_data_metric(signal, 'edits', 'element_count'), 1.0)
-        self.assertEqual(find_data_metric(signal, 'edits', 'token_count'), 13.0)
+        self.assertEqual(find_data_count(proto, 'input', 'byte_count'), 12.0)
+        self.assertEqual(find_data_count(proto, 'input', 'element_count'), 1.0)
+        self.assertEqual(find_data_count(proto, 'instruction', 'byte_count'), 18.0)
+        self.assertEqual(find_data_count(proto, 'instruction', 'element_count'), 1.0)
+        self.assertEqual(find_data_count(proto, 'instruction', 'token_count'), 18.0)
+        self.assertEqual(find_data_count(proto, 'edits', 'byte_count'), 32.0)
+        self.assertEqual(find_data_count(proto, 'edits', 'element_count'), 1.0)
+        self.assertEqual(find_data_count(proto, 'edits', 'token_count'), 13.0)
 
     @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Embedding, 'create')
@@ -499,20 +499,20 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_trace.call_args[0][0]
+        proto = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(signal))
+        #pp.pprint(MessageToJson(proto))
 
-        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
+        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
 
-        self.assertEqual(find_param(signal, 'engine'), 'text-embedding-ada-002')
+        self.assertEqual(find_param(proto, 'engine'), 'text-embedding-ada-002')
 
-        self.assertEqual(find_data_metric(signal, 'input', 'byte_count'), 22.0)
-        self.assertEqual(find_data_metric(signal, 'input', 'element_count'), 2.0)
-        self.assertEqual(find_data_metric(signal, 'input', 'token_count'), 8.0)
-        self.assertEqual(find_data_metric(signal, 'embedding', 'byte_count'), 144.0)
-        self.assertEqual(find_data_metric(signal, 'embedding', 'element_count'), 6.0)
+        self.assertEqual(find_data_count(proto, 'input', 'byte_count'), 22.0)
+        self.assertEqual(find_data_count(proto, 'input', 'element_count'), 2.0)
+        self.assertEqual(find_data_count(proto, 'input', 'token_count'), 8.0)
+        self.assertEqual(find_data_count(proto, 'embedding', 'byte_count'), 144.0)
+        self.assertEqual(find_data_count(proto, 'embedding', 'element_count'), 6.0)
 
     @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Image, 'create')
@@ -539,19 +539,19 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_trace.call_args[0][0]
+        proto = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(signal))
+        #pp.pprint(MessageToJson(proto))
 
-        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
+        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
 
-        self.assertEqual(find_param(signal, 'n'), '1')
-        self.assertEqual(find_param(signal, 'size'), '256x256')
-        self.assertEqual(find_param(signal, 'response_format'), 'b64_json')
+        self.assertEqual(find_param(proto, 'n'), '1')
+        self.assertEqual(find_param(proto, 'size'), '256x256')
+        self.assertEqual(find_param(proto, 'response_format'), 'b64_json')
 
-        self.assertEqual(find_data_metric(signal, 'image', 'byte_count'), 14.0)
-        self.assertEqual(find_data_metric(signal, 'image', 'element_count'), 1.0)
+        self.assertEqual(find_data_count(proto, 'image', 'byte_count'), 14.0)
+        self.assertEqual(find_data_count(proto, 'image', 'element_count'), 1.0)
 
     @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Audio, 'transcribe')
@@ -580,21 +580,21 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_trace.call_args[0][0]
+        proto = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(signal))
+        #pp.pprint(MessageToJson(proto))
 
-        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
+        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
 
-        self.assertEqual(find_param(signal, 'model'), 'whisper-1')
-        self.assertEqual(find_param(signal, 'response_format'), 'json')
-        self.assertEqual(find_param(signal, 'temperature'), '0.1')
-        self.assertEqual(find_param(signal, 'language'), 'en')
+        self.assertEqual(find_param(proto, 'model'), 'whisper-1')
+        self.assertEqual(find_param(proto, 'response_format'), 'json')
+        self.assertEqual(find_param(proto, 'temperature'), '0.1')
+        self.assertEqual(find_param(proto, 'language'), 'en')
 
-        self.assertEqual(find_data_metric(signal, 'file', 'byte_count'), 12.0)
-        self.assertEqual(find_data_metric(signal, 'prompt', 'byte_count'), 11.0)
-        self.assertEqual(find_data_metric(signal, 'prompt', 'element_count'), 1.0)
+        self.assertEqual(find_data_count(proto, 'file', 'byte_count'), 12.0)
+        self.assertEqual(find_data_count(proto, 'prompt', 'byte_count'), 11.0)
+        self.assertEqual(find_data_count(proto, 'prompt', 'element_count'), 1.0)
 
 
     @patch.object(Uploader, 'upload_trace')
@@ -623,20 +623,20 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_trace.call_args[0][0]
+        proto = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(signal))
+        #pp.pprint(MessageToJson(proto))
 
-        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
+        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
 
-        self.assertEqual(find_param(signal, 'model'), 'whisper-1')
-        self.assertEqual(find_param(signal, 'response_format'), 'json')
-        self.assertEqual(find_param(signal, 'temperature'), '0.1')
+        self.assertEqual(find_param(proto, 'model'), 'whisper-1')
+        self.assertEqual(find_param(proto, 'response_format'), 'json')
+        self.assertEqual(find_param(proto, 'temperature'), '0.1')
 
-        self.assertEqual(find_data_metric(signal, 'file', 'byte_count'), 12.0)
-        self.assertEqual(find_data_metric(signal, 'prompt', 'byte_count'), 11.0)
-        self.assertEqual(find_data_metric(signal, 'prompt', 'element_count'), 1.0)
+        self.assertEqual(find_data_count(proto, 'file', 'byte_count'), 12.0)
+        self.assertEqual(find_data_count(proto, 'prompt', 'byte_count'), 11.0)
+        self.assertEqual(find_data_count(proto, 'prompt', 'element_count'), 1.0)
 
     @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Moderation, 'create')
@@ -680,28 +680,30 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        signal = mocked_upload_trace.call_args[0][0]
+        proto = mocked_upload_trace.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(signal))
+        #pp.pprint(MessageToJson(proto))
 
-        self.assertEqual(signal.frameworks[0].name, 'OpenAI Python Library')
+        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
 
-        self.assertEqual(find_param(signal, 'model'), 'text-moderation-latest')
+        self.assertEqual(find_param(proto, 'model'), 'text-moderation-latest')
 
-        self.assertEqual(find_data_metric(signal, 'input', 'byte_count'), 9.0)
-        self.assertEqual(find_data_metric(signal, 'input', 'element_count'), 1.0)
+        self.assertEqual(find_data_count(proto, 'input', 'byte_count'), 9.0)
+        self.assertEqual(find_data_count(proto, 'input', 'element_count'), 1.0)
 
 
-def find_param(signal, name):
-    for param in signal.params:
+def find_param(proto, name):
+    for param in proto.params:
         if param.name == name:
             return param.value
     return None
 
 
-def find_data_metric(signal, data_name, metric_name):
-    for data_metric in signal.data_metrics:
-        if data_metric.data_name == data_name and data_metric.metric_name == metric_name:
-            return data_metric.metric.gauge
+def find_data_count(proto, data_name, count_name):
+    for data_stats in proto.data_profile:
+        if data_stats.data_name == data_name:
+            for data_count in data_stats.counts:
+                if data_count.name == count_name:
+                    return data_count.count
     return None

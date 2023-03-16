@@ -25,12 +25,15 @@ class XGBoostRecorder(BaseRecorder):
             if isinstance(value, (bool, int, float, str)):
                 add_framework_param(self._framework, key, value)
 
-    def on_trace_start(self, signal, context, options):
+    def on_trace_start(self, proto, context, options):
         pass
 
-    def on_trace_stop(self, signal, context, options):
+    def on_trace_stop(self, proto, context, options):
         pass
 
-    def on_trace_read(self, signal, context, options):
+    def on_trace_read(self, proto, context, options):
         if self._framework:
-            signal.frameworks.append(self._framework)
+            proto.frameworks.append(self._framework)
+
+    def on_metric_update(self):
+        pass

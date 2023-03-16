@@ -6,7 +6,7 @@ import deepspeed
 import deepspeed.comm as dist
 
 import graphsignal
-from graphsignal.endpoint_trace import TraceOptions
+from graphsignal.traces import TraceOptions
 from graphsignal.recorders.base_recorder import BaseRecorder
 from graphsignal.recorders.instrumentation import patch_method
 from graphsignal.proto_utils import parse_semver, compare_semver
@@ -97,34 +97,34 @@ class DeepSpeedRecorder(BaseRecorder):
         if not patch_method(dist, op_name, before_func=before_op, after_func=after_op):
             logger.debug('Cannot instrument DeepSpeed communications logger.')
 
-    def on_trace_start(self, signal, context, options):
+    def on_trace_start(self, proto, context, options):
         if not self._is_initialized:
             return
 
         self._is_sampling = True
 
-    def on_trace_stop(self, signal, context, options):
+    def on_trace_stop(self, proto, context, options):
         if not self._is_initialized:
             return
 
         self._is_sampling = False
 
-    def on_trace_read(self, signal, context, options):
+    def on_trace_read(self, proto, context, options):
         if not self._is_initialized:
             return
 
         if self._framework:
-            signal.frameworks.append(self._framework)
+            proto.frameworks.append(self._framework)
         if self._rank is not None:
-            signal.process_usage.rank = self._rank
-            signal.process_usage.has_rank = True            
+            proto.process_usage.rank = self._rank
+            proto.process_usage.has_rank = True            
         if self._local_rank is not None:
-            signal.process_usage.local_rank = self._local_rank
-            signal.process_usage.has_local_rank = True
+            proto.process_usage.local_rank = self._local_rank
+            proto.process_usage.has_local_rank = True
 
         if self._op_profile:
             for name, stats in self._op_profile.items():
-                op_stats = signal.op_profile.add()
+                op_stats = proto.op_profile.add()
                 op_stats.op_type = signals_pb2.OpStats.OpType.COLLECTIVE_OP
                 op_stats.op_name = name
                 op_stats.count = stats['count']
@@ -134,6 +134,9 @@ class DeepSpeedRecorder(BaseRecorder):
                     op_stats.data_per_sec = op_stats.data_size / (op_stats.host_time_ns / 1e9)
 
             self._op_profile = None
+
+    def on_metric_update(self):
+        pass
 
     def _get_data_size(self, op_name, args, kwargs):
         tensor_arg = None

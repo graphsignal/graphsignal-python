@@ -2,7 +2,6 @@ import logging
 import os
 import sys
 import time
-import socket
 
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
@@ -40,13 +39,13 @@ class NVMLRecorder(BaseRecorder):
         except BaseException:
             logger.error('Error shutting down NVML', exc_info=True)
 
-    def on_trace_start(self, signal, context, options):
+    def on_trace_start(self, proto, context, options):
         pass
 
-    def on_trace_stop(self, signal, context, options):
+    def on_trace_stop(self, proto, context, options):
         pass
 
-    def on_trace_read(self, signal, context, options):
+    def on_trace_read(self, proto, context, options):
         if not self._is_initialized:
             return
 
@@ -54,13 +53,13 @@ class NVMLRecorder(BaseRecorder):
 
         device_count = nvmlDeviceGetCount()
 
-        signal.node_usage.num_devices = device_count
+        proto.node_usage.num_devices = device_count
 
         if device_count > 0:
             try:
                 version = nvmlSystemGetCudaDriverVersion_v2()
                 if version:
-                    driver_info = signal.node_usage.drivers.add()
+                    driver_info = proto.node_usage.drivers.add()
                     driver_info.name = 'CUDA'
                     driver_info.version = _format_version(version)
             except NVMLError as err:
@@ -73,7 +72,7 @@ class NVMLRecorder(BaseRecorder):
                 _log_nvml_error(err)
                 continue
 
-            device_usage = signal.device_usage.add()
+            device_usage = proto.device_usage.add()
             device_usage.device_type = signals_pb2.DeviceUsage.DeviceType.GPU
             device_usage.device_idx = idx
 
@@ -213,6 +212,50 @@ class NVMLRecorder(BaseRecorder):
             except NVMLError as err:
                 _log_nvml_error(err)
 
+    def on_metric_update(self):
+        now = int(time.time())
+        proto = signals_pb2.Trace()
+        self.on_trace_read(proto, {}, {})
+
+        for idx, device_usage in enumerate(proto.device_usage):
+            store = graphsignal._agent.metric_store()
+            metric_tags = {'deployment': graphsignal._agent.deployment}
+            if graphsignal._agent.hostname:
+                metric_tags['hostname'] = graphsignal._agent.hostname
+            metric_tags['device'] = idx
+
+            if device_usage.gpu_utilization_percent > 0:
+                store.set_gauge(
+                    scope='system', name='gpu_utilization', tags=metric_tags, 
+                    value=device_usage.gpu_utilization_percent, update_ts=now, unit='%')
+            if device_usage.mxu_utilization_percent > 0:
+                store.set_gauge(
+                    scope='system', name='mxu_utilization', tags=metric_tags, 
+                    value=device_usage.mxu_utilization_percent, update_ts=now, unit='%')
+            if device_usage.mem_access_percent > 0:
+                store.set_gauge(
+                    scope='system', name='device_memory_access', tags=metric_tags, 
+                    value=device_usage.mem_access_percent, update_ts=now, unit='%')
+            if device_usage.mem_used > 0:
+                store.set_gauge(
+                    scope='system', name='device_memory_used', tags=metric_tags, 
+                    value=device_usage.mem_used, update_ts=now, is_size=True)
+            if device_usage.nvlink_throughput_data_tx_kibs > 0:
+                store.set_gauge(
+                    scope='system', name='nvlink_throughput_data_tx_kibs', tags=metric_tags, 
+                    value=device_usage.nvlink_throughput_data_tx_kibs, update_ts=now, unit='KiB/s')
+            if device_usage.nvlink_throughput_data_rx_kibs > 0:
+                store.set_gauge(
+                    scope='system', name='nvlink_throughput_data_rx_kibs', tags=metric_tags, 
+                    value=device_usage.nvlink_throughput_data_rx_kibs, update_ts=now, unit='KiB/s')
+            if device_usage.gpu_temp_c > 0:
+                store.set_gauge(
+                    scope='system', name='gpu_temp_c', tags=metric_tags, 
+                    value=device_usage.gpu_temp_c, update_ts=now, unit='°C')
+            if device_usage.power_usage_w > 0:
+                store.set_gauge(
+                    scope='system', name='power_usage_w', tags=metric_tags, 
+                    value=device_usage.power_usage_w, update_ts=now, unit='W')
 
 def _avg_sample_value(sample_value_type, samples):
     if not samples:
