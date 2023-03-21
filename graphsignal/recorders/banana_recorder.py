@@ -25,10 +25,10 @@ class BananaRecorder(BaseRecorder):
         self._framework = signals_pb2.FrameworkInfo()
         self._framework.name = 'Banana Python SDK'
 
-        instrument_method(banana, 'run', 'banana.run', self.trace_run)
+        instrument_method(banana, 'run', 'https://api.banana.dev', self.trace_run)
 
     def shutdown(self):
-        uninstrument_method(banana, 'run', 'banana.run')
+        uninstrument_method(banana, 'run', 'https://api.banana.dev')
 
     def trace_run(self, trace, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['api_key', 'model_key', 'model_inputs'])

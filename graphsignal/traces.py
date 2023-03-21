@@ -222,6 +222,7 @@ class Trace:
         if self._exc_info and self._exc_info[0]:
             self._agent.metric_store().inc_counter(
                 scope='performance', name='exception_count', tags=metric_tags, value=1, update_ts=now)
+            self.set_tag('exception', self._exc_info[0].__name__)
 
         # compute data statistics
         data_stats = None

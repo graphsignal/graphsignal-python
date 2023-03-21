@@ -70,9 +70,6 @@ def predict(x):
     return model(x)
 ```
 
-Other integrations and callbacks are available as well. See [integration documentation](https://graphsignal.com/docs/) for more information.
-
-
 Enable profiling to additionally record code-level statistics. Profiling is disabled by default due to potential overhead. To enable, provide [`TraceOptions`](https://graphsignal.com/docs/reference/python-api/#graphsignaltraceoptions) object.
 
 ```python
@@ -111,7 +108,7 @@ After everything is setup, [log in](https://app.graphsignal.com/) to Graphsignal
 
 ## Overhead
 
-Graphsignal agent is very lightweight. While all executions are measured, Graphsignal agent only records certain executions, automatically limiting the overhead.
+Graphsignal agent is very lightweight. While all traces are monitored, Graphsignal agent only samples and records certain traces, automatically limiting the overhead. The overhead per trace is measured to be less than 100 microseconds.
 
 
 ## Security and Privacy
