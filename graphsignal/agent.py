@@ -7,6 +7,7 @@ import uuid
 import hashlib
 import importlib
 import socket
+import contextvars
 
 import graphsignal
 from graphsignal import version
@@ -41,6 +42,7 @@ class Agent:
             self.api_url = 'https://agent-api.graphsignal.com'
         self.deployment = deployment
         self.tags = tags
+        self.context_tags = None
         self.params = None
         self.auto_instrument = auto_instrument
         self.upload_on_shutdown = upload_on_shutdown
@@ -71,6 +73,9 @@ class Agent:
         self._recorders = {}
         self._lo_detectors = {}
 
+        # initialize context tags variable
+        self.context_tags = contextvars.ContextVar('graphsignal_context_tags', default={})
+
         # pre-initialize recorders to enable auto-instrumentation for packages imported before graphsignal.configure()
         # as a fallback, any other trace sample will try to initialize uninitialized supported recorders
         # in a worst case scenario, this will result in a first execution not being traced
@@ -95,6 +100,9 @@ class Agent:
         self._lo_detectors = None
         self._mv_detector = None
         self._uploader = None
+
+        self.context_tags.set({})
+        self.context_tags = None
 
     def uploader(self):
         return self._uploader

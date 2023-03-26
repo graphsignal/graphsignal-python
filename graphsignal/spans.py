@@ -5,7 +5,7 @@ import time
 
 logger = logging.getLogger('graphsignal')
 
-span_stack_var = contextvars.ContextVar('span_stack', default=[])
+span_stack_var = contextvars.ContextVar('graphsignal_span_stack', default=[])
 
 def push_span(span):
     span_stack_var.set(span_stack_var.get() + [span])

@@ -214,14 +214,14 @@ class Trace:
         self._lo_detector.update(self._latency_ns / 1e9)
 
         # update RED metrics
-        metric_tags = self._trace_tags()
+        trace_tags = self._trace_tags()
         self._agent.metric_store().update_histogram(
-            scope='performance', name='latency', tags=metric_tags, value=self._latency_ns, update_ts=now, is_time=True)
+            scope='performance', name='latency', tags=trace_tags, value=self._latency_ns, update_ts=now, is_time=True)
         self._agent.metric_store().inc_counter(
-            scope='performance', name='call_count', tags=metric_tags, value=1, update_ts=now)
+            scope='performance', name='call_count', tags=trace_tags, value=1, update_ts=now)
         if self._exc_info and self._exc_info[0]:
             self._agent.metric_store().inc_counter(
-                scope='performance', name='exception_count', tags=metric_tags, value=1, update_ts=now)
+                scope='performance', name='exception_count', tags=trace_tags, value=1, update_ts=now)
             self.set_tag('exception', self._exc_info[0].__name__)
 
         # compute data statistics
@@ -245,7 +245,8 @@ class Trace:
                             self._has_missing_values = True
 
                     # update data metrics
-                    data_tags = self._trace_tags({'data': data_obj.name})
+                    data_tags = trace_tags.copy()
+                    data_tags['data'] = data_obj.name
                     for count_name, count in stats.counts.items():
                         self._agent.metric_store().inc_counter(
                             scope='data', name=count_name, tags=data_tags, value=count, update_ts=now)
@@ -291,7 +292,7 @@ class Trace:
             self._proto.process_usage.start_ms = self._agent._process_start_ms
 
             # copy tags
-            for key, value in self._trace_tags().items():
+            for key, value in trace_tags.items():
                 tag = self._proto.tags.add()
                 tag.key = str(key)[:50]
                 tag.value = str(value)[:50]
@@ -471,18 +472,21 @@ class Trace:
                 agent_error.stack_trace = ''.join(frames)
 
     def _trace_tags(self, extra_tags=None):
-        metric_tags = {
+        trace_tags = {
             'deployment': self._agent.deployment, 
             'endpoint': self._endpoint}
         if self._agent.hostname:
-            metric_tags['hostname'] = self._agent.hostname
+            trace_tags['hostname'] = self._agent.hostname
         if self._agent.tags is not None:
-            metric_tags.update(self._agent.tags)
+            trace_tags.update(self._agent.tags)
+        context_tags = self._agent.context_tags.get()
+        if len(context_tags) > 0:
+            trace_tags.update(context_tags)
         if self._tags is not None:
-            metric_tags.update(self._tags)
+            trace_tags.update(self._tags)
         if extra_tags is not None:
-            metric_tags.update(extra_tags)
-        return metric_tags
+            trace_tags.update(extra_tags)
+        return trace_tags
 
     def repr(self):
         return 'Trace({0})'.format(self._endpoint)

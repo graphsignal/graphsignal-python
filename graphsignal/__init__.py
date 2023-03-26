@@ -121,6 +121,22 @@ def log_param(name: str, value: str) -> None:
     _agent.params[name] = value
 
 
+def set_context_tag(key: str, value: str) -> None:
+    _check_configured()
+
+    if not key:
+        raise ValueError('set_context_tag: key must be provided')
+    if value is None:
+        raise ValueError('set_context_tag: value must be provided')
+
+    tags = _agent.context_tags.get()
+    if len(tags) > Trace.MAX_RUN_TAGS:
+        raise ValueError('set_context_tag: too many tags (>{0})'.format(Trace.MAX_TRACE_TAGS))
+
+    tags[key] = value
+    _agent.context_tags.set(tags)
+
+
 def start_trace(
         endpoint: str,
         tags: Optional[Dict[str, str]] = None,

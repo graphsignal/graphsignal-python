@@ -24,7 +24,7 @@ class TraceTest(unittest.TestCase):
         graphsignal.configure(
             api_key='k1',
             deployment='d1',
-            tags={'k1': 'v1', 'k2': 'v2'},
+            tags={'k1': 'v1'},
             upload_on_shutdown=False,
             debug_mode=True)
         graphsignal._agent.hostname = 'h1'
@@ -35,13 +35,16 @@ class TraceTest(unittest.TestCase):
     @patch.object(ProcessRecorder, 'on_trace_stop')
     @patch.object(Uploader, 'upload_trace')
     def test_start_stop(self, mocked_upload_trace, mocked_process_on_trace_stop):
-        graphsignal.set_tag('k3', 'v3')
+        graphsignal.set_tag('k2', 'v2')
         graphsignal.log_param('p1', 'v1')
+
+        graphsignal.set_context_tag('k3', 'v3')
+        graphsignal.set_context_tag('k4', 'v4')
 
         for i in range(10):
             trace = Trace(
                 endpoint='ep1',
-                tags={'k3': 'v33', 'k4': 4.0})
+                tags={'k4': 4.0})
             trace.set_tag('k5', 'v5')
             trace.set_param('p2', 'v2')
             trace.set_data('input', np.asarray([[1, 2],[3, 4]]), counts=dict(c1=1, c2=2))
@@ -65,7 +68,7 @@ class TraceTest(unittest.TestCase):
         self.assertEqual(trace.tags[4].key, 'k2')
         self.assertEqual(trace.tags[4].value, 'v2')
         self.assertEqual(trace.tags[5].key, 'k3')
-        self.assertEqual(trace.tags[5].value, 'v33')
+        self.assertEqual(trace.tags[5].value, 'v3')
         self.assertEqual(trace.tags[6].key, 'k4')
         self.assertEqual(trace.tags[6].value, '4.0')
         self.assertEqual(trace.tags[7].key, 'k5')
@@ -83,7 +86,7 @@ class TraceTest(unittest.TestCase):
         self.assertEqual(trace.data_profile[0].counts[-1].count, 2)
 
         store = graphsignal._agent.metric_store()
-        metric_tags =  {'deployment': 'd1', 'endpoint': 'ep1', 'hostname': 'h1', 'k1': 'v1', 'k2': 'v2', 'k3': 'v33', 'k4': 4.0, 'k5': 'v5'}
+        metric_tags =  {'deployment': 'd1', 'endpoint': 'ep1', 'hostname': 'h1', 'k1': 'v1', 'k2': 'v2', 'k3': 'v3', 'k4': 4.0, 'k5': 'v5'}
         key = store.metric_key('performance', 'latency', metric_tags)
         self.assertTrue(len(store.metrics[key].histogram) > 0)
         key = store.metric_key('performance', 'call_count', metric_tags)
@@ -151,7 +154,7 @@ class TraceTest(unittest.TestCase):
         self.assertNotEqual(trace.exceptions[0].stack_trace, '')
 
         store = graphsignal._agent.metric_store()
-        metric_tags =  {'deployment': 'd1', 'endpoint': 'ep1', 'hostname': 'h1', 'k1': 'v1', 'k2': 'v2'}
+        metric_tags =  {'deployment': 'd1', 'endpoint': 'ep1', 'hostname': 'h1', 'k1': 'v1'}
         key = store.metric_key('performance', 'exception_count', metric_tags)
         self.assertEqual(store.metrics[key].counter, 2)
 
@@ -174,7 +177,7 @@ class TraceTest(unittest.TestCase):
         self.assertNotEqual(trace.exceptions[0].stack_trace, '')
 
         store = graphsignal._agent.metric_store()
-        metric_tags =  {'deployment': 'd1', 'endpoint': 'ep1', 'hostname': 'h1', 'k1': 'v1', 'k2': 'v2'}
+        metric_tags =  {'deployment': 'd1', 'endpoint': 'ep1', 'hostname': 'h1', 'k1': 'v1'}
         key = store.metric_key('performance', 'exception_count', metric_tags)
         self.assertEqual(store.metrics[key].counter, 1)
 
@@ -198,7 +201,7 @@ class TraceTest(unittest.TestCase):
         self.assertNotEqual(trace.exceptions[0].stack_trace, '')
 
         store = graphsignal._agent.metric_store()
-        metric_tags =  {'deployment': 'd1', 'endpoint': 'ep1', 'hostname': 'h1', 'k1': 'v1', 'k2': 'v2'}
+        metric_tags =  {'deployment': 'd1', 'endpoint': 'ep1', 'hostname': 'h1', 'k1': 'v1'}
         key = store.metric_key('performance', 'exception_count', metric_tags)
         self.assertEqual(store.metrics[key].counter, 1)
 

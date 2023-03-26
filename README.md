@@ -5,12 +5,13 @@
 [![Status](https://img.shields.io/uptimerobot/status/m787882560-d6b932eb0068e8e4ade7f40c?label=SaaS%20status)](https://stats.uptimerobot.com/gMBNpCqqqJ)
 
 
-Graphsignal is an AI observability platform. It helps ML engineers and MLOps teams make AI applications run faster and reliably by monitoring and analyzing performance, resources, data and errors. Graphsignal's capabilities enable full visibility into AI applications for any model, data and deployment.
+Graphsignal is an observability platform for AI applications that use LLMs or other models. It helps engineers make AI applications faster, reliable and more efficient by monitoring and analyzing performance, resources, data, errors and costs.
 
 * Monitor and analyze inference latency, throughput and resource utilization.
 * Track GPU utilization in the context of inference.
 * Get notified about errors and anomalies with full machine learning context.
 * Monitor data to detect data issues and silent failures.
+* Analyze model API costs for deployments, models and any custom tags.
 
 [![Dashboards](https://graphsignal.com/external/screencast-dashboards.gif)](https://graphsignal.com/)
 
@@ -79,7 +80,7 @@ with graphsignal.start_trace(
     pred = model(x)
 ```
 
-The agent will automatically choose a profiler depending on available modules. Currently, CProfile, PyTorch Kineto and Yappi are supported. The Kineto profiler is used if `torch` module is found and Yappi profiler is used if `yappi` module is found. Otherwise, CProfile is used. To properly profile `asyncio` coroutines, just `pip install yappi`.
+The agent will automatically choose a profiler depending on available modules. Currently, CProfile, PyTorch Kineto and Yappi are supported. The Kineto profiler is used if `torch` module is detected and Yappi profiler is used if `yappi` module is detected. Otherwise, CProfile is used. To properly profile `asyncio` coroutines, just `pip install yappi`.
 
 
 ### Exception tracking
