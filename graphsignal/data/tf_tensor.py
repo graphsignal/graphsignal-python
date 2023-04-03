@@ -27,3 +27,6 @@ class TFTensorProfiler(BaseDataProfiler):
         counts['negative_count'] = int(tf.math.count_nonzero(tf.math.less(data, 0)))
         counts['positive_count'] = int(tf.math.count_nonzero(tf.math.greater(data, 0)))
         return DataStats(type_name='tf.Tensor', shape=list(data.get_shape()), counts=counts)
+
+    def encode_sample(self, data):
+        return None

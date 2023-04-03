@@ -26,3 +26,11 @@ def compute_data_stats(data):
             return dp.compute_stats(data)
 
     return DataStats(type_name=type(data).__name__)
+
+
+def encode_data_sample(data):
+    for dp in data_profilers:
+        if dp.is_instance(data):
+            return dp.encode_sample(data)
+
+    return None

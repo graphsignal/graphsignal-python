@@ -6,7 +6,7 @@ import traceback
 
 import graphsignal
 from graphsignal.proto import signals_pb2
-from graphsignal.data import compute_data_stats
+from graphsignal.data import compute_data_stats, encode_data_sample
 from graphsignal.spans import start_span, stop_span, is_current_span
 
 logger = logging.getLogger('graphsignal')
@@ -53,6 +53,7 @@ class Trace:
     MAX_RUN_PARAMS = 10
     MAX_TRACE_PARAMS = 10
     MAX_DATA_OBJECTS = 10
+    MAX_SAMPLE_BYTES = 32 * 1024
 
     __slots__ = [
         '_trace_sampler',
@@ -143,6 +144,9 @@ class Trace:
         if self._is_stopped:
             return
 
+        if self._agent.debug_mode:
+            logger.debug(f'Starting trace {self._endpoint}')
+
         self._trace_sampler = self._agent.trace_sampler(self._endpoint)
         self._lo_detector = self._agent.lo_detector(self._endpoint)
         self._mv_detector = self._agent.mv_detector()
@@ -176,6 +180,9 @@ class Trace:
         if self._is_stopped:
             return
         self._is_stopped = True
+
+        if self._agent.debug_mode:
+            logger.debug(f'Stopping trace {self._endpoint}')
 
         if self._stop_counter is None:
             self._measure()
@@ -328,20 +335,27 @@ class Trace:
                     if len(frames) > 0:
                         exception.stack_trace = ''.join(frames)
 
-            # copy data counts
+            # copy data stats
             if data_stats is not None:
-                for name, stats in data_stats.items():
+                for data_name, stats in data_stats.items():
                     data_stats_proto = self._proto.data_profile.add()
-                    data_stats_proto.data_name = name
+                    data_stats_proto.data_name = data_name
                     if stats.type_name:
                         data_stats_proto.data_type = stats.type_name
                     if stats.shape:
                         data_stats_proto.shape[:] = stats.shape
-                    for name, count in stats.counts.items():
+                    for counter_name, count in stats.counts.items():
                         if count > 0:
                             dc = data_stats_proto.counts.add()
-                            dc.name = name
+                            dc.name = counter_name
                             dc.count = count
+                    if self._agent.record_data_samples:
+                        sample = encode_data_sample(self._data_objects[data_name].obj)
+                        if sample is not None and len(sample.content_bytes) <= Trace.MAX_SAMPLE_BYTES:
+                            sample_proto = self._proto.data_samples.add()
+                            sample_proto.data_name = data_name
+                            sample_proto.content_type = sample.content_type
+                            sample_proto.content_bytes = sample.content_bytes
 
             # copy spans
             if self._root_span:
@@ -385,8 +399,6 @@ class Trace:
     def set_param(self, name: str, value: str) -> None:
         if not name:
             raise ValueError('set_param: name must be provided')
-        if value is None:
-            raise ValueError('set_param: value must be provided')
 
         if self._params is None:
             self._params = {}
@@ -503,3 +515,4 @@ def _convert_span_to_proto(proto, span):
     if span.children is not None:
         for child in span.children:
             _convert_span_to_proto(proto.spans.add(), child)
+    

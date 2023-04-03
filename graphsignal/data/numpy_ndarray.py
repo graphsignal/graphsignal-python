@@ -1,8 +1,9 @@
 import logging
+import json
 
 import graphsignal
 from graphsignal.proto import signals_pb2
-from graphsignal.data.base_data_profiler import BaseDataProfiler, DataStats
+from graphsignal.data.base_data_profiler import BaseDataProfiler, DataStats, DataSample
 
 logger = logging.getLogger('graphsignal')
 
@@ -29,3 +30,5 @@ class NumpyNDArrayProfiler(BaseDataProfiler):
         counts['positive_count'] = np.count_nonzero(data > 0)
         return DataStats(type_name='numpy.ndarray', shape=list(data.shape), counts=counts)
 
+    def encode_sample(self, data):
+        return DataSample(content_type='application/json', content_bytes=json.dumps(data.tolist()).encode('utf-8'))

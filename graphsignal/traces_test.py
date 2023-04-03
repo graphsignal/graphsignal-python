@@ -25,6 +25,7 @@ class TraceTest(unittest.TestCase):
             api_key='k1',
             deployment='d1',
             tags={'k1': 'v1'},
+            record_data_samples=True,
             upload_on_shutdown=False,
             debug_mode=True)
         graphsignal._agent.hostname = 'h1'
@@ -84,6 +85,9 @@ class TraceTest(unittest.TestCase):
         self.assertEqual(trace.data_profile[0].counts[-2].count, 1)
         self.assertEqual(trace.data_profile[0].counts[-1].name, 'c2')
         self.assertEqual(trace.data_profile[0].counts[-1].count, 2)
+        self.assertEqual(trace.data_samples[0].data_name, 'input')
+        self.assertEqual(trace.data_samples[0].content_type, 'application/json')
+        self.assertEqual(trace.data_samples[0].content_bytes, b'[[1, 2], [3, 4]]')
 
         store = graphsignal._agent.metric_store()
         metric_tags =  {'deployment': 'd1', 'endpoint': 'ep1', 'hostname': 'h1', 'k1': 'v1', 'k2': 'v2', 'k3': 'v3', 'k4': 4.0, 'k5': 'v5'}
@@ -269,6 +273,8 @@ class TraceTest(unittest.TestCase):
         #import cProfile, pstats
         #profiler = cProfile.Profile()
         #profiler.enable()
+
+        graphsignal._agent.debug_mode = False
 
         calls = 10000
         start_ns = time.perf_counter_ns()

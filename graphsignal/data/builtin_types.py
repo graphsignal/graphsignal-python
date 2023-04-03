@@ -1,9 +1,10 @@
 import logging
 import sys
+import json
 
 import graphsignal
 from graphsignal.proto import signals_pb2
-from graphsignal.data.base_data_profiler import BaseDataProfiler, DataStats
+from graphsignal.data.base_data_profiler import BaseDataProfiler, DataStats, DataSample
 
 logger = logging.getLogger('graphsignal')
 
@@ -27,6 +28,9 @@ class BuiltInTypesProfiler(BaseDataProfiler):
         counts['negative_count'] = _count_true(data, lambda elem: isinstance(elem, (int, float)) and elem < 0)
         counts['positive_count'] = _count_true(data, lambda elem: isinstance(elem, (int, float)) and elem > 0)
         return DataStats(type_name=type(data).__name__, shape=_shape(data), counts=counts)
+
+    def encode_sample(self, data):
+        return DataSample(content_type='application/json', content_bytes=json.dumps(data).encode('utf-8'))
 
 
 def _shape(data):

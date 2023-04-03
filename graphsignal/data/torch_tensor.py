@@ -27,3 +27,6 @@ class TorchTensorProfiler(BaseDataProfiler):
         counts['negative_count'] = int(torch.count_nonzero(torch.lt(data, 0)))
         counts['positive_count'] = int(torch.count_nonzero(torch.gt(data, 0)))
         return DataStats(type_name='torch.Tensor', shape=list(data.size()), counts=counts)
+
+    def encode_sample(self, data):
+        return None

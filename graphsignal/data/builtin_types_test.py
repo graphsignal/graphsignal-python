@@ -53,3 +53,9 @@ class BuiltInTypesProfilerTest(unittest.TestCase):
             {'element_count': 1,
              'null_count': 1})
         self.assertEqual(stats.type_name, 'NoneType')
+
+    def test_encode_sample(self):
+        profiler = BuiltInTypesProfiler()
+        preview = profiler.encode_sample(['text\n', 2.0, float('nan')])
+        self.assertEqual(preview.content_type, 'application/json')
+        self.assertEqual(preview.content_bytes, b'["text\\n", 2.0, NaN]')

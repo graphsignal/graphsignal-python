@@ -99,7 +99,7 @@ with graphsignal.start_trace(endpoint='predict') as trace:
 
 The following data types are currently supported: `list`, `dict`, `set`, `tuple`, `str`, `bytes`, `numpy.ndarray`, `tensorflow.Tensor`, `torch.Tensor`.
 
-**No raw data is recorded** by the agent, only statistics such as size, shape or number of missing values.
+**No raw data is recorded by default** by the agent, only statistics such as size, shape or number of missing values. To also record data samples, set `record_data_samples` to `True` in `graphsignal.configure`.
 
 
 ## Observe

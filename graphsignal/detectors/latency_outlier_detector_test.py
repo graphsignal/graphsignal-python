@@ -23,7 +23,6 @@ class LatencyOutlierDetectorTest(unittest.TestCase):
 
     def test_detect(self):
         detector = LatencyOutlierDetector()
-        print(detector)
 
         for i in range(500):
             val = random.randint(100, 200)

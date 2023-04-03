@@ -180,8 +180,7 @@ class OpenAIRecorder(BaseRecorder):
 
         if 'stream' in params and params['stream']:
             if 'messages' in params:
-                content = [message['content'] for message in params['messages']]
-                trace.set_data('messages', content)
+                trace.set_data('messages', params['messages'])
             return
 
         if ret and 'model' in ret:
@@ -199,8 +198,7 @@ class OpenAIRecorder(BaseRecorder):
                 completion_usage['token_count'] = ret['usage']['completion_tokens']
 
         if 'messages' in params:
-            content = [message['content'] for message in params['messages']]
-            trace.set_data('messages', content, counts=prompt_usage)
+            trace.set_data('messages', params['messages'], counts=prompt_usage)
 
         if ret and 'choices' in ret:
             completion = []

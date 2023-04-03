@@ -33,6 +33,7 @@ class Agent:
             deployment=None, 
             tags=None, 
             auto_instrument=True, 
+            record_data_samples=False, 
             upload_on_shutdown=True, 
             debug_mode=False):
         self.api_key = api_key
@@ -45,6 +46,7 @@ class Agent:
         self.context_tags = None
         self.params = None
         self.auto_instrument = auto_instrument
+        self.record_data_samples = record_data_samples
         self.upload_on_shutdown = upload_on_shutdown
         self.debug_mode = debug_mode
         self.hostname = None

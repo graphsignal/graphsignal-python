@@ -44,4 +44,8 @@ class NumpyNDArrayProfilerTest(unittest.TestCase):
         self.assertEqual(stats.type_name, 'numpy.ndarray')
         self.assertEqual(stats.shape, [2, 4])
 
-
+    def test_encode_sample(self):
+        profiler = NumpyNDArrayProfiler()
+        preview = profiler.encode_sample(np.asarray([[-1, 2.0, 0, np.inf]]))
+        self.assertEqual(preview.content_type, 'application/json')
+        self.assertEqual(preview.content_bytes, b'[[-1.0, 2.0, 0.0, Infinity]]')

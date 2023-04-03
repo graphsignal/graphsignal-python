@@ -25,6 +25,18 @@ class DataStats:
             self.type_name, self.shape, self.counts)
 
 
+class DataSample:
+    __slots__ = ['content_type', 'content_bytes']
+
+    def __init__(self, content_type=None, content_bytes=None, is_partial=False):
+        self.content_type = content_type
+        self.content_bytes = content_bytes
+
+    def __repr__(self):
+        return 'DataSample(content_type={0}, content_bytes={1})'.format(
+            self.content_type, self.content_bytes)
+
+
 class BaseDataProfiler(ABC):
     def __init__(self):
         self._module = None
@@ -46,4 +58,8 @@ class BaseDataProfiler(ABC):
 
     @abstractmethod
     def compute_stats(self, data):
+        pass
+
+    @abstractmethod
+    def encode_sample(self, data):
         pass

@@ -114,7 +114,6 @@ class GraphsignalHandler(BaseCallbackHandler):
     def on_text(self, text: str, **kwargs: Optional[str]) -> None:
         pass
 
-
     def on_agent_action(self, action: AgentAction, **kwargs: Any) -> Any:
         pass
 
