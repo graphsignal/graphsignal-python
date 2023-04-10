@@ -99,7 +99,7 @@ with graphsignal.start_trace(endpoint='predict') as trace:
 
 The following data types are currently supported: `list`, `dict`, `set`, `tuple`, `str`, `bytes`, `numpy.ndarray`, `tensorflow.Tensor`, `torch.Tensor`.
 
-**No raw data is recorded by default** by the agent, only statistics such as size, shape or number of missing values. To also record data samples, set `record_data_samples` to `True` in `graphsignal.configure`.
+Raw data samples, such as prompts or completions, are recorded by default. To disable, set `record_data_samples=False` in `graphsignal.configure`. Note, that data statistics, such as size, shape or number of missing values will still be recorded.
 
 
 ## Observe
@@ -116,7 +116,7 @@ Graphsignal agent is very lightweight. While all traces are monitored, Graphsign
 
 Graphsignal agent can only open outbound connections to `agent-api.graphsignal.com` and send data, no inbound connections or commands are possible.
 
-No code or data is sent to Graphsignal cloud, only statistics and metadata.
+Raw data samples, e.g. prompts, are recorded by default. This feature can be disabled at agent initialization time, if necessary.
 
 
 ## Troubleshooting

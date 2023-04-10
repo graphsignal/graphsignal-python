@@ -59,8 +59,5 @@ def _count_true(data, filter_func):
         return sum([_count_true(elem, filter_func) for elem in data.values()])
     elif isinstance(data, (list, tuple, set)):
         return sum([_count_true(elem, filter_func) for elem in data])
-    elif isinstance(data, (int, float, complex, str, bytes)):
+    else:
         return sum([filter_func(data)])
-    elif data is None:
-        return sum([filter_func(data)])
-    return 0

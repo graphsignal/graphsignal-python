@@ -29,12 +29,15 @@ class BuiltInTypesProfilerTest(unittest.TestCase):
         self.assertTrue(profiler.is_instance([]))
 
     def test_compute_stats(self):
+        class TestObject:
+            pass
+
         profiler = BuiltInTypesProfiler()
-        stats = profiler.compute_stats([[0, -1, 1, 2.0, 3, float('nan'), float('inf')], [0, None, ''],[6,7]])
+        stats = profiler.compute_stats([[0, -1, 1, 2.0, 3, float('nan'), float('inf'), TestObject()], [0, None, ''],[6,7]])
         self.assertEqual(
             stats.counts,
             {'byte_count': 260,
-             'element_count': 12,
+             'element_count': 13,
              'inf_count': 1,
              'nan_count': 1,
              'null_count': 1,
@@ -43,7 +46,7 @@ class BuiltInTypesProfilerTest(unittest.TestCase):
              'negative_count': 1,
              'positive_count': 6})
         self.assertEqual(stats.type_name, 'list')
-        self.assertEqual(stats.shape, [3, 7])
+        self.assertEqual(stats.shape, [3, 8])
 
     def test_compute_stats_none(self):
         profiler = BuiltInTypesProfiler()

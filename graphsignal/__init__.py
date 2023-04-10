@@ -56,7 +56,7 @@ def configure(
         deployment: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
         auto_instrument: Optional[bool] = True,
-        record_data_samples: Optional[bool] = False,
+        record_data_samples: Optional[bool] = True,
         upload_on_shutdown: Optional[bool] = True,
         debug_mode: Optional[bool] = False) -> None:
     global _agent
