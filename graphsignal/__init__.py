@@ -95,45 +95,36 @@ def set_tag(key: str, value: str) -> None:
     _check_configured()
 
     if not key:
-        raise ValueError('set_tag: key must be provided')
+        logger.error('set_tag: key must be provided')
+        return
     if value is None:
-        raise ValueError('set_tag: value must be provided')
+        logger.error('set_tag: value must be provided')
+        return
 
     if _agent.tags is None:
         _agent.tags = {}
 
     if len(_agent.tags) > Trace.MAX_RUN_TAGS:
-        raise ValueError('set_tag: too many tags (>{0})'.format(Trace.MAX_RUN_TAGS))
+        logger.error('set_tag: too many tags (>{0})'.format(Trace.MAX_RUN_TAGS))
+        return
 
     _agent.tags[key] = value
-
-
-def log_param(name: str, value: str) -> None:
-    if not name:
-        raise ValueError('set_param: name must be provided')
-    if value is None:
-        raise ValueError('set_param: value must be provided')
-
-    if _agent.params is None:
-        _agent.params = {}
-
-    if len(_agent.params) > Trace.MAX_RUN_PARAMS:
-        raise ValueError('set_param: too many params (>{0})'.format(Trace.MAX_RUN_PARAMS))
-
-    _agent.params[name] = value
 
 
 def set_context_tag(key: str, value: str) -> None:
     _check_configured()
 
     if not key:
-        raise ValueError('set_context_tag: key must be provided')
+        logger.error('set_context_tag: key must be provided')
+        return
     if value is None:
-        raise ValueError('set_context_tag: value must be provided')
+        logger.error('set_context_tag: value must be provided')
+        return
 
     tags = _agent.context_tags.get()
     if len(tags) > Trace.MAX_RUN_TAGS:
-        raise ValueError('set_context_tag: too many tags (>{0})'.format(Trace.MAX_TRACE_TAGS))
+        logger.error('set_context_tag: too many tags (>{0})'.format(Trace.MAX_TRACE_TAGS))
+        return
 
     tags[key] = value
     _agent.context_tags.set(tags)

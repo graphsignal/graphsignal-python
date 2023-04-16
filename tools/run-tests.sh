@@ -15,7 +15,6 @@ python -m unittest graphsignal/recorders/pytorch_recorder_test.py
 python -m unittest graphsignal/recorders/tensorflow_recorder_test.py
 python -m unittest graphsignal/recorders/jax_recorder_test.py
 python -m unittest graphsignal/recorders/onnxruntime_recorder_test.py
-python -m unittest graphsignal/recorders/xgboost_recorder_test.py
 python -m unittest graphsignal/recorders/deepspeed_recorder_test.py
 python -m unittest graphsignal/recorders/openai_recorder_test.py
 python -m unittest graphsignal/recorders/langchain_recorder_test.py

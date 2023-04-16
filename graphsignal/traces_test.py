@@ -37,7 +37,6 @@ class TraceTest(unittest.TestCase):
     @patch.object(Uploader, 'upload_trace')
     def test_start_stop(self, mocked_upload_trace, mocked_process_on_trace_stop):
         graphsignal.set_tag('k2', 'v2')
-        graphsignal.log_param('p1', 'v1')
 
         graphsignal.set_context_tag('k3', 'v3')
         graphsignal.set_context_tag('k4', 'v4')
@@ -47,7 +46,7 @@ class TraceTest(unittest.TestCase):
                 endpoint='ep1',
                 tags={'k4': 4.0})
             trace.set_tag('k5', 'v5')
-            trace.set_param('p2', 'v2')
+            trace.set_param('p1', 'v1')
             trace.set_data('input', np.asarray([[1, 2],[3, 4]]), counts=dict(c1=1, c2=2))
             time.sleep(0.01)
             trace.stop()
@@ -56,7 +55,7 @@ class TraceTest(unittest.TestCase):
 
         self.assertTrue(trace.start_us > 0)
         self.assertTrue(trace.end_us > 0)
-        self.assertEqual(trace.trace_type, signals_pb2.TraceType.SAMPLE_TRACE)
+        self.assertEqual(trace.labels, ['root'])
         self.assertTrue(trace.process_usage.start_ms > 0)
         self.assertEqual(trace.tags[0].key, 'deployment')
         self.assertEqual(trace.tags[0].value, 'd1')
@@ -76,9 +75,10 @@ class TraceTest(unittest.TestCase):
         self.assertEqual(trace.tags[7].value, 'v5')
         self.assertEqual(trace.params[0].name, 'p1')
         self.assertEqual(trace.params[0].value, 'v1')
-        self.assertEqual(trace.params[1].name, 'p2')
-        self.assertEqual(trace.params[1].value, 'v2')
-        self.assertTrue(trace.trace_info.latency_us > 0)
+        self.assertEqual(trace.span.name, 'ep1')
+        self.assertTrue(trace.span.start_ns > 0)
+        self.assertTrue(trace.span.end_ns > 0)
+        self.assertEqual(trace.span.trace_id, trace.trace_id)
         self.assertEqual(trace.data_profile[0].data_name, 'input')
         self.assertEqual(trace.data_profile[0].shape, [2, 2])
         self.assertEqual(trace.data_profile[0].counts[-2].name, 'c1')
@@ -107,6 +107,27 @@ class TraceTest(unittest.TestCase):
 
     @patch.object(ProcessRecorder, 'on_trace_start')
     @patch.object(Uploader, 'upload_trace')
+    def test_start_stop_nested(self, mocked_upload_trace, mocked_process_on_trace_start):
+        with Trace(endpoint='ep1') as trace1:
+            with Trace(endpoint='ep2') as trace2:
+                pass
+
+        t1 = mocked_upload_trace.call_args_list[1][0][0]
+        t2 = mocked_upload_trace.call_args_list[0][0][0]
+
+        self.assertTrue(t1.start_us > 0)
+        self.assertTrue(t1.end_us > 0)
+        self.assertEqual(t1.labels, ['root'])
+        self.assertEqual(len(t1.span.spans), 1)
+        self.assertEqual(t1.span.spans[0].trace_id, t2.trace_id)
+
+        self.assertTrue(t2.start_us > 0)
+        self.assertTrue(t2.end_us > 0)
+        self.assertEqual(t2.labels, [])
+
+
+    @patch.object(ProcessRecorder, 'on_trace_start')
+    @patch.object(Uploader, 'upload_trace')
     def test_start_exception(self, mocked_upload_trace, mocked_process_on_trace_start):
         mocked_process_on_trace_start.side_effect = Exception('ex1')
         trace = Trace(endpoint='ep1')
@@ -116,7 +137,7 @@ class TraceTest(unittest.TestCase):
 
         self.assertTrue(trace.start_us > 0)
         self.assertTrue(trace.end_us > 0)
-        self.assertEqual(trace.trace_type, signals_pb2.TraceType.SAMPLE_TRACE)
+        self.assertEqual(trace.labels, ['root'])
         self.assertEqual(trace.agent_errors[0].message, 'ex1')
         self.assertNotEqual(trace.agent_errors[0].stack_trace, '')
 
@@ -152,7 +173,7 @@ class TraceTest(unittest.TestCase):
         self.assertTrue(trace.trace_id != '')
         self.assertTrue(trace.start_us > 0)
         self.assertTrue(trace.end_us > 0)
-        self.assertEqual(trace.trace_type, signals_pb2.TraceType.EXCEPTION_TRACE)
+        self.assertEqual(trace.labels, ['root', 'exception'])
         self.assertEqual(trace.exceptions[0].exc_type, 'Exception')
         self.assertEqual(trace.exceptions[0].message, 'ex1')
         self.assertNotEqual(trace.exceptions[0].stack_trace, '')
@@ -175,7 +196,7 @@ class TraceTest(unittest.TestCase):
 
         self.assertTrue(trace.start_us > 0)
         self.assertTrue(trace.end_us > 0)
-        self.assertEqual(trace.trace_type, signals_pb2.TraceType.EXCEPTION_TRACE)
+        self.assertEqual(trace.labels, ['root', 'exception'])
         self.assertEqual(trace.exceptions[0].exc_type, 'Exception')
         self.assertEqual(trace.exceptions[0].message, 'ex2')
         self.assertNotEqual(trace.exceptions[0].stack_trace, '')
@@ -199,7 +220,7 @@ class TraceTest(unittest.TestCase):
 
         self.assertTrue(trace.start_us > 0)
         self.assertTrue(trace.end_us > 0)
-        self.assertEqual(trace.trace_type, signals_pb2.TraceType.EXCEPTION_TRACE)
+        self.assertEqual(trace.labels, ['root', 'exception'])
         self.assertEqual(trace.exceptions[0].exc_type, 'Exception')
         self.assertEqual(trace.exceptions[0].message, 'ex2')
         self.assertNotEqual(trace.exceptions[0].stack_trace, '')
@@ -220,7 +241,7 @@ class TraceTest(unittest.TestCase):
         has_outliers = False
         for call_args in mocked_upload_trace.call_args_list:
             trace = call_args[0][0]
-            if trace.trace_type == signals_pb2.TraceType.LATENCY_OUTLIER_TRACE:
+            if 'latency-outlier' in trace.labels:
                 has_outliers = True
                 break
         self.assertTrue(has_outliers)
@@ -234,7 +255,7 @@ class TraceTest(unittest.TestCase):
 
         self.assertTrue(trace.start_us > 0)
         self.assertTrue(trace.end_us > 0)
-        self.assertEqual(trace.trace_type, signals_pb2.TraceType.MISSING_VALUES_TRACE)
+        self.assertEqual(trace.labels, ['root', 'missing-values'])
 
     @patch.object(Uploader, 'upload_trace')
     def test_spans(self, mocked_upload_trace):
@@ -249,23 +270,21 @@ class TraceTest(unittest.TestCase):
 
         trace = mocked_upload_trace.call_args[0][0]
 
-        self.assertEqual(trace.root_span.name, 'ep1')
-        self.assertTrue(trace.root_span.start_ns > 0)
-        self.assertTrue(trace.root_span.end_ns > 0)
+        self.assertEqual(trace.span.name, 'ep1')
+        self.assertTrue(trace.span.start_ns > 0)
+        self.assertTrue(trace.span.end_ns > 0)
 
-        self.assertEqual(trace.root_span.spans[0].name, 'ep2')
-        self.assertTrue(trace.root_span.spans[0].is_endpoint)
-        self.assertTrue(trace.root_span.spans[0].start_ns > trace.root_span.start_ns)
-        self.assertTrue(trace.root_span.spans[0].end_ns < trace.root_span.end_ns)
+        self.assertEqual(trace.span.spans[0].name, 'ep2')
+        self.assertTrue(trace.span.spans[0].start_ns > trace.span.start_ns)
+        self.assertTrue(trace.span.spans[0].end_ns < trace.span.end_ns)
 
-        self.assertEqual(trace.root_span.spans[0].spans[0].name, 'ep3')
-        self.assertTrue(trace.root_span.spans[0].spans[0].is_endpoint)
-        self.assertTrue(trace.root_span.spans[0].spans[0].start_ns > trace.root_span.spans[0].start_ns)
-        self.assertTrue(trace.root_span.spans[0].spans[0].end_ns < trace.root_span.spans[0].end_ns)
+        self.assertEqual(trace.span.spans[0].spans[0].name, 'ep3')
+        self.assertTrue(trace.span.spans[0].spans[0].start_ns > trace.span.spans[0].start_ns)
+        self.assertTrue(trace.span.spans[0].spans[0].end_ns < trace.span.spans[0].end_ns)
 
-        self.assertEqual(trace.root_span.spans[1].name, 'ep4')
-        self.assertTrue(trace.root_span.spans[1].start_ns > trace.root_span.spans[0].end_ns)
-        self.assertTrue(trace.root_span.spans[1].end_ns < trace.root_span.end_ns)
+        self.assertEqual(trace.span.spans[1].name, 'ep4')
+        self.assertTrue(trace.span.spans[1].start_ns > trace.span.spans[0].end_ns)
+        self.assertTrue(trace.span.spans[1].end_ns < trace.span.end_ns)
 
     @patch.object(Uploader, 'upload_trace')
     @patch.object(TraceSampler, 'lock', return_value=False)

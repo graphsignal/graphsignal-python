@@ -49,7 +49,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
-        recorder._is_sampling = True
 
         mocked_create.return_value = {
             "choices": [
@@ -117,7 +116,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
-        recorder._is_sampling = True
 
         test_ret = [
             {
@@ -175,9 +173,9 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         #pp.pprint(MessageToJson(proto))
 
         self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
-        self.assertEqual(proto.root_span.spans[0].name, 'response')
-        self.assertTrue(proto.root_span.spans[0].start_ns > 0)
-        self.assertTrue(proto.root_span.spans[0].end_ns > 0)
+        self.assertEqual(proto.span.spans[0].name, 'response')
+        self.assertTrue(proto.span.spans[0].start_ns > 0)
+        self.assertTrue(proto.span.spans[0].end_ns > 0)
         self.assertEqual(find_data_count(proto, 'prompt', 'byte_count'), 37.0)
         self.assertEqual(find_data_count(proto, 'prompt', 'element_count'), 2.0)
         self.assertEqual(find_data_count(proto, 'completion', 'byte_count'), 4.0)
@@ -190,7 +188,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
-        recorder._is_sampling = True
 
         mocked_create.return_value = {
             "choices": [
@@ -256,7 +253,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
-        recorder._is_sampling = True
 
         mocked_create.return_value = {
             "choices": [
@@ -330,7 +326,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
-        recorder._is_sampling = True
 
         test_ret = [
             {
@@ -394,9 +389,9 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         #pp.pprint(MessageToJson(proto))
 
         self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
-        self.assertEqual(proto.root_span.spans[0].name, 'response')
-        self.assertTrue(proto.root_span.spans[0].start_ns > 0)
-        self.assertTrue(proto.root_span.spans[0].end_ns > 0)
+        self.assertEqual(proto.span.spans[0].name, 'response')
+        self.assertTrue(proto.span.spans[0].start_ns > 0)
+        self.assertTrue(proto.span.spans[0].end_ns > 0)
         self.assertEqual(find_data_count(proto, 'messages', 'byte_count'), 49.0)
         self.assertEqual(find_data_count(proto, 'messages', 'element_count'), 4.0)
         self.assertEqual(find_data_count(proto, 'completion', 'byte_count'), 4.0)
@@ -409,7 +404,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
-        recorder._is_sampling = True
 
         mocked_create.return_value = {
             "choices": [
@@ -462,7 +456,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
-        recorder._is_sampling = True
 
         mocked_create.return_value = {
             "data": [
@@ -520,7 +513,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
-        recorder._is_sampling = True
 
         mocked_create.return_value = {
             "created": 1675079434,
@@ -559,7 +551,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
-        recorder._is_sampling = True
 
         mocked_create.return_value = {
             "text": 'some text'
@@ -603,7 +594,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
-        recorder._is_sampling = True
 
         mocked_create.return_value = {
             "text": 'some text'
@@ -644,7 +634,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
-        recorder._is_sampling = True
 
         mocked_create.return_value = {
             "id": "modr-id",

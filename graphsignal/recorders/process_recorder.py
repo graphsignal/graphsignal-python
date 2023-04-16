@@ -37,19 +37,10 @@ class ProcessRecorder(BaseRecorder):
         self._last_cpu_time_us = None
 
     def on_trace_start(self, proto, context, options):
-        if not OS_WIN and hasattr(resource, 'RUSAGE_THREAD'):
-            rusage_thread = resource.getrusage(resource.RUSAGE_THREAD)
-            context['process_start_cpu_time_us'] = _rusage_cpu_time(rusage_thread)
+        pass
 
     def on_trace_stop(self, proto, context, options):
-        if not OS_WIN and hasattr(resource, 'RUSAGE_THREAD'):
-            rusage_thread = resource.getrusage(resource.RUSAGE_THREAD)
-            stop_cpu_time_us = _rusage_cpu_time(rusage_thread)
-
-            if 'process_start_cpu_time_us' in context:
-                start_cpu_time_us = context['process_start_cpu_time_us']
-                if start_cpu_time_us and stop_cpu_time_us:
-                    proto.trace_info.thread_cpu_time_us = max(0, stop_cpu_time_us - start_cpu_time_us)
+        pass
 
     def on_trace_read(self, proto, context, options):
         if not OS_WIN:

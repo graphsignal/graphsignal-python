@@ -9,7 +9,7 @@ Graphsignal is an observability platform for AI applications that use LLMs or ot
 
 * Monitor and analyze inference latency, throughput and resource utilization.
 * Track GPU utilization in the context of inference.
-* Get notified about errors and anomalies with full machine learning context.
+* Get notified about errors and anomalies with full AI context.
 * Monitor data to detect data issues and silent failures.
 * Analyze model API costs for deployments, models and any custom tags.
 
@@ -20,7 +20,7 @@ Learn more at [graphsignal.com](https://graphsignal.com).
 
 ## Install
 
-Install Graphsignal agent by running:
+Install Graphsignal library by running:
 
 ```
 pip install graphsignal
@@ -51,7 +51,7 @@ To track deployments, versions and environments separately, specify a `deploymen
 
 ## Integrate
 
-Use the following examples to integrate Graphsignal agent into your machine learning application. See integration documentation and [API reference](https://graphsignal.com/docs/reference/python-api/) for full reference. More integration examples are available in [examples](https://github.com/graphsignal/examples) repo.
+Use the following examples to integrate Graphsignal agent into your application. See integration documentation and [API reference](https://graphsignal.com/docs/reference/python-api/) for full reference. More integration examples are available in [examples](https://github.com/graphsignal/examples) repo.
 
 
 ### Monitoring and tracing

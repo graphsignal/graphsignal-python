@@ -44,7 +44,6 @@ class Agent:
         self.deployment = deployment
         self.tags = tags
         self.context_tags = None
-        self.params = None
         self.auto_instrument = auto_instrument
         self.record_data_samples = record_data_samples
         self.upload_on_shutdown = upload_on_shutdown
@@ -120,7 +119,6 @@ class Agent:
             ('graphsignal.recorders.tensorflow_recorder', 'TensorFlowRecorder', 'tensorflow', None),
             ('graphsignal.recorders.jax_recorder', 'JAXRecorder', 'jax', None),
             ('graphsignal.recorders.onnxruntime_recorder', 'ONNXRuntimeRecorder', 'onnxruntime', None),
-            ('graphsignal.recorders.xgboost_recorder', 'XGBoostRecorder', 'xgboost', None),
             ('graphsignal.recorders.deepspeed_recorder', 'DeepSpeedRecorder', 'deepspeed', None),
             ('graphsignal.recorders.openai_recorder', 'OpenAIRecorder', 'openai', None),
             ('graphsignal.recorders.langchain_recorder', 'LangChainRecorder', 'langchain', None),

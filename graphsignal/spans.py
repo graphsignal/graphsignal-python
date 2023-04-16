@@ -7,11 +7,12 @@ logger = logging.getLogger('graphsignal')
 
 span_stack_var = contextvars.ContextVar('graphsignal_span_stack', default=[])
 
-def push_span(span):
+
+def push_current_span(span):
     span_stack_var.set(span_stack_var.get() + [span])
 
 
-def pop_span():
+def pop_current_span():
     span_stack = span_stack_var.get()
     if len(span_stack) > 0:
         span_stack_var.set(span_stack[:-1])
@@ -23,31 +24,37 @@ def get_current_span():
     span_stack = span_stack_var.get()
     if len(span_stack) > 0:
         return span_stack[-1]
+    return None
 
 
-class TraceSpan:
+def is_current_span(span):
+    return get_current_span() == span
+
+
+class Span:
     __slots__ = [
         'name',
         'start_ns',
         'end_ns',
-        'has_exception',
-        'children',
-        'is_endpoint'
+        'trace_id',
+        'children'
     ]
 
-    MAX_CHILD_SPANS = 100
+    MAX_CHILD_SPANS = 250
 
-    def __init__(self, name, start_ns=None, is_endpoint=False):
+    def __init__(self, name, start_ns=None):
         self.name = name
         self.start_ns = start_ns if start_ns is not None else time.perf_counter_ns()
         self.end_ns = None
-        self.has_exception = None
+        self.trace_id = None
         self.children = None
-        self.is_endpoint = is_endpoint
 
-    def stop(self, end_ns=None, has_exception=False):
+    def stop(self, end_ns=None, trace_id=None):
         self.end_ns = end_ns if end_ns is not None else time.perf_counter_ns()
-        self.has_exception = has_exception
+        self.trace_id = trace_id
+    
+    def set_trace_id(self, trace_id):
+        self.trace_id = trace_id
 
     def add_child(self, child):
         if self.children is None:
@@ -56,24 +63,20 @@ class TraceSpan:
             self.children.append(child)
 
 
-def start_span(name, start_ns=None, is_endpoint=False):
+def start_span(name, start_ns=None):
     current_span = get_current_span()
-    child_span = TraceSpan(name, start_ns=start_ns, is_endpoint=is_endpoint)
-    push_span(child_span)
+    child_span = Span(name, start_ns=start_ns)
+    push_current_span(child_span)
     if current_span:
         current_span.add_child(child_span)
     return child_span
 
 
-def stop_span(end_ns=None, has_exception=False):
-    current_span = pop_span()
+def stop_span(end_ns=None, trace_id=None):
+    current_span = pop_current_span()
     if current_span:
-        current_span.stop(end_ns=end_ns, has_exception=has_exception)
+        current_span.stop(
+            end_ns=end_ns, 
+            trace_id=trace_id)
         return current_span
 
-
-def is_current_span(span):
-    span_stack = span_stack_var.get()
-    if len(span_stack) > 0 and span_stack[-1] == span:
-        return True
-    return False

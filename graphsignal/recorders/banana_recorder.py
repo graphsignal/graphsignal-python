@@ -16,7 +16,6 @@ logger = logging.getLogger('graphsignal')
 class BananaRecorder(BaseRecorder):
     def __init__(self):
         self._framework = None
-        self._is_sampling = False
 
     def setup(self):
         if not graphsignal._agent.auto_instrument:
@@ -44,10 +43,10 @@ class BananaRecorder(BaseRecorder):
             trace.set_data('model_outputs', ret['modelOutputs'])
 
     def on_trace_start(self, proto, context, options):
-        self._is_sampling = True
+        pass
 
     def on_trace_stop(self, proto, context, options):
-        self._is_sampling = False
+        pass
 
     def on_trace_read(self, proto, context, options):
         if self._framework:

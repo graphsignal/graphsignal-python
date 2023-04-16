@@ -48,7 +48,6 @@ class BananaRecorderTest(unittest.IsolatedAsyncioTestCase):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = BananaRecorder()
         recorder.setup()
-        recorder._is_sampling = True
 
         mocked_run.return_value = {
                 "id": "12345678-1234-1234-1234-123456789012", 

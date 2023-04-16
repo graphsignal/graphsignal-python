@@ -53,6 +53,8 @@ class KinetoRecorderTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
 
+        self.assertTrue('profiled' in proto.labels)
+
         test_op_stats = None
         for op_stats in proto.op_profile:
             if op_stats.op_name == 'aten::addmm':

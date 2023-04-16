@@ -50,6 +50,8 @@ class CProfileRecorderTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
 
+        self.assertTrue('profiled' in proto.labels)
+
         slow_call = next(call for call in proto.op_profile if 'slow_method' in call.op_name)
         self.assertEqual(slow_call.op_type, signals_pb2.OpStats.OpType.PYTHON_OP)
         self.assertTrue(slow_call.self_host_time_ns > 0)

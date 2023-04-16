@@ -60,7 +60,6 @@ class ProcessRecorderTest(unittest.TestCase):
         self.assertNotEqual(proto.node_usage.ip_address, '')
         self.assertNotEqual(proto.process_usage.pid, '')
         if sys.platform != 'win32':
-            self.assertTrue(proto.trace_info.thread_cpu_time_us > 0)
             self.assertTrue(proto.node_usage.mem_total > 0)
             self.assertTrue(proto.node_usage.mem_used > 0)
             self.assertTrue(proto.process_usage.cpu_usage_percent > 0)

@@ -18,7 +18,6 @@ logger = logging.getLogger('graphsignal')
 class OpenAIRecorder(BaseRecorder):
     def __init__(self):
         self._framework = None
-        self._is_sampling = False
 
     def setup(self):
         if not graphsignal._agent.auto_instrument:
@@ -83,24 +82,23 @@ class OpenAIRecorder(BaseRecorder):
         if 'model' in params:
             trace.set_tag('model', params['model'])
 
-        if self._is_sampling:
-            param_names = [
-                'model',
-                'max_tokens',
-                'temperature',
-                'top_p',
-                'n',
-                'stream',
-                'logprobs',
-                'echo',
-                'stop',
-                'presence_penalty',
-                'frequency_penalty',
-                'best_of'
-            ]
-            for param_name in param_names:
-                if param_name in params:
-                    trace.set_param(param_name, params[param_name])
+        param_names = [
+            'model',
+            'max_tokens',
+            'temperature',
+            'top_p',
+            'n',
+            'stream',
+            'logprobs',
+            'echo',
+            'stop',
+            'presence_penalty',
+            'frequency_penalty',
+            'best_of'
+        ]
+        for param_name in param_names:
+            if param_name in params:
+                trace.set_param(param_name, params[param_name])
 
         if 'stream' in params and params['stream']:
             if 'prompt' in params:
@@ -160,23 +158,22 @@ class OpenAIRecorder(BaseRecorder):
         if 'model' in params:
             trace.set_tag('model', params['model'])
 
-        if self._is_sampling:
-            param_names = [
-                'model',
-                'max_tokens',
-                'temperature',
-                'top_p',
-                'n',
-                'stream',
-                'logprobs',
-                'stop',
-                'presence_penalty',
-                'frequency_penalty',
-                'best_of'
-            ]
-            for param_name in param_names:
-                if param_name in params:
-                    trace.set_param(param_name, params[param_name])
+        param_names = [
+            'model',
+            'max_tokens',
+            'temperature',
+            'top_p',
+            'n',
+            'stream',
+            'logprobs',
+            'stop',
+            'presence_penalty',
+            'frequency_penalty',
+            'best_of'
+        ]
+        for param_name in param_names:
+            if param_name in params:
+                trace.set_param(param_name, params[param_name])
 
         if 'stream' in params and params['stream']:
             if 'messages' in params:
@@ -236,16 +233,15 @@ class OpenAIRecorder(BaseRecorder):
         if 'model' in params:
             trace.set_tag('model', params['model'])
 
-        if self._is_sampling:
-            param_names = [
-                'model',
-                'temperature',
-                'top_p',
-                'n'
-            ]
-            for param_name in param_names:
-                if param_name in params:
-                    trace.set_param(param_name, params[param_name])
+        param_names = [
+            'model',
+            'temperature',
+            'top_p',
+            'n'
+        ]
+        for param_name in param_names:
+            if param_name in params:
+                trace.set_param(param_name, params[param_name])
 
         prompt_usage = {}
         completion_usage = {}
@@ -274,13 +270,12 @@ class OpenAIRecorder(BaseRecorder):
         if 'engine' in params:
             trace.set_tag('model', params['engine'])
 
-        if self._is_sampling:
-            param_names = [
-                'engine'
-            ]
-            for param_name in param_names:
-                if param_name in params:
-                    trace.set_param(param_name, params[param_name])
+        param_names = [
+            'engine'
+        ]
+        for param_name in param_names:
+            if param_name in params:
+                trace.set_param(param_name, params[param_name])
 
         prompt_usage = {}
         if 'usage' in ret:
@@ -300,15 +295,14 @@ class OpenAIRecorder(BaseRecorder):
     def trace_image_generation(self, trace, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
-        if self._is_sampling:
-            param_names = [
-                'n',
-                'size',
-                'response_format'
-            ]
-            for param_name in param_names:
-                if param_name in params:
-                    trace.set_param(param_name, params[param_name])
+        param_names = [
+            'n',
+            'size',
+            'response_format'
+        ]
+        for param_name in param_names:
+            if param_name in params:
+                trace.set_param(param_name, params[param_name])
 
         if 'prompt' in params:
             trace.set_data('prompt', params['prompt'])
@@ -328,16 +322,15 @@ class OpenAIRecorder(BaseRecorder):
         if 'model' in params:
             trace.set_tag('model', params['model'])
 
-        if self._is_sampling:
-            param_names = [
-                'model',
-                'temperature',
-                'response_format',
-                'language'
-            ]
-            for param_name in param_names:
-                if param_name in params:
-                    trace.set_param(param_name, params[param_name])
+        param_names = [
+            'model',
+            'temperature',
+            'response_format',
+            'language'
+        ]
+        for param_name in param_names:
+            if param_name in params:
+                trace.set_param(param_name, params[param_name])
 
         if 'file' in params and hasattr(params['file'], 'name'):
             try:
@@ -358,15 +351,14 @@ class OpenAIRecorder(BaseRecorder):
         if 'model' in params:
             trace.set_tag('model', params['model'])
 
-        if self._is_sampling:
-            param_names = [
-                'model',
-                'temperature',
-                'response_format'
-            ]
-            for param_name in param_names:
-                if param_name in params:
-                    trace.set_param(param_name, params[param_name])
+        param_names = [
+            'model',
+            'temperature',
+            'response_format'
+        ]
+        for param_name in param_names:
+            if param_name in params:
+                trace.set_param(param_name, params[param_name])
 
         if 'file' in params and hasattr(params['file'], 'name'):
             try:
@@ -387,19 +379,18 @@ class OpenAIRecorder(BaseRecorder):
         if 'model' in params:
             trace.set_tag('model', params['model'])
 
-        if self._is_sampling:
-            for param_name in params:
-                if param_name in params:
-                    trace.set_param(param_name, params[param_name])
+        for param_name in params:
+            if param_name in params:
+                trace.set_param(param_name, params[param_name])
 
         if 'input' in params:
             trace.set_data('input', params['input'])
 
     def on_trace_start(self, proto, context, options):
-        self._is_sampling = True
+        pass
 
     def on_trace_stop(self, proto, context, options):
-        self._is_sampling = False
+        pass
 
     def on_trace_read(self, proto, context, options):
         if self._framework:

@@ -77,6 +77,8 @@ class CProfileRecorder(BaseRecorder):
             if total_tt > 0:
                 op_stats.self_host_time_percent = tt / total_tt * 100
 
+        proto.labels.append('profiled')
+
     def _has_exclude_func(self, stats, func_key, visited):
         if func_key in visited:
             return visited[func_key]

@@ -86,6 +86,8 @@ class KinetoRecorder(BaseRecorder):
         for kernel_stats in kernel_index.values():
             proto.kernel_profile.append(kernel_stats)
 
+        proto.labels.append('profiled')
+
     def on_metric_update(self):
         pass
 

@@ -76,20 +76,22 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
         #pp.pprint(MessageToJson(proto))
 
         self.assertEqual(proto.frameworks[0].name, 'LangChain')
+        self.assertEqual(proto.labels, ['root'])
 
         self.assertEqual(find_data_count(proto, 'inputs', 'byte_count'), 34.0)
         self.assertEqual(find_data_count(proto, 'inputs', 'element_count'), 1.0)
         self.assertEqual(find_data_count(proto, 'outputs', 'byte_count'), 2.0)
         self.assertEqual(find_data_count(proto, 'outputs', 'element_count'), 1.0)
 
-        self.assertEqual(proto.root_span.spans[0].name, 'langchain.chains.LLMChain')
-        self.assertTrue(proto.root_span.spans[0].start_ns > 0)
-        self.assertTrue(proto.root_span.spans[0].end_ns > 0)
-        self.assertTrue(proto.root_span.spans[0].is_endpoint)
-        self.assertEqual(proto.root_span.spans[0].spans[0].name, 'langchain.llms.DummyLLM')
-        self.assertTrue(proto.root_span.spans[0].spans[0].start_ns > 0)
-        self.assertTrue(proto.root_span.spans[0].spans[0].end_ns > 0)
-        self.assertTrue(proto.root_span.spans[0].spans[0].is_endpoint)
+        self.assertEqual(proto.span.name, 'langchain.chains.AgentExecutor')
+        self.assertTrue(proto.span.start_ns > 0)
+        self.assertTrue(proto.span.end_ns > 0)
+        self.assertEqual(proto.span.spans[0].name, 'langchain.chains.LLMChain')
+        self.assertTrue(proto.span.spans[0].start_ns > 0)
+        self.assertTrue(proto.span.spans[0].end_ns > 0)
+        self.assertEqual(proto.span.spans[0].spans[0].name, 'langchain.llms.DummyLLM')
+        self.assertTrue(proto.span.spans[0].spans[0].start_ns > 0)
+        self.assertTrue(proto.span.spans[0].spans[0].end_ns > 0)
 
 
 def find_data_count(proto, data_name, count_name):
