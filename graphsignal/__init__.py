@@ -18,7 +18,7 @@ def _check_configured():
     global _agent
     if not _agent:
         raise ValueError(
-            'Agent not configured, call graphsignal.configure() first')
+            'Tracer not configured, call graphsignal.configure() first')
 
 
 def _check_and_set_arg(
@@ -62,7 +62,7 @@ def configure(
     global _agent
 
     if _agent:
-        logger.warning('Agent already configured')
+        logger.warning('Tracer already configured')
         return
 
     debug_mode = _check_and_set_arg('debug_mode', debug_mode, is_bool=True)
@@ -88,7 +88,7 @@ def configure(
 
     atexit.register(shutdown)
 
-    logger.debug('Agent configured')
+    logger.debug('Tracer configured')
 
 
 def set_tag(key: str, value: str) -> None:
@@ -181,7 +181,7 @@ def shutdown() -> None:
     _agent.shutdown()
     _agent = None
 
-    logger.debug('Agent shutdown')
+    logger.debug('Tracer shutdown')
 
 
 __all__ = [

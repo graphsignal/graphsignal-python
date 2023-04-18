@@ -62,6 +62,7 @@ class Trace:
         '_tags',
         '_params',
         '_options',
+        '_span',
         '_is_sampling',
         '_is_root',
         '_latency_ns',
@@ -73,7 +74,6 @@ class Trace:
         '_stop_counter',
         '_exc_info',
         '_data_objects',
-        '_root_span',
         '_is_latency_outlier',
         '_has_missing_values'
     ]
@@ -107,6 +107,7 @@ class Trace:
         self._lo_detector = None
         self._mv_detector = None
         self._is_stopped = False
+        self._span = None
         self._is_sampling = False
         self._is_root = False
         self._latency_ns = None
@@ -116,15 +117,14 @@ class Trace:
         self._proto = None
         self._exc_info = None
         self._data_objects = None
-        self._root_span = None
         self._is_latency_outlier = False
         self._has_missing_values = False
 
         try:
             self._start()
         except Exception as ex:
-            if self._is_sampling:
-                self._is_stopped = True
+            self._is_stopped = True
+            if self._is_sampling and self._is_root:
                 self._trace_sampler.unlock()
             raise ex
 
@@ -137,9 +137,10 @@ class Trace:
         self.stop()
         return False
 
-    def _init_sampling(self):
+    def _init_sampling(self, sampling_type):
         self._is_sampling = True
         self._proto = self._agent.create_trace_proto()
+        self._proto.sampling_type = sampling_type
         self._context = {}
 
     def _start(self):
@@ -158,10 +159,13 @@ class Trace:
         self._is_root = get_current_span() is None
 
         if self._options.record_samples:
-            # sample if parent trace is being sampled or this trace is top level
-            if ((self._trace_sampler.is_locked() and not self._is_root) or 
-                    self._trace_sampler.lock('samples')):
-                self._init_sampling()
+            # sample if parent trace is being sampled or this trace is root
+            if self._is_root:
+                if self._trace_sampler.lock('samples'):
+                    self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.RANDOM_SAMPLING)
+            else:
+                if self._trace_sampler.is_locked():
+                    self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.NESTED_SAMPLING)
 
             # emit start event
             if self._is_sampling and self._is_root:
@@ -169,11 +173,11 @@ class Trace:
                     self._agent.emit_trace_start(self._proto, self._context, self._options)
                 except Exception as exc:
                     logger.error('Error in trace start event handlers', exc_info=True)
-                    self._add_agent_exception(exc)
+                    self._add_tracer_exception(exc)
 
         self._start_counter = time.perf_counter_ns()
 
-        self._root_span = start_span(name=self._endpoint, start_ns=self._start_counter)
+        self._span = start_span(name=self._endpoint, start_ns=self._start_counter)
 
         self._is_started = True
 
@@ -200,10 +204,11 @@ class Trace:
         now = int(now)
 
         # stop current span
-        if is_current_span(self._root_span):
+        if is_current_span(self._span):
             stop_span(end_ns=self._stop_counter)
         else:
             logger.error('Root span is not current span for endpoint {0}'.format(self._endpoint))
+            return
 
         # emit stop event
         if self._is_sampling and self._is_root:
@@ -211,7 +216,7 @@ class Trace:
                 self._agent.emit_trace_stop(self._proto, self._context, self._options)
             except Exception as exc:
                 logger.error('Error in trace stop event handlers', exc_info=True)
-                self._add_agent_exception(exc)
+                self._add_tracer_exception(exc)
 
         trace_tags = self._trace_tags()
 
@@ -219,14 +224,14 @@ class Trace:
         if self._options.record_samples:
             if not self._is_sampling and self._exc_info and self._exc_info[0]:
                 if self._trace_sampler.lock('exceptions'):
-                    self._init_sampling()
+                    self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.ERROR_SAMPLING)
 
         # check for outliers
         if self._options.record_samples:
             self._is_latency_outlier = self._lo_detector.detect(self._latency_ns / 1e9)
             if not self._is_sampling and self._is_latency_outlier:
                 if self._trace_sampler.lock('latency-outliers'):
-                    self._init_sampling()
+                    self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.ERROR_SAMPLING)
         self._lo_detector.update(self._latency_ns / 1e9)
 
         # update RED metrics
@@ -268,13 +273,13 @@ class Trace:
                             scope='data', name=count_name, tags=data_tags, value=count, update_ts=now)
                 except Exception as exc:
                     logger.error('Error computing data stats', exc_info=True)
-                    self._add_agent_exception(exc)
+                    self._add_tracer_exception(exc)
 
         # if missing values detected, but the trace is not being recorded, try to start tracing
         if self._options.record_samples:
             if not self._is_sampling and self._has_missing_values:
                 if self._trace_sampler.lock('missing-values'):
-                    self._init_sampling()
+                    self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.ERROR_SAMPLING)
 
         # emit read event
         if self._is_sampling and self._is_root:
@@ -282,7 +287,7 @@ class Trace:
                 self._agent.emit_trace_read(self._proto, self._context, self._options)
             except Exception as exc:
                 logger.error('Error in trace read event handlers', exc_info=True)
-                self._add_agent_exception(exc)
+                self._add_tracer_exception(exc)
 
         # update recorder metrics
         if self._options.record_metrics and self._agent.check_metric_read_interval(now):
@@ -291,12 +296,12 @@ class Trace:
                 self._agent.set_metric_read(now)
             except Exception as exc:
                 logger.error('Error in trace read event handlers', exc_info=True)
-                self._add_agent_exception(exc)
+                self._add_tracer_exception(exc)
 
         # fill and upload trace
         if self._is_sampling:
             # set trace id to current span
-            self._root_span.set_trace_id(self._proto.trace_id)
+            self._span.set_trace_id(self._proto.trace_id)
 
             # copy data to trace proto
             self._proto.start_us = start_us
@@ -351,8 +356,8 @@ class Trace:
                             sample_proto.content_bytes = sample.content_bytes
 
             # copy spans
-            if self._root_span:
-                self._convert_span_to_proto(self._proto.span, self._root_span)
+            if self._span:
+                self._convert_span_to_proto(self._proto.span, self._span)
 
             # queue trace proto for upload
             self._agent.uploader().upload_trace(self._proto)
@@ -369,8 +374,8 @@ class Trace:
         try:
             self._stop()
         finally:
-            if self._is_sampling:
-                self._is_stopped = True
+            self._is_stopped = True
+            if self._is_sampling and self._is_root:
                 self._trace_sampler.unlock()
 
     def is_sampling(self):
@@ -479,16 +484,16 @@ class Trace:
             self._data_objects[name] = DataObject(
                 name=name, obj=obj, counts=counts, check_missing_values=check_missing_values)
 
-    def _add_agent_exception(self, exc):
+    def _add_tracer_exception(self, exc):
         if not self._is_sampling:
             return
 
-        agent_error = self._proto.agent_errors.add()
-        agent_error.message = str(exc)
+        tracer_error = self._proto.tracer_errors.add()
+        tracer_error.message = str(exc)
         if exc.__traceback__:
             frames = traceback.format_tb(exc.__traceback__)
             if len(frames) > 0:
-                agent_error.stack_trace = ''.join(frames)
+                tracer_error.stack_trace = ''.join(frames)
 
     def _trace_tags(self, extra_tags=None):
         trace_tags = {

@@ -7,11 +7,11 @@
 
 Graphsignal is an observability platform for AI applications that use LLMs or other models. It helps engineers make AI applications faster, reliable and more efficient by monitoring and analyzing performance, resources, data, errors and costs.
 
-* Monitor and analyze inference latency, throughput and resource utilization.
-* Track GPU utilization in the context of inference.
+* Trace and analyze application latency, throughput, and errors.
+* Monitor moltimodal data to identify issues and silent failures.
 * Get notified about errors and anomalies with full AI context.
-* Monitor data to detect data issues and silent failures.
-* Analyze model API costs for deployments, models and any custom tags.
+* Monitor API, compute, and GPU utilization.
+* Analyze model API costs for deployments, models, and any custom tags.
 
 [![Dashboards](https://graphsignal.com/external/screencast-dashboards.gif)](https://graphsignal.com/)
 
@@ -36,7 +36,7 @@ python setup.py install
 
 ## Configure
 
-Configure Graphsignal agent by specifying your API key directly or via `GRAPHSIGNAL_API_KEY` environment variable.
+Configure Graphsignal tracer by specifying your API key directly or via `GRAPHSIGNAL_API_KEY` environment variable.
 
 ```python
 import graphsignal
@@ -51,7 +51,7 @@ To track deployments, versions and environments separately, specify a `deploymen
 
 ## Integrate
 
-Use the following examples to integrate Graphsignal agent into your application. See integration documentation and [API reference](https://graphsignal.com/docs/reference/python-api/) for full reference. More integration examples are available in [examples](https://github.com/graphsignal/examples) repo.
+Use the following examples to integrate Graphsignal tracer into your application. See integration documentation and [API reference](https://graphsignal.com/docs/reference/python-api/) for full reference. More integration examples are available in [examples](https://github.com/graphsignal/examples) repo.
 
 
 ### Monitoring and tracing
@@ -80,7 +80,7 @@ with graphsignal.start_trace(
     pred = model(x)
 ```
 
-The agent will automatically choose a profiler depending on available modules. Currently, CProfile, PyTorch Kineto and Yappi are supported. The Kineto profiler is used if `torch` module is detected and Yappi profiler is used if `yappi` module is detected. Otherwise, CProfile is used. To properly profile `asyncio` coroutines, just `pip install yappi`.
+The tracer will automatically choose a profiler depending on available modules. Currently, CProfile, PyTorch Kineto and Yappi are supported. The Kineto profiler is used if `torch` module is detected and Yappi profiler is used if `yappi` module is detected. Otherwise, CProfile is used. To properly profile `asyncio` coroutines, just `pip install yappi`.
 
 
 ### Exception tracking
@@ -109,18 +109,18 @@ After everything is setup, [log in](https://app.graphsignal.com/) to Graphsignal
 
 ## Overhead
 
-Graphsignal agent is very lightweight. While all traces are monitored, Graphsignal agent only samples and records certain traces, automatically limiting the overhead. The overhead per trace is measured to be less than 100 microseconds.
+Graphsignal tracer is very lightweight. While all traces are monitored, Graphsignal tracer only samples and records certain traces, automatically limiting the overhead. The overhead per trace is measured to be less than 100 microseconds.
 
 
 ## Security and Privacy
 
-Graphsignal agent can only open outbound connections to `agent-api.graphsignal.com` and send data, no inbound connections or commands are possible.
+Graphsignal tracer can only open outbound connections to `signal-api.graphsignal.com` and send data, no inbound connections or commands are possible.
 
-Raw data samples, e.g. prompts, are recorded by default. This feature can be disabled at agent initialization time, if necessary.
+Raw data samples, e.g. prompts, are recorded by default. This feature can be disabled at tracer initialization time, if necessary.
 
 
 ## Troubleshooting
 
 To enable debug logging, add `debug_mode=True` to `configure()`. If the debug log doesn't give you any hints on how to fix a problem, please report it to our support team via your account.
 
-In case of connection issues, please make sure outgoing connections to `https://agent-api.graphsignal.com` are allowed.
+In case of connection issues, please make sure outgoing connections to `https://signal-api.graphsignal.com` are allowed.

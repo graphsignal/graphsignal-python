@@ -66,7 +66,7 @@ class NVMLRecorderTest(unittest.TestCase):
             self.assertIsNotNone(proto.node_usage.drivers[0].version)
 
             device_usage = proto.device_usage[0]
-            self.assertEqual(device_usage.device_type, signals_pb2.DeviceUsage.DeviceType.GPU)
+            self.assertEqual(device_usage.device_type, signals_pb2.DeviceUsage.DeviceType.GPU_DEVICE)
             self.assertNotEqual(device_usage.device_id, 0)
             self.assertNotEqual(device_usage.device_id, '')
             self.assertNotEqual(device_usage.device_name, '')

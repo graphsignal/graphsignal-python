@@ -41,7 +41,7 @@ def instrument_method(obj, func_name, endpoint, trace_func, data_func=None):
             if 'span' in context:
                 span = context['span']
                 span.stop()
-                trace._root_span.add_child(span)
+                trace._span.add_child(span)
             trace.stop()
         else:
             if data_func:

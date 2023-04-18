@@ -12,7 +12,7 @@ with open('graphsignal/version.py') as fp:
 setup(
     name = 'graphsignal',
     version = version['__version__'],
-    description = 'Graphsignal Agent',
+    description = 'Graphsignal Tracer',
     long_description = read('README.md'),
     long_description_content_type = 'text/markdown',
     author = 'Graphsignal, Inc.',

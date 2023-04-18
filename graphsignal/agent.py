@@ -40,7 +40,7 @@ class Agent:
         if api_url:
             self.api_url = api_url
         else:
-            self.api_url = 'https://agent-api.graphsignal.com'
+            self.api_url = 'https://signal-api.graphsignal.com'
         self.deployment = deployment
         self.tags = tags
         self.context_tags = None
@@ -220,8 +220,8 @@ class Agent:
     def create_trace_proto(self):
         proto = signals_pb2.Trace()
         proto.trace_id = _uuid_sha1(size=12)
-        proto.agent_info.agent_type = signals_pb2.AgentInfo.AgentType.PYTHON_AGENT
-        parse_semver(proto.agent_info.version, version.__version__)
+        proto.tracer_info.tracer_type = signals_pb2.TracerInfo.TracerType.PYTHON_TRACER
+        parse_semver(proto.tracer_info.version, version.__version__)
         return proto
 
     def upload(self, block=False):

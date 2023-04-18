@@ -73,7 +73,7 @@ class NVMLRecorder(BaseRecorder):
                 continue
 
             device_usage = proto.device_usage.add()
-            device_usage.device_type = signals_pb2.DeviceUsage.DeviceType.GPU
+            device_usage.device_type = signals_pb2.DeviceUsage.DeviceType.GPU_DEVICE
             device_usage.device_idx = idx
 
             try:

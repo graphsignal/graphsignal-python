@@ -55,6 +55,7 @@ class TraceTest(unittest.TestCase):
 
         self.assertTrue(trace.start_us > 0)
         self.assertTrue(trace.end_us > 0)
+        self.assertEqual(trace.sampling_type, signals_pb2.Trace.SamplingType.RANDOM_SAMPLING)
         self.assertEqual(trace.labels, ['root'])
         self.assertTrue(trace.process_usage.start_ms > 0)
         self.assertEqual(trace.tags[0].key, 'deployment')
@@ -115,12 +116,14 @@ class TraceTest(unittest.TestCase):
         t1 = mocked_upload_trace.call_args_list[1][0][0]
         t2 = mocked_upload_trace.call_args_list[0][0][0]
 
+        self.assertEqual(t1.sampling_type, signals_pb2.Trace.SamplingType.RANDOM_SAMPLING)
         self.assertTrue(t1.start_us > 0)
         self.assertTrue(t1.end_us > 0)
         self.assertEqual(t1.labels, ['root'])
         self.assertEqual(len(t1.span.spans), 1)
         self.assertEqual(t1.span.spans[0].trace_id, t2.trace_id)
 
+        self.assertEqual(t2.sampling_type, signals_pb2.Trace.SamplingType.NESTED_SAMPLING)
         self.assertTrue(t2.start_us > 0)
         self.assertTrue(t2.end_us > 0)
         self.assertEqual(t2.labels, [])
@@ -135,11 +138,12 @@ class TraceTest(unittest.TestCase):
 
         trace = mocked_upload_trace.call_args[0][0]
 
+        self.assertEqual(trace.sampling_type, signals_pb2.Trace.SamplingType.RANDOM_SAMPLING)
         self.assertTrue(trace.start_us > 0)
         self.assertTrue(trace.end_us > 0)
         self.assertEqual(trace.labels, ['root'])
-        self.assertEqual(trace.agent_errors[0].message, 'ex1')
-        self.assertNotEqual(trace.agent_errors[0].stack_trace, '')
+        self.assertEqual(trace.tracer_errors[0].message, 'ex1')
+        self.assertNotEqual(trace.tracer_errors[0].stack_trace, '')
 
     @patch.object(ProcessRecorder, 'on_trace_stop')
     @patch.object(Uploader, 'upload_trace')
@@ -153,12 +157,11 @@ class TraceTest(unittest.TestCase):
 
         self.assertTrue(trace.start_us > 0)
         self.assertTrue(trace.end_us > 0)
-        self.assertEqual(trace.agent_errors[0].message, 'ex1')
-        self.assertNotEqual(trace.agent_errors[0].stack_trace, '')
+        self.assertEqual(trace.tracer_errors[0].message, 'ex1')
+        self.assertNotEqual(trace.tracer_errors[0].stack_trace, '')
 
     @patch.object(Uploader, 'upload_trace')
-    def test_inference_exception(self, mocked_upload_trace):
-        
+    def test_endpoint_exception(self, mocked_upload_trace):
         for _ in range(2):
             try:
                 with Trace(endpoint='ep1'):
@@ -170,6 +173,7 @@ class TraceTest(unittest.TestCase):
         self.assertEqual(mocked_upload_trace.call_count, 2)
         trace = mocked_upload_trace.call_args[0][0]
 
+        self.assertEqual(trace.sampling_type, signals_pb2.Trace.SamplingType.RANDOM_SAMPLING)
         self.assertTrue(trace.trace_id != '')
         self.assertTrue(trace.start_us > 0)
         self.assertTrue(trace.end_us > 0)
@@ -194,6 +198,7 @@ class TraceTest(unittest.TestCase):
 
         trace = mocked_upload_trace.call_args[0][0]
 
+        self.assertEqual(trace.sampling_type, signals_pb2.Trace.SamplingType.RANDOM_SAMPLING)
         self.assertTrue(trace.start_us > 0)
         self.assertTrue(trace.end_us > 0)
         self.assertEqual(trace.labels, ['root', 'exception'])
@@ -218,6 +223,7 @@ class TraceTest(unittest.TestCase):
 
         trace = mocked_upload_trace.call_args[0][0]
 
+        self.assertEqual(trace.sampling_type, signals_pb2.Trace.SamplingType.RANDOM_SAMPLING)
         self.assertTrue(trace.start_us > 0)
         self.assertTrue(trace.end_us > 0)
         self.assertEqual(trace.labels, ['root', 'exception'])
@@ -243,6 +249,7 @@ class TraceTest(unittest.TestCase):
             trace = call_args[0][0]
             if 'latency-outlier' in trace.labels:
                 has_outliers = True
+                self.assertEqual(trace.sampling_type, signals_pb2.Trace.SamplingType.ERROR_SAMPLING)
                 break
         self.assertTrue(has_outliers)
 

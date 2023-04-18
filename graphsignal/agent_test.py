@@ -25,7 +25,7 @@ class AgentTest(unittest.TestCase):
 
     def test_create_trace_proto(self):
         proto = graphsignal._agent.create_trace_proto()
-        self.assertTrue(proto.agent_info.version.major > 0 or proto.agent_info.version.minor > 0)
+        self.assertTrue(proto.tracer_info.version.major > 0 or proto.tracer_info.version.minor > 0)
 
     @patch.object(Uploader, 'upload_metric')
     def test_shutdown_upload(self, mocked_upload_metric):
