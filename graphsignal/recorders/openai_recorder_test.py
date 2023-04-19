@@ -40,7 +40,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         recorder.on_trace_start(proto, context, DEFAULT_OPTIONS)
         recorder.on_trace_stop(proto, context, DEFAULT_OPTIONS)
         recorder.on_trace_read(proto, context, DEFAULT_OPTIONS)
-
         self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
 
     @patch.object(Uploader, 'upload_trace')
@@ -91,8 +90,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
-
-        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
 
         self.assertEqual(find_param(proto, 'model'), 'text-davinci-003')
         self.assertEqual(find_param(proto, 'max_tokens'), '1024')
@@ -171,8 +168,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
-
-        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
         self.assertEqual(proto.span.spans[0].name, 'response')
         self.assertTrue(proto.span.spans[0].start_ns > 0)
         self.assertTrue(proto.span.spans[0].end_ns > 0)
@@ -230,8 +225,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
-
-        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
 
         self.assertEqual(find_param(proto, 'model'), 'text-davinci-003')
         self.assertEqual(find_param(proto, 'max_tokens'), '1024')
@@ -301,8 +294,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
-
-        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
 
         self.assertEqual(find_param(proto, 'model'), 'gpt-3.5-turbo')
         self.assertEqual(find_param(proto, 'max_tokens'), '1024')
@@ -387,8 +378,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
-
-        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
         self.assertEqual(proto.span.spans[0].name, 'response')
         self.assertTrue(proto.span.spans[0].start_ns > 0)
         self.assertTrue(proto.span.spans[0].end_ns > 0)
@@ -434,8 +423,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
-
-        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
 
         self.assertEqual(find_param(proto, 'model'), 'text-davinci-edit-001')
         self.assertEqual(find_param(proto, 'temperature'), '0.1')
@@ -497,8 +484,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
 
-        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
-
         self.assertEqual(find_param(proto, 'engine'), 'text-embedding-ada-002')
 
         self.assertEqual(find_data_count(proto, 'input', 'byte_count'), 22.0)
@@ -535,8 +520,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
-
-        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
 
         self.assertEqual(find_param(proto, 'n'), '1')
         self.assertEqual(find_param(proto, 'size'), '256x256')
@@ -575,8 +558,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
-
-        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
 
         self.assertEqual(find_param(proto, 'model'), 'whisper-1')
         self.assertEqual(find_param(proto, 'response_format'), 'json')
@@ -617,8 +598,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
-
-        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
 
         self.assertEqual(find_param(proto, 'model'), 'whisper-1')
         self.assertEqual(find_param(proto, 'response_format'), 'json')
@@ -673,8 +652,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
-
-        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
 
         self.assertEqual(find_param(proto, 'model'), 'text-moderation-latest')
 

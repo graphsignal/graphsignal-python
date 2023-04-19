@@ -7,7 +7,7 @@ import traceback
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.data import compute_data_stats, encode_data_sample
-from graphsignal.spans import start_span, stop_span, get_current_span, is_current_span
+from graphsignal.spans import get_current_span, Span
 
 logger = logging.getLogger('graphsignal')
 
@@ -52,6 +52,7 @@ class Trace:
     MAX_TRACE_PARAMS = 10
     MAX_DATA_OBJECTS = 10
     MAX_SAMPLE_BYTES = 32 * 1024
+    MAX_NESTED_TRACES = 250
 
     __slots__ = [
         '_trace_sampler',
@@ -156,7 +157,8 @@ class Trace:
         self._lo_detector = self._agent.lo_detector(self._endpoint)
         self._mv_detector = self._agent.mv_detector()
 
-        self._is_root = get_current_span() is None
+        parent_span = get_current_span()
+        self._is_root = not parent_span
 
         if self._options.record_samples:
             # sample if parent trace is being sampled or this trace is root
@@ -164,7 +166,7 @@ class Trace:
                 if self._trace_sampler.lock('samples'):
                     self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.RANDOM_SAMPLING)
             else:
-                if self._trace_sampler.is_locked():
+                if self._trace_sampler.is_locked() and parent_span.can_add_child():
                     self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.NESTED_SAMPLING)
 
             # emit start event
@@ -177,7 +179,7 @@ class Trace:
 
         self._start_counter = time.perf_counter_ns()
 
-        self._span = start_span(name=self._endpoint, start_ns=self._start_counter)
+        self._span = Span(name=self._endpoint, start_ns=self._start_counter)
 
         self._is_started = True
 
@@ -204,11 +206,7 @@ class Trace:
         now = int(now)
 
         # stop current span
-        if is_current_span(self._span):
-            stop_span(end_ns=self._stop_counter)
-        else:
-            logger.error('Root span is not current span for endpoint {0}'.format(self._endpoint))
-            return
+        self._span.stop(end_ns=self._stop_counter)
 
         # emit stop event
         if self._is_sampling and self._is_root:

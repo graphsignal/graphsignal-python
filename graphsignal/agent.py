@@ -1,15 +1,13 @@
 import logging
 import sys
-import threading
-import random
 import time
 import uuid
 import hashlib
 import importlib
 import socket
 import contextvars
+import importlib.abc
 
-import graphsignal
 from graphsignal import version
 from graphsignal.uploader import Uploader
 from graphsignal.metrics import MetricStore
@@ -20,6 +18,69 @@ from graphsignal.detectors.missing_value_detector import MissingValueDetector
 from graphsignal.proto_utils import parse_semver
 
 logger = logging.getLogger('graphsignal')
+
+
+RECORDER_SPECS = {
+    '(default)': [
+        ('graphsignal.recorders.cprofile_recorder', 'CProfileRecorder'),
+        ('graphsignal.recorders.process_recorder', 'ProcessRecorder'),
+        ('graphsignal.recorders.nvml_recorder', 'NVMLRecorder')],
+    'torch': [
+        ('graphsignal.recorders.pytorch_recorder', 'PyTorchRecorder'),
+        ('graphsignal.recorders.kineto_recorder', 'KinetoRecorder')],
+    'yappi': [('graphsignal.recorders.yappi_recorder', 'YappiRecorder')],
+    'tensorflow': [('graphsignal.recorders.tensorflow_recorder', 'TensorFlowRecorder')],
+    'jax': [('graphsignal.recorders.jax_recorder', 'JAXRecorder')],
+    'onnxruntime': [('graphsignal.recorders.onnxruntime_recorder', 'ONNXRuntimeRecorder')],
+    'deepspeed': [('graphsignal.recorders.deepspeed_recorder', 'DeepSpeedRecorder')],
+    'openai': [('graphsignal.recorders.openai_recorder', 'OpenAIRecorder')],
+    'langchain': [('graphsignal.recorders.langchain_recorder', 'LangChainRecorder')],
+    'banana_dev': [('graphsignal.recorders.banana_recorder', 'BananaRecorder')]
+}
+
+class SourceLoaderWrapper(importlib.abc.SourceLoader):
+    def __init__(self, loader, agent):
+        self._loader = loader
+        self._agent = agent
+
+    def create_module(self, spec):
+        return self._loader.create_module(spec)
+
+    def exec_module(self, module):
+        self._loader.exec_module(module)
+        self._agent.initialize_recorders_for_module(module.__name__)
+
+    def load_module(self, fullname):
+        self._loader.load_module(fullname)
+
+    def get_data(self, path):
+        return self._loader.get_data(path)
+
+    def get_filename(self, fullname):
+        return self._loader.get_filename(fullname)
+
+
+class SupportedModuleFinder(importlib.abc.MetaPathFinder):
+    def __init__(self, agent):
+        self._agent = agent
+        self._disabled = False
+
+    def find_spec(self, fullname, path=None, target=None):
+        if self._disabled:
+            return None
+
+        if fullname in RECORDER_SPECS:
+            try:
+                self._disabled = True
+                loader = importlib.util.find_spec(fullname).loader
+                if loader is not None and isinstance(loader, importlib.abc.SourceLoader):
+                    return importlib.util.spec_from_loader(fullname, SourceLoaderWrapper(loader, self._agent))
+            except Exception:
+                logger.error('Error patching spec for module %s', fullname, exc_info=True)
+            finally:
+                self._disabled = False
+
+        return None
 
 
 class Agent:
@@ -77,10 +138,14 @@ class Agent:
         # initialize context tags variable
         self.context_tags = contextvars.ContextVar('graphsignal_context_tags', default={})
 
-        # pre-initialize recorders to enable auto-instrumentation for packages imported before graphsignal.configure()
-        # as a fallback, any other trace sample will try to initialize uninitialized supported recorders
-        # in a worst case scenario, this will result in a first execution not being traced
-        self.recorders()
+        # initialize module wrappers
+        self._module_finder = SupportedModuleFinder(self)
+        sys.meta_path.insert(0, self._module_finder)
+
+        # initialize default recorders and recorders for already loaded modules
+        for module_name in RECORDER_SPECS.keys():
+            if module_name == '(default)' or module_name in sys.modules:
+                self.initialize_recorders_for_module(module_name)
 
     def shutdown(self):
         # Create snapshot signals to send final metrics.
@@ -90,7 +155,7 @@ class Agent:
                 for metric in metrics:
                     self._uploader.upload_metric(metric)
 
-        for recorder in self._recorders.values():
+        for recorder in self.recorders():
             recorder.shutdown()
 
         self.upload(block=True)
@@ -105,55 +170,42 @@ class Agent:
         self.context_tags.set({})
         self.context_tags = None
 
+        # remove module wrappers
+        if self._module_finder in sys.meta_path:
+            sys.meta_path.remove(self._module_finder)
+        self._module_finder = None
+
+
     def uploader(self):
         return self._uploader
 
-    def recorders(self):
-        recorder_specs = [
-            ('graphsignal.recorders.cprofile_recorder', 'CProfileRecorder', None, ['torch', 'yappi']),
-            ('graphsignal.recorders.yappi_recorder', 'YappiRecorder', 'yappi', 'torch'),
-            ('graphsignal.recorders.kineto_recorder', 'KinetoRecorder', 'torch', None),
-            ('graphsignal.recorders.process_recorder', 'ProcessRecorder', None, None),
-            ('graphsignal.recorders.nvml_recorder', 'NVMLRecorder', None, None),
-            ('graphsignal.recorders.pytorch_recorder', 'PyTorchRecorder', 'torch', None),
-            ('graphsignal.recorders.tensorflow_recorder', 'TensorFlowRecorder', 'tensorflow', None),
-            ('graphsignal.recorders.jax_recorder', 'JAXRecorder', 'jax', None),
-            ('graphsignal.recorders.onnxruntime_recorder', 'ONNXRuntimeRecorder', 'onnxruntime', None),
-            ('graphsignal.recorders.deepspeed_recorder', 'DeepSpeedRecorder', 'deepspeed', None),
-            ('graphsignal.recorders.openai_recorder', 'OpenAIRecorder', 'openai', None),
-            ('graphsignal.recorders.langchain_recorder', 'LangChainRecorder', 'langchain', None),
-            ('graphsignal.recorders.banana_recorder', 'BananaRecorder', 'banana_dev', None),
-        ]
-        last_exc = None
-        for module_name, class_name, include, exclude in recorder_specs:
+    def initialize_recorders_for_module(self, module_name):
+        # check already loaded
+        if module_name in self._recorders:
+            return
+
+        # check if supported
+        if module_name not in RECORDER_SPECS:
+            return
+
+        # load recorder
+        logger.debug('Initializing recorder for module: %s', module_name)
+        specs = RECORDER_SPECS[module_name]
+        self._recorders[module_name] = []
+        for spec in specs:
             try:
-                key = (module_name, class_name)
+                recorder_module = importlib.import_module(spec[0])
+                recorder_class = getattr(recorder_module, spec[1])
+                recorder = recorder_class()
+                recorder.setup()
+                self._recorders[module_name].append(recorder)
+            except Exception:
+                logger.error('Failed to initialize recorder for module: %s', module_name, exc_info=True)
 
-                if exclude:
-                    exclude = [exclude] if isinstance(exclude, str) else exclude
-                    is_excluded = False
-                    for mod in exclude:
-                        if _check_module(mod):
-                            if key in self._recorders:
-                                del self._recorders[key]
-                            is_excluded = True
-                            break
-                    if is_excluded:
-                        continue
-
-                if key not in self._recorders:
-                    if not include or _check_module(include):
-                        module = importlib.import_module(module_name)
-                        recorder_class = getattr(module, class_name)
-                        recorder = recorder_class()
-                        recorder.setup()
-                        self._recorders[key] = recorder
-            except Exception as exc:
-                last_exc = exc
-        if last_exc:
-            raise last_exc
-
-        return self._recorders.values()
+    def recorders(self):
+        for recorder_list in self._recorders.values():
+            for recorder in recorder_list:
+                yield recorder
 
     def trace_sampler(self, endpoint):
         if endpoint in self._trace_samplers:
@@ -179,7 +231,7 @@ class Agent:
 
     def emit_trace_start(self, proto, context, options):
         last_exc = None
-        for recorder in reversed(self.recorders()):
+        for recorder in self.recorders():
             try:
                 recorder.on_trace_start(proto, context, options)
             except Exception as exc:
@@ -257,10 +309,6 @@ class Agent:
                 self.set_metric_upload(now)
 
         self.upload(block=False)
-
-
-def _check_module(module_name):
-    return module_name in sys.modules
 
 
 def _sha1(text, size=-1):

@@ -1,7 +1,6 @@
 import logging
 import os
-import json
-import re
+import sys
 import cProfile, pstats
 
 import graphsignal
@@ -24,23 +23,21 @@ class CProfileRecorder(BaseRecorder):
         if not options.enable_profiling:
             return
 
-        self._profiler = cProfile.Profile()
-        self._profiler.enable()
-
-    def on_trace_stop(self, proto, context, options):
-        if not options.enable_profiling:
+        if 'torch' in sys.modules or 'yappi' in sys.modules:
             return
 
-        if not self._profiler:
+        self._profiler = cProfile.Profile()
+        self._profiler.enable()
+        context['is_profiling'] = True
+
+    def on_trace_stop(self, proto, context, options):
+        if not context.get('is_profiling', False):
             return
 
         self._profiler.disable()
         
     def on_trace_read(self, proto, context, options):
-        if not options.enable_profiling:
-            return
-
-        if not self._profiler:
+        if not context.get('is_profiling', False):
             return
 
         self._convert_to_profile(proto)

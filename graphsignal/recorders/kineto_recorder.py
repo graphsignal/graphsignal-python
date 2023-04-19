@@ -33,15 +33,16 @@ class KinetoRecorder(BaseRecorder):
                 with_flops=True)
 
         self._torch_prof.start()
+        context['is_profiling'] = True
 
     def on_trace_stop(self, proto, context, options):
-        if not options.enable_profiling:
+        if not context.get('is_profiling', False):
             return
 
         self._torch_prof.stop()
 
     def on_trace_read(self, proto, context, options):
-        if not options.enable_profiling:
+        if not context.get('is_profiling', False):
             return
 
         total_self_host_time_ns = 0

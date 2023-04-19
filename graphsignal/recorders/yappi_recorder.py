@@ -1,7 +1,6 @@
 import logging
 import os
-import json
-import re
+import sys
 import yappi
 
 import graphsignal
@@ -23,18 +22,22 @@ class YappiRecorder(BaseRecorder):
         if not options.enable_profiling:
             return
 
+        if 'torch' in sys.modules:
+            return
+
         yappi.set_clock_type("wall")
         yappi.start()
+        context['is_profiling'] = True
 
     def on_trace_stop(self, proto, context, options):
-        if not options.enable_profiling:
+        if not context.get('is_profiling', False):
             return
 
         if yappi.is_running():
             yappi.stop()
-        
+
     def on_trace_read(self, proto, context, options):
-        if not options.enable_profiling:
+        if not context.get('is_profiling', False):
             return
 
         self._convert_to_profile(proto, yappi.get_func_stats())
