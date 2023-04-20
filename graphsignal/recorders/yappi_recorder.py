@@ -27,17 +27,17 @@ class YappiRecorder(BaseRecorder):
 
         yappi.set_clock_type("wall")
         yappi.start()
-        context['is_profiling'] = True
+        context['is_yappi_profiling'] = True
 
     def on_trace_stop(self, proto, context, options):
-        if not context.get('is_profiling', False):
+        if not context.get('is_yappi_profiling', False):
             return
 
         if yappi.is_running():
             yappi.stop()
 
     def on_trace_read(self, proto, context, options):
-        if not context.get('is_profiling', False):
+        if not context.get('is_yappi_profiling', False):
             return
 
         self._convert_to_profile(proto, yappi.get_func_stats())

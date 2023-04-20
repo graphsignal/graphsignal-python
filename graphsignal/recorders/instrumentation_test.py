@@ -80,7 +80,6 @@ class RecorderUtilsTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(trace_func_called)
         self.assertEqual(proto.tags[1].value, 'ep1')
-        self.assertEqual(proto.span.spans[0].name, 'response')
 
     async def test_patch_method(self):
         obj = Dummy()

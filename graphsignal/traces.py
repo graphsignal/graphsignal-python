@@ -143,6 +143,8 @@ class Trace:
         self._proto = self._agent.create_trace_proto()
         self._proto.sampling_type = sampling_type
         self._context = {}
+        self._span.set_trace_id(self._proto.trace_id)
+        self._span.set_sampling(True)
 
     def _start(self):
         if self._is_started:
@@ -158,6 +160,7 @@ class Trace:
         self._mv_detector = self._agent.mv_detector()
 
         parent_span = get_current_span()
+        self._span = Span(self._endpoint)
         self._is_root = not parent_span
 
         if self._options.record_samples:
@@ -166,8 +169,8 @@ class Trace:
                 if self._trace_sampler.lock('samples'):
                     self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.RANDOM_SAMPLING)
             else:
-                if self._trace_sampler.is_locked() and parent_span.can_add_child():
-                    self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.NESTED_SAMPLING)
+                if parent_span.is_root_sampling() and parent_span.can_add_child():
+                    self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.PARENT_SAMPLING)
 
             # emit start event
             if self._is_sampling and self._is_root:
@@ -178,8 +181,6 @@ class Trace:
                     self._add_tracer_exception(exc)
 
         self._start_counter = time.perf_counter_ns()
-
-        self._span = Span(name=self._endpoint, start_ns=self._start_counter)
 
         self._is_started = True
 
@@ -206,7 +207,7 @@ class Trace:
         now = int(now)
 
         # stop current span
-        self._span.stop(end_ns=self._stop_counter)
+        self._span.stop()
 
         # emit stop event
         if self._is_sampling and self._is_root:
@@ -298,9 +299,6 @@ class Trace:
 
         # fill and upload trace
         if self._is_sampling:
-            # set trace id to current span
-            self._span.set_trace_id(self._proto.trace_id)
-
             # copy data to trace proto
             self._proto.start_us = start_us
             self._proto.end_us = end_us
@@ -313,6 +311,14 @@ class Trace:
             if self._has_missing_values:
                 self._proto.labels.append('missing-values')
             self._proto.process_usage.start_ms = self._agent._process_start_ms
+
+            # copy span
+            self._proto.span.start_ns = self._start_counter
+            self._proto.span.end_ns = self._stop_counter
+            if self._span.parent_span and self._span.parent_span.trace_id:
+                self._proto.span.parent_trace_id = self._span.parent_span.trace_id
+            if self._span.root_span and self._span.root_span.trace_id:
+                self._proto.span.root_trace_id = self._span.root_span.trace_id
 
             # copy tags
             for key, value in trace_tags.items():
@@ -329,7 +335,15 @@ class Trace:
 
             # copy exception
             if self._exc_info and self._exc_info[0]:
-                self._convert_exc_info_to_proto(self._proto.exceptions.add(), self._exc_info)
+                exception_proto = self._proto.exceptions.add()
+                if self._exc_info[0] and hasattr(self._exc_info[0], '__name__'):
+                    exception_proto.exc_type = str(self._exc_info[0].__name__)
+                if self._exc_info[1]:
+                    exception_proto.message = str(self._exc_info[1])
+                if self._exc_info[2]:
+                    frames = traceback.format_tb(self._exc_info[2])
+                    if len(frames) > 0:
+                        exception_proto.stack_trace = ''.join(frames)
 
             # copy data stats
             if data_stats is not None:
@@ -352,10 +366,6 @@ class Trace:
                             sample_proto.data_name = data_name
                             sample_proto.content_type = sample.content_type
                             sample_proto.content_bytes = sample.content_bytes
-
-            # copy spans
-            if self._span:
-                self._convert_span_to_proto(self._proto.span, self._span)
 
             # queue trace proto for upload
             self._agent.uploader().upload_trace(self._proto)
@@ -509,29 +519,6 @@ class Trace:
         if extra_tags is not None:
             trace_tags.update(extra_tags)
         return trace_tags
-
-    def _convert_exc_info_to_proto(self, proto, exc_info):
-        if exc_info[0] and hasattr(exc_info[0], '__name__'):
-            proto.exc_type = str(exc_info[0].__name__)
-        if exc_info[1]:
-            proto.message = str(exc_info[1])
-        if exc_info[2]:
-            frames = traceback.format_tb(exc_info[2])
-            if len(frames) > 0:
-                proto.stack_trace = ''.join(frames)
-
-    def _convert_span_to_proto(self, proto, span):
-        if span.end_ns is None:
-            return
-        proto.name = span.name
-        proto.start_ns = span.start_ns
-        proto.end_ns = span.end_ns
-        if span.trace_id is not None:
-           proto.trace_id = span.trace_id
-
-        if span.children is not None:
-            for child in span.children:
-                self._convert_span_to_proto(proto.spans.add(), child)
 
     def repr(self):
         return 'Trace({0})'.format(self._endpoint)

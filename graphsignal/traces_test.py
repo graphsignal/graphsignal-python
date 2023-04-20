@@ -76,10 +76,6 @@ class TraceTest(unittest.TestCase):
         self.assertEqual(trace.tags[7].value, 'v5')
         self.assertEqual(trace.params[0].name, 'p1')
         self.assertEqual(trace.params[0].value, 'v1')
-        self.assertEqual(trace.span.name, 'ep1')
-        self.assertTrue(trace.span.start_ns > 0)
-        self.assertTrue(trace.span.end_ns > 0)
-        self.assertEqual(trace.span.trace_id, trace.trace_id)
         self.assertEqual(trace.data_profile[0].data_name, 'input')
         self.assertEqual(trace.data_profile[0].shape, [2, 2])
         self.assertEqual(trace.data_profile[0].counts[-2].name, 'c1')
@@ -120,10 +116,10 @@ class TraceTest(unittest.TestCase):
         self.assertTrue(t1.start_us > 0)
         self.assertTrue(t1.end_us > 0)
         self.assertEqual(t1.labels, ['root'])
-        self.assertEqual(len(t1.span.spans), 1)
-        self.assertEqual(t1.span.spans[0].trace_id, t2.trace_id)
+        self.assertEqual(t2.span.parent_trace_id, t1.trace_id)
+        self.assertEqual(t2.span.root_trace_id, t1.trace_id)
 
-        self.assertEqual(t2.sampling_type, signals_pb2.Trace.SamplingType.NESTED_SAMPLING)
+        self.assertEqual(t2.sampling_type, signals_pb2.Trace.SamplingType.PARENT_SAMPLING)
         self.assertTrue(t2.start_us > 0)
         self.assertTrue(t2.end_us > 0)
         self.assertEqual(t2.labels, [])
@@ -266,32 +262,29 @@ class TraceTest(unittest.TestCase):
 
     @patch.object(Uploader, 'upload_trace')
     def test_spans(self, mocked_upload_trace):
-        trace = Trace(endpoint='ep1')
-        trace2 = Trace(endpoint='ep2')
-        trace3 = Trace(endpoint='ep3')
-        trace3.stop()
-        trace2.stop()
-        trace4 = Trace(endpoint='ep4')
-        trace4.stop()
-        trace.stop()
+        with Trace(endpoint='ep1'):
+            with Trace(endpoint='ep2'):
+                with Trace(endpoint='ep3'):
+                    pass
+            with Trace(endpoint='ep4'):
+                pass
 
-        trace = mocked_upload_trace.call_args[0][0]
+        t3 = mocked_upload_trace.call_args_list[0][0][0]
+        t2 = mocked_upload_trace.call_args_list[1][0][0]
+        t4 = mocked_upload_trace.call_args_list[2][0][0]
+        t1 = mocked_upload_trace.call_args_list[3][0][0]
 
-        self.assertEqual(trace.span.name, 'ep1')
-        self.assertTrue(trace.span.start_ns > 0)
-        self.assertTrue(trace.span.end_ns > 0)
+        self.assertEqual(t1.span.parent_trace_id, '')
+        self.assertEqual(t1.span.root_trace_id, t1.trace_id)
 
-        self.assertEqual(trace.span.spans[0].name, 'ep2')
-        self.assertTrue(trace.span.spans[0].start_ns > trace.span.start_ns)
-        self.assertTrue(trace.span.spans[0].end_ns < trace.span.end_ns)
+        self.assertEqual(t2.span.parent_trace_id, t1.trace_id)
+        self.assertEqual(t2.span.root_trace_id, t1.trace_id)
 
-        self.assertEqual(trace.span.spans[0].spans[0].name, 'ep3')
-        self.assertTrue(trace.span.spans[0].spans[0].start_ns > trace.span.spans[0].start_ns)
-        self.assertTrue(trace.span.spans[0].spans[0].end_ns < trace.span.spans[0].end_ns)
+        self.assertEqual(t3.span.parent_trace_id, t2.trace_id)
+        self.assertEqual(t3.span.root_trace_id, t1.trace_id)
 
-        self.assertEqual(trace.span.spans[1].name, 'ep4')
-        self.assertTrue(trace.span.spans[1].start_ns > trace.span.spans[0].end_ns)
-        self.assertTrue(trace.span.spans[1].end_ns < trace.span.end_ns)
+        self.assertEqual(t4.span.parent_trace_id, t1.trace_id)
+        self.assertEqual(t4.span.root_trace_id, t1.trace_id)
 
     @patch.object(Uploader, 'upload_trace')
     @patch.object(TraceSampler, 'lock', return_value=False)

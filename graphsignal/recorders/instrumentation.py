@@ -4,7 +4,6 @@ import asyncio
 import types
 
 import graphsignal
-from graphsignal.spans import Span
 
 logger = logging.getLogger('graphsignal')
 
@@ -33,15 +32,7 @@ def instrument_method(obj, func_name, endpoint, trace_func, data_func=None):
     def yield_func(idx, item, context):
         trace = context['trace']
 
-        if idx == 0:
-            context['span'] = Span('response')
-            if data_func:
-                data_func(trace, item)
-        elif idx == -1:
-            if 'span' in context:
-                span = context['span']
-                span.stop()
-                trace._span.add_child(span)
+        if idx == -1:
             trace.stop()
         else:
             if data_func:

@@ -28,16 +28,16 @@ class CProfileRecorder(BaseRecorder):
 
         self._profiler = cProfile.Profile()
         self._profiler.enable()
-        context['is_profiling'] = True
+        context['is_cprofile_profiling'] = True
 
     def on_trace_stop(self, proto, context, options):
-        if not context.get('is_profiling', False):
+        if not context.get('is_cprofile_profiling', False):
             return
 
         self._profiler.disable()
         
     def on_trace_read(self, proto, context, options):
-        if not context.get('is_profiling', False):
+        if not context.get('is_cprofile_profiling', False):
             return
 
         self._convert_to_profile(proto)

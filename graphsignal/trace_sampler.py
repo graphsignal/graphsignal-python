@@ -16,9 +16,6 @@ class TraceSampler:
         self._trace_counters = {}
         self._last_reset_ts = time.time()
 
-    def is_locked(self):
-        return _sampling_lock.locked()
-
     def lock(self, group, limit_per_interval=1, limit_after=10):
         self._current_trace_idx += 1
 

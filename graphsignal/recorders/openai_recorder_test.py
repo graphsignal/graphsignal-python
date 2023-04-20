@@ -168,9 +168,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
-        self.assertEqual(proto.span.spans[0].name, 'response')
-        self.assertTrue(proto.span.spans[0].start_ns > 0)
-        self.assertTrue(proto.span.spans[0].end_ns > 0)
         self.assertEqual(find_data_count(proto, 'prompt', 'byte_count'), 37.0)
         self.assertEqual(find_data_count(proto, 'prompt', 'element_count'), 2.0)
         self.assertEqual(find_data_count(proto, 'completion', 'byte_count'), 4.0)
@@ -378,9 +375,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
-        self.assertEqual(proto.span.spans[0].name, 'response')
-        self.assertTrue(proto.span.spans[0].start_ns > 0)
-        self.assertTrue(proto.span.spans[0].end_ns > 0)
         self.assertEqual(find_data_count(proto, 'messages', 'byte_count'), 49.0)
         self.assertEqual(find_data_count(proto, 'messages', 'element_count'), 4.0)
         self.assertEqual(find_data_count(proto, 'completion', 'byte_count'), 4.0)

@@ -23,30 +23,45 @@ class SpanTest(unittest.IsolatedAsyncioTestCase):
         graphsignal.shutdown()
 
     async def test_span_nested(self):
-        s1 = Span(name='s1', start_ns=1000)
-        s2 = Span(name='s2', start_ns=1001)
-        self.assertEqual(get_current_span().name, 's2')
-        self.assertEqual(get_current_span().total_count(), 2)
-        s3 = Span(name='s3', start_ns=1002)
-        self.assertEqual(get_current_span().name, 's3')
-        self.assertEqual(get_current_span().total_count(), 3)
-        s3.stop(end_ns=1003)
-        self.assertEqual(get_current_span().name, 's2')
-        s2.stop(end_ns=1004, trace_id='t1')
-        self.assertEqual(get_current_span().start_ns, 1000)
+        s1 = Span('s1')
+        s1.set_trace_id('t1')
+        s1.set_sampling(True)
+        self.assertEqual(get_current_span().parent_span, None)
+        self.assertEqual(get_current_span().root_span.trace_id, 't1')
+        self.assertEqual(get_current_span().root_span.total_count, 1)
+        self.assertTrue(get_current_span().is_root_sampling())
+        s2 = Span('s2')
+        s2.set_trace_id('t2')
+        self.assertEqual(get_current_span().endpoint, 's2')
+        self.assertEqual(get_current_span().trace_id, 't2')
+        self.assertEqual(get_current_span().parent_span.trace_id, 't1')
+        self.assertEqual(get_current_span().root_span.trace_id, 't1')
+        self.assertEqual(get_current_span().root_span.total_count, 2)
+        self.assertTrue(get_current_span().is_root_sampling())
+        s3 = Span('s3')
+        s3.set_trace_id('t3')
+        self.assertEqual(get_current_span().endpoint, 's3')
+        self.assertEqual(get_current_span().trace_id, 't3')
+        self.assertEqual(get_current_span().parent_span.trace_id, 't2')
+        self.assertEqual(get_current_span().root_span.trace_id, 't1')
+        self.assertEqual(get_current_span().root_span.total_count, 3)
+        self.assertTrue(get_current_span().is_root_sampling())
+        s3.stop()
+        self.assertEqual(get_current_span().endpoint, 's2')
+        s2.set_trace_id('t1')
+        s2.stop()
         self.assertEqual(s2.trace_id, 't1')
-        self.assertEqual(s2.end_ns, 1004)
-        s1.stop(end_ns=1005)
+        s1.stop()
         self.assertIsNone(get_current_span())
 
     async def test_span_async(self):
         async def func1(ep):
-            s2 = Span(ep, start_ns=1001)
+            s2 = Span(ep)
             await asyncio.sleep(random.random() * 0.2)
-            self.assertEqual(get_current_span().name, ep)
-            s2.stop(end_ns=1002)
+            self.assertEqual(get_current_span().endpoint, ep)
+            s2.stop()
 
-        s1 = Span(name='r1', start_ns=1000)
+        s1 = Span('r1')
 
         tasks = []
         for i in range(10):
@@ -54,8 +69,8 @@ class SpanTest(unittest.IsolatedAsyncioTestCase):
 
         await asyncio.gather(*tasks)
 
-        self.assertEqual(get_current_span().total_count(), 11)
-        s1.stop(end_ns=1003)
+        self.assertEqual(get_current_span().root_span.total_count, 11)
+        s1.stop()
 
     async def test_span_limit(self):
         for i in range(Span.MAX_NESTED_SPANS + 10):
