@@ -4,6 +4,7 @@ import time
 import torch
 import deepspeed
 import deepspeed.comm as dist
+import threading
 
 import graphsignal
 from graphsignal.traces import TraceOptions
@@ -36,6 +37,7 @@ class DeepSpeedRecorder(BaseRecorder):
     ]
 
     def __init__(self):
+        self._profiler_lock = threading.Lock()
         self._is_initialized = False
         self._framework = None
         self._rank = None
@@ -100,6 +102,8 @@ class DeepSpeedRecorder(BaseRecorder):
     def on_trace_start(self, proto, context, options):
         if not self._is_initialized:
             return
+        if not self._profiler_lock.acquire(blocking=False):
+            return
 
         self._is_sampling = True
 
@@ -134,6 +138,8 @@ class DeepSpeedRecorder(BaseRecorder):
                     op_stats.data_per_sec = op_stats.data_size / (op_stats.host_time_ns / 1e9)
 
             self._op_profile = None
+
+        self._profiler_lock.release()
 
     def on_metric_update(self):
         pass

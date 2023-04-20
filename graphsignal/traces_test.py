@@ -287,8 +287,7 @@ class TraceTest(unittest.TestCase):
         self.assertEqual(t4.span.root_trace_id, t1.trace_id)
 
     @patch.object(Uploader, 'upload_trace')
-    @patch.object(TraceSampler, 'lock', return_value=False)
-    def test_overhead(self, mocked_lock, mocked_upload_trace):
+    def test_overhead(self, mocked_upload_trace):
         #import cProfile, pstats
         #profiler = cProfile.Profile()
         #profiler.enable()

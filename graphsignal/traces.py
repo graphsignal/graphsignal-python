@@ -125,8 +125,6 @@ class Trace:
             self._start()
         except Exception as ex:
             self._is_stopped = True
-            if self._is_sampling and self._is_root:
-                self._trace_sampler.unlock()
             raise ex
 
     def __enter__(self):
@@ -166,14 +164,14 @@ class Trace:
         if self._options.record_samples:
             # sample if parent trace is being sampled or this trace is root
             if self._is_root:
-                if self._trace_sampler.lock('samples'):
+                if self._trace_sampler.sample('random'):
                     self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.RANDOM_SAMPLING)
             else:
                 if parent_span.is_root_sampling() and parent_span.can_add_child():
                     self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.PARENT_SAMPLING)
 
             # emit start event
-            if self._is_sampling and self._is_root:
+            if self._is_sampling:
                 try:
                     self._agent.emit_trace_start(self._proto, self._context, self._options)
                 except Exception as exc:
@@ -181,7 +179,6 @@ class Trace:
                     self._add_tracer_exception(exc)
 
         self._start_counter = time.perf_counter_ns()
-
         self._is_started = True
 
     def _measure(self) -> None:
@@ -210,7 +207,7 @@ class Trace:
         self._span.stop()
 
         # emit stop event
-        if self._is_sampling and self._is_root:
+        if self._is_sampling:
             try:
                 self._agent.emit_trace_stop(self._proto, self._context, self._options)
             except Exception as exc:
@@ -222,14 +219,14 @@ class Trace:
         # if exception, but the trace is not being recorded, try to start tracing
         if self._options.record_samples:
             if not self._is_sampling and self._exc_info and self._exc_info[0]:
-                if self._trace_sampler.lock('exceptions'):
+                if self._trace_sampler.sample('exceptions'):
                     self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.ERROR_SAMPLING)
 
         # check for outliers
         if self._options.record_samples:
             self._is_latency_outlier = self._lo_detector.detect(self._latency_ns / 1e9)
             if not self._is_sampling and self._is_latency_outlier:
-                if self._trace_sampler.lock('latency-outliers'):
+                if self._trace_sampler.sample('latency-outliers'):
                     self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.ERROR_SAMPLING)
         self._lo_detector.update(self._latency_ns / 1e9)
 
@@ -277,11 +274,11 @@ class Trace:
         # if missing values detected, but the trace is not being recorded, try to start tracing
         if self._options.record_samples:
             if not self._is_sampling and self._has_missing_values:
-                if self._trace_sampler.lock('missing-values'):
+                if self._trace_sampler.sample('missing-values'):
                     self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.ERROR_SAMPLING)
 
         # emit read event
-        if self._is_sampling and self._is_root:
+        if self._is_sampling:
             try:
                 self._agent.emit_trace_read(self._proto, self._context, self._options)
             except Exception as exc:
@@ -383,8 +380,6 @@ class Trace:
             self._stop()
         finally:
             self._is_stopped = True
-            if self._is_sampling and self._is_root:
-                self._trace_sampler.unlock()
 
     def is_sampling(self):
         return self._is_sampling

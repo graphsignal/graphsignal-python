@@ -1,7 +1,7 @@
 import logging
 import sys
 import torch
-import torch.distributed as dist
+import threading
 
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
@@ -14,12 +14,15 @@ logger = logging.getLogger('graphsignal')
 class KinetoRecorder(BaseRecorder):
     def __init__(self):
         self._torch_prof = None
+        self._profiler_lock = threading.Lock()
 
     def setup(self):
         pass
 
     def on_trace_start(self, proto, context, options):
         if not options.enable_profiling:
+            return
+        if not self._profiler_lock.acquire(blocking=False):
             return
 
         if not self._torch_prof:
@@ -88,6 +91,8 @@ class KinetoRecorder(BaseRecorder):
             proto.kernel_profile.append(kernel_stats)
 
         proto.labels.append('profiled')
+
+        self._profiler_lock.release()
 
     def on_metric_update(self):
         pass

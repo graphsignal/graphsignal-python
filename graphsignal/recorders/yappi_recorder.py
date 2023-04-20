@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 import yappi
+import threading
 
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
@@ -14,6 +15,7 @@ logger = logging.getLogger('graphsignal')
 class YappiRecorder(BaseRecorder):
     def __init__(self):
         self._exclude_path = os.path.dirname(os.path.realpath(graphsignal.__file__))
+        self._profiler_lock = threading.Lock()
 
     def setup(self):
         pass
@@ -21,7 +23,8 @@ class YappiRecorder(BaseRecorder):
     def on_trace_start(self, proto, context, options):
         if not options.enable_profiling:
             return
-
+        if not self._profiler_lock.acquire(blocking=False):
+            return
         if 'torch' in sys.modules:
             return
 
@@ -42,6 +45,7 @@ class YappiRecorder(BaseRecorder):
 
         self._convert_to_profile(proto, yappi.get_func_stats())
         yappi.clear_stats()
+        self._profiler_lock.release()
 
     def on_metric_update(self):
         pass

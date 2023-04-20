@@ -33,29 +33,23 @@ class NVMLRecorderTest(unittest.TestCase):
         recorder = NVMLRecorder()
         recorder.setup()
 
-        proto = signals_pb2.Trace()
-        context = {}
-        recorder.on_trace_start(proto, context, DEFAULT_OPTIONS)
-        recorder.on_trace_stop(proto, context, DEFAULT_OPTIONS)
-        recorder.on_trace_read(proto, context, DEFAULT_OPTIONS)
-
         model = torch.nn.Linear(1, 1)
         if torch.cuda.is_available():
             model = model.cuda()
-
-        proto = signals_pb2.Trace()
-        context = {}
-        recorder.on_trace_start(proto, context, DEFAULT_OPTIONS)
 
         x = torch.arange(-50, 50, 0.00001).view(-1, 1)
         if torch.cuda.is_available():
             x = x.cuda()
         pred = model(x)
 
+        recorder.take_snapshot()
+
         proto = signals_pb2.Trace()
+        context = {}
+        recorder.on_trace_start(proto, context, DEFAULT_OPTIONS)
         recorder.on_trace_stop(proto, context, DEFAULT_OPTIONS)
         recorder.on_trace_read(proto, context, DEFAULT_OPTIONS)
-
+ 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
 

@@ -18,6 +18,7 @@ class NVMLRecorder(BaseRecorder):
         self._setup_us = None
         self._last_nvlink_throughput_data_tx = {}
         self._last_nvlink_throughput_data_rx = {}
+        self._last_snapshot = None
 
     def setup(self):
         try:
@@ -28,6 +29,8 @@ class NVMLRecorder(BaseRecorder):
             logger.debug('Error initializing NVML, skipping GPU usage')
 
         self._setup_us = int(time.time() * 1e6)
+
+        self.take_snapshot()
 
     def shutdown(self):
         if not self._is_initialized:
@@ -46,8 +49,64 @@ class NVMLRecorder(BaseRecorder):
         pass
 
     def on_trace_read(self, proto, context, options):
+        if self._last_snapshot:
+            proto.node_usage.num_devices = self._last_snapshot.node_usage.num_devices
+            for driver in self._last_snapshot.node_usage.drivers:
+                proto.node_usage.drivers.append(driver)
+            for du in self._last_snapshot.device_usage:
+                proto.device_usage.append(du)
+
+    def on_metric_update(self):
+        now = int(time.time())
+        proto = self.take_snapshot()
+        if not proto:
+            return
+
+        for idx, device_usage in enumerate(proto.device_usage):
+            store = graphsignal._agent.metric_store()
+            metric_tags = {'deployment': graphsignal._agent.deployment}
+            if graphsignal._agent.hostname:
+                metric_tags['hostname'] = graphsignal._agent.hostname
+            metric_tags['device'] = idx
+
+            if device_usage.gpu_utilization_percent > 0:
+                store.set_gauge(
+                    scope='system', name='gpu_utilization', tags=metric_tags, 
+                    value=device_usage.gpu_utilization_percent, update_ts=now, unit='%')
+            if device_usage.mxu_utilization_percent > 0:
+                store.set_gauge(
+                    scope='system', name='mxu_utilization', tags=metric_tags, 
+                    value=device_usage.mxu_utilization_percent, update_ts=now, unit='%')
+            if device_usage.mem_access_percent > 0:
+                store.set_gauge(
+                    scope='system', name='device_memory_access', tags=metric_tags, 
+                    value=device_usage.mem_access_percent, update_ts=now, unit='%')
+            if device_usage.mem_used > 0:
+                store.set_gauge(
+                    scope='system', name='device_memory_used', tags=metric_tags, 
+                    value=device_usage.mem_used, update_ts=now, is_size=True)
+            if device_usage.nvlink_throughput_data_tx_kibs > 0:
+                store.set_gauge(
+                    scope='system', name='nvlink_throughput_data_tx_kibs', tags=metric_tags, 
+                    value=device_usage.nvlink_throughput_data_tx_kibs, update_ts=now, unit='KiB/s')
+            if device_usage.nvlink_throughput_data_rx_kibs > 0:
+                store.set_gauge(
+                    scope='system', name='nvlink_throughput_data_rx_kibs', tags=metric_tags, 
+                    value=device_usage.nvlink_throughput_data_rx_kibs, update_ts=now, unit='KiB/s')
+            if device_usage.gpu_temp_c > 0:
+                store.set_gauge(
+                    scope='system', name='gpu_temp_c', tags=metric_tags, 
+                    value=device_usage.gpu_temp_c, update_ts=now, unit='°C')
+            if device_usage.power_usage_w > 0:
+                store.set_gauge(
+                    scope='system', name='power_usage_w', tags=metric_tags, 
+                    value=device_usage.power_usage_w, update_ts=now, unit='W')
+
+    def take_snapshot(self):
         if not self._is_initialized:
             return
+
+        proto = signals_pb2.Trace()
 
         now_us = int(time.time() * 1e6)
 
@@ -212,50 +271,9 @@ class NVMLRecorder(BaseRecorder):
             except NVMLError as err:
                 _log_nvml_error(err)
 
-    def on_metric_update(self):
-        now = int(time.time())
-        proto = signals_pb2.Trace()
-        self.on_trace_read(proto, {}, {})
+        self._last_snapshot = proto
+        return proto
 
-        for idx, device_usage in enumerate(proto.device_usage):
-            store = graphsignal._agent.metric_store()
-            metric_tags = {'deployment': graphsignal._agent.deployment}
-            if graphsignal._agent.hostname:
-                metric_tags['hostname'] = graphsignal._agent.hostname
-            metric_tags['device'] = idx
-
-            if device_usage.gpu_utilization_percent > 0:
-                store.set_gauge(
-                    scope='system', name='gpu_utilization', tags=metric_tags, 
-                    value=device_usage.gpu_utilization_percent, update_ts=now, unit='%')
-            if device_usage.mxu_utilization_percent > 0:
-                store.set_gauge(
-                    scope='system', name='mxu_utilization', tags=metric_tags, 
-                    value=device_usage.mxu_utilization_percent, update_ts=now, unit='%')
-            if device_usage.mem_access_percent > 0:
-                store.set_gauge(
-                    scope='system', name='device_memory_access', tags=metric_tags, 
-                    value=device_usage.mem_access_percent, update_ts=now, unit='%')
-            if device_usage.mem_used > 0:
-                store.set_gauge(
-                    scope='system', name='device_memory_used', tags=metric_tags, 
-                    value=device_usage.mem_used, update_ts=now, is_size=True)
-            if device_usage.nvlink_throughput_data_tx_kibs > 0:
-                store.set_gauge(
-                    scope='system', name='nvlink_throughput_data_tx_kibs', tags=metric_tags, 
-                    value=device_usage.nvlink_throughput_data_tx_kibs, update_ts=now, unit='KiB/s')
-            if device_usage.nvlink_throughput_data_rx_kibs > 0:
-                store.set_gauge(
-                    scope='system', name='nvlink_throughput_data_rx_kibs', tags=metric_tags, 
-                    value=device_usage.nvlink_throughput_data_rx_kibs, update_ts=now, unit='KiB/s')
-            if device_usage.gpu_temp_c > 0:
-                store.set_gauge(
-                    scope='system', name='gpu_temp_c', tags=metric_tags, 
-                    value=device_usage.gpu_temp_c, update_ts=now, unit='°C')
-            if device_usage.power_usage_w > 0:
-                store.set_gauge(
-                    scope='system', name='power_usage_w', tags=metric_tags, 
-                    value=device_usage.power_usage_w, update_ts=now, unit='W')
 
 def _avg_sample_value(sample_value_type, samples):
     if not samples:

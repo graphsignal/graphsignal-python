@@ -33,23 +33,19 @@ class ProcessRecorderTest(unittest.TestCase):
     def test_record(self):
         recorder = ProcessRecorder()
         recorder.setup()
-        proto = signals_pb2.Trace()
-        context = {}
-        recorder.on_trace_start(proto, context, DEFAULT_OPTIONS)
-        random.random()
-        recorder.on_trace_stop(proto, context, DEFAULT_OPTIONS)
-        recorder.on_trace_read(proto, context, DEFAULT_OPTIONS)
 
         ProcessRecorder.MIN_CPU_READ_INTERVAL_US = 0
         time.sleep(0.2)
-
-        proto = signals_pb2.Trace()
-        context = {}
-        recorder.on_trace_start(proto, context, DEFAULT_OPTIONS)
         for _ in range(100000):
             random.random()
         global mem
         mem = [1]*100000
+
+        recorder.take_snapshot()
+
+        proto = signals_pb2.Trace()
+        context = {}
+        recorder.on_trace_start(proto, context, DEFAULT_OPTIONS)
         recorder.on_trace_stop(proto, context, DEFAULT_OPTIONS)
         recorder.on_trace_read(proto, context, DEFAULT_OPTIONS)
 

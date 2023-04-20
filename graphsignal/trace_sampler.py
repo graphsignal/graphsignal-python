@@ -1,12 +1,7 @@
 import logging
 import time
-import random
-from threading import Lock
 
 logger = logging.getLogger('graphsignal')
-
-# global sampling lock
-_sampling_lock = Lock()
 
 class TraceSampler:
     MIN_INTERVAL_SEC = 60
@@ -16,11 +11,8 @@ class TraceSampler:
         self._trace_counters = {}
         self._last_reset_ts = time.time()
 
-    def lock(self, group, limit_per_interval=1, limit_after=10):
+    def sample(self, group, limit_per_interval=1, limit_after=10):
         self._current_trace_idx += 1
-
-        if _sampling_lock.locked():
-            return False
 
         sampled_trace_idx = self._current_trace_idx
 
@@ -37,17 +29,10 @@ class TraceSampler:
         else:
             self._trace_counters[group] = 1
         if self._trace_counters[group] <= limit_per_interval:
-            _sampling_lock.acquire(blocking=False)
             return True
 
         # check include_trace_idx
         if sampled_trace_idx <= limit_after:
-            _sampling_lock.acquire(blocking=False)
             return True
 
         return False
-
-    def unlock(self):
-        if not _sampling_lock.locked():
-            return
-        _sampling_lock.release()

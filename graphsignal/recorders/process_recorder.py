@@ -35,6 +35,10 @@ class ProcessRecorder(BaseRecorder):
     def __init__(self):
         self._last_read_sec = None
         self._last_cpu_time_us = None
+        self._last_snapshot = None
+    
+    def setup(self):
+        self.take_snapshot()
 
     def on_trace_start(self, proto, context, options):
         pass
@@ -43,6 +47,40 @@ class ProcessRecorder(BaseRecorder):
         pass
 
     def on_trace_read(self, proto, context, options):
+        if self._last_snapshot:
+            proto.process_usage.CopyFrom(self._last_snapshot.process_usage)
+            proto.node_usage.CopyFrom(self._last_snapshot.node_usage)
+
+    def on_metric_update(self):
+        now = int(time.time())
+
+        proto = self.take_snapshot()
+
+        store = graphsignal._agent.metric_store()
+        metric_tags = {'deployment': graphsignal._agent.deployment}
+        if graphsignal._agent.hostname:
+            metric_tags['hostname'] = graphsignal._agent.hostname
+
+        if proto.process_usage.cpu_usage_percent > 0:
+            store.set_gauge(
+                scope='system', name='process_cpu_usage', tags=metric_tags, 
+                value=proto.process_usage.cpu_usage_percent, update_ts=now, unit='%')
+        if proto.process_usage.current_rss > 0:
+            store.set_gauge(
+                scope='system', name='process_memory', tags=metric_tags, 
+                value=proto.process_usage.current_rss, update_ts=now, is_size=True)
+        if proto.process_usage.vm_size > 0:
+            store.set_gauge(
+                scope='system', name='virtual_memory', tags=metric_tags, 
+                value=proto.process_usage.vm_size, update_ts=now, is_size=True)
+        if proto.node_usage.mem_used > 0:
+            store.set_gauge(
+                scope='system', name='node_memory_used', tags=metric_tags, 
+                value=proto.node_usage.mem_used, update_ts=now, is_size=True)
+
+    def take_snapshot(self):
+        proto = signals_pb2.Trace()
+
         if not OS_WIN:
             rusage_self = resource.getrusage(resource.RUSAGE_SELF)
 
@@ -123,33 +161,8 @@ class ProcessRecorder(BaseRecorder):
         except BaseException:
             logger.error('Error reading process information', exc_info=True)
 
-    def on_metric_update(self):
-        now = int(time.time())
-        proto = signals_pb2.Trace()
-        self.on_trace_read(proto, {}, {})
-
-        store = graphsignal._agent.metric_store()
-        metric_tags = {'deployment': graphsignal._agent.deployment}
-        if graphsignal._agent.hostname:
-            metric_tags['hostname'] = graphsignal._agent.hostname
-
-        if proto.process_usage.cpu_usage_percent > 0:
-            store.set_gauge(
-                scope='system', name='process_cpu_usage', tags=metric_tags, 
-                value=proto.process_usage.cpu_usage_percent, update_ts=now, unit='%')
-        if proto.process_usage.current_rss > 0:
-            store.set_gauge(
-                scope='system', name='process_memory', tags=metric_tags, 
-                value=proto.process_usage.current_rss, update_ts=now, is_size=True)
-        if proto.process_usage.vm_size > 0:
-            store.set_gauge(
-                scope='system', name='virtual_memory', tags=metric_tags, 
-                value=proto.process_usage.vm_size, update_ts=now, is_size=True)
-        if proto.node_usage.mem_used > 0:
-            store.set_gauge(
-                scope='system', name='node_memory_used', tags=metric_tags, 
-                value=proto.node_usage.mem_used, update_ts=now, is_size=True)
-
+        self._last_snapshot = proto
+        return proto
 
 def _rusage_cpu_time(rusage):
     return int((rusage.ru_utime + rusage.ru_stime) * 1e6)  # microseconds
