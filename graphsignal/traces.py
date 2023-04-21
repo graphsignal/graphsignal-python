@@ -59,7 +59,7 @@ class Trace:
         '_lo_detector',
         '_mv_detector',
         '_agent',
-        '_endpoint',
+        '_operation',
         '_tags',
         '_params',
         '_options',
@@ -79,11 +79,11 @@ class Trace:
         '_has_missing_values'
     ]
 
-    def __init__(self, endpoint, tags=None, options=None):
+    def __init__(self, operation, tags=None, options=None):
         self._is_started = False
 
-        if not endpoint:
-            logger.error('endpoint is required')
+        if not operation:
+            logger.error('operation is required')
             return
         if tags is not None:
             if not isinstance(tags, dict):
@@ -93,7 +93,7 @@ class Trace:
                 logger.error('too many tags (>{0})'.format(Trace.MAX_TRACE_TAGS))
                 return
 
-        self._endpoint = _sanitize_str(endpoint)
+        self._operation = _sanitize_str(operation)
         if tags is not None:
             self._tags = dict(tags)
         else:
@@ -151,14 +151,14 @@ class Trace:
             return
 
         if self._agent.debug_mode:
-            logger.debug(f'Starting trace {self._endpoint}')
+            logger.debug(f'Starting trace {self._operation}')
 
-        self._trace_sampler = self._agent.trace_sampler(self._endpoint)
-        self._lo_detector = self._agent.lo_detector(self._endpoint)
+        self._trace_sampler = self._agent.trace_sampler(self._operation)
+        self._lo_detector = self._agent.lo_detector(self._operation)
         self._mv_detector = self._agent.mv_detector()
 
         parent_span = get_current_span()
-        self._span = Span(self._endpoint)
+        self._span = Span(self._operation)
         self._is_root = not parent_span
 
         if self._options.record_samples:
@@ -192,7 +192,7 @@ class Trace:
         self._is_stopped = True
 
         if self._agent.debug_mode:
-            logger.debug(f'Stopping trace {self._endpoint}')
+            logger.debug(f'Stopping trace {self._operation}')
 
         if self._stop_counter is None:
             self._measure()
@@ -501,7 +501,7 @@ class Trace:
     def _trace_tags(self, extra_tags=None):
         trace_tags = {
             'deployment': self._agent.deployment, 
-            'endpoint': self._endpoint}
+            'operation': self._operation}
         if self._agent.hostname:
             trace_tags['hostname'] = self._agent.hostname
         if self._agent.tags is not None:
@@ -516,7 +516,7 @@ class Trace:
         return trace_tags
 
     def repr(self):
-        return 'Trace({0})'.format(self._endpoint)
+        return 'Trace({0})'.format(self._operation)
 
 
 def _sanitize_str(val, max_len=50):

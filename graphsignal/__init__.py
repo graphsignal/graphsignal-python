@@ -131,37 +131,37 @@ def set_context_tag(key: str, value: str) -> None:
 
 
 def start_trace(
-        endpoint: str,
+        operation: str,
         tags: Optional[Dict[str, str]] = None,
         options: Optional[TraceOptions] = None) -> Trace:
     _check_configured()
 
-    return Trace(endpoint=endpoint, tags=tags, options=options)
+    return Trace(operation=operation, tags=tags, options=options)
 
 
 def trace_function(
         func=None, *,
-        endpoint: Optional[str] = None,
+        operation: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
         options: Optional[TraceOptions] = None):
     if func is None:
-        return functools.partial(trace_function, endpoint=endpoint, tags=tags, options=options)
+        return functools.partial(trace_function, operation=operation, tags=tags, options=options)
 
-    if endpoint is None:
-        endpoint_or_name = func.__name__
+    if operation is None:
+        operation_or_name = func.__name__
     else:
-        endpoint_or_name = endpoint
+        operation_or_name = operation
 
     if asyncio.iscoroutinefunction(func):
         @functools.wraps(func)
         async def tf_async_wrapper(*args, **kwargs):
-            with start_trace(endpoint=endpoint_or_name, tags=tags, options=options):
+            with start_trace(operation=operation_or_name, tags=tags, options=options):
                 return await func(*args, **kwargs)
         return tf_async_wrapper
     else:
         @functools.wraps(func)
         def tf_wrapper(*args, **kwargs):
-            with start_trace(endpoint=endpoint_or_name, tags=tags, options=options):
+            with start_trace(operation=operation_or_name, tags=tags, options=options):
                 return func(*args, **kwargs)
         return tf_wrapper
 

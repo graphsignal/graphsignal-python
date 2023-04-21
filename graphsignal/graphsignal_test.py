@@ -76,7 +76,7 @@ class GraphsignalTest(unittest.TestCase):
     @patch.object(Trace, '_stop', return_value=None)
     @patch.object(Trace, '_start', return_value=None)
     def test_trace_function_with_args(self, mocked_start, mocked_stop):
-        @graphsignal.trace_function(endpoint='ep1', tags=dict(t1='v1'))
+        @graphsignal.trace_function(operation='ep1', tags=dict(t1='v1'))
         def test_func(p):
             return 1 + p
 

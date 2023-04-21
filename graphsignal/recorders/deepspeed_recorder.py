@@ -64,7 +64,7 @@ class DeepSpeedRecorder(BaseRecorder):
                 logger.debug('DeepSpeed tracing is only supported for >= 0.7.0.')
                 return
 
-            # auto-instrument collective operations to be traced as standalone endpoints
+            # auto-instrument collective operations to be traced as standalone
             for op_name in DeepSpeedRecorder.COLLECTIVE_OPS:
                 self._instrument_op(op_name)
 

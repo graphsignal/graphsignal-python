@@ -85,13 +85,13 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_count(t1, 'outputs', 'byte_count'), 2.0)
         self.assertEqual(find_data_count(t1, 'outputs', 'element_count'), 1.0)
 
-        self.assertEqual(find_tag(t1, 'endpoint'), 'langchain.chains.AgentExecutor')
+        self.assertEqual(find_tag(t1, 'operation'), 'langchain.chains.AgentExecutor')
 
-        self.assertEqual(find_tag(t2, 'endpoint'), 'langchain.chains.LLMChain')
+        self.assertEqual(find_tag(t2, 'operation'), 'langchain.chains.LLMChain')
         self.assertEqual(t2.span.parent_trace_id, t1.trace_id)
         self.assertEqual(t2.span.root_trace_id, t1.trace_id)
 
-        self.assertEqual(find_tag(t3, 'endpoint'), 'langchain.llms.DummyLLM')
+        self.assertEqual(find_tag(t3, 'operation'), 'langchain.llms.DummyLLM')
         self.assertEqual(t3.span.parent_trace_id, t2.trace_id)
         self.assertEqual(t3.span.root_trace_id, t1.trace_id)
 

@@ -50,7 +50,7 @@ class GraphsignalHandler(BaseCallbackHandler):
     def on_llm_start(
             self, serialized: Dict[str, Any], prompts: List[str], **kwargs: Any) -> None:
         name = 'langchain.llms.' + serialized.get('name', 'LLM')
-        trace = graphsignal.start_trace(endpoint=name)
+        trace = graphsignal.start_trace(operation=name)
         push_current_trace(trace)
         if prompts:
             trace.set_data('prompts', prompts)
@@ -76,7 +76,7 @@ class GraphsignalHandler(BaseCallbackHandler):
     def on_chain_start(
             self, serialized: Dict[str, Any], inputs: Dict[str, Any], **kwargs: Any) -> None:
         name = 'langchain.chains.' + serialized.get('name', 'Chain')
-        trace = graphsignal.start_trace(endpoint=name)
+        trace = graphsignal.start_trace(operation=name)
         push_current_trace(trace)
         if inputs:
             trace.set_data('inputs', inputs)
@@ -101,7 +101,7 @@ class GraphsignalHandler(BaseCallbackHandler):
     def on_tool_start(
             self, serialized: Dict[str, Any], input_str: str, **kwargs: Any) -> None:
         name = 'langchain.agents.tools.' + serialized.get('name', 'Tool')
-        trace = graphsignal.start_trace(endpoint=name)
+        trace = graphsignal.start_trace(operation=name)
         push_current_trace(trace)
 
     def on_tool_end(self, output: str, **kwargs: Any) -> None:

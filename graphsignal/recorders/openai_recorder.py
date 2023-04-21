@@ -33,51 +33,53 @@ class OpenAIRecorder(BaseRecorder):
 
         self._api_base = openai.api_base
 
-        instrument_method(openai.Completion, 'create', f'{self._api_base}/completions', self.trace_completion, self.trace_completion_data)
-        instrument_method(openai.Completion, 'acreate', f'{self._api_base}/completions', self.trace_completion, self.trace_completion_data)
-        instrument_method(openai.ChatCompletion, 'create', f'{self._api_base}/chat/completions', self.trace_chat_completion, self.trace_chat_completion_data)
-        instrument_method(openai.ChatCompletion, 'acreate', f'{self._api_base}/chat/completions', self.trace_chat_completion, self.trace_chat_completion_data)
-        instrument_method(openai.Edit, 'create', f'{self._api_base}/edits', self.trace_edits)
-        instrument_method(openai.Edit, 'acreate', f'{self._api_base}/edits', self.trace_edits)
-        instrument_method(openai.Embedding, 'create', f'{self._api_base}/embeddings', self.trace_embedding)
-        instrument_method(openai.Embedding, 'acreate', f'{self._api_base}/embeddings', self.trace_embedding)
-        instrument_method(openai.Image, 'create', f'{self._api_base}/images/generations', self.trace_image_generation)
-        instrument_method(openai.Image, 'acreate', f'{self._api_base}/images/generations', self.trace_image_generation)
-        instrument_method(openai.Image, 'create_variation', f'{self._api_base}/images/variations', self.trace_image_generation)
-        instrument_method(openai.Image, 'acreate_variation', f'{self._api_base}/images/variations', self.trace_image_generation)
-        instrument_method(openai.Image, 'create_edit', f'{self._api_base}/images/edits', self.trace_image_generation)
-        instrument_method(openai.Image, 'acreate_edit', f'{self._api_base}/images/edits', self.trace_image_generation)
-        instrument_method(openai.Audio, 'transcribe', f'{self._api_base}/audio/transcriptions', self.trace_audio_transcription)
-        instrument_method(openai.Audio, 'atranscribe', f'{self._api_base}/audio/transcriptions', self.trace_audio_transcription)
-        instrument_method(openai.Audio, 'translate', f'{self._api_base}/audio/translations', self.trace_audio_translation)
-        instrument_method(openai.Audio, 'atranslate', f'{self._api_base}/audio/translations', self.trace_audio_translation)
-        instrument_method(openai.Moderation, 'create', f'{self._api_base}/moderations', self.trace_moderation)
-        instrument_method(openai.Moderation, 'acreate', f'{self._api_base}/moderations', self.trace_moderation)
+        instrument_method(openai.Completion, 'create', 'openai.Completion.create', self.trace_completion, self.trace_completion_data)
+        instrument_method(openai.Completion, 'acreate', 'openai.Completion.acreate', self.trace_completion, self.trace_completion_data)
+        instrument_method(openai.ChatCompletion, 'create', 'openai.ChatCompletion.create', self.trace_chat_completion, self.trace_chat_completion_data)
+        instrument_method(openai.ChatCompletion, 'acreate', 'openai.ChatCompletion.acreate', self.trace_chat_completion, self.trace_chat_completion_data)
+        instrument_method(openai.Edit, 'create', 'openai.Edit.create', self.trace_edits)
+        instrument_method(openai.Edit, 'acreate', 'openai.Edit.acreate', self.trace_edits)
+        instrument_method(openai.Embedding, 'create', 'openai.Embedding.create', self.trace_embedding)
+        instrument_method(openai.Embedding, 'acreate', 'openai.Embedding.acreate', self.trace_embedding)
+        instrument_method(openai.Image, 'create', 'openai.Image.create', self.trace_image_generation)
+        instrument_method(openai.Image, 'acreate', 'openai.Image.acreate', self.trace_image_generation)
+        instrument_method(openai.Image, 'create_variation', 'openai.Image.create_variation', self.trace_image_variation)
+        instrument_method(openai.Image, 'acreate_variation', 'openai.Image.acreate_variation', self.trace_image_variation)
+        instrument_method(openai.Image, 'create_edit', 'openai.Image.create_edit', self.trace_image_edit)
+        instrument_method(openai.Image, 'acreate_edit', 'openai.Image.acreate_edit', self.trace_image_edit)
+        instrument_method(openai.Audio, 'transcribe', 'openai.Audio.transcribe', self.trace_audio_transcription)
+        instrument_method(openai.Audio, 'atranscribe', 'openai.Audio.atranscribe', self.trace_audio_transcription)
+        instrument_method(openai.Audio, 'translate', 'openai.Audio.translate', self.trace_audio_translation)
+        instrument_method(openai.Audio, 'atranslate', 'openai.Audio.atranslate', self.trace_audio_translation)
+        instrument_method(openai.Moderation, 'create', 'openai.Moderation.create', self.trace_moderation)
+        instrument_method(openai.Moderation, 'acreate', 'openai.Moderation.acreate', self.trace_moderation)
 
     def shutdown(self):
-        uninstrument_method(openai.Completion, 'create', f'{self._api_base}/completions')
-        uninstrument_method(openai.Completion, 'acreate', f'{self._api_base}/completions')
-        uninstrument_method(openai.ChatCompletion, 'create', f'{self._api_base}/chat/completions')
+        uninstrument_method(openai.Completion, 'create', 'openai.Completion.create')
+        uninstrument_method(openai.Completion, 'acreate', 'openai.Completion.acreate')
+        uninstrument_method(openai.ChatCompletion, 'create', 'openai.ChatCompletion.create')
         uninstrument_method(openai.ChatCompletion, 'acreate', 'openai.ChatCompletion.acreate')
-        uninstrument_method(openai.Edit, 'create', f'{self._api_base}/edits')
-        uninstrument_method(openai.Edit, 'acreate', f'{self._api_base}/edits')
-        uninstrument_method(openai.Embedding, 'create', f'{self._api_base}/embeddings')
-        uninstrument_method(openai.Embedding, 'acreate', f'{self._api_base}/embeddings')
-        uninstrument_method(openai.Image, 'create', f'{self._api_base}/images/generations')
-        uninstrument_method(openai.Image, 'acreate', f'{self._api_base}/images/generations')
-        uninstrument_method(openai.Image, 'create_variation', f'{self._api_base}/images/variations')
-        uninstrument_method(openai.Image, 'acreate_variation', f'{self._api_base}/images/variations')
-        uninstrument_method(openai.Image, 'create_edit', f'{self._api_base}/images/edits')
-        uninstrument_method(openai.Image, 'acreate_edit', f'{self._api_base}/images/edits')
-        uninstrument_method(openai.Audio, 'transcribe', f'{self._api_base}/audio/transcriptions')
-        uninstrument_method(openai.Audio, 'atranscribe', f'{self._api_base}/audio/transcriptions')
-        uninstrument_method(openai.Audio, 'translate', f'{self._api_base}/audio/translations')
-        uninstrument_method(openai.Audio, 'atranslate', f'{self._api_base}/audio/translations')
-        uninstrument_method(openai.Moderation, 'create', f'{self._api_base}/moderations')
-        uninstrument_method(openai.Moderation, 'acreate', f'{self._api_base}/moderations')
+        uninstrument_method(openai.Edit, 'create', 'openai.Edit.create')
+        uninstrument_method(openai.Edit, 'acreate', 'openai.Edit.acreate')
+        uninstrument_method(openai.Embedding, 'create', 'openai.Embedding.create')
+        uninstrument_method(openai.Embedding, 'acreate', 'openai.Embedding.acreate')
+        uninstrument_method(openai.Image, 'create', 'openai.Image.create')
+        uninstrument_method(openai.Image, 'acreate', 'openai.Image.acreate')
+        uninstrument_method(openai.Image, 'create_variation', 'openai.Image.create_variation')
+        uninstrument_method(openai.Image, 'acreate_variation', 'openai.Image.acreate_variation')
+        uninstrument_method(openai.Image, 'create_edit', 'openai.Image.create_edit')
+        uninstrument_method(openai.Image, 'acreate_edit', 'openai.Image.acreate_edit')
+        uninstrument_method(openai.Audio, 'transcribe', 'openai.Audio.transcribe')
+        uninstrument_method(openai.Audio, 'atranscribe', 'openai.Audio.atranscribe')
+        uninstrument_method(openai.Audio, 'translate', 'openai.Audio.translate')
+        uninstrument_method(openai.Audio, 'atranslate', 'openai.Audio.atranslate')
+        uninstrument_method(openai.Moderation, 'create', 'openai.Moderation.create')
+        uninstrument_method(openai.Moderation, 'acreate', 'openai.Moderation.acreate')
 
     def trace_completion(self, trace, args, kwargs, ret, exc):
         params = kwargs # no positional args
+
+        trace.set_tag('endpoint', f'{self._api_base}/completions')
 
         if 'model' in params:
             trace.set_tag('model', params['model'])
@@ -155,6 +157,8 @@ class OpenAIRecorder(BaseRecorder):
     def trace_chat_completion(self, trace, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
+        trace.set_tag('endpoint', f'{self._api_base}/chat/completions')
+
         if 'model' in params:
             trace.set_tag('model', params['model'])
 
@@ -230,6 +234,8 @@ class OpenAIRecorder(BaseRecorder):
     def trace_edits(self, trace, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
+        trace.set_tag('endpoint', f'{self._api_base}/edits')
+
         if 'model' in params:
             trace.set_tag('model', params['model'])
 
@@ -267,6 +273,8 @@ class OpenAIRecorder(BaseRecorder):
     def trace_embedding(self, trace, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
+        trace.set_tag('endpoint', f'{self._api_base}/embeddings')
+
         if 'engine' in params:
             trace.set_tag('model', params['engine'])
 
@@ -293,6 +301,18 @@ class OpenAIRecorder(BaseRecorder):
             trace.set_data('embedding', embedding)
 
     def trace_image_generation(self, trace, args, kwargs, ret, exc):
+        trace.set_tag('endpoint', f'{self._api_base}/images/generations')
+        self.trace_image_endpoint(trace, args, kwargs, ret, exc)
+
+    def trace_image_variation(self, trace, args, kwargs, ret, exc):
+        trace.set_tag('endpoint', f'{self._api_base}/images/variations')
+        self.trace_image_endpoint(trace, args, kwargs, ret, exc)
+
+    def trace_image_edit(self, trace, args, kwargs, ret, exc):
+        trace.set_tag('endpoint', f'{self._api_base}/images/edits')
+        self.trace_image_endpoint(trace, args, kwargs, ret, exc)
+
+    def trace_image_endpoint(self, trace, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
         param_names = [
@@ -318,6 +338,8 @@ class OpenAIRecorder(BaseRecorder):
 
     def trace_audio_transcription(self, trace, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['model', 'file', 'prompt', 'response_format', 'temperature', 'language'])
+
+        trace.set_tag('endpoint', f'{self._api_base}/audio/transcriptions')
 
         if 'model' in params:
             trace.set_tag('model', params['model'])
@@ -348,6 +370,8 @@ class OpenAIRecorder(BaseRecorder):
     def trace_audio_translation(self, trace, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['model', 'file', 'prompt', 'response_format', 'temperature'])
 
+        trace.set_tag('endpoint', f'{self._api_base}/audio/translations')
+
         if 'model' in params:
             trace.set_tag('model', params['model'])
 
@@ -375,6 +399,8 @@ class OpenAIRecorder(BaseRecorder):
 
     def trace_moderation(self, trace, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['input', 'model'])
+
+        trace.set_tag('endpoint', f'{self._api_base}/moderations')
 
         if 'model' in params:
             trace.set_tag('model', params['model'])

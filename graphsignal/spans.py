@@ -33,7 +33,7 @@ def is_current_span(span):
 
 class Span:
     __slots__ = [
-        'endpoint',
+        'operation',
         'trace_id',
         'parent_span',
         'root_span',
@@ -44,8 +44,8 @@ class Span:
 
     MAX_NESTED_SPANS = 250
 
-    def __init__(self, endpoint):
-        self.endpoint = endpoint
+    def __init__(self, operation):
+        self.operation = operation
         self.trace_id = None
         self.root_span = None
         self.parent_span = None
@@ -86,7 +86,7 @@ class Span:
             if is_current_span(self):
                 pop_current_span()
             else:
-                logger.error(f'Span.stop() called on a span that is not the current span {self.endpoint}')
+                logger.error(f'Span.stop() called on a span that is not the current span {self.operation}')
 
     def can_add_child(self):
         return self.in_context and self.root_span.total_count < Span.MAX_NESTED_SPANS

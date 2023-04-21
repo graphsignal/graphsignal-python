@@ -35,7 +35,8 @@ RECORDER_SPECS = {
     'deepspeed': [('graphsignal.recorders.deepspeed_recorder', 'DeepSpeedRecorder')],
     'openai': [('graphsignal.recorders.openai_recorder', 'OpenAIRecorder')],
     'langchain': [('graphsignal.recorders.langchain_recorder', 'LangChainRecorder')],
-    'banana_dev': [('graphsignal.recorders.banana_recorder', 'BananaRecorder')]
+    'banana_dev': [('graphsignal.recorders.banana_recorder', 'BananaRecorder')],
+    'autogpt.prompt': [('graphsignal.recorders.autogpt_recorder', 'AutoGPTRecorder')]
 }
 
 class SourceLoaderWrapper(importlib.abc.SourceLoader):
@@ -48,7 +49,10 @@ class SourceLoaderWrapper(importlib.abc.SourceLoader):
 
     def exec_module(self, module):
         self._loader.exec_module(module)
-        self._agent.initialize_recorders_for_module(module.__name__)
+        try:
+            self._agent.initialize_recorders_for_module(module.__name__)
+        except Exception:
+            logger.error('Error initializing recorders for module %s', module.__name__, exc_info=True)
 
     def load_module(self, fullname):
         self._loader.load_module(fullname)
@@ -72,9 +76,11 @@ class SupportedModuleFinder(importlib.abc.MetaPathFinder):
         if fullname in RECORDER_SPECS:
             try:
                 self._disabled = True
-                loader = importlib.util.find_spec(fullname).loader
-                if loader is not None and isinstance(loader, importlib.abc.SourceLoader):
-                    return importlib.util.spec_from_loader(fullname, SourceLoaderWrapper(loader, self._agent))
+                spec = importlib.util.find_spec(fullname)
+                if spec:
+                    loader = importlib.util.find_spec(fullname).loader
+                    if loader is not None and isinstance(loader, importlib.abc.SourceLoader):
+                        return importlib.util.spec_from_loader(fullname, SourceLoaderWrapper(loader, self._agent))
             except Exception:
                 logger.error('Error patching spec for module %s', fullname, exc_info=True)
             finally:
@@ -207,21 +213,21 @@ class Agent:
             for recorder in recorder_list:
                 yield recorder
 
-    def trace_sampler(self, endpoint):
-        if endpoint in self._trace_samplers:
-            return self._trace_samplers[endpoint]
+    def trace_sampler(self, operation):
+        if operation in self._trace_samplers:
+            return self._trace_samplers[operation]
         else:
-            trace_sampler = self._trace_samplers[endpoint] = TraceSampler()
+            trace_sampler = self._trace_samplers[operation] = TraceSampler()
             return trace_sampler
 
     def metric_store(self):
         return self._metric_store
 
-    def lo_detector(self, endpoint):
-        if endpoint in self._lo_detectors:
-            return self._lo_detectors[endpoint]
+    def lo_detector(self, operation):
+        if operation in self._lo_detectors:
+            return self._lo_detectors[operation]
         else:
-            lo_detector = self._lo_detectors[endpoint] = LatencyOutlierDetector()
+            lo_detector = self._lo_detectors[operation] = LatencyOutlierDetector()
             return lo_detector
 
     def mv_detector(self):

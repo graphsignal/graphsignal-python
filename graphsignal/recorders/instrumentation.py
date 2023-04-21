@@ -8,9 +8,9 @@ import graphsignal
 logger = logging.getLogger('graphsignal')
 
 
-def instrument_method(obj, func_name, endpoint, trace_func, data_func=None):
+def instrument_method(obj, func_name, operation, trace_func, data_func=None):
     def before_func(args, kwargs):
-        return dict(trace=graphsignal.start_trace(endpoint=endpoint))
+        return dict(trace=graphsignal.start_trace(operation=operation))
 
     def after_func(args, kwargs, ret, exc, context):
         trace = context['trace']
@@ -39,12 +39,12 @@ def instrument_method(obj, func_name, endpoint, trace_func, data_func=None):
                 data_func(trace, item)
 
     if not patch_method(obj, func_name, before_func=before_func, after_func=after_func, yield_func=yield_func):
-        logger.debug('Cannot instrument %s.', endpoint)
+        logger.debug('Cannot instrument %s.', operation)
 
 
-def uninstrument_method(obj, func_name, endpoint):
+def uninstrument_method(obj, func_name, operation):
     if not unpatch_method(obj, func_name):
-        logger.debug('Cannot uninstrument %s.', endpoint)
+        logger.debug('Cannot uninstrument %s.', operation)
 
 
 def patch_method(obj, func_name, before_func=None, after_func=None, yield_func=None):

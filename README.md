@@ -46,7 +46,7 @@ graphsignal.configure(api_key='my-api-key', deployment='my-model-prod-v1')
 
 To get an API key, sign up for a free account at [graphsignal.com](https://graphsignal.com). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.com/settings/api-keys) page.
 
-Alternatively, you can add Graphsignal tracer at command line, when running your module or script. Please note that `GRAPHSIGNAL_API_KEY` and `GRAPHSIGNAL_DEPLOYMENT` environment variables must be set.
+Alternatively, you can add Graphsignal tracer at command line, when running your module or script. Environment variables `GRAPHSIGNAL_API_KEY` and `GRAPHSIGNAL_DEPLOYMENT` must be set.
 
 ```bash
 python -m graphsignal <script>
@@ -69,7 +69,7 @@ Graphsignal **auto-instruments** and traces libraries and frameworks, such as [O
 To measure and monitor any other executions, e.g. model inference or inference API calls, wrap the code with [`start_trace`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method or use [`trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
 
 ```python
-with graphsignal.start_trace(endpoint='predict'):
+with graphsignal.start_trace('predict'):
     pred = model(x)
 ```
 
@@ -83,7 +83,7 @@ Enable profiling to additionally record code-level statistics. Profiling is disa
 
 ```python
 with graphsignal.start_trace(
-        endpoint='predict', 
+        operation='predict', 
         options=graphsignal.TraceOptions(enable_profiling=True)):
     pred = model(x)
 ```
@@ -93,15 +93,15 @@ The tracer will automatically choose a profiler depending on available modules. 
 
 ### Exception tracking
 
-For auto-instrumented libraries, or when using `trace_function` decorator, `start_trace` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`Trace.set_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalendpointtraceset_exception) method.
+For auto-instrumented libraries, or when using `trace_function` decorator, `start_trace` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`Trace.set_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignaltraceset_exception) method.
 
 
 ### Data monitoring
 
-Data is automatically monitored for auto-instrumented libraries. To track data metrics and record data profiles for other cases, [`Trace.set_data`](https://graphsignal.com/docs/reference/python-api/#graphsignalendpointtraceset_data) method can be used.
+Data is automatically monitored for auto-instrumented libraries. To track data metrics and record data profiles for other cases, [`Trace.set_data`](https://graphsignal.com/docs/reference/python-api/#graphsignaltraceset_data) method can be used.
 
 ```python
-with graphsignal.start_trace(endpoint='predict') as trace:
+with graphsignal.start_trace('predict') as trace:
     trace.set_data('input', input_data)
 ```
 
