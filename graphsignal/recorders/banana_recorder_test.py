@@ -78,12 +78,23 @@ class BananaRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(proto.frameworks[0].name, 'Banana Python SDK')
 
+        self.assertEqual(find_tag(proto, 'component'), 'Model')
+        self.assertEqual(find_tag(proto, 'operation'), 'banana.run')
+        self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.banana.dev')
+
         self.assertEqual(find_param(proto, 'model_key'), 'model-key-1')
 
         self.assertEqual(find_data_count(proto, 'model_inputs', 'byte_count'), 24.0)
         self.assertEqual(find_data_count(proto, 'model_inputs', 'element_count'), 2.0)
         self.assertEqual(find_data_count(proto, 'model_outputs', 'byte_count'), 65.0)
         self.assertEqual(find_data_count(proto, 'model_outputs', 'element_count'), 2.0)
+
+
+def find_tag(proto, key):
+    for tag in proto.tags:
+        if tag.key == key:
+            return tag.value
+    return None
 
 
 def find_param(proto, name):

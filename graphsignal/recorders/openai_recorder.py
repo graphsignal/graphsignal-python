@@ -79,6 +79,7 @@ class OpenAIRecorder(BaseRecorder):
     def trace_completion(self, trace, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
+        trace.set_tag('component', 'LLM')
         trace.set_tag('endpoint', f'{self._api_base}/completions')
 
         if 'model' in params:
@@ -157,6 +158,7 @@ class OpenAIRecorder(BaseRecorder):
     def trace_chat_completion(self, trace, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
+        trace.set_tag('component', 'LLM')
         trace.set_tag('endpoint', f'{self._api_base}/chat/completions')
 
         if 'model' in params:
@@ -234,6 +236,7 @@ class OpenAIRecorder(BaseRecorder):
     def trace_edits(self, trace, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
+        trace.set_tag('component', 'LLM')
         trace.set_tag('endpoint', f'{self._api_base}/edits')
 
         if 'model' in params:
@@ -273,6 +276,7 @@ class OpenAIRecorder(BaseRecorder):
     def trace_embedding(self, trace, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
+        trace.set_tag('component', 'LLM')
         trace.set_tag('endpoint', f'{self._api_base}/embeddings')
 
         if 'engine' in params:
@@ -315,6 +319,8 @@ class OpenAIRecorder(BaseRecorder):
     def trace_image_endpoint(self, trace, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
+        trace.set_tag('component', 'Model')
+
         param_names = [
             'n',
             'size',
@@ -339,6 +345,7 @@ class OpenAIRecorder(BaseRecorder):
     def trace_audio_transcription(self, trace, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['model', 'file', 'prompt', 'response_format', 'temperature', 'language'])
 
+        trace.set_tag('component', 'Model')
         trace.set_tag('endpoint', f'{self._api_base}/audio/transcriptions')
 
         if 'model' in params:
@@ -370,6 +377,7 @@ class OpenAIRecorder(BaseRecorder):
     def trace_audio_translation(self, trace, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['model', 'file', 'prompt', 'response_format', 'temperature'])
 
+        trace.set_tag('component', 'Model')
         trace.set_tag('endpoint', f'{self._api_base}/audio/translations')
 
         if 'model' in params:
@@ -400,6 +408,7 @@ class OpenAIRecorder(BaseRecorder):
     def trace_moderation(self, trace, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['input', 'model'])
 
+        trace.set_tag('component', 'Model')
         trace.set_tag('endpoint', f'{self._api_base}/moderations')
 
         if 'model' in params:

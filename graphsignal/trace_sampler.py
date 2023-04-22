@@ -4,35 +4,19 @@ import time
 logger = logging.getLogger('graphsignal')
 
 class TraceSampler:
-    MIN_INTERVAL_SEC = 60
+    MAX_SAMPLES_PER_SECOND = 0.1
+    EXTRA_SAMPLES = 100
 
     def __init__(self):
-        self._current_trace_idx = 0
-        self._trace_counters = {}
-        self._last_reset_ts = time.time()
+        self._num_sampled = {}
+        self._start_ts = time.time()
 
-    def sample(self, group, limit_per_interval=1, limit_after=10):
-        self._current_trace_idx += 1
+    def sample(self, group):
+        seconds_since_start = time.time() - self._start_ts
 
-        sampled_trace_idx = self._current_trace_idx
-
-        now = time.time()
-
-        # reset counters
-        if now - self._last_reset_ts > self.MIN_INTERVAL_SEC:
-            self._trace_counters = {}
-            self._last_reset_ts = time.time()
-
-        # check counters
-        if group in self._trace_counters:
-            self._trace_counters[group] += 1
-        else:
-            self._trace_counters[group] = 1
-        if self._trace_counters[group] <= limit_per_interval:
+        num_sampled = self._num_sampled.get(group, 0)
+        if num_sampled - self.EXTRA_SAMPLES < seconds_since_start * self.MAX_SAMPLES_PER_SECOND:
+            self._num_sampled[group] = num_sampled + 1
             return True
-
-        # check include_trace_idx
-        if sampled_trace_idx <= limit_after:
-            return True
-
+        
         return False

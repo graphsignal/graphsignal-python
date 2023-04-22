@@ -35,6 +35,8 @@ class AutoGPTRecorder(BaseRecorder):
     def trace_chat_with_ai(self, trace, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['prompt', 'user_input', 'full_message_history', 'permanent_memory', 'token_limit'])
 
+        trace.set_tag('component', 'Agent')
+
         if not self._is_instrumented_get_relevant:
             self._is_instrumented_get_relevant = True
             if params['permanent_memory']:
@@ -59,6 +61,8 @@ class AutoGPTRecorder(BaseRecorder):
     def trace_execute_command(self, trace, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['command', 'arguments'])
 
+        trace.set_tag('component', 'Tool')
+
         if 'command' in params:
             trace.set_param('command', params['command'])
         if 'arguments' in params:
@@ -67,6 +71,8 @@ class AutoGPTRecorder(BaseRecorder):
     def trace_memory_get_relevant(self, trace, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['data', 'num_relevant'])
 
+        trace.set_tag('component', 'Agent memory')
+
         if 'data' in params:
             trace.set_data('data', params['data'])
         if 'num_relevant' in params:
@@ -74,6 +80,8 @@ class AutoGPTRecorder(BaseRecorder):
 
     def trace_memory_add(self, trace, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['data'])
+
+        trace.set_tag('component', 'Agent memory')
 
         if 'data' in params:
             trace.set_data('data', params['data'])

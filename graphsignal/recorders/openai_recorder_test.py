@@ -91,6 +91,10 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
 
+        self.assertEqual(find_tag(proto, 'component'), 'LLM')
+        self.assertEqual(find_tag(proto, 'operation'), 'openai.Completion.create')
+        self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/completions')
+
         self.assertEqual(find_param(proto, 'model'), 'text-davinci-003')
         self.assertEqual(find_param(proto, 'max_tokens'), '1024')
         self.assertEqual(find_param(proto, 'temperature'), '0.1')
@@ -223,6 +227,10 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
 
+        self.assertEqual(find_tag(proto, 'component'), 'LLM')
+        self.assertEqual(find_tag(proto, 'operation'), 'openai.Completion.acreate')
+        self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/completions')
+
         self.assertEqual(find_param(proto, 'model'), 'text-davinci-003')
         self.assertEqual(find_param(proto, 'max_tokens'), '1024')
         self.assertEqual(find_param(proto, 'temperature'), '0.1')
@@ -291,6 +299,10 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
+
+        self.assertEqual(find_tag(proto, 'component'), 'LLM')
+        self.assertEqual(find_tag(proto, 'operation'), 'openai.ChatCompletion.create')
+        self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/chat/completions')
 
         self.assertEqual(find_param(proto, 'model'), 'gpt-3.5-turbo')
         self.assertEqual(find_param(proto, 'max_tokens'), '1024')
@@ -418,6 +430,10 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
 
+        self.assertEqual(find_tag(proto, 'component'), 'LLM')
+        self.assertEqual(find_tag(proto, 'operation'), 'openai.Edit.create')
+        self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/edits')
+
         self.assertEqual(find_param(proto, 'model'), 'text-davinci-edit-001')
         self.assertEqual(find_param(proto, 'temperature'), '0.1')
         self.assertEqual(find_param(proto, 'top_p'), '1')
@@ -478,6 +494,10 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
 
+        self.assertEqual(find_tag(proto, 'component'), 'LLM')
+        self.assertEqual(find_tag(proto, 'operation'), 'openai.Embedding.create')
+        self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/embeddings')
+
         self.assertEqual(find_param(proto, 'engine'), 'text-embedding-ada-002')
 
         self.assertEqual(find_data_count(proto, 'input', 'byte_count'), 22.0)
@@ -514,6 +534,10 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
+
+        self.assertEqual(find_tag(proto, 'component'), 'Model')
+        self.assertEqual(find_tag(proto, 'operation'), 'openai.Image.create')
+        self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/images/generations')
 
         self.assertEqual(find_param(proto, 'n'), '1')
         self.assertEqual(find_param(proto, 'size'), '256x256')
@@ -552,6 +576,10 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
+
+        self.assertEqual(find_tag(proto, 'component'), 'Model')
+        self.assertEqual(find_tag(proto, 'operation'), 'openai.Audio.transcribe')
+        self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/audio/transcriptions')
 
         self.assertEqual(find_param(proto, 'model'), 'whisper-1')
         self.assertEqual(find_param(proto, 'response_format'), 'json')
@@ -592,6 +620,10 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
+
+        self.assertEqual(find_tag(proto, 'component'), 'Model')
+        self.assertEqual(find_tag(proto, 'operation'), 'openai.Audio.translate')
+        self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/audio/translations')
 
         self.assertEqual(find_param(proto, 'model'), 'whisper-1')
         self.assertEqual(find_param(proto, 'response_format'), 'json')
@@ -647,10 +679,21 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
 
+        self.assertEqual(find_tag(proto, 'component'), 'Model')
+        self.assertEqual(find_tag(proto, 'operation'), 'openai.Moderation.create')
+        self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/moderations')
+
         self.assertEqual(find_param(proto, 'model'), 'text-moderation-latest')
 
         self.assertEqual(find_data_count(proto, 'input', 'byte_count'), 9.0)
         self.assertEqual(find_data_count(proto, 'input', 'element_count'), 1.0)
+
+
+def find_tag(proto, key):
+    for tag in proto.tags:
+        if tag.key == key:
+            return tag.value
+    return None
 
 
 def find_param(proto, name):
