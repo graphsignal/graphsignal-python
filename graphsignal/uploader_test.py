@@ -44,17 +44,31 @@ class UploaderTest(unittest.TestCase):
         graphsignal._agent.uploader().flush()
 
         mocked_post.assert_called_once()
-        self.assertEqual(len(graphsignal._agent.uploader().buffer), 0)
+        self.assertEqual(len(graphsignal._agent.uploader()._buffer), 0)
 
-    @patch.object(Uploader, '_post',
-                  return_value=signals_pb2.UploadResponse().SerializeToString())
+    @patch.object(Uploader, '_post', return_value=signals_pb2.UploadResponse().SerializeToString())
     def test_flush_in_thread(self, mocked_post):
+        graphsignal._agent.uploader().FLUSH_DELAY_SEC = 0.01
         proto = signals_pb2.Trace()
         graphsignal._agent.uploader().upload_trace(proto)
         graphsignal._agent.uploader().flush_in_thread()
+        time.sleep(0.1)
 
         mocked_post.assert_called_once()
-        self.assertEqual(len(graphsignal._agent.uploader().buffer), 0)
+        self.assertEqual(len(graphsignal._agent.uploader()._buffer), 0)
+
+    @patch.object(Uploader, '_post', return_value=signals_pb2.UploadResponse().SerializeToString())
+    def test_flush_in_thread_cancelled(self, mocked_post):
+        graphsignal._agent.uploader().FLUSH_DELAY_SEC = 5
+        proto = signals_pb2.Trace()
+        graphsignal._agent.uploader().upload_trace(proto)
+        graphsignal._agent.uploader().flush_in_thread()
+        self.assertIsNotNone(graphsignal._agent.uploader()._flush_timer)
+        graphsignal._agent.uploader().flush()
+        self.assertIsNone(graphsignal._agent.uploader()._flush_timer)
+
+        mocked_post.assert_called_once()
+        self.assertEqual(len(graphsignal._agent.uploader()._buffer), 0)
 
     @patch.object(Uploader, '_post')
     def test_flush_fail(self, mocked_post):
@@ -67,7 +81,7 @@ class UploaderTest(unittest.TestCase):
         graphsignal._agent.uploader().upload_trace(proto)
         graphsignal._agent.uploader().flush()
 
-        self.assertEqual(len(graphsignal._agent.uploader().buffer), 2)
+        self.assertEqual(len(graphsignal._agent.uploader()._buffer), 2)
 
     def test_post(self):
         graphsignal._agent.api_url = 'http://localhost:5005'

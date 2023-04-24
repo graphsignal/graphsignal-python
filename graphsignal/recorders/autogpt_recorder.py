@@ -49,12 +49,6 @@ class AutoGPTRecorder(BaseRecorder):
                     params['permanent_memory'].__class__.__name__ + '.add',
                     self.trace_memory_add)
 
-        if 'prompt' in params and isinstance(params['prompt'], str):
-            trace.set_data('prompt', params['prompt'])
-        if 'user_input' in params and isinstance(params['user_input'], str):
-            trace.set_data('user_input', params['user_input'])
-        if 'full_message_history' in params and isinstance(params['full_message_history'], list):
-            trace.set_data('full_message_history', params['full_message_history'])
         if 'token_limit' in params:
             trace.set_param('token_limit', params['token_limit'])
 
@@ -71,17 +65,19 @@ class AutoGPTRecorder(BaseRecorder):
     def trace_memory_get_relevant(self, trace, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['data', 'num_relevant'])
 
-        trace.set_tag('component', 'Agent memory')
+        trace.set_tag('component', 'Memory')
 
         if 'data' in params:
             trace.set_data('data', params['data'])
+        if ret:
+            trace.set_data('result', ret)
         if 'num_relevant' in params:
             trace.set_param('num_relevant', params['num_relevant'])
 
     def trace_memory_add(self, trace, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['data'])
 
-        trace.set_tag('component', 'Agent memory')
+        trace.set_tag('component', 'Memory')
 
         if 'data' in params:
             trace.set_data('data', params['data'])

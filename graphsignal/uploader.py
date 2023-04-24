@@ -21,18 +21,20 @@ logger = logging.getLogger('graphsignal')
 
 class Uploader:
     MAX_BUFFER_SIZE = 10000
+    FLUSH_DELAY_SEC = 5
 
     def __init__(self):
-        self.buffer = []
-        self.buffer_lock = threading.Lock()
-        self.flush_lock = threading.Lock()
+        self._buffer = []
+        self._buffer_lock = threading.Lock()
+        self._flush_lock = threading.Lock()
+        self._flush_timer = None
 
     def setup(self):
         pass
 
     def clear(self):
-        with self.buffer_lock:
-            self.buffer = []
+        with self._buffer_lock:
+            self._buffer = []
 
     def upload_trace(self, trace):
         self.upload_signal(trace)
@@ -41,21 +43,27 @@ class Uploader:
         self.upload_signal(metric)
 
     def upload_signal(self, signal):
-        with self.buffer_lock:
-            self.buffer.append(signal)
-            if len(self.buffer) > self.MAX_BUFFER_SIZE:
-                self.buffer = self.buffer[-self.MAX_BUFFER_SIZE:]
+        with self._buffer_lock:
+            self._buffer.append(signal)
+            if len(self._buffer) > self.MAX_BUFFER_SIZE:
+                self._buffer = self._buffer[-self.MAX_BUFFER_SIZE:]
 
     def flush_in_thread(self):
-        threading.Thread(target=self.flush).start()
+        if self._flush_timer is None:
+            self._flush_timer = threading.Timer(self.FLUSH_DELAY_SEC, self.flush)
+            self._flush_timer.start()
 
     def flush(self):
-        with self.flush_lock:
-            with self.buffer_lock:
-                if len(self.buffer) == 0:
+        with self._flush_lock:
+            if self._flush_timer is not None:
+                self._flush_timer.cancel()
+            self._flush_timer = None
+
+            with self._buffer_lock:
+                if len(self._buffer) == 0:
                     return
-                outgoing = self.buffer
-                self.buffer = []
+                outgoing = self._buffer
+                self._buffer = []
             try:
                 upload_start = time.time()
                 payload = _create_upload_request(outgoing)
@@ -64,8 +72,8 @@ class Uploader:
                 logger.debug('Upload took %.3f sec (%dB)', time.time() - upload_start, len(payload))
             except URLError:
                 logger.debug('Failed uploading signals, will retry', exc_info=True)
-                with self.buffer_lock:
-                    self.buffer[:0] = outgoing
+                with self._buffer_lock:
+                    self._buffer[:0] = outgoing
             except Exception:
                 logger.error('Error uploading signals', exc_info=True)
 

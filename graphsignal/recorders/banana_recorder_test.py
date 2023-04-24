@@ -86,8 +86,8 @@ class BananaRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(find_data_count(proto, 'model_inputs', 'byte_count'), 24.0)
         self.assertEqual(find_data_count(proto, 'model_inputs', 'element_count'), 2.0)
-        self.assertEqual(find_data_count(proto, 'model_outputs', 'byte_count'), 65.0)
-        self.assertEqual(find_data_count(proto, 'model_outputs', 'element_count'), 2.0)
+        self.assertEqual(find_data_count(proto, 'model_outputs', 'byte_count'), 151.0)
+        self.assertEqual(find_data_count(proto, 'model_outputs', 'element_count'), 6.0)
 
 
 def find_tag(proto, key):

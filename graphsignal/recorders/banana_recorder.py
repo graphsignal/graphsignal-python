@@ -42,8 +42,8 @@ class BananaRecorder(BaseRecorder):
         if 'model_inputs' in params:
             trace.set_data('model_inputs', params['model_inputs'])
 
-        if ret and 'modelOutputs' in ret:
-            trace.set_data('model_outputs', ret['modelOutputs'])
+        if ret:
+            trace.set_data('model_outputs', ret)
 
     def on_trace_start(self, proto, context, options):
         pass

@@ -18,5 +18,5 @@ class TraceSampler:
         if num_sampled - self.EXTRA_SAMPLES < seconds_since_start * self.MAX_SAMPLES_PER_SECOND:
             self._num_sampled[group] = num_sampled + 1
             return True
-        
+
         return False

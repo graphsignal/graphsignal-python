@@ -125,17 +125,15 @@ class OpenAIRecorder(BaseRecorder):
         if 'prompt' in params:
             trace.set_data('prompt', params['prompt'], counts=prompt_usage)
 
-        if ret and 'choices' in ret:
-            completion = []
-            for choice in ret['choices']:
-                if 'finish_reason' in choice:
-                    if choice['finish_reason'] == 'stop':
-                        completion_usage['finish_reason_stop'] += 1
-                    elif choice['finish_reason'] == 'length':
-                        completion_usage['finish_reason_length'] += 1
-                if 'text' in choice:
-                    completion.append(choice['text'])
-            trace.set_data('completion', completion, counts=completion_usage)
+        if ret:
+            if 'choices' in ret:
+                for choice in ret['choices']:
+                    if 'finish_reason' in choice:
+                        if choice['finish_reason'] == 'stop':
+                            completion_usage['finish_reason_stop'] += 1
+                        elif choice['finish_reason'] == 'length':
+                            completion_usage['finish_reason_length'] += 1
+            trace.set_data('completion', ret, counts=completion_usage)
 
     def trace_completion_data(self, trace, item):
         completion_usage = {
@@ -203,17 +201,15 @@ class OpenAIRecorder(BaseRecorder):
         if 'messages' in params:
             trace.set_data('messages', params['messages'], counts=prompt_usage)
 
-        if ret and 'choices' in ret:
-            completion = []
-            for choice in ret['choices']:
-                if 'finish_reason' in choice:
-                    if choice['finish_reason'] == 'stop':
-                        completion_usage['finish_reason_stop'] += 1
-                    elif choice['finish_reason'] == 'length':
-                        completion_usage['finish_reason_length'] += 1
-                if 'message' in choice and 'content' in choice['message']:
-                    completion.append(choice['message']['content'])
-            trace.set_data('completion', completion, counts=completion_usage)
+        if ret:
+            if 'choices' in ret:
+                for choice in ret['choices']:
+                    if 'finish_reason' in choice:
+                        if choice['finish_reason'] == 'stop':
+                            completion_usage['finish_reason_stop'] += 1
+                        elif choice['finish_reason'] == 'length':
+                            completion_usage['finish_reason_length'] += 1
+            trace.set_data('completion', ret, counts=completion_usage)
 
     def trace_chat_completion_data(self, trace, item):
         completion_usage = {
