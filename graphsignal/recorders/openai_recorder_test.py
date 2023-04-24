@@ -94,6 +94,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_tag(proto, 'component'), 'LLM')
         self.assertEqual(find_tag(proto, 'operation'), 'openai.Completion.create')
         self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/completions')
+        self.assertEqual(find_tag(proto, 'model'), 'text-davinci-003')
 
         self.assertEqual(find_param(proto, 'model'), 'text-davinci-003')
         self.assertEqual(find_param(proto, 'max_tokens'), '1024')
@@ -230,6 +231,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_tag(proto, 'component'), 'LLM')
         self.assertEqual(find_tag(proto, 'operation'), 'openai.Completion.acreate')
         self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/completions')
+        self.assertEqual(find_tag(proto, 'model'), 'text-davinci-003')
 
         self.assertEqual(find_param(proto, 'model'), 'text-davinci-003')
         self.assertEqual(find_param(proto, 'max_tokens'), '1024')
@@ -303,6 +305,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_tag(proto, 'component'), 'LLM')
         self.assertEqual(find_tag(proto, 'operation'), 'openai.ChatCompletion.create')
         self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/chat/completions')
+        self.assertEqual(find_tag(proto, 'model'), 'gpt-3.5-turbo')
 
         self.assertEqual(find_param(proto, 'model'), 'gpt-3.5-turbo')
         self.assertEqual(find_param(proto, 'max_tokens'), '1024')
@@ -433,6 +436,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_tag(proto, 'component'), 'LLM')
         self.assertEqual(find_tag(proto, 'operation'), 'openai.Edit.create')
         self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/edits')
+        self.assertEqual(find_tag(proto, 'model'), 'text-davinci-edit-001')
 
         self.assertEqual(find_param(proto, 'model'), 'text-davinci-edit-001')
         self.assertEqual(find_param(proto, 'temperature'), '0.1')
@@ -443,8 +447,8 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_count(proto, 'instruction', 'byte_count'), 18.0)
         self.assertEqual(find_data_count(proto, 'instruction', 'element_count'), 1.0)
         self.assertEqual(find_data_count(proto, 'instruction', 'token_count'), 18.0)
-        self.assertEqual(find_data_count(proto, 'edits', 'byte_count'), 32.0)
-        self.assertEqual(find_data_count(proto, 'edits', 'element_count'), 1.0)
+        self.assertEqual(find_data_count(proto, 'edits', 'byte_count'), 176.0)
+        self.assertEqual(find_data_count(proto, 'edits', 'element_count'), 7.0)
         self.assertEqual(find_data_count(proto, 'edits', 'token_count'), 13.0)
 
     @patch.object(Uploader, 'upload_trace')
@@ -475,7 +479,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
                     "object": "embedding"
                     }
                 ],
-                "model": "text-embedding-ada-002-v2",
+                "model": "text-embedding-ada-002",
                 "object": "list",
                 "usage": {
                     "prompt_tokens": 8,
@@ -484,7 +488,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
             }
 
         response = openai.Embedding.create(
-            engine="text-embedding-ada-002", 
+            model="text-embedding-ada-002",
             input=['test text 1', 'test text 2'])
 
         recorder.shutdown()
@@ -497,14 +501,15 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_tag(proto, 'component'), 'LLM')
         self.assertEqual(find_tag(proto, 'operation'), 'openai.Embedding.create')
         self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/embeddings')
+        self.assertEqual(find_tag(proto, 'model'), 'text-embedding-ada-002')
 
-        self.assertEqual(find_param(proto, 'engine'), 'text-embedding-ada-002')
+        self.assertEqual(find_param(proto, 'model'), 'text-embedding-ada-002')
 
         self.assertEqual(find_data_count(proto, 'input', 'byte_count'), 22.0)
         self.assertEqual(find_data_count(proto, 'input', 'element_count'), 2.0)
         self.assertEqual(find_data_count(proto, 'input', 'token_count'), 8.0)
-        self.assertEqual(find_data_count(proto, 'embedding', 'byte_count'), 144.0)
-        self.assertEqual(find_data_count(proto, 'embedding', 'element_count'), 6.0)
+        self.assertEqual(find_data_count(proto, 'embedding', 'byte_count'), 296.0)
+        self.assertEqual(find_data_count(proto, 'embedding', 'element_count'), 14.0)
 
     @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Image, 'create')

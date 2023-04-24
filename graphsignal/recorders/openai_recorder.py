@@ -262,12 +262,8 @@ class OpenAIRecorder(BaseRecorder):
         if 'instruction' in params:
             trace.set_data('instruction', params['instruction'], counts=prompt_usage)
 
-        if ret and 'choices' in ret:
-            edits = []
-            for choice in ret['choices']:
-                if 'text' in choice:
-                    edits.append(choice['text'])
-            trace.set_data('edits', edits, counts=completion_usage)
+        if ret:
+            trace.set_data('edits', ret, counts=completion_usage)
 
     def trace_embedding(self, trace, args, kwargs, ret, exc):
         params = kwargs # no positional args
@@ -275,17 +271,20 @@ class OpenAIRecorder(BaseRecorder):
         trace.set_tag('component', 'LLM')
         trace.set_tag('endpoint', f'{self._api_base}/embeddings')
 
-        if 'engine' in params:
-            trace.set_tag('model', params['engine'])
+        if 'model' in params:
+            trace.set_tag('model', params['model'])
 
         param_names = [
-            'engine'
+            'model'
         ]
         for param_name in param_names:
             if param_name in params:
                 trace.set_param(param_name, params[param_name])
 
         prompt_usage = {}
+        if 'model' in ret:
+            trace.set_tag('model', ret['model'])
+
         if 'usage' in ret:
             if 'prompt_tokens' in ret['usage']:
                 prompt_usage['token_count'] = ret['usage']['prompt_tokens']
@@ -293,12 +292,8 @@ class OpenAIRecorder(BaseRecorder):
         if 'input' in params:
             trace.set_data('input', params['input'], counts=prompt_usage)
 
-        if ret and 'data' in ret:
-            embedding = []
-            for choice in ret['data']:
-                if 'embedding' in choice:
-                    embedding.append(choice['embedding'])
-            trace.set_data('embedding', embedding)
+        if ret:
+            trace.set_data('embedding', ret)
 
     def trace_image_generation(self, trace, args, kwargs, ret, exc):
         trace.set_tag('endpoint', f'{self._api_base}/images/generations')
