@@ -175,9 +175,11 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         #pp.pprint(MessageToJson(proto))
         self.assertEqual(find_data_count(proto, 'prompt', 'byte_count'), 37.0)
         self.assertEqual(find_data_count(proto, 'prompt', 'element_count'), 2.0)
+        self.assertEqual(find_data_count(proto, 'prompt', 'token_count'), 9.0)
         self.assertEqual(find_data_count(proto, 'completion', 'byte_count'), 4.0)
         self.assertEqual(find_data_count(proto, 'completion', 'element_count'), 2.0)
         self.assertEqual(find_data_count(proto, 'completion', 'finish_reason_stop'), 1.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'token_count'), 2.0)
 
     @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Completion, 'acreate')
@@ -370,10 +372,23 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         mocked_create.return_value = test_ret_gen()
 
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo", 
+            model="gpt-4", 
             messages=[
-                {'role': 'system', 'content': 'count 1 to 3'}, 
-                {'role': 'system', 'content': 'generate 2 random letters'}],            
+                {
+                    "role": "system",
+                    "content": "You are a helpful.",
+                },
+                {
+                    "role": "system",
+                    "name": "example_user",
+                    "content": "New synergies will help drive top-line growth.",
+                },
+                {
+                    "role": "user",
+                    "name": "example",
+                    "content": "This late pivot means.",
+                }
+            ],            
             temperature=0.1,
             top_p=1,
             max_tokens=1024,
@@ -390,11 +405,13 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
-        self.assertEqual(find_data_count(proto, 'messages', 'byte_count'), 49.0)
-        self.assertEqual(find_data_count(proto, 'messages', 'element_count'), 4.0)
+        self.assertEqual(find_data_count(proto, 'messages', 'byte_count'), 121.0)
+        self.assertEqual(find_data_count(proto, 'messages', 'element_count'), 8.0)
+        self.assertEqual(find_data_count(proto, 'messages', 'token_count'), 40.0)
         self.assertEqual(find_data_count(proto, 'completion', 'byte_count'), 4.0)
         self.assertEqual(find_data_count(proto, 'completion', 'element_count'), 2.0)
         self.assertEqual(find_data_count(proto, 'completion', 'finish_reason_stop'), 1.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'token_count'), 2.0)
 
     @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.Edit, 'create')

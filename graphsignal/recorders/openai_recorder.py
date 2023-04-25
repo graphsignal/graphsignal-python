@@ -3,6 +3,7 @@ import sys
 import os
 import time
 import types
+import importlib
 import openai
 
 import graphsignal
@@ -11,13 +12,31 @@ from graphsignal.recorders.base_recorder import BaseRecorder
 from graphsignal.recorders.instrumentation import instrument_method, uninstrument_method, read_args
 from graphsignal.proto_utils import parse_semver, compare_semver
 from graphsignal.proto import signals_pb2
-from graphsignal.proto_utils import add_framework_param, add_driver
 
 logger = logging.getLogger('graphsignal')
 
 class OpenAIRecorder(BaseRecorder):
     def __init__(self):
         self._framework = None
+        self._cached_encodings = {}
+        self._extra_content_tokens = {
+            'gpt-3.5-turbo': 4,
+            'gpt-3.5-turbo-0301': 4,
+            'gpt-4': 3,
+            'gpt-4-0314': 3
+        }
+        self._extra_name_tokens = {
+            'gpt-3.5-turbo': -1,
+            'gpt-3.5-turbo-0301': 1,
+            'gpt-4': 1,
+            'gpt-4-0314': 1
+        }
+        self._extra_reply_tokens = {
+            'gpt-3.5-turbo': 3,
+            'gpt-3.5-turbo-0301': 3,
+            'gpt-4': 3,
+            'gpt-4-0314': 3
+        }
 
     def setup(self):
         if not graphsignal._agent.auto_instrument:
@@ -76,6 +95,28 @@ class OpenAIRecorder(BaseRecorder):
         uninstrument_method(openai.Moderation, 'create', 'openai.Moderation.create')
         uninstrument_method(openai.Moderation, 'acreate', 'openai.Moderation.acreate')
 
+    def count_tokens(self, model, text):
+        if model not in self._cached_encodings:
+            try:
+                tiktoken = importlib.import_module('tiktoken')
+                encoding = tiktoken.encoding_for_model(model)
+                self._cached_encodings[model] = encoding
+                if encoding:
+                    logger.debug('Cached encoding for model %s', model)
+                else:
+                    logger.debug('No encoding returned for model %s', model)
+            except ModuleNotFoundError:
+                self._cached_encodings[model] = None
+                logger.debug('tiktoken not installed, will not count OpenAI stream tokens.')
+            except Exception:
+                self._cached_encodings[model] = None
+                logger.error('Error using tiktoken for model %s', model, exc_info=True)
+
+        encoding = self._cached_encodings.get(model, None)
+        if encoding:
+            return len(encoding.encode(text))
+        return None
+
     def trace_completion(self, trace, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
@@ -104,8 +145,21 @@ class OpenAIRecorder(BaseRecorder):
                 trace.set_param(param_name, params[param_name])
 
         if 'stream' in params and params['stream']:
-            if 'prompt' in params:
-                trace.set_data('prompt', params['prompt'])
+            if 'model' in params and 'prompt' in params:
+                prompt_usage = {
+                    'token_count': 0
+                }
+                if not exc:
+                    if isinstance(params['prompt'], str):
+                        prompt_tokens = self.count_tokens(params['model'], params['prompt'])
+                        if prompt_tokens:
+                            prompt_usage['token_count'] = prompt_tokens
+                    elif isinstance(params['prompt'], list):
+                        for prompt in params['prompt']:
+                            prompt_tokens = self.count_tokens(params['model'], prompt)
+                            if prompt_tokens:
+                                prompt_usage['token_count'] += prompt_tokens
+                trace.set_data('prompt', params['prompt'], counts=prompt_usage)
             return
 
         if ret and 'model' in ret:
@@ -116,7 +170,7 @@ class OpenAIRecorder(BaseRecorder):
             'finish_reason_stop': 0,
             'finish_reason_length': 0
         }
-        if ret and 'usage' in ret:
+        if ret and 'usage' in ret and not exc:
             if 'prompt_tokens' in ret['usage']:
                 prompt_usage['token_count'] = ret['usage']['prompt_tokens']
             if 'completion_tokens' in ret['usage']:
@@ -138,7 +192,8 @@ class OpenAIRecorder(BaseRecorder):
     def trace_completion_data(self, trace, item):
         completion_usage = {
             'finish_reason_stop': 0,
-            'finish_reason_length': 0
+            'finish_reason_length': 0,
+            'token_count': 0
         }
         if item and 'choices' in item:
             completion = []
@@ -148,6 +203,7 @@ class OpenAIRecorder(BaseRecorder):
                         completion_usage['finish_reason_stop'] += 1
                     elif choice['finish_reason'] == 'length':
                         completion_usage['finish_reason_length'] += 1
+                completion_usage['token_count'] += 1
                 if 'text' in choice:
                     completion.append(choice['text'])
 
@@ -180,8 +236,32 @@ class OpenAIRecorder(BaseRecorder):
                 trace.set_param(param_name, params[param_name])
 
         if 'stream' in params and params['stream']:
-            if 'messages' in params:
-                trace.set_data('messages', params['messages'])
+            if 'model' in params and 'messages' in params:
+                prompt_usage = {
+                    'token_count': 0
+                }
+                if not exc:
+                    # Based on token counting example
+                    # https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
+                    model = params['model']
+                    for message in params['messages']:
+                        if 'content' in message:
+                            prompt_tokens = self.count_tokens(model, message['content'])
+                            if prompt_tokens:
+                                prompt_usage['token_count'] += prompt_tokens
+                                prompt_usage['token_count'] += self._extra_content_tokens.get(model, 0)
+                        if 'role' in message:
+                            prompt_tokens = self.count_tokens(model, message['role'])
+                            if prompt_tokens:
+                                prompt_usage['token_count'] += prompt_tokens
+                        if 'name' in message:
+                            prompt_tokens = self.count_tokens(model, message['name'])
+                            if prompt_tokens:
+                                prompt_usage['token_count'] += prompt_tokens
+                                prompt_usage['token_count'] += self._extra_name_tokens.get(model, 0)
+                    if prompt_usage['token_count'] > 0:
+                        prompt_usage['token_count'] += self._extra_reply_tokens.get(model, 0)
+                trace.set_data('messages', params['messages'], counts=prompt_usage)
             return
 
         if ret and 'model' in ret:
@@ -192,7 +272,7 @@ class OpenAIRecorder(BaseRecorder):
             'finish_reason_stop': 0,
             'finish_reason_length': 0
         }
-        if ret and 'usage' in ret:
+        if ret and 'usage' in ret and not exc:
             if 'prompt_tokens' in ret['usage']:
                 prompt_usage['token_count'] = ret['usage']['prompt_tokens']
             if 'completion_tokens' in ret['usage']:
@@ -214,7 +294,8 @@ class OpenAIRecorder(BaseRecorder):
     def trace_chat_completion_data(self, trace, item):
         completion_usage = {
             'finish_reason_stop': 0,
-            'finish_reason_length': 0
+            'finish_reason_length': 0,
+            'token_count': 0
         }
         if item and 'choices' in item:
             completion = []
@@ -224,6 +305,7 @@ class OpenAIRecorder(BaseRecorder):
                         completion_usage['finish_reason_stop'] += 1
                     elif choice['finish_reason'] == 'length':
                         completion_usage['finish_reason_length'] += 1
+                completion_usage['token_count'] += 1
                 if 'delta' in choice and 'content' in choice['delta']:
                     completion.append(choice['delta']['content'])
 

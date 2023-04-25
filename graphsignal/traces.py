@@ -123,9 +123,9 @@ class Trace:
 
         try:
             self._start()
-        except Exception as ex:
+        except Exception:
+            logger.error('Error starting trace', exc_info=True)
             self._is_stopped = True
-            raise ex
 
     def __enter__(self):
         return self
@@ -357,12 +357,16 @@ class Trace:
                             dc.name = counter_name
                             dc.count = count
                     if self._agent.record_data_samples:
-                        sample = encode_data_sample(self._data_objects[data_name].obj)
-                        if sample is not None and len(sample.content_bytes) <= Trace.MAX_SAMPLE_BYTES:
-                            sample_proto = self._proto.data_samples.add()
-                            sample_proto.data_name = data_name
-                            sample_proto.content_type = sample.content_type
-                            sample_proto.content_bytes = sample.content_bytes
+                        try:
+                            sample = encode_data_sample(self._data_objects[data_name].obj)
+                            if sample is not None and len(sample.content_bytes) <= Trace.MAX_SAMPLE_BYTES:
+                                sample_proto = self._proto.data_samples.add()
+                                sample_proto.data_name = data_name
+                                sample_proto.content_type = sample.content_type
+                                sample_proto.content_bytes = sample.content_bytes
+                        except Exception as exc:
+                            logger.error('Error encoding data sample', exc_info=True)
+                            self._add_tracer_exception(exc)
 
             # queue trace proto for upload
             self._agent.uploader().upload_trace(self._proto)
@@ -378,6 +382,8 @@ class Trace:
     def stop(self) -> None:
         try:
             self._stop()
+        except Exception:
+            logger.error('Error stopping trace', exc_info=True)
         finally:
             self._is_stopped = True
 
