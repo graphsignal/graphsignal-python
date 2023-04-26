@@ -36,7 +36,7 @@ class ProcessRecorder(BaseRecorder):
         self._last_read_sec = None
         self._last_cpu_time_us = None
         self._last_snapshot = None
-    
+
     def setup(self):
         self.take_snapshot()
 

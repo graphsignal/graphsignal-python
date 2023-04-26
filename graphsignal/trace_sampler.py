@@ -9,10 +9,10 @@ class TraceSampler:
 
     def __init__(self):
         self._num_sampled = {}
-        self._start_ts = time.time()
+        self._start_ts = time.monotonic()
 
     def sample(self, group):
-        seconds_since_start = time.time() - self._start_ts
+        seconds_since_start = time.monotonic() - self._start_ts
 
         num_sampled = self._num_sampled.get(group, 0)
         if num_sampled - self.EXTRA_SAMPLES < seconds_since_start * self.MAX_SAMPLES_PER_SECOND:

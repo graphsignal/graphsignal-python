@@ -35,13 +35,15 @@ class DataObject:
         'name',
         'obj',
         'counts',
+        'record_data_sample',
         'check_missing_values'
     ]
 
-    def __init__(self, name, obj, counts=None, check_missing_values=False):
+    def __init__(self, name, obj, counts=None, record_data_sample=True, check_missing_values=False):
         self.name = name
         self.obj = obj
         self.counts = counts
+        self.record_data_sample = record_data_sample
         self.check_missing_values = check_missing_values
 
 
@@ -356,17 +358,19 @@ class Trace:
                             dc = data_stats_proto.counts.add()
                             dc.name = counter_name
                             dc.count = count
-                    if self._agent.record_data_samples:
+
+                    # copy data sample
+                    data_obj = self._data_objects[data_name]
+                    if self._agent.record_data_samples and data_obj.record_data_sample:
                         try:
-                            sample = encode_data_sample(self._data_objects[data_name].obj)
+                            sample = encode_data_sample(data_obj.obj)
                             if sample is not None and len(sample.content_bytes) <= Trace.MAX_SAMPLE_BYTES:
                                 sample_proto = self._proto.data_samples.add()
                                 sample_proto.data_name = data_name
                                 sample_proto.content_type = sample.content_type
                                 sample_proto.content_bytes = sample.content_bytes
                         except Exception as exc:
-                            logger.error('Error encoding data sample', exc_info=True)
-                            self._add_tracer_exception(exc)
+                            logger.debug('Error encoding {0} sample for operation {1}'.format(data_name, self._operation))
 
             # queue trace proto for upload
             self._agent.uploader().upload_trace(self._proto)
@@ -439,6 +443,7 @@ class Trace:
             name: str, 
             obj: Any, 
             counts: Optional[Dict[str, int]] = None, 
+            record_data_sample: Optional[bool] = True, 
             check_missing_values: Optional[bool] = False) -> None:
         if self._data_objects is None:
             self._data_objects = {}
@@ -456,12 +461,17 @@ class Trace:
             return
 
         self._data_objects[name] = DataObject(
-            name=name, obj=obj, counts=counts, check_missing_values=check_missing_values)
+            name=name,
+            obj=obj,
+            counts=counts,
+            record_data_sample=record_data_sample,
+            check_missing_values=check_missing_values)
 
     def append_data(self, 
             name: str, 
             obj: Any, 
             counts: Optional[Dict[str, int]] = None, 
+            record_data_sample: Optional[bool] = True, 
             check_missing_values: Optional[bool] = False) -> None:
         if self._data_objects is None:
             self._data_objects = {}
@@ -491,7 +501,11 @@ class Trace:
                         data_obj.counts[count_name] = value
         else:
             self._data_objects[name] = DataObject(
-                name=name, obj=obj, counts=counts, check_missing_values=check_missing_values)
+                name=name,
+                obj=obj,
+                counts=counts,
+                record_data_sample=record_data_sample,
+                check_missing_values=check_missing_values)
 
     def _add_tracer_exception(self, exc):
         if not self._is_sampling:
