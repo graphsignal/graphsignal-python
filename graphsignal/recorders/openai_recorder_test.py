@@ -388,7 +388,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
                     "name": "example",
                     "content": "This late pivot means.",
                 }
-            ],            
+            ],
             temperature=0.1,
             top_p=1,
             max_tokens=1024,
@@ -397,6 +397,94 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
             stream=True)
 
         for r in response:
+            pass
+
+        recorder.shutdown()
+
+        proto = mocked_upload_trace.call_args[0][0]
+
+        #pp = pprint.PrettyPrinter()
+        #pp.pprint(MessageToJson(proto))
+        self.assertEqual(find_data_count(proto, 'messages', 'byte_count'), 121.0)
+        self.assertEqual(find_data_count(proto, 'messages', 'element_count'), 8.0)
+        self.assertEqual(find_data_count(proto, 'messages', 'token_count'), 40.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'byte_count'), 4.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'element_count'), 2.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'finish_reason_stop'), 1.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'token_count'), 2.0)
+
+    @patch.object(Uploader, 'upload_trace')
+    @patch.object(openai.ChatCompletion, 'acreate')
+    async def test_chat_completion_acreate_stream(self, mocked_acreate, mocked_upload_trace):
+        # mocking overrides autoinstrumentation, reinstrument
+        recorder = OpenAIRecorder()
+        recorder.setup()
+
+        test_ret = [
+            {
+                "choices": [
+                    {
+                        "finish_reason": None,
+                        "index": 1,
+                        "logprobs": None,
+                        "delta": {
+                            "content": "abc"
+                        }
+                    }
+                ],
+                "created": 1676896808,
+                "id": "cmpl-6lzkernKqOvF4ewZGhHlZ63HZJcbc",
+                "model": "gpt-3.5-turbo",
+                "object": "chat.completion.chunk"
+            },
+            {
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "index": 1,
+                        "logprobs": None,
+                        "delta": {
+                            "content": "\n"
+                        }
+                    }
+                ],
+                "created": 1676896808,
+                "id": "cmpl-6lzkernKqOvF4ewZGhHlZ63HZJcbc",
+                "model": "gpt-3.5-turbo",
+                "object": "chat.completion.chunk"
+            }
+        ]
+        async def test_ret_gen():
+            for item in test_ret:
+                yield item
+        mocked_acreate.return_value = test_ret_gen()
+
+        response = await openai.ChatCompletion.acreate(
+            model="gpt-4", 
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a helpful.",
+                },
+                {
+                    "role": "system",
+                    "name": "example_user",
+                    "content": "New synergies will help drive top-line growth.",
+                },
+                {
+                    "role": "user",
+                    "name": "example",
+                    "content": "This late pivot means.",
+                }
+            ],
+            temperature=0.1,
+            top_p=1,
+            max_tokens=1024,
+            frequency_penalty=0,
+            presence_penalty=0,
+            stream=True)
+
+        async for r in response:
             pass
 
         recorder.shutdown()

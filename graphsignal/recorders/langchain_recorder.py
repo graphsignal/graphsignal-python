@@ -4,7 +4,7 @@ import time
 import contextvars
 import langchain
 from typing import Any, Dict, List, Optional, Union
-from langchain.callbacks.base import BaseCallbackHandler
+from langchain.callbacks.base import BaseCallbackHandler, AsyncCallbackHandler
 from langchain.schema import AgentAction, AgentFinish, LLMResult
 
 import graphsignal
@@ -39,7 +39,7 @@ def get_current_trace():
     return None
 
 
-class GraphsignalHandler(BaseCallbackHandler):
+class GraphsignalCallbackHandler(BaseCallbackHandler):
     def __init__(self) -> None:
         self._current_trace = None        
 
@@ -137,6 +137,59 @@ class GraphsignalHandler(BaseCallbackHandler):
         pass
 
 
+class GraphsignalAsyncCallbackHandler(GraphsignalCallbackHandler):
+    async def on_llm_start(
+        self, serialized: Dict[str, Any], prompts: List[str], **kwargs: Any
+    ) -> None:
+        super().on_llm_start(serialized, prompts, **kwargs)
+
+    async def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
+        super().on_llm_new_token(token, **kwargs)
+
+    async def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
+        super().on_llm_end(response, **kwargs)
+
+    async def on_llm_error(
+        self, error: Union[Exception, KeyboardInterrupt], **kwargs: Any
+    ) -> None:
+        super().on_llm_error(error, **kwargs)
+
+    async def on_chain_start(
+        self, serialized: Dict[str, Any], inputs: Dict[str, Any], **kwargs: Any
+    ) -> None:
+        super().on_chain_start(serialized, inputs, **kwargs)
+
+    async def on_chain_end(self, outputs: Dict[str, Any], **kwargs: Any) -> None:
+        super().on_chain_end(outputs, **kwargs)
+
+    async def on_chain_error(
+        self, error: Union[Exception, KeyboardInterrupt], **kwargs: Any
+    ) -> None:
+        super().on_chain_error(error, **kwargs)
+
+    async def on_tool_start(
+        self, serialized: Dict[str, Any], input_str: str, **kwargs: Any
+    ) -> None:
+        super().on_tool_start(serialized, input_str, **kwargs)
+
+    async def on_tool_end(self, output: str, **kwargs: Any) -> None:
+        super().on_tool_end(output, **kwargs)
+
+    async def on_tool_error(
+        self, error: Union[Exception, KeyboardInterrupt], **kwargs: Any
+    ) -> None:
+        super().on_tool_error(error, **kwargs)
+
+    async def on_text(self, text: str, **kwargs: Any) -> None:
+        super().on_text(text, **kwargs)
+
+    async def on_agent_action(self, action: AgentAction, **kwargs: Any) -> None:
+        super().on_agent_action(action, **kwargs)
+
+    async def on_agent_finish(self, finish: AgentFinish, **kwargs: Any) -> None:
+        super().on_agent_finish(finish, **kwargs)
+
+
 class LangChainRecorder(BaseRecorder):
     def __init__(self):
         self._framework = None
@@ -150,7 +203,7 @@ class LangChainRecorder(BaseRecorder):
         self._framework.name = 'LangChain'
 
         if hasattr(langchain.callbacks, 'get_callback_manager'):
-            self._handler = GraphsignalHandler()
+            self._handler = GraphsignalCallbackHandler()
             langchain.callbacks.get_callback_manager().add_handler(self._handler)
 
     def shutdown(self):

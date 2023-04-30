@@ -129,10 +129,10 @@ class RecorderUtilsTest(unittest.IsolatedAsyncioTestCase):
         obj = Dummy()
 
         yield_func_called = False
-        def yield_func(idx, item, context):
+        def yield_func(stopped, item, context):
             nonlocal yield_func_called
             yield_func_called = True
-            if idx != -1:
+            if not stopped:
                 self.assertTrue(item in ('item0', 'item1'))
 
         self.assertTrue(patch_method(obj, 'test_gen', yield_func=yield_func))

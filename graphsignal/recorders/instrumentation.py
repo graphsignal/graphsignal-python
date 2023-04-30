@@ -15,7 +15,7 @@ def instrument_method(obj, func_name, operation, trace_func, data_func=None):
     def after_func(args, kwargs, ret, exc, context):
         trace = context['trace']
 
-        if not is_generator(ret):
+        if not is_generator(ret) and not is_async_generator(ret):
             trace.measure()
 
         try:
@@ -26,13 +26,13 @@ def instrument_method(obj, func_name, operation, trace_func, data_func=None):
         except Exception as e:
             logger.debug('Error tracing %s', func_name, exc_info=True)
 
-        if not is_generator(ret):
+        if not is_generator(ret) and not is_async_generator(ret):
             trace.stop()
 
-    def yield_func(idx, item, context):
+    def yield_func(stopped, item, context):
         trace = context['trace']
 
-        if idx == -1:
+        if stopped:
             trace.stop()
         else:
             if data_func:
@@ -56,17 +56,17 @@ def patch_method(obj, func_name, before_func=None, after_func=None, yield_func=N
     if hasattr(func, '__graphsignal_wrapped__'):
         return False
 
-    if yield_func:
-        def gen_wrapper(gen, yield_func, context):
-            for idx, item in enumerate(gen):
-                try:
-                    yield_func(idx, item, context)
-                except:
-                    logger.debug('Exception in yield_func', exc_info=True)
-                yield item
-            yield_func(-1, None, context)
-
     if asyncio.iscoroutinefunction(func):
+        if yield_func:
+            async def async_generator_wrapper(gen, yield_func, context):
+                async for item in gen:
+                    try:
+                        yield_func(False, item, context)
+                    except:
+                        logger.debug('Exception in yield_func', exc_info=True)
+                    yield item
+                yield_func(True, None, context)
+
         @wraps(func)
         async def wrapper(*args, **kwargs):
             context = None
@@ -92,8 +92,8 @@ def patch_method(obj, func_name, before_func=None, after_func=None, yield_func=N
 
             if yield_func:
                 try:
-                    if is_generator(ret):
-                        ret = gen_wrapper(ret, yield_func, context)
+                    if is_async_generator(ret):
+                        ret = async_generator_wrapper(ret, yield_func, context)
                 except:
                     logger.debug('Exception in yield_func', exc_info=True)
 
@@ -101,6 +101,16 @@ def patch_method(obj, func_name, before_func=None, after_func=None, yield_func=N
                 raise exc
             return ret
     else:
+        if yield_func:
+            def generator_wrapper(gen, yield_func, context):
+                for item in gen:
+                    try:
+                        yield_func(False, item, context)
+                    except:
+                        logger.debug('Exception in yield_func', exc_info=True)
+                    yield item
+                yield_func(True, None, context)
+
         @wraps(func)
         def wrapper(*args, **kwargs):
             context = None
@@ -127,7 +137,7 @@ def patch_method(obj, func_name, before_func=None, after_func=None, yield_func=N
             if yield_func:
                 try:
                     if is_generator(ret):
-                        ret = gen_wrapper(ret, yield_func, context)
+                        ret = generator_wrapper(ret, yield_func, context)
                 except:
                     logger.debug('Exception in yield_func', exc_info=True)
 
@@ -158,6 +168,10 @@ def unpatch_method(obj, func_name):
 
 def is_generator(obj):
     return obj and isinstance(obj, types.GeneratorType)
+
+
+def is_async_generator(obj):
+    return obj and isinstance(obj, types.AsyncGeneratorType)
 
 
 def read_args(args, kwargs, names):

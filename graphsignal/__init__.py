@@ -192,5 +192,6 @@ __all__ = [
     'start_trace',
     'function_trace',
     'Trace',
-    'TraceOptions'
+    'TraceOptions',
+    'callbacks'
 ]
