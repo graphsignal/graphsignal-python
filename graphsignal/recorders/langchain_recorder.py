@@ -4,190 +4,170 @@ import time
 import contextvars
 import langchain
 from typing import Any, Dict, List, Optional, Union
-from langchain.callbacks.base import BaseCallbackHandler, AsyncCallbackHandler
+from langchain.callbacks.base import BaseCallbackHandler
 from langchain.schema import AgentAction, AgentFinish, LLMResult
+from uuid import UUID
 
 import graphsignal
-from graphsignal.traces import TraceOptions
 from graphsignal.recorders.base_recorder import BaseRecorder
 from graphsignal.recorders.instrumentation import patch_method, unpatch_method
 from graphsignal.proto_utils import parse_semver, compare_semver
 from graphsignal.proto import signals_pb2
 from graphsignal.proto_utils import add_framework_param, add_driver
+from graphsignal.spans import get_current_span, push_current_span
 
 logger = logging.getLogger('graphsignal')
 
-trace_stack_var = contextvars.ContextVar('langchain_trace_stack', default=[])
 
-
-def push_current_trace(trace):
-    trace_stack_var.set(trace_stack_var.get() + [trace])
-
-
-def pop_current_trace():
-    trace_stack = trace_stack_var.get()
-    if len(trace_stack) > 0:
-        trace_stack_var.set(trace_stack[:-1])
-        return trace_stack[-1]
-    return None
-
-
-def get_current_trace():
-    trace_stack = trace_stack_var.get()
-    if len(trace_stack) > 0:
-        return trace_stack[-1]
-    return None
-
+_trace_graph = {}
 
 class GraphsignalCallbackHandler(BaseCallbackHandler):
-    def __init__(self) -> None:
-        self._current_trace = None        
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
 
     @property
     def always_verbose(self) -> bool:
         return True
 
+    def _start_trace(self, parent_run_id, run_id, operation):
+        if run_id not in _trace_graph:
+            parent_trace = _trace_graph.get(parent_run_id)
+            if parent_trace:
+                span = get_current_span()
+                if not span or span.trace_id != parent_trace._span.trace_id:
+                    push_current_span(parent_trace._span)
+            trace = graphsignal.start_trace(operation)
+            _trace_graph[run_id] = trace
+            return trace
+
+    def _current_trace(self, run_id):
+        return _trace_graph.get(run_id)
+
+    def _stop_trace(self, run_id, trace):
+        trace.stop()
+        if run_id in _trace_graph:
+            del _trace_graph[run_id]
+
     def on_llm_start(
-            self, serialized: Dict[str, Any], prompts: List[str], **kwargs: Any) -> None:
+            self, 
+            serialized: Dict[str, Any], 
+            prompts: List[str], 
+            *,
+            run_id: UUID,
+            parent_run_id: Optional[UUID] = None,
+            **kwargs: Any) -> None:
         operation = 'langchain.llms.' + serialized.get('name', 'LLM')
-        trace = graphsignal.start_trace(operation)
-        trace.set_tag('component', 'LLM')
-        push_current_trace(trace)
-        if prompts:
-            trace.set_data('prompts', prompts)
+        trace = self._start_trace(parent_run_id, run_id, operation)
+        if trace:
+            trace.set_tag('component', 'LLM')
+            if prompts:
+                trace.set_data('prompts', prompts)
 
-    def on_llm_new_token(self, token: str, **kwargs: Any) -> Any:
-        pass
-
-    def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
-        trace = pop_current_trace()
+    def on_llm_end(
+            self, 
+            response: LLMResult, 
+            *, 
+            run_id: UUID,
+            **kwargs: Any) -> None:
+        trace = self._current_trace(run_id)
         if not trace:
             return
-        trace.stop()
+        self._stop_trace(run_id, trace)
 
     def on_llm_error(
-            self, error: Union[Exception, KeyboardInterrupt], **kwargs: Any) -> None:
-        trace = pop_current_trace()
+            self, 
+            error: Union[Exception, KeyboardInterrupt], 
+            *,
+            run_id: UUID,
+            **kwargs: Any) -> None:
+        trace = self._current_trace(run_id)
         if not trace:
             return
         if isinstance(error, Exception):
             trace.set_exception(error)
-        trace.stop()
+        self._stop_trace(run_id, trace)
 
     def on_chain_start(
-            self, serialized: Dict[str, Any], inputs: Dict[str, Any], **kwargs: Any) -> None:
+            self, 
+            serialized: Dict[str, Any], 
+            inputs: Dict[str, Any], 
+            *,
+            run_id: UUID,
+            parent_run_id: Optional[UUID] = None,
+            **kwargs: Any) -> None:
         chain_name = serialized.get('name', 'Chain')
         operation = 'langchain.chains.' + chain_name
-        trace = graphsignal.start_trace(operation)
-        if chain_name.endswith('AgentExecutor'):
-            trace.set_tag('component', 'Agent')
-        push_current_trace(trace)
-        if inputs:
-            trace.set_data('inputs', inputs)
+        trace = self._start_trace(parent_run_id, run_id, operation)
+        if trace:
+            if chain_name.endswith('AgentExecutor'):
+                trace.set_tag('component', 'Agent')
+            if inputs:
+                trace.set_data('inputs', inputs)
 
-    def on_chain_end(self, outputs: Dict[str, Any], **kwargs: Any) -> None:
-        trace = pop_current_trace()
+    def on_chain_end(
+            self, 
+            outputs: Dict[str, Any], 
+            *,
+            run_id: UUID,
+            **kwargs: Any) -> None:
+        trace = self._current_trace(run_id)
         if not trace:
             return
         if outputs:
             trace.set_data('outputs', outputs)
-        trace.stop()
+        self._stop_trace(run_id, trace)
 
     def on_chain_error(
-            self, error: Union[Exception, KeyboardInterrupt], **kwargs: Any) -> None:
-        trace = pop_current_trace()
+            self, 
+            error: Union[Exception, KeyboardInterrupt], 
+            *,
+            run_id: UUID,
+            **kwargs: Any) -> None:
+        trace = self._current_trace(run_id)
         if not trace:
             return
         if isinstance(error, Exception):
             trace.set_exception(error)
-        trace.stop()
+        self._stop_trace(run_id, trace)
 
     def on_tool_start(
-            self, serialized: Dict[str, Any], input_str: str, **kwargs: Any) -> None:
+            self, 
+            serialized: Dict[str, Any], 
+            input_str: str, 
+            *,
+            run_id: UUID,
+            parent_run_id: Optional[UUID] = None,
+            **kwargs: Any) -> None:
         operation = 'langchain.agents.tools.' + serialized.get('name', 'Tool')
-        trace = graphsignal.start_trace(operation)
-        trace.set_tag('component', 'Tool')
-        push_current_trace(trace)
+        trace = self._start_trace(parent_run_id, run_id, operation)
+        if trace:
+            trace.set_tag('component', 'Tool')
 
-    def on_tool_end(self, output: str, **kwargs: Any) -> None:
-        trace = pop_current_trace()
+    def on_tool_end(
+            self, 
+            output: str, 
+            *,
+            run_id: UUID,
+            **kwargs: Any) -> None:
+        trace = self._current_trace(run_id)
         if not trace:
             return
         if output:
             trace.set_data('output', output)
-        trace.stop()
+        self._stop_trace(run_id, trace)
 
     def on_tool_error(
-            self, error: Union[Exception, KeyboardInterrupt], **kwargs: Any) -> None:
-        trace = pop_current_trace()
+            self, 
+            error: Union[Exception, KeyboardInterrupt], 
+            *,
+            run_id: UUID,
+            **kwargs: Any) -> None:
+        trace = self._current_trace(run_id)
         if not trace:
             return
         if isinstance(error, Exception):
             trace.set_exception(error)
-        trace.stop()
-
-    def on_text(self, text: str, **kwargs: Optional[str]) -> None:
-        pass
-
-    def on_agent_action(self, action: AgentAction, **kwargs: Any) -> Any:
-        pass
-
-    def on_agent_finish(
-            self, finish: AgentFinish, **kwargs: Any) -> None:
-        pass
-
-
-class GraphsignalAsyncCallbackHandler(GraphsignalCallbackHandler):
-    async def on_llm_start(
-        self, serialized: Dict[str, Any], prompts: List[str], **kwargs: Any
-    ) -> None:
-        super().on_llm_start(serialized, prompts, **kwargs)
-
-    async def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
-        super().on_llm_new_token(token, **kwargs)
-
-    async def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
-        super().on_llm_end(response, **kwargs)
-
-    async def on_llm_error(
-        self, error: Union[Exception, KeyboardInterrupt], **kwargs: Any
-    ) -> None:
-        super().on_llm_error(error, **kwargs)
-
-    async def on_chain_start(
-        self, serialized: Dict[str, Any], inputs: Dict[str, Any], **kwargs: Any
-    ) -> None:
-        super().on_chain_start(serialized, inputs, **kwargs)
-
-    async def on_chain_end(self, outputs: Dict[str, Any], **kwargs: Any) -> None:
-        super().on_chain_end(outputs, **kwargs)
-
-    async def on_chain_error(
-        self, error: Union[Exception, KeyboardInterrupt], **kwargs: Any
-    ) -> None:
-        super().on_chain_error(error, **kwargs)
-
-    async def on_tool_start(
-        self, serialized: Dict[str, Any], input_str: str, **kwargs: Any
-    ) -> None:
-        super().on_tool_start(serialized, input_str, **kwargs)
-
-    async def on_tool_end(self, output: str, **kwargs: Any) -> None:
-        super().on_tool_end(output, **kwargs)
-
-    async def on_tool_error(
-        self, error: Union[Exception, KeyboardInterrupt], **kwargs: Any
-    ) -> None:
-        super().on_tool_error(error, **kwargs)
-
-    async def on_text(self, text: str, **kwargs: Any) -> None:
-        super().on_text(text, **kwargs)
-
-    async def on_agent_action(self, action: AgentAction, **kwargs: Any) -> None:
-        super().on_agent_action(action, **kwargs)
-
-    async def on_agent_finish(self, finish: AgentFinish, **kwargs: Any) -> None:
-        super().on_agent_finish(finish, **kwargs)
+        self._stop_trace(run_id, trace)
 
 
 class LangChainRecorder(BaseRecorder):
@@ -202,9 +182,14 @@ class LangChainRecorder(BaseRecorder):
         self._framework = signals_pb2.FrameworkInfo()
         self._framework.name = 'LangChain'
 
-        if hasattr(langchain.callbacks, 'get_callback_manager'):
+        if hasattr(langchain.callbacks, 'manager') and hasattr(langchain.callbacks.manager, 'tracing_callback_var'):
+            langchain.callbacks.manager.tracing_callback_var.set(GraphsignalCallbackHandler())
+        elif hasattr(langchain.callbacks, 'get_callback_manager'):
+            # compatibility with < 0.0.153
             self._handler = GraphsignalCallbackHandler()
             langchain.callbacks.get_callback_manager().add_handler(self._handler)
+        else:
+            logger.error('Cannot instrument LangChain')
 
     def shutdown(self):
         if self._handler:

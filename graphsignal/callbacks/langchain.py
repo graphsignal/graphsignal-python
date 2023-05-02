@@ -1,2 +1,1 @@
 from graphsignal.recorders.langchain_recorder import GraphsignalCallbackHandler
-from graphsignal.recorders.langchain_recorder import GraphsignalAsyncCallbackHandler

@@ -12,6 +12,10 @@ from graphsignal.spans import get_current_span, Span
 logger = logging.getLogger('graphsignal')
 
 
+def _agent():
+    return graphsignal._agent
+
+
 class TraceOptions:
     __slots__ = [
         'record_samples',
@@ -57,10 +61,6 @@ class Trace:
     MAX_NESTED_TRACES = 250
 
     __slots__ = [
-        '_trace_sampler',
-        '_lo_detector',
-        '_mv_detector',
-        '_agent',
         '_operation',
         '_tags',
         '_params',
@@ -105,10 +105,6 @@ class Trace:
             self._options = DEFAULT_OPTIONS
         else:
             self._options = options
-        self._agent = graphsignal._agent
-        self._trace_sampler = None
-        self._lo_detector = None
-        self._mv_detector = None
         self._is_stopped = False
         self._span = None
         self._is_sampling = False
@@ -132,7 +128,16 @@ class Trace:
     def __enter__(self):
         return self
 
+    async def __aenter__(self):
+        return self
+
     def __exit__(self, *exc_info):
+        if exc_info and exc_info[1] and isinstance(exc_info[1], Exception):
+            self._exc_info = exc_info
+        self.stop()
+        return False
+
+    async def __aexit__(self, *exc_info):
         if exc_info and exc_info[1] and isinstance(exc_info[1], Exception):
             self._exc_info = exc_info
         self.stop()
@@ -140,7 +145,7 @@ class Trace:
 
     def _init_sampling(self, sampling_type):
         self._is_sampling = True
-        self._proto = self._agent.create_trace_proto()
+        self._proto = _agent().create_trace_proto()
         self._proto.sampling_type = sampling_type
         self._context = {}
         self._span.set_trace_id(self._proto.trace_id)
@@ -152,12 +157,8 @@ class Trace:
         if self._is_stopped:
             return
 
-        if self._agent.debug_mode:
+        if _agent().debug_mode:
             logger.debug(f'Starting trace {self._operation}')
-
-        self._trace_sampler = self._agent.trace_sampler(self._operation)
-        self._lo_detector = self._agent.lo_detector(self._operation)
-        self._mv_detector = self._agent.mv_detector()
 
         parent_span = get_current_span()
         self._span = Span(self._operation)
@@ -166,7 +167,7 @@ class Trace:
         if self._options.record_samples:
             # sample if parent trace is being sampled or this trace is root
             if self._is_root:
-                if self._trace_sampler.sample('random'):
+                if _agent().trace_sampler(self._operation).sample('random'):
                     self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.RANDOM_SAMPLING)
             else:
                 if parent_span.is_root_sampling() and parent_span.can_add_child():
@@ -175,7 +176,7 @@ class Trace:
             # emit start event
             if self._is_sampling:
                 try:
-                    self._agent.emit_trace_start(self._proto, self._context, self._options)
+                    _agent().emit_trace_start(self._proto, self._context, self._options)
                 except Exception as exc:
                     logger.error('Error in trace start event handlers', exc_info=True)
                     self._add_tracer_exception(exc)
@@ -193,7 +194,7 @@ class Trace:
             return
         self._is_stopped = True
 
-        if self._agent.debug_mode:
+        if _agent().debug_mode:
             logger.debug(f'Stopping trace {self._operation}')
 
         if self._stop_counter is None:
@@ -211,7 +212,7 @@ class Trace:
         # emit stop event
         if self._is_sampling:
             try:
-                self._agent.emit_trace_stop(self._proto, self._context, self._options)
+                _agent().emit_trace_stop(self._proto, self._context, self._options)
             except Exception as exc:
                 logger.error('Error in trace stop event handlers', exc_info=True)
                 self._add_tracer_exception(exc)
@@ -221,25 +222,26 @@ class Trace:
         # if exception, but the trace is not being recorded, try to start tracing
         if self._options.record_samples:
             if not self._is_sampling and self._exc_info and self._exc_info[0]:
-                if self._trace_sampler.sample('exceptions'):
+                if _agent().trace_sampler(self._operation).sample('exceptions'):
                     self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.ERROR_SAMPLING)
 
         # check for outliers
+        lo_detector = _agent().lo_detector(self._operation)
         if self._options.record_samples:
-            self._is_latency_outlier = self._lo_detector.detect(self._latency_ns / 1e9)
+            self._is_latency_outlier = lo_detector.detect(self._latency_ns / 1e9)
             if not self._is_sampling and self._is_latency_outlier:
-                if self._trace_sampler.sample('latency-outliers'):
+                if _agent().trace_sampler(self._operation).sample('latency-outliers'):
                     self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.ERROR_SAMPLING)
-        self._lo_detector.update(self._latency_ns / 1e9)
+        lo_detector.update(self._latency_ns / 1e9)
 
         # update RED metrics
         if self._options.record_metrics:
-            self._agent.metric_store().update_histogram(
+            _agent().metric_store().update_histogram(
                 scope='performance', name='latency', tags=trace_tags, value=self._latency_ns, update_ts=now, is_time=True)
-            self._agent.metric_store().inc_counter(
+            _agent().metric_store().inc_counter(
                 scope='performance', name='call_count', tags=trace_tags, value=1, update_ts=now)
             if self._exc_info and self._exc_info[0]:
-                self._agent.metric_store().inc_counter(
+                _agent().metric_store().inc_counter(
                     scope='performance', name='exception_count', tags=trace_tags, value=1, update_ts=now)
                 self.set_tag('exception', self._exc_info[0].__name__)
 
@@ -260,14 +262,14 @@ class Trace:
 
                     # check missing values
                     if data_obj.check_missing_values:
-                        if self._mv_detector.detect(data_obj.name, stats.counts):
+                        if _agent().mv_detector().detect(data_obj.name, stats.counts):
                             self._has_missing_values = True
 
                     # update data metrics
                     data_tags = trace_tags.copy()
                     data_tags['data'] = data_obj.name
                     for count_name, count in stats.counts.items():
-                        self._agent.metric_store().inc_counter(
+                        _agent().metric_store().inc_counter(
                             scope='data', name=count_name, tags=data_tags, value=count, update_ts=now)
                 except Exception as exc:
                     logger.error('Error computing data stats', exc_info=True)
@@ -276,22 +278,22 @@ class Trace:
         # if missing values detected, but the trace is not being recorded, try to start tracing
         if self._options.record_samples:
             if not self._is_sampling and self._has_missing_values:
-                if self._trace_sampler.sample('missing-values'):
+                if _agent().trace_sampler(self._operation).sample('missing-values'):
                     self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.ERROR_SAMPLING)
 
         # emit read event
         if self._is_sampling:
             try:
-                self._agent.emit_trace_read(self._proto, self._context, self._options)
+                _agent().emit_trace_read(self._proto, self._context, self._options)
             except Exception as exc:
                 logger.error('Error in trace read event handlers', exc_info=True)
                 self._add_tracer_exception(exc)
 
         # update recorder metrics
-        if self._options.record_metrics and self._agent.check_metric_read_interval(now):
+        if self._options.record_metrics and _agent().check_metric_read_interval(now):
             try:
-                self._agent.emit_metric_update()
-                self._agent.set_metric_read(now)
+                _agent().emit_metric_update()
+                _agent().set_metric_read(now)
             except Exception as exc:
                 logger.error('Error in trace read event handlers', exc_info=True)
                 self._add_tracer_exception(exc)
@@ -309,7 +311,7 @@ class Trace:
                 self._proto.labels.append('latency-outlier')
             if self._has_missing_values:
                 self._proto.labels.append('missing-values')
-            self._proto.process_usage.start_ms = self._agent._process_start_ms
+            self._proto.process_usage.start_ms = _agent()._process_start_ms
 
             # copy span
             self._proto.span.start_ns = self._start_counter
@@ -361,7 +363,7 @@ class Trace:
 
                     # copy data sample
                     data_obj = self._data_objects[data_name]
-                    if self._agent.record_data_samples and data_obj.record_data_sample:
+                    if _agent().record_data_samples and data_obj.record_data_sample:
                         try:
                             sample = encode_data_sample(data_obj.obj)
                             if sample is not None and len(sample.content_bytes) <= Trace.MAX_SAMPLE_BYTES:
@@ -373,11 +375,11 @@ class Trace:
                             logger.debug('Error encoding {0} sample for operation {1}'.format(data_name, self._operation))
 
             # queue trace proto for upload
-            self._agent.uploader().upload_trace(self._proto)
+            _agent().uploader().upload_trace(self._proto)
 
         # trigger upload
         if self._is_root:
-            self._agent.tick(now)
+            _agent().tick(now)
 
     def measure(self) -> None:
         if not self._is_stopped:
@@ -520,13 +522,13 @@ class Trace:
 
     def _trace_tags(self, extra_tags=None):
         trace_tags = {
-            'deployment': self._agent.deployment, 
+            'deployment': _agent().deployment, 
             'operation': self._operation}
-        if self._agent.hostname:
-            trace_tags['hostname'] = self._agent.hostname
-        if self._agent.tags is not None:
-            trace_tags.update(self._agent.tags)
-        context_tags = self._agent.context_tags.get()
+        if _agent().hostname:
+            trace_tags['hostname'] = _agent().hostname
+        if _agent().tags is not None:
+            trace_tags.update(_agent().tags)
+        context_tags = _agent().context_tags.get()
         if len(context_tags) > 0:
             trace_tags.update(context_tags)
         if self._tags is not None:

@@ -15,7 +15,6 @@ from typing import Any, List, Mapping, Optional
 from langchain.llms.base import LLM
 from langchain.chat_models import ChatOpenAI
 from langchain.schema import HumanMessage
-from langchain.callbacks.base import AsyncCallbackHandler, AsyncCallbackManager
 
 import graphsignal
 from graphsignal.proto import signals_pb2
@@ -23,7 +22,6 @@ from graphsignal.uploader import Uploader
 from graphsignal.traces import DEFAULT_OPTIONS
 from graphsignal.recorders.langchain_recorder import LangChainRecorder
 from graphsignal.recorders.openai_recorder import OpenAIRecorder
-from graphsignal.callbacks.langchain import GraphsignalAsyncCallbackHandler
 
 logger = logging.getLogger('graphsignal')
 
@@ -39,14 +37,6 @@ class DummyLLM(LLM):
     @property
     def _identifying_params(self) -> Mapping[str, Any]:
         return {}
-
-
-class ExtraCallbackHandler(AsyncCallbackHandler):
-    def __init__(self):
-        pass
-
-    def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
-        pass
 
 
 class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
@@ -75,6 +65,7 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
 
     @patch.object(Uploader, 'upload_trace')
     async def test_chain(self, mocked_upload_trace):
+        os.environ['OPENAI_API_KEY'] = 'fake-key'
         llm = OpenAI(temperature=0)
         llm = DummyLLM()
         tools = load_tools(["llm-math"], llm=llm)
@@ -88,24 +79,31 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
         t1 = mocked_upload_trace.call_args_list[2][0][0]
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(proto))
+        #pp.pprint(MessageToJson(t1))
+        #pp.pprint(MessageToJson(t2))
+        #pp.pprint(MessageToJson(t3))
+        #pp.pprint(MessageToJson(t4))
 
         self.assertEqual(t1.frameworks[0].name, 'OpenAI Python Library')
         self.assertEqual(t1.frameworks[1].name, 'LangChain')
         self.assertEqual(t1.labels, ['root'])
-
+        self.assertEqual(find_tag(t1, 'component'), 'Agent')
+        self.assertEqual(find_tag(t1, 'operation'), 'langchain.chains.AgentExecutor')
         self.assertEqual(find_data_count(t1, 'inputs', 'byte_count'), 34.0)
         self.assertEqual(find_data_count(t1, 'inputs', 'element_count'), 1.0)
         self.assertEqual(find_data_count(t1, 'outputs', 'byte_count'), 2.0)
         self.assertEqual(find_data_count(t1, 'outputs', 'element_count'), 1.0)
 
-        self.assertEqual(find_tag(t1, 'component'), 'Agent')
-        self.assertEqual(find_tag(t1, 'operation'), 'langchain.chains.AgentExecutor')
-
+        self.assertEqual(t2.labels, [])
         self.assertEqual(find_tag(t2, 'operation'), 'langchain.chains.LLMChain')
         self.assertEqual(t2.span.parent_trace_id, t1.trace_id)
         self.assertEqual(t2.span.root_trace_id, t1.trace_id)
+        self.assertEqual(find_data_count(t2, 'inputs', 'byte_count'), 61.0)
+        self.assertEqual(find_data_count(t2, 'inputs', 'element_count'), 4.0)
+        self.assertEqual(find_data_count(t2, 'outputs', 'byte_count'), 15.0)
+        self.assertEqual(find_data_count(t2, 'outputs', 'element_count'), 1.0)
 
+        self.assertEqual(t3.labels, [])
         self.assertEqual(find_tag(t3, 'component'), 'LLM')
         self.assertEqual(find_tag(t3, 'operation'), 'langchain.llms.DummyLLM')
         self.assertEqual(t3.span.parent_trace_id, t2.trace_id)
@@ -114,6 +112,8 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
     @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.ChatCompletion, 'acreate')
     async def test_chain_async(self, mocked_acreate, mocked_upload_trace):
+        os.environ['OPENAI_API_KEY'] = 'fake-key'
+
         # mocking overrides autoinstrumentation, reinstrument
         recorder = OpenAIRecorder()
         recorder.setup()
@@ -162,32 +162,37 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
         llm = ChatOpenAI(
             verbose=True,
             temperature=0,
-            streaming=True,
-            callback_manager=AsyncCallbackManager([ExtraCallbackHandler(), GraphsignalAsyncCallbackHandler()]),
-        )
+            streaming=True)
 
-        with graphsignal.start_trace('test'):
+        async with graphsignal.start_trace('test'):
             await llm.agenerate([[HumanMessage(content='What is 2 raised to .123243 power?')]])
 
-        t2 = mocked_upload_trace.call_args_list[0][0][0]
-        t1 = mocked_upload_trace.call_args_list[1][0][0]
+        t3 = mocked_upload_trace.call_args_list[0][0][0]
+        t2 = mocked_upload_trace.call_args_list[1][0][0]
+        t1 = mocked_upload_trace.call_args_list[2][0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(t1))
+        #pp.pprint(MessageToJson(t2))
 
         self.assertEqual(t1.labels, ['root'])
         self.assertEqual(find_tag(t1, 'operation'), 'test')
 
-        self.assertEqual(t2.frameworks[0].name, 'OpenAI Python Library')
-        self.assertEqual(t2.frameworks[1].name, 'LangChain')
+        #self.assertEqual(t1.labels, [])
         self.assertEqual(find_tag(t2, 'component'), 'LLM')
-        self.assertEqual(find_tag(t2, 'operation'), 'openai.ChatCompletion.acreate')
-        self.assertEqual(find_data_count(t2, 'messages', 'byte_count'), 38.0)
-        self.assertEqual(find_data_count(t2, 'messages', 'element_count'), 2.0)
-        self.assertEqual(find_data_count(t2, 'messages', 'token_count'), 19.0)
-        self.assertEqual(find_data_count(t2, 'completion', 'byte_count'), 4.0)
-        self.assertEqual(find_data_count(t2, 'completion', 'element_count'), 2.0)
-        self.assertEqual(find_data_count(t2, 'completion', 'token_count'), 2.0)
+        self.assertEqual(find_tag(t2, 'operation'), 'langchain.llms.ChatOpenAI')
+        self.assertEqual(find_data_count(t2, 'prompts', 'byte_count'), 41.0)
+        self.assertEqual(find_data_count(t2, 'prompts', 'element_count'), 1.0)
+
+        #self.assertEqual(t2.labels, [])
+        self.assertEqual(find_tag(t3, 'component'), 'LLM')
+        self.assertEqual(find_tag(t3, 'operation'), 'openai.ChatCompletion.acreate')
+        self.assertEqual(find_data_count(t3, 'messages', 'byte_count'), 38.0)
+        self.assertEqual(find_data_count(t3, 'messages', 'element_count'), 2.0)
+        self.assertEqual(find_data_count(t3, 'messages', 'token_count'), 19.0)
+        self.assertEqual(find_data_count(t3, 'completion', 'byte_count'), 4.0)
+        self.assertEqual(find_data_count(t3, 'completion', 'element_count'), 2.0)
+        self.assertEqual(find_data_count(t3, 'completion', 'token_count'), 2.0)
 
 
 def find_tag(proto, key):

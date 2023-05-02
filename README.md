@@ -66,7 +66,7 @@ Use the following examples to integrate Graphsignal tracer into your application
 
 Graphsignal **auto-instruments** and traces libraries and frameworks, such as [OpenAI](https://graphsignal.com/docs/integrations/openai/), [LangChain](https://graphsignal.com/docs/integrations/langchain/), and many others.
 
-To measure and monitor any other executions, e.g. model inference or inference API calls, wrap the code with [`start_trace`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method or use [`trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
+To measure and monitor any other executions, e.g. model inference or inference API calls, wrap the code with [`start_trace()`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method or use [`@trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
 
 ```python
 with graphsignal.start_trace('predict'):
@@ -88,17 +88,17 @@ with graphsignal.start_trace(
     pred = model(x)
 ```
 
-The tracer will automatically choose a profiler depending on available modules. Currently, CProfile, PyTorch Kineto and Yappi are supported. The Kineto profiler is used if `torch` module is detected and Yappi profiler is used if `yappi` module is detected. Otherwise, CProfile is used. To properly profile `asyncio` coroutines, just `pip install yappi`.
+The tracer will automatically choose a profiler depending on available modules. Currently, CProfile, PyTorch Kineto and Yappi are supported. The Kineto profiler is used if `torch` module is detected and Yappi profiler is used if `yappi` module is detected. Otherwise, CProfile is used. To properly profile `asyncio` coroutines, simply `pip install yappi`.
 
 
 ### Exception tracking
 
-For auto-instrumented libraries, or when using `trace_function` decorator, `start_trace` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`Trace.set_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignaltraceset_exception) method.
+For auto-instrumented libraries, or when using `@trace_function` decorator, `start_trace()` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`Trace.set_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignaltraceset_exception) method.
 
 
 ### Data monitoring
 
-Data is automatically monitored for auto-instrumented libraries. To track data metrics and record data profiles for other cases, [`Trace.set_data`](https://graphsignal.com/docs/reference/python-api/#graphsignaltraceset_data) method can be used.
+Data is automatically monitored for auto-instrumented libraries. To track data metrics and record data profiles for other cases, [`Trace.set_data()`](https://graphsignal.com/docs/reference/python-api/#graphsignaltraceset_data) method can be used.
 
 ```python
 with graphsignal.start_trace('predict') as trace:
