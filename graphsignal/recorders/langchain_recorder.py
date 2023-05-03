@@ -63,6 +63,15 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             if prompts:
                 trace.set_data('prompts', prompts)
 
+    def on_llm_new_token(
+            self,
+            token: str,
+            *,
+            run_id: UUID,
+            parent_run_id: Optional[UUID] = None,
+            **kwargs: Any) -> None:
+        pass
+
     def on_llm_end(
             self, 
             response: LLMResult, 
@@ -168,6 +177,33 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
         if isinstance(error, Exception):
             trace.set_exception(error)
         self._stop_trace(run_id, trace)
+
+    def on_agent_action(
+            self,
+            action: AgentAction,
+            *,
+            run_id: UUID,
+            parent_run_id: Optional[UUID] = None,
+            **kwargs: Any) -> None:
+        pass
+
+    def on_agent_finish(
+            self,
+            finish: AgentFinish,
+            *,
+            run_id: UUID,
+            parent_run_id: Optional[UUID] = None,
+            **kwargs: Any) -> None:
+        pass
+
+    def on_text(
+            self,
+            text: str,
+            *,
+            run_id: UUID,
+            parent_run_id: Optional[UUID] = None,
+            **kwargs: Any) -> Any:
+        pass
 
 
 class LangChainRecorder(BaseRecorder):
