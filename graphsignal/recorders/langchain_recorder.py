@@ -65,11 +65,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
 
     def on_llm_new_token(
             self,
-            token: str,
-            *,
-            run_id: UUID,
-            parent_run_id: Optional[UUID] = None,
-            **kwargs: Any) -> None:
+            token: str) -> None:
         pass
 
     def on_llm_end(
@@ -181,27 +177,18 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
     def on_agent_action(
             self,
             action: AgentAction,
-            *,
-            run_id: UUID,
-            parent_run_id: Optional[UUID] = None,
             **kwargs: Any) -> None:
         pass
 
     def on_agent_finish(
             self,
             finish: AgentFinish,
-            *,
-            run_id: UUID,
-            parent_run_id: Optional[UUID] = None,
             **kwargs: Any) -> None:
         pass
 
     def on_text(
             self,
             text: str,
-            *,
-            run_id: UUID,
-            parent_run_id: Optional[UUID] = None,
             **kwargs: Any) -> Any:
         pass
 
