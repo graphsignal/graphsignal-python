@@ -31,7 +31,8 @@ class GraphsignalTracerLogHandler(logging.Handler):
             log_tags = {'deployment': self._agent.deployment}
             if self._agent.hostname:
                 log_tags['hostname'] = self._agent.hostname
-            log_tags.update(self._agent.tags)
+            if self._agent.tags is not None:
+                log_tags.update(self._agent.tags)
 
             exception = None
             if record.exc_info and isinstance(record.exc_info, tuple):
