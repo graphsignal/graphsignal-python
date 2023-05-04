@@ -40,12 +40,6 @@ class ProcessRecorder(BaseRecorder):
     def setup(self):
         self.take_snapshot()
 
-    def on_trace_start(self, proto, context, options):
-        pass
-
-    def on_trace_stop(self, proto, context, options):
-        pass
-
     def on_trace_read(self, proto, context, options):
         if self._last_snapshot:
             proto.process_usage.CopyFrom(self._last_snapshot.process_usage)

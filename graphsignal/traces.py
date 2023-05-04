@@ -179,7 +179,6 @@ class Trace:
                     _agent().emit_trace_start(self._proto, self._context, self._options)
                 except Exception as exc:
                     logger.error('Error in trace start event handlers', exc_info=True)
-                    self._add_tracer_exception(exc)
 
         self._start_counter = time.perf_counter_ns()
         self._is_started = True
@@ -215,7 +214,6 @@ class Trace:
                 _agent().emit_trace_stop(self._proto, self._context, self._options)
             except Exception as exc:
                 logger.error('Error in trace stop event handlers', exc_info=True)
-                self._add_tracer_exception(exc)
 
         trace_tags = self._trace_tags()
 
@@ -273,7 +271,6 @@ class Trace:
                             scope='data', name=count_name, tags=data_tags, value=count, update_ts=now)
                 except Exception as exc:
                     logger.error('Error computing data stats', exc_info=True)
-                    self._add_tracer_exception(exc)
 
         # if missing values detected, but the trace is not being recorded, try to start tracing
         if self._options.record_samples:
@@ -287,7 +284,6 @@ class Trace:
                 _agent().emit_trace_read(self._proto, self._context, self._options)
             except Exception as exc:
                 logger.error('Error in trace read event handlers', exc_info=True)
-                self._add_tracer_exception(exc)
 
         # update recorder metrics
         if self._options.record_metrics and _agent().check_metric_read_interval(now):
@@ -296,7 +292,6 @@ class Trace:
                 _agent().set_metric_read(now)
             except Exception as exc:
                 logger.error('Error in trace read event handlers', exc_info=True)
-                self._add_tracer_exception(exc)
 
         # fill and upload trace
         if self._is_sampling:
@@ -508,17 +503,6 @@ class Trace:
                 counts=counts,
                 record_data_sample=record_data_sample,
                 check_missing_values=check_missing_values)
-
-    def _add_tracer_exception(self, exc):
-        if not self._is_sampling:
-            return
-
-        tracer_error = self._proto.tracer_errors.add()
-        tracer_error.message = str(exc)
-        if exc.__traceback__:
-            frames = traceback.format_tb(exc.__traceback__)
-            if len(frames) > 0:
-                tracer_error.stack_trace = ''.join(frames)
 
     def _trace_tags(self, extra_tags=None):
         trace_tags = {

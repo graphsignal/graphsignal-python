@@ -82,22 +82,22 @@ class NVMLRecorderTest(unittest.TestCase):
             store = graphsignal._agent.metric_store()
             metric_tags =  {'deployment': 'd1', 'hostname': socket.gethostname(), 'device': 0}
             key = store.metric_key('system', 'gpu_utilization', metric_tags)
-            self.assertTrue(store.metrics[key].gauge > 0)
+            self.assertTrue(store._metrics[key].gauge > 0)
             key = store.metric_key('system', 'mxu_utilization', metric_tags)
-            if key in store.metrics:
-                self.assertTrue(store.metrics[key].gauge > 0)
+            if key in store._metrics:
+                self.assertTrue(store._metrics[key].gauge > 0)
             key = store.metric_key('system', 'device_memory_access', metric_tags)
-            if key in store.metrics:
-                self.assertTrue(store.metrics[key].gauge > 0)
+            if key in store._metrics:
+                self.assertTrue(store._metrics[key].gauge > 0)
             key = store.metric_key('system', 'device_memory_used', metric_tags)
-            self.assertTrue(store.metrics[key].gauge > 0)
+            self.assertTrue(store._metrics[key].gauge > 0)
             key = store.metric_key('system', 'nvlink_throughput_data_tx_kibs', metric_tags)
-            if key in store.metrics:
-                self.assertTrue(store.metrics[key].gauge > 0)
+            if key in store._metrics:
+                self.assertTrue(store._metrics[key].gauge > 0)
             key = store.metric_key('system', 'nvlink_throughput_data_rx_kibs', metric_tags)
-            if key in store.metrics:
-                self.assertTrue(store.metrics[key].gauge > 0)
+            if key in store._metrics:
+                self.assertTrue(store._metrics[key].gauge > 0)
             key = store.metric_key('system', 'gpu_temp_c', metric_tags)
-            self.assertTrue(store.metrics[key].gauge > 0)
+            self.assertTrue(store._metrics[key].gauge > 0)
             key = store.metric_key('system', 'power_usage_w', metric_tags)
-            self.assertTrue(store.metrics[key].gauge > 0)
+            self.assertTrue(store._metrics[key].gauge > 0)

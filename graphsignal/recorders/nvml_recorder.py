@@ -42,12 +42,6 @@ class NVMLRecorder(BaseRecorder):
         except BaseException:
             logger.error('Error shutting down NVML', exc_info=True)
 
-    def on_trace_start(self, proto, context, options):
-        pass
-
-    def on_trace_stop(self, proto, context, options):
-        pass
-
     def on_trace_read(self, proto, context, options):
         if self._last_snapshot:
             proto.node_usage.num_devices = self._last_snapshot.node_usage.num_devices

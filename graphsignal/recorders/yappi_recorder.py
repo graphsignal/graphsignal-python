@@ -17,9 +17,6 @@ class YappiRecorder(BaseRecorder):
         self._exclude_path = os.path.dirname(os.path.realpath(graphsignal.__file__))
         self._profiler_lock = threading.Lock()
 
-    def setup(self):
-        pass
-
     def on_trace_start(self, proto, context, options):
         if not options.enable_profiling:
             return

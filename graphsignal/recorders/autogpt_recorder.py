@@ -82,15 +82,6 @@ class AutoGPTRecorder(BaseRecorder):
         if 'data' in params:
             trace.set_data('data', params['data'])
 
-    def on_trace_start(self, proto, context, options):
-        pass
-
-    def on_trace_stop(self, proto, context, options):
-        pass
-
     def on_trace_read(self, proto, context, options):
         if self._framework:
             proto.frameworks.append(self._framework)
-
-    def on_metric_update(self):
-        pass

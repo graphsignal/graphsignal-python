@@ -141,9 +141,6 @@ class DeepSpeedRecorder(BaseRecorder):
 
         self._profiler_lock.release()
 
-    def on_metric_update(self):
-        pass
-
     def _get_data_size(self, op_name, args, kwargs):
         tensor_arg = None
 

@@ -89,18 +89,18 @@ class TraceTest(unittest.TestCase):
         store = graphsignal._agent.metric_store()
         metric_tags =  {'deployment': 'd1', 'operation': 'ep1', 'hostname': 'h1', 'k1': 'v1', 'k2': 'v2', 'k3': 'v3', 'k4': 4.0, 'k5': 'v5'}
         key = store.metric_key('performance', 'latency', metric_tags)
-        self.assertTrue(len(store.metrics[key].histogram) > 0)
+        self.assertTrue(len(store._metrics[key].histogram) > 0)
         key = store.metric_key('performance', 'call_count', metric_tags)
-        self.assertEqual(store.metrics[key].counter, 10)
+        self.assertEqual(store._metrics[key].counter, 10)
 
         data_tags = metric_tags.copy()
         data_tags['data'] = 'input'
         key = store.metric_key('data', 'element_count', data_tags)
-        self.assertEqual(store.metrics[key].counter, 40)
+        self.assertEqual(store._metrics[key].counter, 40)
         key = store.metric_key('data', 'c1', data_tags)
-        self.assertEqual(store.metrics[key].counter, 10)
+        self.assertEqual(store._metrics[key].counter, 10)
         key = store.metric_key('data', 'c2', data_tags)
-        self.assertEqual(store.metrics[key].counter, 20)
+        self.assertEqual(store._metrics[key].counter, 20)
 
     @patch.object(ProcessRecorder, 'on_trace_start')
     @patch.object(Uploader, 'upload_trace')
@@ -129,32 +129,40 @@ class TraceTest(unittest.TestCase):
     @patch.object(Uploader, 'upload_trace')
     def test_start_exception(self, mocked_upload_trace, mocked_process_on_trace_start):
         mocked_process_on_trace_start.side_effect = Exception('ex1')
+
+        store = graphsignal._agent.log_store()
+        store.clear()
+
         trace = Trace(operation='ep1')
         trace.stop()
-
         trace = mocked_upload_trace.call_args[0][0]
 
         self.assertEqual(trace.sampling_type, signals_pb2.Trace.SamplingType.RANDOM_SAMPLING)
         self.assertTrue(trace.start_us > 0)
         self.assertTrue(trace.end_us > 0)
         self.assertEqual(trace.labels, ['root'])
-        self.assertEqual(trace.tracer_errors[0].message, 'ex1')
-        self.assertNotEqual(trace.tracer_errors[0].stack_trace, '')
+        self.assertEqual(find_log_entry(store, 'ex1').tags['deployment'], 'd1')
+        self.assertIsNotNone(find_log_entry(store, 'ex1').message)
+        self.assertIsNotNone(find_log_entry(store, 'ex1').exception)
 
     @patch.object(ProcessRecorder, 'on_trace_stop')
     @patch.object(Uploader, 'upload_trace')
-    def test_agent_exception(self, mocked_upload_trace, mocked_process_on_trace_stop):
+    def test_stop_exception(self, mocked_upload_trace, mocked_process_on_trace_stop):
         mocked_process_on_trace_stop.side_effect = Exception('ex1')
-        trace = Trace(
-            operation='ep1')
+
+        store = graphsignal._agent.log_store()
+        store.clear()
+
+        trace = Trace(operation='ep1')
         trace.stop()
 
         trace = mocked_upload_trace.call_args[0][0]
 
         self.assertTrue(trace.start_us > 0)
         self.assertTrue(trace.end_us > 0)
-        self.assertEqual(trace.tracer_errors[0].message, 'ex1')
-        self.assertNotEqual(trace.tracer_errors[0].stack_trace, '')
+        self.assertEqual(find_log_entry(store, 'ex1').tags['deployment'], 'd1')
+        self.assertIsNotNone(find_log_entry(store, 'ex1').message)
+        self.assertIsNotNone(find_log_entry(store, 'ex1').exception)
 
     @patch.object(Uploader, 'upload_trace')
     def test_operation_exception(self, mocked_upload_trace):
@@ -181,7 +189,7 @@ class TraceTest(unittest.TestCase):
         store = graphsignal._agent.metric_store()
         metric_tags =  {'deployment': 'd1', 'operation': 'ep1', 'hostname': 'h1', 'k1': 'v1'}
         key = store.metric_key('performance', 'exception_count', metric_tags)
-        self.assertEqual(store.metrics[key].counter, 2)
+        self.assertEqual(store._metrics[key].counter, 2)
 
     @patch.object(Uploader, 'upload_trace')
     def test_set_exception(self, mocked_upload_trace):
@@ -205,7 +213,7 @@ class TraceTest(unittest.TestCase):
         store = graphsignal._agent.metric_store()
         metric_tags =  {'deployment': 'd1', 'operation': 'ep1', 'hostname': 'h1', 'k1': 'v1'}
         key = store.metric_key('performance', 'exception_count', metric_tags)
-        self.assertEqual(store.metrics[key].counter, 1)
+        self.assertEqual(store._metrics[key].counter, 1)
 
 
     @patch.object(Uploader, 'upload_trace')
@@ -230,7 +238,7 @@ class TraceTest(unittest.TestCase):
         store = graphsignal._agent.metric_store()
         metric_tags =  {'deployment': 'd1', 'operation': 'ep1', 'hostname': 'h1', 'k1': 'v1'}
         key = store.metric_key('performance', 'exception_count', metric_tags)
-        self.assertEqual(store.metrics[key].counter, 1)
+        self.assertEqual(store._metrics[key].counter, 1)
 
     @patch.object(Uploader, 'upload_trace')
     def test_outlier(self, mocked_upload_trace):
@@ -307,3 +315,11 @@ class TraceTest(unittest.TestCase):
         #stats.print_stats()
 
         self.assertTrue(took_ns / calls < 200 * 1e3) # less than 200 microseconds per trace
+
+
+def find_log_entry(store, text):
+    for entry in store._logs:
+        if entry.message and text in entry.message:
+            return entry
+        if entry.exception and text in entry.exception:
+            return entry

@@ -66,10 +66,6 @@ def configure(
         return
 
     debug_mode = _check_and_set_arg('debug_mode', debug_mode, is_bool=True)
-    if debug_mode:
-        logger.setLevel(logging.DEBUG)
-    else:
-        logger.setLevel(logging.WARNING)
     api_key = _check_and_set_arg('api_key', api_key, is_str=True, required=True)
     api_url = _check_and_set_arg('api_url', api_url, is_str=True, required=False)
     deployment = _check_and_set_arg('deployment', deployment, is_str=True, required=True)
@@ -140,7 +136,8 @@ def start_trace(
 
 
 def trace_function(
-        func=None, *,
+        func=None, 
+        *,
         operation: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
         options: Optional[TraceOptions] = None):

@@ -18,9 +18,6 @@ class CProfileRecorder(BaseRecorder):
         self._profiler = None
         self._exclude_path = os.path.dirname(os.path.realpath(graphsignal.__file__))
 
-    def setup(self):
-        pass
-
     def on_trace_start(self, proto, context, options):
         if not options.enable_profiling:
             return
@@ -46,9 +43,6 @@ class CProfileRecorder(BaseRecorder):
         self._convert_to_profile(proto)
         self._profiler = None
         self._profiler_lock.release()
-
-    def on_metric_update(self):
-        pass
 
     def _convert_to_profile(self, proto):
         stats = pstats.Stats(self._profiler)

@@ -42,6 +42,9 @@ class Uploader:
     def upload_metric(self, metric):
         self.upload_signal(metric)
 
+    def upload_log_entry(self, log_entry):
+        self.upload_signal(log_entry)
+
     def upload_signal(self, signal):
         with self._buffer_lock:
             self._buffer.append(signal)
@@ -117,6 +120,8 @@ def _create_upload_request(outgoing):
             upload_request.traces.append(signal)
         elif isinstance(signal, signals_pb2.Metric):
             upload_request.metrics.append(signal)
+        elif isinstance(signal, signals_pb2.LogEntry):
+            upload_request.log_entries.append(signal)
     upload_request.upload_ms = int(time.time() * 1e3)
     return upload_request.SerializeToString()
 

@@ -11,6 +11,7 @@ import importlib.abc
 from graphsignal import version
 from graphsignal.uploader import Uploader
 from graphsignal.metrics import MetricStore
+from graphsignal.logs import LogStore
 from graphsignal.trace_sampler import TraceSampler
 from graphsignal.proto import signals_pb2
 from graphsignal.detectors.latency_outlier_detector import LatencyOutlierDetector
@@ -18,6 +19,31 @@ from graphsignal.detectors.missing_value_detector import MissingValueDetector
 from graphsignal.proto_utils import parse_semver
 
 logger = logging.getLogger('graphsignal')
+
+
+class GraphsignalTracerLogHandler(logging.Handler):
+    def __init__(self, agent):
+        super().__init__()
+        self._agent = agent  
+
+    def emit(self, record):
+        try:
+            log_tags = {'deployment': self._agent.deployment}
+            if self._agent.hostname:
+                log_tags['hostname'] = self._agent.hostname
+            log_tags.update(self._agent.tags)
+
+            exception = None
+            if record.exc_info and isinstance(record.exc_info, tuple):
+                exception = self.format(record)
+
+            self._agent.log_store().log_tracer_message(
+                tags=log_tags,
+                level=record.levelname,
+                message=record.getMessage(),
+                exception=exception)
+        except Exception:
+            pass
 
 
 RECORDER_SPECS = {
@@ -92,6 +118,7 @@ class SupportedModuleFinder(importlib.abc.MetaPathFinder):
 class Agent:
     METRIC_READ_INTERVAL_SEC = 10
     METRIC_UPLOAD_INTERVAL_SEC = 20
+    LOG_UPLOAD_INTERVAL_SEC = 20
 
     def __init__(
             self, 
@@ -103,6 +130,11 @@ class Agent:
             record_data_samples=False, 
             upload_on_shutdown=True, 
             debug_mode=False):
+        if debug_mode:
+            logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.WARNING)
+
         self.api_key = api_key
         if api_url:
             self.api_url = api_url
@@ -121,9 +153,11 @@ class Agent:
         except BaseException:
             logger.debug('Error reading hostname', exc_info=True)
 
+        self._tracer_log_handler = None
         self._uploader = None
         self._trace_samplers = None
         self._metric_store = None
+        self._log_store = None
         self._recorders = None
         self._lo_detectors = None
         self._mv_detector = None
@@ -132,14 +166,20 @@ class Agent:
 
         self.last_metric_read_ts = 0
         self.last_metric_upload_ts = int(self._process_start_ms / 1e3)
+        self.last_log_upload_ts = int(self._process_start_ms / 1e3)
 
     def setup(self):
         self._uploader = Uploader()
         self._uploader.setup()
         self._trace_samplers = {}
         self._metric_store = MetricStore()
+        self._log_store = LogStore()
         self._recorders = {}
         self._lo_detectors = {}
+
+        # initialize tracer log handler
+        self._tracer_log_handler = GraphsignalTracerLogHandler(self)
+        logger.addHandler(self._tracer_log_handler)
 
         # initialize context tags variable
         self.context_tags = contextvars.ContextVar('graphsignal_context_tags', default={})
@@ -154,12 +194,16 @@ class Agent:
                 self.initialize_recorders_for_module(module_name)
 
     def shutdown(self):
-        # Create snapshot signals to send final metrics.
         if self.upload_on_shutdown:
             if self._metric_store.has_unexported():
                 metrics = self._metric_store.export()
                 for metric in metrics:
                     self._uploader.upload_metric(metric)
+
+            if self._log_store.has_unexported():
+                entries = self._log_store.export()
+                for entry in entries:
+                    self._uploader.upload_log_entry(entry)
 
         for recorder in self.recorders():
             recorder.shutdown()
@@ -169,6 +213,7 @@ class Agent:
         self._recorders = None
         self._trace_samplers = None
         self._metric_store = None
+        self._log_store = None
         self._lo_detectors = None
         self._mv_detector = None
         self._uploader = None
@@ -181,6 +226,9 @@ class Agent:
             sys.meta_path.remove(self._module_finder)
         self._module_finder = None
 
+        # remove tracer log handler
+        logger.removeHandler(self._tracer_log_handler)
+        self._tracer_log_handler = None
 
     def uploader(self):
         return self._uploader
@@ -222,6 +270,9 @@ class Agent:
 
     def metric_store(self):
         return self._metric_store
+
+    def log_store(self):
+        return self._log_store
 
     def lo_detector(self, operation):
         if operation in self._lo_detectors:
@@ -304,15 +355,31 @@ class Agent:
     def set_metric_upload(self, now=None):
         self.last_metric_upload_ts = now if now else time.time()
 
+    def check_log_upload_interval(self, now=None):
+        if now is None:
+            now = time.time()
+        return (self.last_log_upload_ts < now - Agent.LOG_UPLOAD_INTERVAL_SEC)
+
+    def set_log_upload(self, now=None):
+        self.last_log_upload_ts = now if now else time.time()
+
     def tick(self, block=False, now=None):
         if now is None:
             now = time.time()
+
         if self.check_metric_upload_interval(now):
             if self._metric_store.has_unexported():
                 metrics = self._metric_store.export()
                 for metric in metrics:
                     self.uploader().upload_metric(metric)
                 self.set_metric_upload(now)
+
+        if self.check_log_upload_interval(now):
+            if self._log_store.has_unexported():
+                entrys = self._log_store.export()
+                for entry in entrys:
+                    self.uploader().upload_log_entry(entry)
+                self.set_log_upload(now)
 
         self.upload(block=False)
 

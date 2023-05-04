@@ -113,12 +113,10 @@ class HistogramMetric(BaseMetric):
 
 
 class MetricStore:
-    MIN_INTERVAL_SEC = 10
-
     def __init__(self):
         self._update_lock = threading.Lock()
         self._has_unexported = False
-        self.metrics = {}
+        self._metrics = {}
 
     def metric_key(self, scope, name, tags):
         return (scope, name, frozenset(tags.items()))
@@ -126,36 +124,36 @@ class MetricStore:
     def set_gauge(self, scope, name, tags, value, update_ts, unit=None, is_time=False, is_size=False):
         key = self.metric_key(scope, name, tags)
         with self._update_lock:
-            if key not in self.metrics:
-                metric = self.metrics[key] = GaugeMetric(scope, name, tags, unit=unit, is_time=is_time, is_size=is_size)
+            if key not in self._metrics:
+                metric = self._metrics[key] = GaugeMetric(scope, name, tags, unit=unit, is_time=is_time, is_size=is_size)
             else:
-                metric = self.metrics[key]
+                metric = self._metrics[key]
         metric.update(value, update_ts)
-        return self.metrics[key]
+        return self._metrics[key]
 
     def inc_counter(self, scope, name, tags, value, update_ts, unit=None):
         key = self.metric_key(scope, name, tags)
         with self._update_lock:
-            if key not in self.metrics:
-                metric = self.metrics[key] = CounterMetric(scope, name, tags, unit=unit)
+            if key not in self._metrics:
+                metric = self._metrics[key] = CounterMetric(scope, name, tags, unit=unit)
             else:
-                metric = self.metrics[key]
+                metric = self._metrics[key]
         metric.update(value, update_ts)
-        return self.metrics[key]
+        return self._metrics[key]
 
     def update_histogram(self, scope, name, tags, value, update_ts, unit=None, is_time=False, is_size=False):
         key = self.metric_key(scope, name, tags)
         with self._update_lock:
-            if key not in self.metrics:
-                metric = self.metrics[key] = HistogramMetric(scope, name, tags, unit=unit, is_time=is_time, is_size=is_size)
+            if key not in self._metrics:
+                metric = self._metrics[key] = HistogramMetric(scope, name, tags, unit=unit, is_time=is_time, is_size=is_size)
             else:
-                metric = self.metrics[key]
+                metric = self._metrics[key]
         metric.update(value, update_ts)
-        return self.metrics[key]
+        return self._metrics[key]
 
     def has_unexported(self):
         with self._update_lock:
-            for metric in self.metrics.values():
+            for metric in self._metrics.values():
                 if metric.is_updated:
                     return True
         return False
@@ -163,11 +161,11 @@ class MetricStore:
     def export(self):
         protos = []
         with self._update_lock:
-            for metric in self.metrics.values():
+            for metric in self._metrics.values():
                 if metric.is_updated:
                     protos.append(metric.export())
         return protos
 
     def clear(self):
         with self._update_lock:
-            self.metrics = {}
+            self._metrics = {}

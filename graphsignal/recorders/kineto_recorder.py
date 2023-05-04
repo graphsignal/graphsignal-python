@@ -16,9 +16,6 @@ class KinetoRecorder(BaseRecorder):
         self._torch_prof = None
         self._profiler_lock = threading.Lock()
 
-    def setup(self):
-        pass
-
     def on_trace_start(self, proto, context, options):
         if not options.enable_profiling:
             return
@@ -94,8 +91,6 @@ class KinetoRecorder(BaseRecorder):
 
         self._profiler_lock.release()
 
-    def on_metric_update(self):
-        pass
 
 def _ns(val):
     return int(max(val, 0) * 1e3)
