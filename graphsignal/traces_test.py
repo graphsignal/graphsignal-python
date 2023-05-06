@@ -10,7 +10,7 @@ import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.traces import Trace, TraceOptions, DEFAULT_OPTIONS
 from graphsignal.recorders.process_recorder import ProcessRecorder
-from graphsignal.trace_sampler import TraceSampler
+from graphsignal.samplers.random_samples import RandomSampler
 from graphsignal.uploader import Uploader
 
 

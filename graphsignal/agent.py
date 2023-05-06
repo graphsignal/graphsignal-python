@@ -12,10 +12,10 @@ from graphsignal import version
 from graphsignal.uploader import Uploader
 from graphsignal.metrics import MetricStore
 from graphsignal.logs import LogStore
-from graphsignal.trace_sampler import TraceSampler
 from graphsignal.proto import signals_pb2
-from graphsignal.detectors.latency_outlier_detector import LatencyOutlierDetector
-from graphsignal.detectors.missing_value_detector import MissingValueDetector
+from graphsignal.samplers.random_samples import RandomSampler
+from graphsignal.samplers.latency_outliers import LatencyOutlierSampler
+from graphsignal.samplers.missing_values import MissingValueSampler
 from graphsignal.proto_utils import parse_semver
 
 logger = logging.getLogger('graphsignal')
@@ -156,12 +156,12 @@ class Agent:
 
         self._tracer_log_handler = None
         self._uploader = None
-        self._trace_samplers = None
         self._metric_store = None
         self._log_store = None
         self._recorders = None
-        self._lo_detectors = None
-        self._mv_detector = None
+        self._random_samplers = None
+        self._lo_samplers = None
+        self._mv_samplers = None
 
         self._process_start_ms = int(time.time() * 1e3)
 
@@ -172,11 +172,12 @@ class Agent:
     def setup(self):
         self._uploader = Uploader()
         self._uploader.setup()
-        self._trace_samplers = {}
         self._metric_store = MetricStore()
         self._log_store = LogStore()
         self._recorders = {}
-        self._lo_detectors = {}
+        self._random_samplers = {}
+        self._lo_samplers = {}
+        self._mv_samplers = {}
 
         # initialize tracer log handler
         self._tracer_log_handler = GraphsignalTracerLogHandler(self)
@@ -212,11 +213,11 @@ class Agent:
         self.upload(block=True)
 
         self._recorders = None
-        self._trace_samplers = None
         self._metric_store = None
         self._log_store = None
-        self._lo_detectors = None
-        self._mv_detector = None
+        self._lo_samplers = None
+        self._random_samplers = None
+        self._mv_samplers = None
         self._uploader = None
 
         self.context_tags.set({})
@@ -262,30 +263,32 @@ class Agent:
             for recorder in recorder_list:
                 yield recorder
 
-    def trace_sampler(self, operation):
-        if operation in self._trace_samplers:
-            return self._trace_samplers[operation]
-        else:
-            trace_sampler = self._trace_samplers[operation] = TraceSampler()
-            return trace_sampler
-
     def metric_store(self):
         return self._metric_store
 
     def log_store(self):
         return self._log_store
 
-    def lo_detector(self, operation):
-        if operation in self._lo_detectors:
-            return self._lo_detectors[operation]
+    def random_sampler(self, operation):
+        if operation in self._random_samplers:
+            return self._random_samplers[operation]
         else:
-            lo_detector = self._lo_detectors[operation] = LatencyOutlierDetector()
-            return lo_detector
+            random_sampler = self._random_samplers[operation] = RandomSampler()
+            return random_sampler
 
-    def mv_detector(self):
-        if self._mv_detector is None:
-            self._mv_detector = MissingValueDetector()
-        return self._mv_detector
+    def lo_sampler(self, operation):
+        if operation in self._lo_samplers:
+            return self._lo_samplers[operation]
+        else:
+            lo_sampler = self._lo_samplers[operation] = LatencyOutlierSampler()
+            return lo_sampler
+
+    def mv_sampler(self, operation):
+        if operation in self._mv_samplers:
+            return self._mv_samplers[operation]
+        else:
+            lo_sampler = self._mv_samplers[operation] = MissingValueSampler()
+            return lo_sampler
 
     def emit_trace_start(self, proto, context, options):
         last_exc = None

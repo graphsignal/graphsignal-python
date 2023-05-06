@@ -4,7 +4,7 @@ set -e
 
 source venv/bin/activate
 python -m unittest graphsignal/*_test.py
-python -m unittest graphsignal/detectors/*_test.py
+python -m unittest graphsignal/samplers/*_test.py
 python -m unittest graphsignal/recorders/instrumentation_test.py
 python -m unittest graphsignal/recorders/process_recorder_test.py
 python -m unittest graphsignal/recorders/cprofile_recorder_test.py

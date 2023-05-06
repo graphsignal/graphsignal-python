@@ -5,7 +5,7 @@ import time
 from unittest.mock import patch, Mock
 
 import graphsignal
-from graphsignal.trace_sampler import TraceSampler
+from graphsignal.samplers.random_samples import RandomSampler
 
 logger = logging.getLogger('graphsignal')
 
@@ -22,7 +22,7 @@ class TraceSamplerTest(unittest.TestCase):
         graphsignal.shutdown()
 
     def test_group(self):
-        sampler = TraceSampler()
+        sampler = RandomSampler()
         for _ in range(sampler.EXTRA_SAMPLES):
             self.assertTrue(sampler.sample('g1'))
 

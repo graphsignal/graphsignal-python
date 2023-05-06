@@ -6,12 +6,12 @@ from unittest.mock import patch, Mock
 
 import graphsignal
 from graphsignal.proto import signals_pb2
-from graphsignal.detectors.missing_value_detector import MissingValueDetector
+from graphsignal.samplers.missing_values import MissingValueSampler
 
 logger = logging.getLogger('graphsignal')
 
 
-class MissingValueDetectorTest(unittest.TestCase):
+class MissingValueSamplerTest(unittest.TestCase):
     def setUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -25,6 +25,6 @@ class MissingValueDetectorTest(unittest.TestCase):
         graphsignal.shutdown()
 
     def test_detect(self):
-        mvd = MissingValueDetector()
-        self.assertTrue(mvd.detect('d1', {'null_count': 1}))
-        self.assertFalse(mvd.detect('d1', {'null_count': 0}))
+        mvs = MissingValueSampler()
+        self.assertTrue(mvs.sample('d1', {'null_count': 1}))
+        self.assertFalse(mvs.sample('d1', {'null_count': 0}))

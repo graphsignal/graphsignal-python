@@ -8,6 +8,10 @@ logger = logging.getLogger('graphsignal')
 span_stack_var = contextvars.ContextVar('graphsignal_span_stack', default=[])
 
 
+def clear_span_stack():
+    span_stack_var.set([])
+
+
 def push_current_span(span):
     span_stack_var.set(span_stack_var.get() + [span])
 
@@ -90,3 +94,8 @@ class Span:
 
     def can_add_child(self):
         return self.in_context and self.root_span.total_count < Span.MAX_NESTED_SPANS
+
+    def __repr__(self):
+        root_span_id = self.root_span.trace_id if self.root_span else None
+        parent_span_id = self.parent_span.trace_id if self.parent_span else None
+        return f'Span({self.operation}, {self.trace_id}, {root_span_id}, {parent_span_id}, {self.total_count}, {self.in_context}, {self.is_sampling})'

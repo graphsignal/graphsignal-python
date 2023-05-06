@@ -152,7 +152,7 @@ def trace_function(
     if asyncio.iscoroutinefunction(func):
         @functools.wraps(func)
         async def tf_async_wrapper(*args, **kwargs):
-            with start_trace(operation=operation_or_name, tags=tags, options=options):
+            async with start_trace(operation=operation_or_name, tags=tags, options=options):
                 return await func(*args, **kwargs)
         return tf_async_wrapper
     else:

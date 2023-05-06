@@ -167,7 +167,7 @@ class Trace:
         if self._options.record_samples:
             # sample if parent trace is being sampled or this trace is root
             if self._is_root:
-                if _agent().trace_sampler(self._operation).sample('random'):
+                if _agent().random_sampler(self._operation).sample('random'):
                     self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.RANDOM_SAMPLING)
             else:
                 if parent_span.is_root_sampling() and parent_span.can_add_child():
@@ -220,17 +220,17 @@ class Trace:
         # if exception, but the trace is not being recorded, try to start tracing
         if self._options.record_samples:
             if not self._is_sampling and self._exc_info and self._exc_info[0]:
-                if _agent().trace_sampler(self._operation).sample('exceptions'):
+                if _agent().random_sampler(self._operation).sample('exceptions'):
                     self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.ERROR_SAMPLING)
 
         # check for outliers
-        lo_detector = _agent().lo_detector(self._operation)
+        lo_sampler = _agent().lo_sampler(self._operation)
         if self._options.record_samples:
-            self._is_latency_outlier = lo_detector.detect(self._latency_ns / 1e9)
+            self._is_latency_outlier = lo_sampler.sample(self._latency_ns / 1e9)
             if not self._is_sampling and self._is_latency_outlier:
-                if _agent().trace_sampler(self._operation).sample('latency-outliers'):
+                if _agent().random_sampler(self._operation).sample('latency-outliers'):
                     self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.ERROR_SAMPLING)
-        lo_detector.update(self._latency_ns / 1e9)
+        lo_sampler.update(self._latency_ns / 1e9)
 
         # update RED metrics
         if self._options.record_metrics:
@@ -260,7 +260,7 @@ class Trace:
 
                     # check missing values
                     if data_obj.check_missing_values:
-                        if _agent().mv_detector().detect(data_obj.name, stats.counts):
+                        if _agent().mv_sampler(self._operation).sample(data_obj.name, stats.counts):
                             self._has_missing_values = True
 
                     # update data metrics
@@ -272,10 +272,10 @@ class Trace:
                 except Exception as exc:
                     logger.error('Error computing data stats', exc_info=True)
 
-        # if missing values detected, but the trace is not being recorded, try to start tracing
+        # if missing values detected, but the trace is not being recorded, try to start sampling
         if self._options.record_samples:
             if not self._is_sampling and self._has_missing_values:
-                if _agent().trace_sampler(self._operation).sample('missing-values'):
+                if _agent().random_sampler(self._operation).sample('missing-values'):
                     self._init_sampling(sampling_type=signals_pb2.Trace.SamplingType.ERROR_SAMPLING)
 
         # emit read event

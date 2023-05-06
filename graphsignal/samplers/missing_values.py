@@ -3,7 +3,7 @@ import logging
 logger = logging.getLogger('graphsignal')
 
 
-class MissingValueDetector:
+class MissingValueSampler:
     MISSING_COUNTERS = {
         'null_count',
         'nan_count',
@@ -14,7 +14,7 @@ class MissingValueDetector:
     def __init__(self):
         pass
 
-    def detect(self, data_name, counts):
+    def sample(self, data_name, counts):
         for counter_name in self.MISSING_COUNTERS:
             if counter_name in counts:
                 if counts[counter_name] > 0:

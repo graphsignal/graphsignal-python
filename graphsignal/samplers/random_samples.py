@@ -3,7 +3,7 @@ import time
 
 logger = logging.getLogger('graphsignal')
 
-class TraceSampler:
+class RandomSampler:
     MAX_SAMPLES_PER_SECOND = 0.1
     EXTRA_SAMPLES = 100
 

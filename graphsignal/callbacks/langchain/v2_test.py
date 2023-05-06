@@ -13,6 +13,8 @@ from typing import Any, List, Mapping, Optional
 from langchain.llms.base import LLM
 from langchain.chat_models import ChatOpenAI
 from langchain.schema import HumanMessage
+from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate
 
 import graphsignal
 from graphsignal.uploader import Uploader
@@ -108,7 +110,6 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         #pp.pprint(MessageToJson(t1))
         #pp.pprint(MessageToJson(t2))
         #pp.pprint(MessageToJson(t3))
-        #pp.pprint(MessageToJson(t4))
 
         self.assertEqual(t1.labels, ['root'])
         self.assertEqual(find_tag(t1, 'component'), 'Agent')
@@ -119,6 +120,7 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_count(t1, 'outputs', 'element_count'), 1.0)
 
         self.assertEqual(t2.labels, [])
+        self.assertEqual(find_tag(t2, 'component'), 'Agent')
         self.assertEqual(find_tag(t2, 'operation'), 'langchain.chains.LLMChain')
         self.assertEqual(t2.span.parent_trace_id, t1.trace_id)
         self.assertEqual(t2.span.root_trace_id, t1.trace_id)
@@ -132,6 +134,47 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_tag(t3, 'operation'), 'langchain.llms.DummyLLM')
         self.assertEqual(t3.span.parent_trace_id, t2.trace_id)
         self.assertEqual(t3.span.root_trace_id, t1.trace_id)
+
+
+    @patch.object(Uploader, 'upload_trace')
+    async def test_chain_async_with_decorator(self, mocked_upload_trace):
+        prompt = PromptTemplate(
+            input_variables=["product"],
+            template="What is a good name for a company that makes {product}?",
+        )
+
+        llm = DummyLLM()
+        chain = LLMChain(llm=llm, prompt=prompt)
+
+        @graphsignal.trace_function
+        async def run_chain():
+            await chain.arun("colorful socks")
+
+        await run_chain()
+
+        t3 = mocked_upload_trace.call_args_list[0][0][0]
+        t2 = mocked_upload_trace.call_args_list[1][0][0]
+        t1 = mocked_upload_trace.call_args_list[2][0][0]
+
+        #pp = pprint.PrettyPrinter()
+        #pp.pprint(MessageToJson(t1))
+        #pp.pprint(MessageToJson(t2))
+        #pp.pprint(MessageToJson(t3))
+
+
+        self.assertEqual(t1.labels, ['root'])
+        self.assertEqual(find_tag(t1, 'operation'), 'run_chain')
+
+        #self.assertEqual(t2.labels, [])
+        self.assertEqual(find_tag(t2, 'operation'), 'langchain.chains.LLMChain')
+        #self.assertEqual(t2.span.parent_trace_id, t1.trace_id)
+        #self.assertEqual(t2.span.root_trace_id, t1.trace_id)
+
+        self.assertEqual(t3.labels, [])
+        self.assertEqual(find_tag(t3, 'component'), 'LLM')
+        self.assertEqual(find_tag(t3, 'operation'), 'langchain.llms.DummyLLM')
+        self.assertEqual(t3.span.parent_trace_id, t2.trace_id)
+        #self.assertEqual(t3.span.root_trace_id, t1.trace_id)
 
     @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.ChatCompletion, 'acreate')
@@ -208,6 +251,8 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_tag(t2, 'operation'), 'langchain.llms.ChatOpenAI')
         self.assertEqual(find_data_count(t2, 'prompts', 'byte_count'), 41.0)
         self.assertEqual(find_data_count(t2, 'prompts', 'element_count'), 1.0)
+        self.assertEqual(find_data_count(t2, 'output', 'byte_count'), 13.0)
+        self.assertEqual(find_data_count(t2, 'output', 'element_count'), 1.0)
 
         #self.assertEqual(t2.labels, [])
         self.assertEqual(find_tag(t3, 'component'), 'LLM')

@@ -1,12 +1,9 @@
 import logging
-import contextvars
-import time
-
 
 logger = logging.getLogger('graphsignal')
 
 
-class LatencyOutlierDetector:
+class LatencyOutlierSampler:
     MIN_VALUES = 100
     MAX_VALUES = 1000
 
@@ -23,7 +20,7 @@ class LatencyOutlierDetector:
         self._sum2 += value * value
         self._count += 1
 
-    def detect(self, value):
+    def sample(self, value):
         if self._count < self.MIN_VALUES:
             return False
         elif self._count > self.MAX_VALUES:
