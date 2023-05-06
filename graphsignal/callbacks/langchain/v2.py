@@ -20,18 +20,36 @@ _trace_graph = {}
 class GraphsignalCallbackHandler(BaseCallbackHandler):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
+        self._context_tags = graphsignal._agent.context_tags.get().copy()
+        self._parent_span = get_current_span()
 
     def _start_trace(self, parent_run_id, run_id, operation):
-        if run_id not in _trace_graph and len(_trace_graph) < MAX_TRACES:
-            # contextvars are not usable in non-async callbacks with async operations
-            clear_span_stack()
+        if run_id in _trace_graph or len(_trace_graph) > MAX_TRACES:
+            return None
+
+        # do not rely on contextvars in callbacks
+        clear_span_stack()
+
+        # set parent span
+        if not parent_run_id:
+            # initialize handler
+            if self._parent_span:
+                push_current_span(self._parent_span)
+        else:
             parent_trace = _trace_graph.get(parent_run_id)
             if parent_trace:
                 push_current_span(parent_trace._span)
+            else:
+                return None
 
-            trace = graphsignal.start_trace(operation)
-            _trace_graph[run_id] = trace
-            return trace
+        # set context tags
+        if self._context_tags:
+            for key, value in self._context_tags.items():
+                graphsignal.set_context_tag(key, value)
+
+        trace = graphsignal.start_trace(operation)
+        _trace_graph[run_id] = trace
+        return trace
 
     def _current_trace(self, run_id):
         return _trace_graph.get(run_id)

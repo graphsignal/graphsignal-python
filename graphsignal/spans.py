@@ -89,8 +89,6 @@ class Span:
         if self.in_context:
             if is_current_span(self):
                 pop_current_span()
-            else:
-                logger.error(f'Span.stop() called on a span that is not the current span {self.operation}')
 
     def can_add_child(self):
         return self.in_context and self.root_span.total_count < Span.MAX_NESTED_SPANS

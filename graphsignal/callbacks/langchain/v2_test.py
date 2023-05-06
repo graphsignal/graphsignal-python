@@ -55,6 +55,8 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
 
     @patch.object(Uploader, 'upload_trace')
     async def test_chain(self, mocked_upload_trace):
+        graphsignal.set_context_tag('ct1', 'v1')
+
         llm = DummyLLM()
         tools = load_tools(["llm-math"], llm=llm)
         agent = initialize_agent(
@@ -72,6 +74,7 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         #pp.pprint(MessageToJson(t4))
 
         self.assertEqual(t1.labels, ['root'])
+        self.assertEqual(find_tag(t1, 'ct1'), 'v1')
         self.assertEqual(find_tag(t1, 'component'), 'Agent')
         self.assertEqual(find_tag(t1, 'operation'), 'langchain.chains.AgentExecutor')
         self.assertEqual(find_data_count(t1, 'inputs', 'byte_count'), 34.0)
@@ -80,6 +83,7 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_count(t1, 'outputs', 'element_count'), 1.0)
 
         self.assertEqual(t2.labels, [])
+        self.assertEqual(find_tag(t2, 'ct1'), 'v1')
         self.assertEqual(find_tag(t2, 'operation'), 'langchain.chains.LLMChain')
         self.assertEqual(t2.span.parent_trace_id, t1.trace_id)
         self.assertEqual(t2.span.root_trace_id, t1.trace_id)
@@ -89,6 +93,7 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_count(t2, 'outputs', 'element_count'), 1.0)
 
         self.assertEqual(t3.labels, [])
+        self.assertEqual(find_tag(t3, 'ct1'), 'v1')
         self.assertEqual(find_tag(t3, 'component'), 'LLM')
         self.assertEqual(find_tag(t3, 'operation'), 'langchain.llms.DummyLLM')
         self.assertEqual(t3.span.parent_trace_id, t2.trace_id)
@@ -96,6 +101,8 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
 
     @patch.object(Uploader, 'upload_trace')
     async def test_chain_async(self, mocked_upload_trace):
+        graphsignal.set_context_tag('ct1', 'v1')
+
         llm = DummyLLM()
         tools = load_tools(["llm-math"], llm=llm)
         agent = initialize_agent(
@@ -112,6 +119,7 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         #pp.pprint(MessageToJson(t3))
 
         self.assertEqual(t1.labels, ['root'])
+        self.assertEqual(find_tag(t1, 'ct1'), 'v1')
         self.assertEqual(find_tag(t1, 'component'), 'Agent')
         self.assertEqual(find_tag(t1, 'operation'), 'langchain.chains.AgentExecutor')
         self.assertEqual(find_data_count(t1, 'inputs', 'byte_count'), 34.0)
@@ -120,6 +128,7 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_count(t1, 'outputs', 'element_count'), 1.0)
 
         self.assertEqual(t2.labels, [])
+        self.assertEqual(find_tag(t2, 'ct1'), 'v1')
         self.assertEqual(find_tag(t2, 'component'), 'Agent')
         self.assertEqual(find_tag(t2, 'operation'), 'langchain.chains.LLMChain')
         self.assertEqual(t2.span.parent_trace_id, t1.trace_id)
@@ -130,6 +139,7 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_count(t2, 'outputs', 'element_count'), 1.0)
 
         self.assertEqual(t3.labels, [])
+        self.assertEqual(find_tag(t3, 'ct1'), 'v1')
         self.assertEqual(find_tag(t3, 'component'), 'LLM')
         self.assertEqual(find_tag(t3, 'operation'), 'langchain.llms.DummyLLM')
         self.assertEqual(t3.span.parent_trace_id, t2.trace_id)
@@ -161,20 +171,19 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         #pp.pprint(MessageToJson(t2))
         #pp.pprint(MessageToJson(t3))
 
-
         self.assertEqual(t1.labels, ['root'])
         self.assertEqual(find_tag(t1, 'operation'), 'run_chain')
 
-        #self.assertEqual(t2.labels, [])
+        self.assertEqual(t2.labels, [])
         self.assertEqual(find_tag(t2, 'operation'), 'langchain.chains.LLMChain')
-        #self.assertEqual(t2.span.parent_trace_id, t1.trace_id)
-        #self.assertEqual(t2.span.root_trace_id, t1.trace_id)
+        self.assertEqual(t2.span.parent_trace_id, t1.trace_id)
+        self.assertEqual(t2.span.root_trace_id, t1.trace_id)
 
         self.assertEqual(t3.labels, [])
         self.assertEqual(find_tag(t3, 'component'), 'LLM')
         self.assertEqual(find_tag(t3, 'operation'), 'langchain.llms.DummyLLM')
         self.assertEqual(t3.span.parent_trace_id, t2.trace_id)
-        #self.assertEqual(t3.span.root_trace_id, t1.trace_id)
+        self.assertEqual(t3.span.root_trace_id, t1.trace_id)
 
     @patch.object(Uploader, 'upload_trace')
     @patch.object(openai.ChatCompletion, 'acreate')
