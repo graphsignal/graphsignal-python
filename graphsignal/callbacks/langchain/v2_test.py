@@ -235,6 +235,8 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
                 yield item
         mocked_acreate.return_value = test_ret_gen()
 
+        graphsignal.set_context_tag('ct1', 'v1')
+
         llm = ChatOpenAI(
             verbose=True,
             temperature=0,
@@ -253,9 +255,11 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         #pp.pprint(MessageToJson(t3))
 
         self.assertEqual(t1.labels, ['root'])
+        self.assertEqual(find_tag(t1, 'ct1'), 'v1')
         self.assertEqual(find_tag(t1, 'operation'), 'test')
 
-        #self.assertEqual(t1.labels, [])
+        self.assertEqual(t2.labels, [])
+        self.assertEqual(find_tag(t2, 'ct1'), 'v1')
         self.assertEqual(find_tag(t2, 'component'), 'LLM')
         self.assertEqual(find_tag(t2, 'operation'), 'langchain.llms.ChatOpenAI')
         self.assertEqual(find_data_count(t2, 'prompts', 'byte_count'), 41.0)
@@ -263,7 +267,8 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_count(t2, 'output', 'byte_count'), 13.0)
         self.assertEqual(find_data_count(t2, 'output', 'element_count'), 1.0)
 
-        #self.assertEqual(t2.labels, [])
+        self.assertEqual(t3.labels, [])
+        self.assertEqual(find_tag(t3, 'ct1'), 'v1')
         self.assertEqual(find_tag(t3, 'component'), 'LLM')
         self.assertEqual(find_tag(t3, 'operation'), 'openai.ChatCompletion.acreate')
         self.assertEqual(find_data_count(t3, 'messages', 'byte_count'), 38.0)

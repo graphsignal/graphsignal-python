@@ -30,7 +30,6 @@ class LangChainRecorder(BaseRecorder):
         def is_v2():
             return (
                 hasattr(langchain.callbacks, 'manager') and
-                hasattr(langchain.callbacks.manager, 'tracing_callback_var') and
                 hasattr(langchain.callbacks.manager, 'CallbackManager') and
                 hasattr(langchain.callbacks.manager, 'AsyncCallbackManager')
             )
@@ -42,18 +41,24 @@ class LangChainRecorder(BaseRecorder):
         if is_v2():
             # langchain >= 0.0.154
             from graphsignal.callbacks.langchain.v2 import GraphsignalCallbackHandler
-            def before_configure(args, kwargs):
-                v2_handler = GraphsignalCallbackHandler()
-                langchain.callbacks.manager.tracing_callback_var.set(v2_handler)
-            if not patch_method(langchain.callbacks.manager.CallbackManager, 'configure', before_func=before_configure):
-                logger.error(f'Cannot instrument langchain.callbacks.manager._configure for LangChain {version}')
+            def after_configure(args, kwargs, ret, exc, context):
+                if isinstance(ret, langchain.callbacks.manager.CallbackManager):
+                    if not any(isinstance(handler, GraphsignalCallbackHandler) for handler in ret.handlers):
+                        ret.add_handler(GraphsignalCallbackHandler())
+                else:
+                    logger.error(f'Cannot add callback for LangChain {version}')
+            if not patch_method(langchain.callbacks.manager.CallbackManager, 'configure', after_func=after_configure):
+                logger.error(f'Cannot instrument LangChain {version}')
 
             from graphsignal.callbacks.langchain.v2 import GraphsignalAsyncCallbackHandler
-            def before_async_configure(args, kwargs):
-                v2_async_handler = GraphsignalAsyncCallbackHandler()
-                langchain.callbacks.manager.tracing_callback_var.set(v2_async_handler)
-            if not patch_method(langchain.callbacks.manager.AsyncCallbackManager, 'configure', before_func=before_async_configure):
-                logger.error(f'Cannot instrument langchain.callbacks.manager._configure for LangChain {version}')
+            def after_async_configure(args, kwargs, ret, exc, context):
+                if isinstance(ret, langchain.callbacks.manager.AsyncCallbackManager):
+                    if not any(isinstance(handler, GraphsignalAsyncCallbackHandler) for handler in ret.handlers):
+                        ret.add_handler(GraphsignalAsyncCallbackHandler())
+                else:
+                    logger.error(f'Cannot add callback for LangChain {version}')
+            if not patch_method(langchain.callbacks.manager.AsyncCallbackManager, 'configure', after_func=after_async_configure):
+                logger.error(f'Cannot instrument LangChain {version}')
 
         elif is_v1():
             # compatibility with langchain <= 0.0.153
@@ -72,16 +77,3 @@ class LangChainRecorder(BaseRecorder):
     def on_trace_read(self, proto, context, options):
         if self._framework:
             proto.frameworks.append(self._framework)
-
-def _is_v2():
-    return (
-        hasattr(langchain.callbacks, 'manager') and
-        hasattr(langchain.callbacks.manager, 'tracing_callback_var') and
-        hasattr(langchain.callbacks.manager, 'CallbackManager') and
-        hasattr(langchain.callbacks.manager, 'AsyncCallbackManager')
-    )
-
-def _is_v1():
-    return (
-        hasattr(langchain.callbacks, 'get_callback_manager')
-    )

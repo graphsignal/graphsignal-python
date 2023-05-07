@@ -7,6 +7,7 @@ from uuid import UUID
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
 from graphsignal.spans import get_current_span, push_current_span, clear_span_stack
+from graphsignal.data.utils import obj_to_dict
 
 logger = logging.getLogger('graphsignal')
 
@@ -94,7 +95,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             if trace:
                 if isinstance(response, (LLMResult, ChatResult)) and hasattr(response, 'llm_output'):
                     trace.set_data('output', response.llm_output)
-                    trace.set_data('generations', _to_dict(response.generations))
+                    trace.set_data('generations', obj_to_dict(response.generations))
             self._stop_trace(run_id)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
@@ -222,7 +223,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             trace = self._current_trace(run_id)
             if trace:
                 if isinstance(action, AgentAction):
-                    trace.append_data('actions', [_to_dict(action)])
+                    trace.append_data('actions', [obj_to_dict(action)])
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
 
@@ -380,18 +381,3 @@ class GraphsignalAsyncCallbackHandler(GraphsignalCallbackHandler):
             text: str,
             **kwargs: Any) -> Any:
         pass
-
-
-def _to_dict(obj, level=0):
-    if level >= 10:
-        return
-    if isinstance(obj, (int, float, str, bool, type(None))):
-        return obj
-    elif isinstance(obj, dict):
-        return {k: _to_dict(v, level=level+1) for k, v in obj.items()}
-    elif isinstance(obj, (list, set, tuple)):
-        return [_to_dict(e, level=level+1) for e in obj]
-    elif hasattr(obj, '__dict__'):
-        return _to_dict(vars(obj), level=level+1)
-    else:
-        return str(obj)
