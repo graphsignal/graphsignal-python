@@ -36,8 +36,8 @@ class Uploader:
         with self._buffer_lock:
             self._buffer = []
 
-    def upload_trace(self, trace):
-        self.upload_signal(trace)
+    def upload_span(self, span):
+        self.upload_signal(span)
     
     def upload_metric(self, metric):
         self.upload_signal(metric)
@@ -81,9 +81,9 @@ class Uploader:
                 logger.error('Error uploading signals', exc_info=True)
 
     def _post(self, endpoint, data):
-        logger.debug('Posting data to %s/%s', graphsignal._agent.api_url, endpoint)
+        logger.debug('Posting data to %s/%s', graphsignal._tracer.api_url, endpoint)
 
-        api_key_64 = _base64_encode(graphsignal._agent.api_key + ':').replace('\n', '')
+        api_key_64 = _base64_encode(graphsignal._tracer.api_key + ':').replace('\n', '')
         headers = {
             'Accept-Encoding': 'gzip',
             'Authorization': "Basic %s" % api_key_64,
@@ -94,7 +94,7 @@ class Uploader:
         data_gzip = _gzip_data(data)
 
         request = Request(
-            url=graphsignal._agent.api_url + '/' + endpoint,
+            url=graphsignal._tracer.api_url + '/' + endpoint,
             data=data_gzip,
             headers=headers)
 
@@ -116,8 +116,8 @@ class Uploader:
 def _create_upload_request(outgoing):
     upload_request = signals_pb2.UploadRequest()
     for signal in outgoing:
-        if isinstance(signal, signals_pb2.Trace):
-            upload_request.traces.append(signal)
+        if isinstance(signal, signals_pb2.Span):
+            upload_request.spans.append(signal)
         elif isinstance(signal, signals_pb2.Metric):
             upload_request.metrics.append(signal)
         elif isinstance(signal, signals_pb2.LogEntry):

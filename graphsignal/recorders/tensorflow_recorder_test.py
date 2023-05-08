@@ -12,7 +12,7 @@ import tensorflow as tf
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
-from graphsignal.traces import DEFAULT_OPTIONS
+from graphsignal.spans import DEFAULT_OPTIONS
 from graphsignal.recorders.tensorflow_recorder import TensorFlowRecorder
 
 logger = logging.getLogger('graphsignal')
@@ -42,11 +42,11 @@ class TensorFlowRecorderTest(unittest.TestCase):
 
         recorder = TensorFlowRecorder()
         recorder.setup()
-        proto = signals_pb2.Trace()
+        proto = signals_pb2.Span()
         context = {}
-        recorder.on_trace_start(proto, context, DEFAULT_OPTIONS)
-        recorder.on_trace_stop(proto, context, DEFAULT_OPTIONS)
-        recorder.on_trace_read(proto, context, DEFAULT_OPTIONS)
+        recorder.on_span_start(proto, context, DEFAULT_OPTIONS)
+        recorder.on_span_stop(proto, context, DEFAULT_OPTIONS)
+        recorder.on_span_read(proto, context, DEFAULT_OPTIONS)
 
         self.assertEqual(proto.frameworks[0].name, 'TensorFlow')
 

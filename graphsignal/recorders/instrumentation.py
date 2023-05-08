@@ -10,33 +10,33 @@ logger = logging.getLogger('graphsignal')
 
 def instrument_method(obj, func_name, operation, trace_func, data_func=None):
     def before_func(args, kwargs):
-        return dict(trace=graphsignal.start_trace(operation=operation))
+        return dict(span=graphsignal.start_trace(operation=operation))
 
     def after_func(args, kwargs, ret, exc, context):
-        trace = context['trace']
+        span = context['span']
 
         if not is_generator(ret) and not is_async_generator(ret):
-            trace.measure()
+            span.measure()
 
         try:
             if exc is not None:
-                trace.set_exception(exc)
+                span.add_exception(exc)
 
-            trace_func(trace, args, kwargs, ret, exc)
+            trace_func(span, args, kwargs, ret, exc)
         except Exception as e:
             logger.debug('Error tracing %s', func_name, exc_info=True)
 
         if not is_generator(ret) and not is_async_generator(ret):
-            trace.stop()
+            span.stop()
 
     def yield_func(stopped, item, context):
-        trace = context['trace']
+        span = context['span']
 
         if stopped:
-            trace.stop()
+            span.stop()
         else:
             if data_func:
-                data_func(trace, item)
+                data_func(span, item)
 
     if not patch_method(obj, func_name, before_func=before_func, after_func=after_func, yield_func=yield_func):
         logger.debug('Cannot instrument %s.', operation)

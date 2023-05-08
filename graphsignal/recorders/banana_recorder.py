@@ -4,7 +4,7 @@ import time
 import banana_dev as banana
 
 import graphsignal
-from graphsignal.traces import TraceOptions
+from graphsignal.spans import TraceOptions
 from graphsignal.recorders.base_recorder import BaseRecorder
 from graphsignal.recorders.instrumentation import instrument_method, uninstrument_method, read_args
 from graphsignal.proto_utils import parse_semver, compare_semver
@@ -18,7 +18,7 @@ class BananaRecorder(BaseRecorder):
         self._framework = None
 
     def setup(self):
-        if not graphsignal._agent.auto_instrument:
+        if not graphsignal._tracer.auto_instrument:
             return
 
         self._framework = signals_pb2.FrameworkInfo()
@@ -29,22 +29,22 @@ class BananaRecorder(BaseRecorder):
     def shutdown(self):
         uninstrument_method(banana, 'run', 'banana.run')
 
-    def trace_run(self, trace, args, kwargs, ret, exc):
+    def trace_run(self, span, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['api_key', 'model_key', 'model_inputs'])
 
-        trace.set_tag('component', 'Model')
-        trace.set_tag('endpoint', 'https://api.banana.dev')
+        span.set_tag('component', 'Model')
+        span.set_tag('endpoint', 'https://api.banana.dev')
 
         if 'model_key' in params:
-            trace.set_tag('model_key', params['model_key'])
-            trace.set_param('model_key', params['model_key'])
+            span.set_tag('model_key', params['model_key'])
+            span.set_param('model_key', params['model_key'])
 
         if 'model_inputs' in params:
-            trace.set_data('model_inputs', params['model_inputs'])
+            span.set_data('model_inputs', params['model_inputs'])
 
         if ret:
-            trace.set_data('model_outputs', ret)
+            span.set_data('model_outputs', ret)
 
-    def on_trace_read(self, proto, context, options):
+    def on_span_read(self, proto, context, options):
         if self._framework:
             proto.frameworks.append(self._framework)

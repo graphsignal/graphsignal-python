@@ -12,7 +12,7 @@ import banana_dev as banana
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
-from graphsignal.traces import DEFAULT_OPTIONS
+from graphsignal.spans import DEFAULT_OPTIONS
 from graphsignal.recorders.banana_recorder import BananaRecorder
 
 logger = logging.getLogger('graphsignal')
@@ -34,17 +34,17 @@ class BananaRecorderTest(unittest.IsolatedAsyncioTestCase):
     async def test_record(self):
         recorder = BananaRecorder()
         recorder.setup()
-        proto = signals_pb2.Trace()
+        proto = signals_pb2.Span()
         context = {}
-        recorder.on_trace_start(proto, context, DEFAULT_OPTIONS)
-        recorder.on_trace_stop(proto, context, DEFAULT_OPTIONS)
-        recorder.on_trace_read(proto, context, DEFAULT_OPTIONS)
+        recorder.on_span_start(proto, context, DEFAULT_OPTIONS)
+        recorder.on_span_stop(proto, context, DEFAULT_OPTIONS)
+        recorder.on_span_read(proto, context, DEFAULT_OPTIONS)
 
         self.assertEqual(proto.frameworks[0].name, 'Banana Python SDK')
 
-    @patch.object(Uploader, 'upload_trace')
+    @patch.object(Uploader, 'upload_span')
     @patch.object(banana, 'run')
-    async def test_trace_run(self, mocked_run, mocked_upload_trace):
+    async def test_trace_run(self, mocked_run, mocked_upload_span):
         # mocking overrides autoinstrumentation, reinstrument
         recorder = BananaRecorder()
         recorder.setup()
@@ -71,7 +71,7 @@ class BananaRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         recorder.shutdown()
 
-        proto = mocked_upload_trace.call_args[0][0]
+        proto = mocked_upload_span.call_args[0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))

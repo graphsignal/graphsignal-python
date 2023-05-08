@@ -9,31 +9,31 @@ import graphsignal
 
 logger = logging.getLogger('graphsignal')
 
-trace_stack_var = contextvars.ContextVar('langchain_trace_stack', default=[])
+span_stack_var = contextvars.ContextVar('langchain_span_stack', default=[])
 
 
-def push_current_trace(trace):
-    trace_stack_var.set(trace_stack_var.get() + [trace])
+def push_current_span(span):
+    span_stack_var.set(span_stack_var.get() + [span])
 
 
-def pop_current_trace():
-    trace_stack = trace_stack_var.get()
-    if len(trace_stack) > 0:
-        trace_stack_var.set(trace_stack[:-1])
-        return trace_stack[-1]
+def pop_current_span():
+    span_stack = span_stack_var.get()
+    if len(span_stack) > 0:
+        span_stack_var.set(span_stack[:-1])
+        return span_stack[-1]
     return None
 
 
-def get_current_trace():
-    trace_stack = trace_stack_var.get()
-    if len(trace_stack) > 0:
-        return trace_stack[-1]
+def get_current_span():
+    span_stack = span_stack_var.get()
+    if len(span_stack) > 0:
+        return span_stack[-1]
     return None
 
 
 class GraphsignalCallbackHandler(BaseCallbackHandler):
     def __init__(self) -> None:
-        self._current_trace = None        
+        self._current_span = None        
 
     @property
     def always_verbose(self) -> bool:
@@ -42,81 +42,81 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
     def on_llm_start(
             self, serialized: Dict[str, Any], prompts: List[str], **kwargs: Any) -> None:
         operation = 'langchain.llms.' + serialized.get('name', 'LLM')
-        trace = graphsignal.start_trace(operation)
-        trace.set_tag('component', 'LLM')
-        push_current_trace(trace)
+        span = graphsignal.start_trace(operation)
+        span.set_tag('component', 'LLM')
+        push_current_span(span)
         if prompts:
-            trace.set_data('prompts', prompts)
+            span.set_data('prompts', prompts)
 
     def on_llm_new_token(self, token: str, **kwargs: Any) -> Any:
         pass
 
     def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
-        trace = pop_current_trace()
-        if not trace:
+        span = pop_current_span()
+        if not span:
             return
-        trace.stop()
+        span.stop()
 
     def on_llm_error(
             self, error: Union[Exception, KeyboardInterrupt], **kwargs: Any) -> None:
-        trace = pop_current_trace()
-        if not trace:
+        span = pop_current_span()
+        if not span:
             return
         if isinstance(error, Exception):
-            trace.set_exception(error)
-        trace.stop()
+            span.add_exception(error)
+        span.stop()
 
     def on_chain_start(
             self, serialized: Dict[str, Any], inputs: Dict[str, Any], **kwargs: Any) -> None:
         chain_name = serialized.get('name', 'Chain')
         operation = 'langchain.chains.' + chain_name
-        trace = graphsignal.start_trace(operation)
+        span = graphsignal.start_trace(operation)
         if chain_name.endswith('AgentExecutor'):
-            trace.set_tag('component', 'Agent')
-        push_current_trace(trace)
+            span.set_tag('component', 'Agent')
+        push_current_span(span)
         if inputs:
-            trace.set_data('inputs', inputs)
+            span.set_data('inputs', inputs)
 
     def on_chain_end(self, outputs: Dict[str, Any], **kwargs: Any) -> None:
-        trace = pop_current_trace()
-        if not trace:
+        span = pop_current_span()
+        if not span:
             return
         if outputs:
-            trace.set_data('outputs', outputs)
-        trace.stop()
+            span.set_data('outputs', outputs)
+        span.stop()
 
     def on_chain_error(
             self, error: Union[Exception, KeyboardInterrupt], **kwargs: Any) -> None:
-        trace = pop_current_trace()
-        if not trace:
+        span = pop_current_span()
+        if not span:
             return
         if isinstance(error, Exception):
-            trace.set_exception(error)
-        trace.stop()
+            span.add_exception(error)
+        span.stop()
 
     def on_tool_start(
             self, serialized: Dict[str, Any], input_str: str, **kwargs: Any) -> None:
         operation = 'langchain.agents.tools.' + serialized.get('name', 'Tool')
-        trace = graphsignal.start_trace(operation)
-        trace.set_tag('component', 'Tool')
-        push_current_trace(trace)
+        span = graphsignal.start_trace(operation)
+        span.set_tag('component', 'Tool')
+        push_current_span(span)
 
     def on_tool_end(self, output: str, **kwargs: Any) -> None:
-        trace = pop_current_trace()
-        if not trace:
+        span = pop_current_span()
+        if not span:
             return
         if output:
-            trace.set_data('output', output)
-        trace.stop()
+            span.set_data('output', output)
+        span.stop()
 
     def on_tool_error(
             self, error: Union[Exception, KeyboardInterrupt], **kwargs: Any) -> None:
-        trace = pop_current_trace()
-        if not trace:
+        span = pop_current_span()
+        if not span:
             return
         if isinstance(error, Exception):
-            trace.set_exception(error)
-        trace.stop()
+            span.add_exception(error)
+        span.stop()
 
     def on_text(self, text: str, **kwargs: Optional[str]) -> None:
         pass

@@ -37,7 +37,7 @@ class DummyLLM(LLM):
     def _identifying_params(self) -> Mapping[str, Any]:
         return {}
 
-@unittest.skip("langchain <=0.0.153")
+
 class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         if len(logger.handlers) == 0:
@@ -51,17 +51,17 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         graphsignal.shutdown()
 
-    @patch.object(Uploader, 'upload_trace')
-    async def test_chain(self, mocked_upload_trace):
+    @patch.object(Uploader, 'upload_span')
+    async def test_chain(self, mocked_upload_span):
         llm = DummyLLM()
         tools = load_tools(["llm-math"], llm=llm)
         agent = initialize_agent(
             tools, llm, agent="zero-shot-react-description", verbose=True)
         agent.run("What is 2 raised to .123243 power?")
 
-        t3 = mocked_upload_trace.call_args_list[0][0][0]
-        t2 = mocked_upload_trace.call_args_list[1][0][0]
-        t1 = mocked_upload_trace.call_args_list[2][0][0]
+        t3 = mocked_upload_span.call_args_list[0][0][0]
+        t2 = mocked_upload_span.call_args_list[1][0][0]
+        t1 = mocked_upload_span.call_args_list[2][0][0]
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(t1))
@@ -78,8 +78,8 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(t2.labels, [])
         self.assertEqual(find_tag(t2, 'operation'), 'langchain.chains.LLMChain')
-        self.assertEqual(t2.span.parent_trace_id, t1.trace_id)
-        self.assertEqual(t2.span.root_trace_id, t1.trace_id)
+        self.assertEqual(t2.context.parent_span_id, t1.span_id)
+        self.assertEqual(t2.context.root_span_id, t1.span_id)
         self.assertEqual(find_data_count(t2, 'inputs', 'byte_count'), 61.0)
         self.assertEqual(find_data_count(t2, 'inputs', 'element_count'), 4.0)
         self.assertEqual(find_data_count(t2, 'outputs', 'byte_count'), 15.0)
@@ -88,8 +88,8 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(t3.labels, [])
         self.assertEqual(find_tag(t3, 'component'), 'LLM')
         self.assertEqual(find_tag(t3, 'operation'), 'langchain.llms.DummyLLM')
-        self.assertEqual(t3.span.parent_trace_id, t2.trace_id)
-        self.assertEqual(t3.span.root_trace_id, t1.trace_id)
+        self.assertEqual(t3.context.parent_span_id, t2.span_id)
+        self.assertEqual(t3.context.root_span_id, t1.span_id)
 
 
 def find_tag(proto, key):

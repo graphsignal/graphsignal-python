@@ -44,12 +44,12 @@ class RecorderUtilsTest(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         graphsignal.shutdown()
 
-    @patch.object(Uploader, 'upload_trace')
-    async def test_instrument_method(self, mocked_upload_trace):
+    @patch.object(Uploader, 'upload_span')
+    async def test_instrument_method(self, mocked_upload_span):
         obj = Dummy()
 
         trace_func_called = False
-        def trace_func(trace, args, kwargs, ret, exc):
+        def trace_func(span, args, kwargs, ret, exc):
             nonlocal trace_func_called
             trace_func_called = True
 
@@ -57,17 +57,17 @@ class RecorderUtilsTest(unittest.IsolatedAsyncioTestCase):
 
         obj.test(1, 2, c=3)
 
-        proto = mocked_upload_trace.call_args[0][0]
+        proto = mocked_upload_span.call_args[0][0]
 
         self.assertTrue(trace_func_called)
         self.assertEqual(proto.tags[1].value, 'ep1')
 
-    @patch.object(Uploader, 'upload_trace')
-    async def test_instrument_method_generator(self, mocked_upload_trace):
+    @patch.object(Uploader, 'upload_span')
+    async def test_instrument_method_generator(self, mocked_upload_span):
         obj = Dummy()
 
         trace_func_called = None
-        def trace_func(trace, args, kwargs, ret, exc):
+        def trace_func(span, args, kwargs, ret, exc):
             nonlocal trace_func_called
             trace_func_called = True
 
@@ -76,7 +76,7 @@ class RecorderUtilsTest(unittest.IsolatedAsyncioTestCase):
         for item in obj.test_gen():
             pass
 
-        proto = mocked_upload_trace.call_args[0][0]
+        proto = mocked_upload_span.call_args[0][0]
 
         self.assertTrue(trace_func_called)
         self.assertEqual(proto.tags[1].value, 'ep1')

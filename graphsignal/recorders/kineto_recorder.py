@@ -16,7 +16,7 @@ class KinetoRecorder(BaseRecorder):
         self._torch_prof = None
         self._profiler_lock = threading.Lock()
 
-    def on_trace_start(self, proto, context, options):
+    def on_span_start(self, proto, context, options):
         if not options.enable_profiling:
             return
         if not self._profiler_lock.acquire(blocking=False):
@@ -35,13 +35,13 @@ class KinetoRecorder(BaseRecorder):
         self._torch_prof.start()
         context['is_kineto_profiling'] = True
 
-    def on_trace_stop(self, proto, context, options):
+    def on_span_stop(self, proto, context, options):
         if not context.get('is_kineto_profiling', False):
             return
 
         self._torch_prof.stop()
 
-    def on_trace_read(self, proto, context, options):
+    def on_span_read(self, proto, context, options):
         if not context.get('is_kineto_profiling', False):
             return
 

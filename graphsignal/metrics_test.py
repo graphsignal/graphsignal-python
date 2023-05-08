@@ -26,7 +26,7 @@ class MetricStoreTest(unittest.TestCase):
 
     @patch('time.time', return_value=1)
     def test_update_and_export(self, mocked_time):
-        store = graphsignal._agent.metric_store()
+        store = graphsignal._tracer.metric_store()
         store.set_gauge(scope='s1', name='m1', tags={'t1': '1'}, value=1, update_ts=10, unit='u1', is_time=True, is_size=True)
         store.set_gauge(scope='s1', name='m1', tags={'t1': '1'}, value=2, update_ts=10, unit='u1', is_time=True, is_size=True)
         protos = store.export()
@@ -75,7 +75,7 @@ class MetricStoreTest(unittest.TestCase):
         self.assertEqual(protos[0].update_ts, 10)
 
     def test_has_unexported(self):
-        store = graphsignal._agent.metric_store()
+        store = graphsignal._tracer.metric_store()
         self.assertFalse(store.has_unexported())
         store.set_gauge(scope='s1', name='m1', tags={'t1': '1'}, value=1, update_ts=10, unit='u1', is_time=True, is_size=True)
         self.assertTrue(store.has_unexported())

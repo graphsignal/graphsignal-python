@@ -40,7 +40,7 @@ class ProcessRecorder(BaseRecorder):
     def setup(self):
         self.take_snapshot()
 
-    def on_trace_read(self, proto, context, options):
+    def on_span_read(self, proto, context, options):
         if self._last_snapshot:
             proto.process_usage.CopyFrom(self._last_snapshot.process_usage)
             proto.node_usage.CopyFrom(self._last_snapshot.node_usage)
@@ -50,10 +50,10 @@ class ProcessRecorder(BaseRecorder):
 
         proto = self.take_snapshot()
 
-        store = graphsignal._agent.metric_store()
-        metric_tags = {'deployment': graphsignal._agent.deployment}
-        if graphsignal._agent.hostname:
-            metric_tags['hostname'] = graphsignal._agent.hostname
+        store = graphsignal._tracer.metric_store()
+        metric_tags = {'deployment': graphsignal._tracer.deployment}
+        if graphsignal._tracer.hostname:
+            metric_tags['hostname'] = graphsignal._tracer.hostname
 
         if proto.process_usage.cpu_usage_percent > 0:
             store.set_gauge(
@@ -73,7 +73,7 @@ class ProcessRecorder(BaseRecorder):
                 value=proto.node_usage.mem_used, update_ts=now, is_size=True)
 
     def take_snapshot(self):
-        proto = signals_pb2.Trace()
+        proto = signals_pb2.Span()
 
         if not OS_WIN:
             rusage_self = resource.getrusage(resource.RUSAGE_SELF)

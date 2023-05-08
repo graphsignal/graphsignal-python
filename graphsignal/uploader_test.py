@@ -31,44 +31,44 @@ class UploaderTest(unittest.TestCase):
             deployment='d1',
             upload_on_shutdown=False,
             debug_mode=True)
-        graphsignal._agent.uploader().clear()
+        graphsignal._tracer.uploader().clear()
 
     def tearDown(self):
-        graphsignal._agent.uploader().clear()
+        graphsignal._tracer.uploader().clear()
         graphsignal.shutdown()
 
     @patch.object(Uploader, '_post')
     def test_flush(self, mocked_post):
-        proto = signals_pb2.Trace()
-        graphsignal._agent.uploader().upload_trace(proto)
-        graphsignal._agent.uploader().flush()
+        proto = signals_pb2.Span()
+        graphsignal._tracer.uploader().upload_span(proto)
+        graphsignal._tracer.uploader().flush()
 
         mocked_post.assert_called_once()
-        self.assertEqual(len(graphsignal._agent.uploader()._buffer), 0)
+        self.assertEqual(len(graphsignal._tracer.uploader()._buffer), 0)
 
     @patch.object(Uploader, '_post', return_value=signals_pb2.UploadResponse().SerializeToString())
     def test_flush_in_thread(self, mocked_post):
-        graphsignal._agent.uploader().FLUSH_DELAY_SEC = 0.01
-        proto = signals_pb2.Trace()
-        graphsignal._agent.uploader().upload_trace(proto)
-        graphsignal._agent.uploader().flush_in_thread()
+        graphsignal._tracer.uploader().FLUSH_DELAY_SEC = 0.01
+        proto = signals_pb2.Span()
+        graphsignal._tracer.uploader().upload_span(proto)
+        graphsignal._tracer.uploader().flush_in_thread()
         time.sleep(0.1)
 
         mocked_post.assert_called_once()
-        self.assertEqual(len(graphsignal._agent.uploader()._buffer), 0)
+        self.assertEqual(len(graphsignal._tracer.uploader()._buffer), 0)
 
     @patch.object(Uploader, '_post', return_value=signals_pb2.UploadResponse().SerializeToString())
     def test_flush_in_thread_cancelled(self, mocked_post):
-        graphsignal._agent.uploader().FLUSH_DELAY_SEC = 5
-        proto = signals_pb2.Trace()
-        graphsignal._agent.uploader().upload_trace(proto)
-        graphsignal._agent.uploader().flush_in_thread()
-        self.assertIsNotNone(graphsignal._agent.uploader()._flush_timer)
-        graphsignal._agent.uploader().flush()
-        self.assertIsNone(graphsignal._agent.uploader()._flush_timer)
+        graphsignal._tracer.uploader().FLUSH_DELAY_SEC = 5
+        proto = signals_pb2.Span()
+        graphsignal._tracer.uploader().upload_span(proto)
+        graphsignal._tracer.uploader().flush_in_thread()
+        self.assertIsNotNone(graphsignal._tracer.uploader()._flush_timer)
+        graphsignal._tracer.uploader().flush()
+        self.assertIsNone(graphsignal._tracer.uploader()._flush_timer)
 
         mocked_post.assert_called_once()
-        self.assertEqual(len(graphsignal._agent.uploader()._buffer), 0)
+        self.assertEqual(len(graphsignal._tracer.uploader()._buffer), 0)
 
     @patch.object(Uploader, '_post')
     def test_flush_fail(self, mocked_post):
@@ -76,33 +76,33 @@ class UploaderTest(unittest.TestCase):
             raise URLError("Ex1")
         mocked_post.side_effect = side_effect
 
-        proto = signals_pb2.Trace()
-        graphsignal._agent.uploader().upload_trace(proto)
-        graphsignal._agent.uploader().upload_trace(proto)
-        graphsignal._agent.uploader().flush()
+        proto = signals_pb2.Span()
+        graphsignal._tracer.uploader().upload_span(proto)
+        graphsignal._tracer.uploader().upload_span(proto)
+        graphsignal._tracer.uploader().flush()
 
-        self.assertEqual(len(graphsignal._agent.uploader()._buffer), 2)
+        self.assertEqual(len(graphsignal._tracer.uploader()._buffer), 2)
 
     def test_post(self):
-        graphsignal._agent.api_url = 'http://localhost:5005'
+        graphsignal._tracer.api_url = 'http://localhost:5005'
 
         server = TestServer(5005)
         server.set_response_data(
             signals_pb2.UploadResponse().SerializeToString())
         server.start()
 
-        proto = signals_pb2.Trace()
-        proto.trace_id = 't1'
+        proto = signals_pb2.Span()
+        proto.span_id = 't1'
         upload_request = signals_pb2.UploadRequest()
-        upload_request.traces.append(proto)
+        upload_request.spans.append(proto)
         upload_request.upload_ms = 123
-        graphsignal._agent.uploader()._post(
+        graphsignal._tracer.uploader()._post(
             'signals', upload_request.SerializeToString())
 
         received_upload_request = signals_pb2.UploadRequest()
         received_upload_request.ParseFromString(server.get_request_data())
         self.assertEqual(
-            received_upload_request.traces[0].trace_id, 't1')
+            received_upload_request.spans[0].span_id, 't1')
         self.assertEqual(received_upload_request.upload_ms, 123)
 
         server.join()

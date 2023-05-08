@@ -13,7 +13,7 @@ import asyncio
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
-from graphsignal.traces import DEFAULT_OPTIONS
+from graphsignal.spans import DEFAULT_OPTIONS
 from graphsignal.recorders.yappi_recorder import YappiRecorder, _format_frame
 
 logger = logging.getLogger('graphsignal')
@@ -36,18 +36,18 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         recorder = YappiRecorder()
         recorder._exclude_path = 'donotmatchpath'
         recorder.setup()
-        proto = signals_pb2.Trace()
+        proto = signals_pb2.Span()
         context = {}
 
         async def slow_method():
             time.sleep(0.1)
             await asyncio.sleep(0.1)
 
-        recorder.on_trace_start(proto, context, graphsignal.TraceOptions(enable_profiling=True))
+        recorder.on_span_start(proto, context, graphsignal.TraceOptions(enable_profiling=True))
         await slow_method()
         await slow_method()
-        recorder.on_trace_stop(proto, context, graphsignal.TraceOptions(enable_profiling=True))
-        recorder.on_trace_read(proto, context, graphsignal.TraceOptions(enable_profiling=True))
+        recorder.on_span_stop(proto, context, graphsignal.TraceOptions(enable_profiling=True))
+        recorder.on_span_read(proto, context, graphsignal.TraceOptions(enable_profiling=True))
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))

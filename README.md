@@ -66,7 +66,7 @@ Use the following examples to integrate Graphsignal tracer into your application
 
 Graphsignal **auto-instruments** and traces libraries and frameworks, such as [OpenAI](https://graphsignal.com/docs/integrations/openai/), [LangChain](https://graphsignal.com/docs/integrations/langchain/), and many others.
 
-To measure and monitor any other executions, e.g. model inference or inference API calls, wrap the code with [`start_trace()`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method or use [`@trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
+To measure and monitor any other executions, e.g. model inference or inference API calls, wrap the code with [`start_trace()`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method or use [`@trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignalspan_function) decorator.
 
 ```python
 with graphsignal.start_trace('predict'):
@@ -93,16 +93,16 @@ The tracer will automatically choose a profiler depending on available modules. 
 
 ### Exception tracking
 
-For auto-instrumented libraries, or when using `@trace_function` decorator, `start_trace()` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`Trace.set_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignaltraceset_exception) method.
+For auto-instrumented libraries, or when using `@trace_function` decorator, `start_trace()` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`Span.add_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanadd_exception) method.
 
 
 ### Data monitoring
 
-Data is automatically monitored for auto-instrumented libraries. To track data metrics and record data profiles for other cases, [`Trace.set_data()`](https://graphsignal.com/docs/reference/python-api/#graphsignaltraceset_data) method can be used.
+Data is automatically monitored for auto-instrumented libraries. To track data metrics and record data profiles for other cases, [`Span.set_data()`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanset_data) method can be used.
 
 ```python
-with graphsignal.start_trace('predict') as trace:
-    trace.set_data('input', input_data)
+with graphsignal.start_trace('predict') as span:
+    span.set_data('input', input_data)
 ```
 
 The following data types are currently supported: `list`, `dict`, `set`, `tuple`, `str`, `bytes`, `numpy.ndarray`, `tensorflow.Tensor`, `torch.Tensor`.

@@ -26,7 +26,7 @@ class LogStoreTest(unittest.TestCase):
 
     @patch('time.time', return_value=1)
     def test_update_and_export(self, mocked_time):
-        store = graphsignal._agent.log_store()
+        store = graphsignal._tracer.log_store()
         store.clear()
         store.log_message(scope='s1', name='m1', tags={'t1': '1'}, level='l1', message='msg1', exception='exc1')
         store.log_message(scope='s1', name='m1', tags={'t1': '1'}, level='l1', message='msg2', exception='exc2')
@@ -42,7 +42,7 @@ class LogStoreTest(unittest.TestCase):
         self.assertEqual(protos[0].create_ts, 1)
 
     def test_has_unexported(self):
-        store = graphsignal._agent.log_store()
+        store = graphsignal._tracer.log_store()
         store.clear()
         self.assertFalse(store.has_unexported())
         store.log_message(scope='s1', name='m1', tags={'t1': '1'}, level='l1', message='msg1', exception='exc1')

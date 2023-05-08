@@ -12,7 +12,7 @@ import torch
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
-from graphsignal.traces import DEFAULT_OPTIONS
+from graphsignal.spans import DEFAULT_OPTIONS
 from graphsignal.recorders.pytorch_recorder import PyTorchRecorder
 
 logger = logging.getLogger('graphsignal')
@@ -40,9 +40,9 @@ class PyTorchRecorderTest(unittest.TestCase):
             mem1 = mem1.cuda()
             torch.cuda.synchronize()
 
-        proto = signals_pb2.Trace()
+        proto = signals_pb2.Span()
         context = {}
-        recorder.on_trace_start(proto, context, DEFAULT_OPTIONS)
+        recorder.on_span_start(proto, context, DEFAULT_OPTIONS)
 
         mem2 = torch.rand(10000)
         if torch.cuda.is_available():
@@ -51,8 +51,8 @@ class PyTorchRecorderTest(unittest.TestCase):
         if torch.cuda.is_available():
             torch.cuda.synchronize()
 
-        recorder.on_trace_stop(proto, context, DEFAULT_OPTIONS)
-        recorder.on_trace_read(proto, context, DEFAULT_OPTIONS)
+        recorder.on_span_stop(proto, context, DEFAULT_OPTIONS)
+        recorder.on_span_read(proto, context, DEFAULT_OPTIONS)
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))

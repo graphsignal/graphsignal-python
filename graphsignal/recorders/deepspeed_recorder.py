@@ -7,7 +7,7 @@ import deepspeed.comm as dist
 import threading
 
 import graphsignal
-from graphsignal.traces import TraceOptions
+from graphsignal.spans import TraceOptions
 from graphsignal.recorders.base_recorder import BaseRecorder
 from graphsignal.recorders.instrumentation import patch_method
 from graphsignal.proto_utils import parse_semver, compare_semver
@@ -99,7 +99,7 @@ class DeepSpeedRecorder(BaseRecorder):
         if not patch_method(dist, op_name, before_func=before_op, after_func=after_op):
             logger.debug('Cannot instrument DeepSpeed communications logger.')
 
-    def on_trace_start(self, proto, context, options):
+    def on_span_start(self, proto, context, options):
         if not self._is_initialized:
             return
         if not self._profiler_lock.acquire(blocking=False):
@@ -107,13 +107,13 @@ class DeepSpeedRecorder(BaseRecorder):
 
         self._is_sampling = True
 
-    def on_trace_stop(self, proto, context, options):
+    def on_span_stop(self, proto, context, options):
         if not self._is_initialized:
             return
 
         self._is_sampling = False
 
-    def on_trace_read(self, proto, context, options):
+    def on_span_read(self, proto, context, options):
         if not self._is_initialized:
             return
 

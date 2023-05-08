@@ -1,44 +1,39 @@
 import logging
 import sys
 import time
-import uuid
-import hashlib
 import importlib
 import socket
 import contextvars
 import importlib.abc
 
-from graphsignal import version
 from graphsignal.uploader import Uploader
 from graphsignal.metrics import MetricStore
 from graphsignal.logs import LogStore
-from graphsignal.proto import signals_pb2
 from graphsignal.samplers.random_samples import RandomSampler
 from graphsignal.samplers.latency_outliers import LatencyOutlierSampler
 from graphsignal.samplers.missing_values import MissingValueSampler
-from graphsignal.proto_utils import parse_semver
 
 logger = logging.getLogger('graphsignal')
 
 
 class GraphsignalTracerLogHandler(logging.Handler):
-    def __init__(self, agent):
+    def __init__(self, tracer):
         super().__init__()
-        self._agent = agent  
+        self._tracer = tracer  
 
     def emit(self, record):
         try:
-            log_tags = {'deployment': self._agent.deployment}
-            if self._agent.hostname:
-                log_tags['hostname'] = self._agent.hostname
-            if self._agent.tags is not None:
-                log_tags.update(self._agent.tags)
+            log_tags = {'deployment': self._tracer.deployment}
+            if self._tracer.hostname:
+                log_tags['hostname'] = self._tracer.hostname
+            if self._tracer.tags is not None:
+                log_tags.update(self._tracer.tags)
 
             exception = None
             if record.exc_info and isinstance(record.exc_info, tuple):
                 exception = self.format(record)
 
-            self._agent.log_store().log_tracer_message(
+            self._tracer.log_store().log_tracer_message(
                 tags=log_tags,
                 level=record.levelname,
                 message=record.getMessage(),
@@ -67,9 +62,9 @@ RECORDER_SPECS = {
 }
 
 class SourceLoaderWrapper(importlib.abc.SourceLoader):
-    def __init__(self, loader, agent):
+    def __init__(self, loader, tracer):
         self._loader = loader
-        self._agent = agent
+        self._tracer = tracer
 
     def create_module(self, spec):
         return self._loader.create_module(spec)
@@ -77,7 +72,7 @@ class SourceLoaderWrapper(importlib.abc.SourceLoader):
     def exec_module(self, module):
         self._loader.exec_module(module)
         try:
-            self._agent.initialize_recorders_for_module(module.__name__)
+            self._tracer.initialize_recorders_for_module(module.__name__)
         except Exception:
             logger.error('Error initializing recorders for module %s', module.__name__, exc_info=True)
 
@@ -92,8 +87,8 @@ class SourceLoaderWrapper(importlib.abc.SourceLoader):
 
 
 class SupportedModuleFinder(importlib.abc.MetaPathFinder):
-    def __init__(self, agent):
-        self._agent = agent
+    def __init__(self, tracer):
+        self._tracer = tracer
         self._disabled = False
 
     def find_spec(self, fullname, path=None, target=None):
@@ -107,7 +102,7 @@ class SupportedModuleFinder(importlib.abc.MetaPathFinder):
                 if spec:
                     loader = importlib.util.find_spec(fullname).loader
                     if loader is not None and isinstance(loader, importlib.abc.SourceLoader):
-                        return importlib.util.spec_from_loader(fullname, SourceLoaderWrapper(loader, self._agent))
+                        return importlib.util.spec_from_loader(fullname, SourceLoaderWrapper(loader, self._tracer))
             except Exception:
                 logger.error('Error patching spec for module %s', fullname, exc_info=True)
             finally:
@@ -116,7 +111,7 @@ class SupportedModuleFinder(importlib.abc.MetaPathFinder):
         return None
 
 
-class Agent:
+class Tracer:
     METRIC_READ_INTERVAL_SEC = 10
     METRIC_UPLOAD_INTERVAL_SEC = 20
     LOG_UPLOAD_INTERVAL_SEC = 20
@@ -290,31 +285,31 @@ class Agent:
             lo_sampler = self._mv_samplers[operation] = MissingValueSampler()
             return lo_sampler
 
-    def emit_trace_start(self, proto, context, options):
+    def emit_span_start(self, proto, context, options):
         last_exc = None
         for recorder in self.recorders():
             try:
-                recorder.on_trace_start(proto, context, options)
+                recorder.on_span_start(proto, context, options)
             except Exception as exc:
                 last_exc = exc
         if last_exc:
             raise last_exc
 
-    def emit_trace_stop(self, proto, context, options):
+    def emit_span_stop(self, proto, context, options):
         last_exc = None
         for recorder in self.recorders():
             try:
-                recorder.on_trace_stop(proto, context, options)
+                recorder.on_span_stop(proto, context, options)
             except Exception as exc:
                 last_exc = exc
         if last_exc:
             raise last_exc
 
-    def emit_trace_read(self, proto, context, options):
+    def emit_span_read(self, proto, context, options):
         last_exc = None
         for recorder in self.recorders():
             try:
-                recorder.on_trace_read(proto, context, options)
+                recorder.on_span_read(proto, context, options)
             except Exception as exc:
                 last_exc = exc
         if last_exc:
@@ -330,13 +325,6 @@ class Agent:
         if last_exc:
             raise last_exc
 
-    def create_trace_proto(self):
-        proto = signals_pb2.Trace()
-        proto.trace_id = _uuid_sha1(size=12)
-        proto.tracer_info.tracer_type = signals_pb2.TracerInfo.TracerType.PYTHON_TRACER
-        parse_semver(proto.tracer_info.version, version.__version__)
-        return proto
-
     def upload(self, block=False):
         if block:
             self._uploader.flush()
@@ -346,7 +334,7 @@ class Agent:
     def check_metric_read_interval(self, now=None):
         if now is None:
             now = time.time()
-        return (self.last_metric_read_ts < now - Agent.METRIC_READ_INTERVAL_SEC)
+        return (self.last_metric_read_ts < now - Tracer.METRIC_READ_INTERVAL_SEC)
     
     def set_metric_read(self, now=None):
         self.last_metric_read_ts = now if now else time.time()
@@ -354,7 +342,7 @@ class Agent:
     def check_metric_upload_interval(self, now=None):
         if now is None:
             now = time.time()
-        return (self.last_metric_upload_ts < now - Agent.METRIC_UPLOAD_INTERVAL_SEC)
+        return (self.last_metric_upload_ts < now - Tracer.METRIC_UPLOAD_INTERVAL_SEC)
 
     def set_metric_upload(self, now=None):
         self.last_metric_upload_ts = now if now else time.time()
@@ -362,7 +350,7 @@ class Agent:
     def check_log_upload_interval(self, now=None):
         if now is None:
             now = time.time()
-        return (self.last_log_upload_ts < now - Agent.LOG_UPLOAD_INTERVAL_SEC)
+        return (self.last_log_upload_ts < now - Tracer.LOG_UPLOAD_INTERVAL_SEC)
 
     def set_log_upload(self, now=None):
         self.last_log_upload_ts = now if now else time.time()
@@ -386,13 +374,3 @@ class Agent:
                 self.set_log_upload(now)
 
         self.upload(block=False)
-
-
-def _sha1(text, size=-1):
-    sha1_hash = hashlib.sha1()
-    sha1_hash.update(text.encode('utf-8'))
-    return sha1_hash.hexdigest()[0:size]
-
-
-def _uuid_sha1(size=-1):
-    return _sha1(str(uuid.uuid4()), size)

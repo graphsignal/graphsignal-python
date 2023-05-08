@@ -42,7 +42,7 @@ class NVMLRecorder(BaseRecorder):
         except BaseException:
             logger.error('Error shutting down NVML', exc_info=True)
 
-    def on_trace_read(self, proto, context, options):
+    def on_span_read(self, proto, context, options):
         if self._last_snapshot:
             proto.node_usage.num_devices = self._last_snapshot.node_usage.num_devices
             for driver in self._last_snapshot.node_usage.drivers:
@@ -57,10 +57,10 @@ class NVMLRecorder(BaseRecorder):
             return
 
         for idx, device_usage in enumerate(proto.device_usage):
-            store = graphsignal._agent.metric_store()
-            metric_tags = {'deployment': graphsignal._agent.deployment}
-            if graphsignal._agent.hostname:
-                metric_tags['hostname'] = graphsignal._agent.hostname
+            store = graphsignal._tracer.metric_store()
+            metric_tags = {'deployment': graphsignal._tracer.deployment}
+            if graphsignal._tracer.hostname:
+                metric_tags['hostname'] = graphsignal._tracer.hostname
             metric_tags['device'] = idx
 
             if device_usage.gpu_utilization_percent > 0:
@@ -100,7 +100,7 @@ class NVMLRecorder(BaseRecorder):
         if not self._is_initialized:
             return
 
-        proto = signals_pb2.Trace()
+        proto = signals_pb2.Span()
 
         now_us = int(time.time() * 1e6)
 

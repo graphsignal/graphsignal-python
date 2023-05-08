@@ -54,13 +54,13 @@ class PyTorchRecorder(BaseRecorder):
         if torch.cuda.is_available():
             self._is_cuda_available = True
 
-    def on_trace_start(self, proto, context, options):
+    def on_span_start(self, proto, context, options):
         if self._is_cuda_available:
             context['pytorch_mem_stats'] = {}
             for device in range(torch.cuda.device_count()):
                 context['pytorch_mem_stats'][device] = _read_mem_stats(device)
 
-    def on_trace_stop(self, proto, context, options):
+    def on_span_stop(self, proto, context, options):
         if self._is_cuda_available:
             for device in range(torch.cuda.device_count()):
                 if 'pytorch_mem_stats' in context and device in context['pytorch_mem_stats']: 
@@ -78,7 +78,7 @@ class PyTorchRecorder(BaseRecorder):
                     mem_alloc.num_alloc_retries = mem_diff.get('num_alloc_retries', 0)
                     mem_alloc.num_ooms = mem_diff.get('num_ooms', 0)
 
-    def on_trace_read(self, proto, context, options):
+    def on_span_read(self, proto, context, options):
         if self._framework:
             proto.frameworks.append(self._framework)
         if self._rank is not None:

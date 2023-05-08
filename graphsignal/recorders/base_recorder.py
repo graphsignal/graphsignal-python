@@ -10,13 +10,13 @@ class BaseRecorder(ABC):
     def shutdown(self):
         pass
 
-    def on_trace_start(self, proto, context, options):
+    def on_span_start(self, proto, context, options):
         pass
 
-    def on_trace_stop(self, proto, context, options):
+    def on_span_stop(self, proto, context, options):
         pass
 
-    def on_trace_read(self, proto, context, options):
+    def on_span_read(self, proto, context, options):
         pass
 
     def on_metric_update(self):

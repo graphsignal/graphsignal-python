@@ -10,7 +10,7 @@ from graphsignal.samplers.random_samples import RandomSampler
 logger = logging.getLogger('graphsignal')
 
 
-class TraceSamplerTest(unittest.TestCase):
+class RandomSamplerTest(unittest.TestCase):
     def setUp(self):
         graphsignal.configure(
             api_key='k1',

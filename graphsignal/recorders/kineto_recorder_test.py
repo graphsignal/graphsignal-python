@@ -12,7 +12,7 @@ import torch
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
-from graphsignal.traces import DEFAULT_OPTIONS
+from graphsignal.spans import DEFAULT_OPTIONS
 from graphsignal.recorders.kineto_recorder import KinetoRecorder
 
 logger = logging.getLogger('graphsignal')
@@ -41,14 +41,14 @@ class KinetoRecorderTest(unittest.TestCase):
             x = x.to('cuda:0')
             model = model.to('cuda:0')
 
-        proto = signals_pb2.Trace()
+        proto = signals_pb2.Span()
         context = {}
-        recorder.on_trace_start(proto, context, graphsignal.TraceOptions(enable_profiling=True))
+        recorder.on_span_start(proto, context, graphsignal.TraceOptions(enable_profiling=True))
 
         pred = model(x)
 
-        recorder.on_trace_stop(proto, context, graphsignal.TraceOptions(enable_profiling=True))
-        recorder.on_trace_read(proto, context, graphsignal.TraceOptions(enable_profiling=True))
+        recorder.on_span_stop(proto, context, graphsignal.TraceOptions(enable_profiling=True))
+        recorder.on_span_read(proto, context, graphsignal.TraceOptions(enable_profiling=True))
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))

@@ -10,7 +10,7 @@ import random
 
 import graphsignal
 from graphsignal.proto import signals_pb2
-from graphsignal.traces import DEFAULT_OPTIONS
+from graphsignal.spans import DEFAULT_OPTIONS
 from graphsignal.recorders.process_recorder import ProcessRecorder
 
 logger = logging.getLogger('graphsignal')
@@ -43,11 +43,11 @@ class ProcessRecorderTest(unittest.TestCase):
 
         recorder.take_snapshot()
 
-        proto = signals_pb2.Trace()
+        proto = signals_pb2.Span()
         context = {}
-        recorder.on_trace_start(proto, context, DEFAULT_OPTIONS)
-        recorder.on_trace_stop(proto, context, DEFAULT_OPTIONS)
-        recorder.on_trace_read(proto, context, DEFAULT_OPTIONS)
+        recorder.on_span_start(proto, context, DEFAULT_OPTIONS)
+        recorder.on_span_stop(proto, context, DEFAULT_OPTIONS)
+        recorder.on_span_read(proto, context, DEFAULT_OPTIONS)
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))
@@ -65,7 +65,7 @@ class ProcessRecorderTest(unittest.TestCase):
 
         recorder.on_metric_update()
 
-        store = graphsignal._agent.metric_store()
+        store = graphsignal._tracer.metric_store()
         metric_tags =  {'deployment': 'd1', 'hostname': proto.node_usage.hostname}
         key = store.metric_key('system', 'process_cpu_usage', metric_tags)
         self.assertTrue(store._metrics[key].gauge > 0)

@@ -16,7 +16,7 @@ class LangChainRecorder(BaseRecorder):
         self._v1_handler = None
 
     def setup(self):
-        if not graphsignal._agent.auto_instrument:
+        if not graphsignal._tracer.auto_instrument:
             return
 
         self._framework = signals_pb2.FrameworkInfo()
@@ -74,6 +74,6 @@ class LangChainRecorder(BaseRecorder):
             langchain.callbacks.get_callback_manager().remove_handler(self._v1_handler)
             self._v1_handler = None
 
-    def on_trace_read(self, proto, context, options):
+    def on_span_read(self, proto, context, options):
         if self._framework:
             proto.frameworks.append(self._framework)

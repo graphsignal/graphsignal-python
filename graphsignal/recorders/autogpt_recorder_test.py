@@ -12,7 +12,7 @@ import openai
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
-from graphsignal.traces import DEFAULT_OPTIONS
+from graphsignal.spans import DEFAULT_OPTIONS
 from graphsignal.recorders.autogpt_recorder import AutoGPTRecorder
 
 logger = logging.getLogger('graphsignal')
@@ -31,9 +31,9 @@ class AutoGPTRecorderTest(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         graphsignal.shutdown()
 
-    @patch.object(Uploader, 'upload_trace')
+    @patch.object(Uploader, 'upload_span')
     @patch.object(openai.ChatCompletion, 'create')
-    async def test_trace_run(self, mocked_run, mocked_upload_trace):
+    async def test_trace_run(self, mocked_run, mocked_upload_span):
         # TODO: automate testing of autogpt
         pass
 

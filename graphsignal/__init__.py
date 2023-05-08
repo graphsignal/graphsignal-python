@@ -6,17 +6,17 @@ import functools
 import asyncio
 
 from graphsignal.version import __version__
-from graphsignal.agent import Agent
-from graphsignal.traces import Trace, TraceOptions
+from graphsignal.tracer import Tracer
+from graphsignal.spans import Span, TraceOptions, get_current_span
 
 logger = logging.getLogger('graphsignal')
 
-_agent = None
+_tracer = None
 
 
 def _check_configured():
-    global _agent
-    if not _agent:
+    global _tracer
+    if not _tracer:
         raise ValueError(
             'Tracer not configured, call graphsignal.configure() first')
 
@@ -59,9 +59,9 @@ def configure(
         record_data_samples: Optional[bool] = True,
         upload_on_shutdown: Optional[bool] = True,
         debug_mode: Optional[bool] = False) -> None:
-    global _agent
+    global _tracer
 
-    if _agent:
+    if _tracer:
         logger.warning('Tracer already configured')
         return
 
@@ -71,7 +71,7 @@ def configure(
     deployment = _check_and_set_arg('deployment', deployment, is_str=True, required=True)
     tags = _check_and_set_arg('tags', tags, is_kv=True, required=False)
 
-    _agent = Agent(
+    _tracer = Tracer(
         api_key=api_key,
         api_url=api_url,
         deployment=deployment,
@@ -80,7 +80,7 @@ def configure(
         record_data_samples=record_data_samples,
         upload_on_shutdown=upload_on_shutdown,
         debug_mode=debug_mode)
-    _agent.setup()
+    _tracer.setup()
 
     atexit.register(shutdown)
 
@@ -97,14 +97,14 @@ def set_tag(key: str, value: str) -> None:
         logger.error('set_tag: value must be provided')
         return
 
-    if _agent.tags is None:
-        _agent.tags = {}
+    if _tracer.tags is None:
+        _tracer.tags = {}
 
-    if len(_agent.tags) > Trace.MAX_RUN_TAGS:
-        logger.error('set_tag: too many tags (>{0})'.format(Trace.MAX_RUN_TAGS))
+    if len(_tracer.tags) > Span.MAX_RUN_TAGS:
+        logger.error('set_tag: too many tags (>{0})'.format(Span.MAX_RUN_TAGS))
         return
 
-    _agent.tags[key] = value
+    _tracer.tags[key] = value
 
 
 def set_context_tag(key: str, value: str) -> None:
@@ -117,22 +117,22 @@ def set_context_tag(key: str, value: str) -> None:
         logger.error('set_context_tag: value must be provided')
         return
 
-    tags = _agent.context_tags.get()
-    if len(tags) > Trace.MAX_RUN_TAGS:
-        logger.error('set_context_tag: too many tags (>{0})'.format(Trace.MAX_TRACE_TAGS))
+    tags = _tracer.context_tags.get()
+    if len(tags) > Span.MAX_RUN_TAGS:
+        logger.error('set_context_tag: too many tags (>{0})'.format(Span.MAX_RUN_TAGS))
         return
 
     tags[key] = value
-    _agent.context_tags.set(tags)
+    _tracer.context_tags.set(tags)
 
 
 def start_trace(
         operation: str,
         tags: Optional[Dict[str, str]] = None,
-        options: Optional[TraceOptions] = None) -> Trace:
+        options: Optional[TraceOptions] = None) -> 'Span':
     _check_configured()
 
-    return Trace(operation=operation, tags=tags, options=options)
+    return Span(operation=operation, tags=tags, options=options)
 
 
 def trace_function(
@@ -163,20 +163,26 @@ def trace_function(
         return tf_wrapper
 
 
+def current_span() -> Optional['Span']:
+    _check_configured()
+
+    return get_current_span()
+
+
 def upload(block=False) -> None:
     _check_configured()
 
-    _agent.upload(block=block)
+    _tracer.upload(block=block)
 
 
 def shutdown() -> None:
-    global _agent
-    if not _agent:
+    global _tracer
+    if not _tracer:
         return
 
     atexit.unregister(shutdown)
-    _agent.shutdown()
-    _agent = None
+    _tracer.shutdown()
+    _tracer = None
 
     logger.debug('Tracer shutdown')
 
@@ -188,7 +194,7 @@ __all__ = [
     'shutdown',
     'start_trace',
     'function_trace',
-    'Trace',
     'TraceOptions',
+    'Span',
     'callbacks'
 ]

@@ -18,7 +18,7 @@ class CProfileRecorder(BaseRecorder):
         self._profiler = None
         self._exclude_path = os.path.dirname(os.path.realpath(graphsignal.__file__))
 
-    def on_trace_start(self, proto, context, options):
+    def on_span_start(self, proto, context, options):
         if not options.enable_profiling:
             return
         if not self._profiler_lock.acquire(blocking=False):
@@ -30,13 +30,13 @@ class CProfileRecorder(BaseRecorder):
         self._profiler.enable()
         context['is_cprofile_profiling'] = True
 
-    def on_trace_stop(self, proto, context, options):
+    def on_span_stop(self, proto, context, options):
         if not context.get('is_cprofile_profiling', False):
             return
 
         self._profiler.disable()
         
-    def on_trace_read(self, proto, context, options):
+    def on_span_read(self, proto, context, options):
         if not context.get('is_cprofile_profiling', False):
             return
 

@@ -14,7 +14,7 @@ import deepspeed
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
-from graphsignal.traces import DEFAULT_OPTIONS
+from graphsignal.spans import DEFAULT_OPTIONS
 from graphsignal.recorders.deepspeed_recorder import DeepSpeedRecorder
 
 logger = logging.getLogger('graphsignal')
@@ -46,16 +46,16 @@ class DeepSpeedRecorderTest(unittest.TestCase):
 
         recorder = DeepSpeedRecorder()
         recorder.setup()
-        proto = signals_pb2.Trace()
+        proto = signals_pb2.Span()
         context = {}
-        recorder.on_trace_start(proto, context, DEFAULT_OPTIONS)
+        recorder.on_span_start(proto, context, DEFAULT_OPTIONS)
 
         tensor = torch.zeros(1)
         tensor += 1
         deepspeed.comm.send(tensor=tensor.cuda(), dst=1)
 
-        recorder.on_trace_stop(proto, context, DEFAULT_OPTIONS)
-        recorder.on_trace_read(proto, context, DEFAULT_OPTIONS)
+        recorder.on_span_stop(proto, context, DEFAULT_OPTIONS)
+        recorder.on_span_read(proto, context, DEFAULT_OPTIONS)
 
         #pp = pprint.PrettyPrinter()
         #pp.pprint(MessageToJson(proto))

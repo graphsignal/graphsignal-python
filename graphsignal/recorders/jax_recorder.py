@@ -17,6 +17,6 @@ class JAXRecorder(BaseRecorder):
         self._framework.name = 'JAX'
         parse_semver(self._framework.version, jax.__version__)
 
-    def on_trace_read(self, proto, context, options):
+    def on_span_read(self, proto, context, options):
         if self._framework:
             proto.frameworks.append(self._framework)

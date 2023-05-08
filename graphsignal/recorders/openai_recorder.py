@@ -7,7 +7,7 @@ import importlib
 import openai
 
 import graphsignal
-from graphsignal.traces import TraceOptions
+from graphsignal.spans import TraceOptions
 from graphsignal.recorders.base_recorder import BaseRecorder
 from graphsignal.recorders.instrumentation import instrument_method, uninstrument_method, read_args
 from graphsignal.proto_utils import parse_semver, compare_semver
@@ -39,7 +39,7 @@ class OpenAIRecorder(BaseRecorder):
         }
 
     def setup(self):
-        if not graphsignal._agent.auto_instrument:
+        if not graphsignal._tracer.auto_instrument:
             return
 
         self._framework = signals_pb2.FrameworkInfo()
@@ -117,14 +117,14 @@ class OpenAIRecorder(BaseRecorder):
             return len(encoding.encode(text))
         return None
 
-    def trace_completion(self, trace, args, kwargs, ret, exc):
+    def trace_completion(self, span, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
-        trace.set_tag('component', 'LLM')
-        trace.set_tag('endpoint', f'{self._api_base}/completions')
+        span.set_tag('component', 'LLM')
+        span.set_tag('endpoint', f'{self._api_base}/completions')
 
         if 'model' in params:
-            trace.set_tag('model', params['model'])
+            span.set_tag('model', params['model'])
 
         param_names = [
             'model',
@@ -142,7 +142,7 @@ class OpenAIRecorder(BaseRecorder):
         ]
         for param_name in param_names:
             if param_name in params:
-                trace.set_param(param_name, params[param_name])
+                span.set_param(param_name, params[param_name])
 
         if 'stream' in params and params['stream']:
             if 'model' in params and 'prompt' in params:
@@ -159,11 +159,11 @@ class OpenAIRecorder(BaseRecorder):
                             prompt_tokens = self.count_tokens(params['model'], prompt)
                             if prompt_tokens:
                                 prompt_usage['token_count'] += prompt_tokens
-                trace.set_data('prompt', params['prompt'], counts=prompt_usage)
+                span.set_data('prompt', params['prompt'], counts=prompt_usage)
             return
 
         if ret and 'model' in ret:
-            trace.set_tag('model', ret['model'])
+            span.set_tag('model', ret['model'])
 
         prompt_usage = {}
         completion_usage = {
@@ -177,7 +177,7 @@ class OpenAIRecorder(BaseRecorder):
                 completion_usage['token_count'] = ret['usage']['completion_tokens']
 
         if 'prompt' in params:
-            trace.set_data('prompt', params['prompt'], counts=prompt_usage)
+            span.set_data('prompt', params['prompt'], counts=prompt_usage)
 
         if ret:
             if 'choices' in ret:
@@ -187,16 +187,15 @@ class OpenAIRecorder(BaseRecorder):
                             completion_usage['finish_reason_stop'] += 1
                         elif choice['finish_reason'] == 'length':
                             completion_usage['finish_reason_length'] += 1
-            trace.set_data('completion', ret, counts=completion_usage)
+            span.set_data('completion', ret, counts=completion_usage)
 
-    def trace_completion_data(self, trace, item):
+    def trace_completion_data(self, span, item):
         completion_usage = {
             'finish_reason_stop': 0,
             'finish_reason_length': 0,
             'token_count': 0
         }
         if item and 'choices' in item:
-            completion = []
             for choice in item['choices']:
                 if 'finish_reason' in choice:
                     if choice['finish_reason'] == 'stop':
@@ -204,19 +203,17 @@ class OpenAIRecorder(BaseRecorder):
                     elif choice['finish_reason'] == 'length':
                         completion_usage['finish_reason_length'] += 1
                 completion_usage['token_count'] += 1
-                if 'text' in choice:
-                    completion.append(choice['text'])
 
-            trace.append_data('completion', completion, counts=completion_usage)
+            span.append_data('completion', [item], counts=completion_usage)
 
-    def trace_chat_completion(self, trace, args, kwargs, ret, exc):
+    def trace_chat_completion(self, span, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
-        trace.set_tag('component', 'LLM')
-        trace.set_tag('endpoint', f'{self._api_base}/chat/completions')
+        span.set_tag('component', 'LLM')
+        span.set_tag('endpoint', f'{self._api_base}/chat/completions')
 
         if 'model' in params:
-            trace.set_tag('model', params['model'])
+            span.set_tag('model', params['model'])
 
         param_names = [
             'model',
@@ -233,7 +230,7 @@ class OpenAIRecorder(BaseRecorder):
         ]
         for param_name in param_names:
             if param_name in params:
-                trace.set_param(param_name, params[param_name])
+                span.set_param(param_name, params[param_name])
 
         if 'stream' in params and params['stream']:
             if 'model' in params and 'messages' in params:
@@ -261,11 +258,11 @@ class OpenAIRecorder(BaseRecorder):
                                 prompt_usage['token_count'] += self._extra_name_tokens.get(model, 0)
                     if prompt_usage['token_count'] > 0:
                         prompt_usage['token_count'] += self._extra_reply_tokens.get(model, 0)
-                trace.set_data('messages', params['messages'], counts=prompt_usage)
+                span.set_data('messages', params['messages'], counts=prompt_usage)
             return
 
         if ret and 'model' in ret:
-            trace.set_tag('model', ret['model'])
+            span.set_tag('model', ret['model'])
 
         prompt_usage = {}
         completion_usage = {
@@ -279,7 +276,7 @@ class OpenAIRecorder(BaseRecorder):
                 completion_usage['token_count'] = ret['usage']['completion_tokens']
 
         if 'messages' in params:
-            trace.set_data('messages', params['messages'], counts=prompt_usage)
+            span.set_data('messages', params['messages'], counts=prompt_usage)
 
         if ret:
             if 'choices' in ret:
@@ -289,16 +286,15 @@ class OpenAIRecorder(BaseRecorder):
                             completion_usage['finish_reason_stop'] += 1
                         elif choice['finish_reason'] == 'length':
                             completion_usage['finish_reason_length'] += 1
-            trace.set_data('completion', ret, counts=completion_usage)
+            span.set_data('completion', ret, counts=completion_usage)
 
-    def trace_chat_completion_data(self, trace, item):
+    def trace_chat_completion_data(self, span, item):
         completion_usage = {
             'finish_reason_stop': 0,
             'finish_reason_length': 0,
             'token_count': 0
         }
         if item and 'choices' in item:
-            completion = []
             for choice in item['choices']:
                 if 'finish_reason' in choice:
                     if choice['finish_reason'] == 'stop':
@@ -306,19 +302,17 @@ class OpenAIRecorder(BaseRecorder):
                     elif choice['finish_reason'] == 'length':
                         completion_usage['finish_reason_length'] += 1
                 completion_usage['token_count'] += 1
-                if 'delta' in choice and 'content' in choice['delta']:
-                    completion.append(choice['delta']['content'])
 
-            trace.append_data('completion', completion, counts=completion_usage)
+            span.append_data('completion', [item], counts=completion_usage)
 
-    def trace_edits(self, trace, args, kwargs, ret, exc):
+    def trace_edits(self, span, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
-        trace.set_tag('component', 'LLM')
-        trace.set_tag('endpoint', f'{self._api_base}/edits')
+        span.set_tag('component', 'LLM')
+        span.set_tag('endpoint', f'{self._api_base}/edits')
 
         if 'model' in params:
-            trace.set_tag('model', params['model'])
+            span.set_tag('model', params['model'])
 
         param_names = [
             'model',
@@ -328,7 +322,7 @@ class OpenAIRecorder(BaseRecorder):
         ]
         for param_name in param_names:
             if param_name in params:
-                trace.set_param(param_name, params[param_name])
+                span.set_param(param_name, params[param_name])
 
         prompt_usage = {}
         completion_usage = {}
@@ -339,60 +333,60 @@ class OpenAIRecorder(BaseRecorder):
                 completion_usage['token_count'] = ret['usage']['completion_tokens']
 
         if 'input' in params:
-            trace.set_data('input', params['input'])
+            span.set_data('input', params['input'])
 
         if 'instruction' in params:
-            trace.set_data('instruction', params['instruction'], counts=prompt_usage)
+            span.set_data('instruction', params['instruction'], counts=prompt_usage)
 
         if ret:
-            trace.set_data('edits', ret, counts=completion_usage)
+            span.set_data('edits', ret, counts=completion_usage)
 
-    def trace_embedding(self, trace, args, kwargs, ret, exc):
+    def trace_embedding(self, span, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
-        trace.set_tag('component', 'LLM')
-        trace.set_tag('endpoint', f'{self._api_base}/embeddings')
+        span.set_tag('component', 'LLM')
+        span.set_tag('endpoint', f'{self._api_base}/embeddings')
 
         if 'model' in params:
-            trace.set_tag('model', params['model'])
+            span.set_tag('model', params['model'])
 
         param_names = [
             'model'
         ]
         for param_name in param_names:
             if param_name in params:
-                trace.set_param(param_name, params[param_name])
+                span.set_param(param_name, params[param_name])
 
         prompt_usage = {}
         if 'model' in ret:
-            trace.set_tag('model', ret['model'])
+            span.set_tag('model', ret['model'])
 
         if 'usage' in ret:
             if 'prompt_tokens' in ret['usage']:
                 prompt_usage['token_count'] = ret['usage']['prompt_tokens']
 
         if 'input' in params:
-            trace.set_data('input', params['input'], counts=prompt_usage)
+            span.set_data('input', params['input'], counts=prompt_usage)
 
         if ret:
-            trace.set_data('embedding', ret)
+            span.set_data('embedding', ret)
 
-    def trace_image_generation(self, trace, args, kwargs, ret, exc):
-        trace.set_tag('endpoint', f'{self._api_base}/images/generations')
-        self.trace_image_endpoint(trace, args, kwargs, ret, exc)
+    def trace_image_generation(self, span, args, kwargs, ret, exc):
+        span.set_tag('endpoint', f'{self._api_base}/images/generations')
+        self.trace_image_endpoint(span, args, kwargs, ret, exc)
 
-    def trace_image_variation(self, trace, args, kwargs, ret, exc):
-        trace.set_tag('endpoint', f'{self._api_base}/images/variations')
-        self.trace_image_endpoint(trace, args, kwargs, ret, exc)
+    def trace_image_variation(self, span, args, kwargs, ret, exc):
+        span.set_tag('endpoint', f'{self._api_base}/images/variations')
+        self.trace_image_endpoint(span, args, kwargs, ret, exc)
 
-    def trace_image_edit(self, trace, args, kwargs, ret, exc):
-        trace.set_tag('endpoint', f'{self._api_base}/images/edits')
-        self.trace_image_endpoint(trace, args, kwargs, ret, exc)
+    def trace_image_edit(self, span, args, kwargs, ret, exc):
+        span.set_tag('endpoint', f'{self._api_base}/images/edits')
+        self.trace_image_endpoint(span, args, kwargs, ret, exc)
 
-    def trace_image_endpoint(self, trace, args, kwargs, ret, exc):
+    def trace_image_endpoint(self, span, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
-        trace.set_tag('component', 'Model')
+        span.set_tag('component', 'Model')
 
         param_names = [
             'n',
@@ -401,10 +395,10 @@ class OpenAIRecorder(BaseRecorder):
         ]
         for param_name in param_names:
             if param_name in params:
-                trace.set_param(param_name, params[param_name])
+                span.set_param(param_name, params[param_name])
 
         if 'prompt' in params:
-            trace.set_data('prompt', params['prompt'])
+            span.set_data('prompt', params['prompt'])
 
         if ret and 'data' in ret:
             image_data = []
@@ -413,16 +407,16 @@ class OpenAIRecorder(BaseRecorder):
                     image_data.append(image['url'])
                 elif 'b64_json' in image:
                     image_data.append(image['b64_json'])
-            trace.set_data('image', image_data)
+            span.set_data('image', image_data)
 
-    def trace_audio_transcription(self, trace, args, kwargs, ret, exc):
+    def trace_audio_transcription(self, span, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['model', 'file', 'prompt', 'response_format', 'temperature', 'language'])
 
-        trace.set_tag('component', 'Model')
-        trace.set_tag('endpoint', f'{self._api_base}/audio/transcriptions')
+        span.set_tag('component', 'Model')
+        span.set_tag('endpoint', f'{self._api_base}/audio/transcriptions')
 
         if 'model' in params:
-            trace.set_tag('model', params['model'])
+            span.set_tag('model', params['model'])
 
         param_names = [
             'model',
@@ -432,29 +426,29 @@ class OpenAIRecorder(BaseRecorder):
         ]
         for param_name in param_names:
             if param_name in params:
-                trace.set_param(param_name, params[param_name])
+                span.set_param(param_name, params[param_name])
 
         if 'file' in params and hasattr(params['file'], 'name'):
             try:
                 file_size = os.path.getsize(params['file'].name)
-                trace.set_data('file', params['file'], counts={'byte_count': file_size})
+                span.set_data('file', params['file'], counts={'byte_count': file_size})
             except OSError:
                 pass
 
         if 'prompt' in params:
-            trace.set_data('prompt', params['prompt'])
+            span.set_data('prompt', params['prompt'])
 
         if ret and 'text' in ret:
-            trace.set_data('text', ret['text'])
+            span.set_data('text', ret['text'])
 
-    def trace_audio_translation(self, trace, args, kwargs, ret, exc):
+    def trace_audio_translation(self, span, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['model', 'file', 'prompt', 'response_format', 'temperature'])
 
-        trace.set_tag('component', 'Model')
-        trace.set_tag('endpoint', f'{self._api_base}/audio/translations')
+        span.set_tag('component', 'Model')
+        span.set_tag('endpoint', f'{self._api_base}/audio/translations')
 
         if 'model' in params:
-            trace.set_tag('model', params['model'])
+            span.set_tag('model', params['model'])
 
         param_names = [
             'model',
@@ -463,37 +457,37 @@ class OpenAIRecorder(BaseRecorder):
         ]
         for param_name in param_names:
             if param_name in params:
-                trace.set_param(param_name, params[param_name])
+                span.set_param(param_name, params[param_name])
 
         if 'file' in params and hasattr(params['file'], 'name'):
             try:
                 file_size = os.path.getsize(params['file'].name)
-                trace.set_data('file', params['file'], counts={'byte_count': file_size})
+                span.set_data('file', params['file'], counts={'byte_count': file_size})
             except OSError:
                 pass
 
         if 'prompt' in params:
-            trace.set_data('prompt', params['prompt'])
+            span.set_data('prompt', params['prompt'])
 
         if ret and 'text' in ret:
-            trace.set_data('text', ret['text'])
+            span.set_data('text', ret['text'])
 
-    def trace_moderation(self, trace, args, kwargs, ret, exc):
+    def trace_moderation(self, span, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['input', 'model'])
 
-        trace.set_tag('component', 'Model')
-        trace.set_tag('endpoint', f'{self._api_base}/moderations')
+        span.set_tag('component', 'Model')
+        span.set_tag('endpoint', f'{self._api_base}/moderations')
 
         if 'model' in params:
-            trace.set_tag('model', params['model'])
+            span.set_tag('model', params['model'])
 
         for param_name in params:
             if param_name in params:
-                trace.set_param(param_name, params[param_name])
+                span.set_param(param_name, params[param_name])
 
         if 'input' in params:
-            trace.set_data('input', params['input'])
+            span.set_data('input', params['input'])
 
-    def on_trace_read(self, proto, context, options):
+    def on_span_read(self, proto, context, options):
         if self._framework:
             proto.frameworks.append(self._framework)

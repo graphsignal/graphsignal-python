@@ -4,7 +4,7 @@ import time
 import autogpt
 
 import graphsignal
-from graphsignal.traces import TraceOptions
+from graphsignal.spans import TraceOptions
 from graphsignal.recorders.base_recorder import BaseRecorder
 from graphsignal.recorders.instrumentation import instrument_method, uninstrument_method, read_args
 from graphsignal.proto_utils import parse_semver, compare_semver
@@ -20,7 +20,7 @@ class AutoGPTRecorder(BaseRecorder):
         self._is_instrumented_get_relevant = False
 
     def setup(self):
-        if not graphsignal._agent.auto_instrument:
+        if not graphsignal._tracer.auto_instrument:
             return
 
         self._framework = signals_pb2.FrameworkInfo()
@@ -32,10 +32,10 @@ class AutoGPTRecorder(BaseRecorder):
     def shutdown(self):
         uninstrument_method(autogpt.agent.agent, 'chat_with_ai', 'autogpt.chat.chat_with_ai')
 
-    def trace_chat_with_ai(self, trace, args, kwargs, ret, exc):
+    def trace_chat_with_ai(self, span, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['prompt', 'user_input', 'full_message_history', 'permanent_memory', 'token_limit'])
 
-        trace.set_tag('component', 'Agent')
+        span.set_tag('component', 'Agent')
 
         if not self._is_instrumented_get_relevant:
             self._is_instrumented_get_relevant = True
@@ -50,38 +50,38 @@ class AutoGPTRecorder(BaseRecorder):
                     self.trace_memory_add)
 
         if 'token_limit' in params:
-            trace.set_param('token_limit', params['token_limit'])
+            span.set_param('token_limit', params['token_limit'])
 
-    def trace_execute_command(self, trace, args, kwargs, ret, exc):
+    def trace_execute_command(self, span, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['command', 'arguments'])
 
-        trace.set_tag('component', 'Tool')
+        span.set_tag('component', 'Tool')
 
         if 'command' in params:
-            trace.set_param('command', params['command'])
+            span.set_param('command', params['command'])
         if 'arguments' in params:
-            trace.set_data('arguments', params['arguments'])
+            span.set_data('arguments', params['arguments'])
 
-    def trace_memory_get_relevant(self, trace, args, kwargs, ret, exc):
+    def trace_memory_get_relevant(self, span, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['data', 'num_relevant'])
 
-        trace.set_tag('component', 'Memory')
+        span.set_tag('component', 'Memory')
 
         if 'data' in params:
-            trace.set_data('data', params['data'])
+            span.set_data('data', params['data'])
         if ret:
-            trace.set_data('result', ret)
+            span.set_data('result', ret)
         if 'num_relevant' in params:
-            trace.set_param('num_relevant', params['num_relevant'])
+            span.set_param('num_relevant', params['num_relevant'])
 
-    def trace_memory_add(self, trace, args, kwargs, ret, exc):
+    def trace_memory_add(self, span, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['data'])
 
-        trace.set_tag('component', 'Memory')
+        span.set_tag('component', 'Memory')
 
         if 'data' in params:
-            trace.set_data('data', params['data'])
+            span.set_data('data', params['data'])
 
-    def on_trace_read(self, proto, context, options):
+    def on_span_read(self, proto, context, options):
         if self._framework:
             proto.frameworks.append(self._framework)

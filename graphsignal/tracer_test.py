@@ -13,7 +13,7 @@ from graphsignal.uploader import Uploader
 
 logger = logging.getLogger('graphsignal')
 
-class AgentTest(unittest.TestCase):
+class TracerTest(unittest.TestCase):
     def setUp(self):
         graphsignal.configure(
             api_key='k1',
@@ -23,16 +23,10 @@ class AgentTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    @patch.object(Uploader, 'upload_log_entry')
-    def test_create_trace_proto(self, mocked_upload_log_entry):
-        graphsignal._agent.log_store().clear()
-        proto = graphsignal._agent.create_trace_proto()
-        self.assertTrue(proto.tracer_info.version.major > 0 or proto.tracer_info.version.minor > 0)
-
     @patch.object(Uploader, 'upload_metric')
     @patch.object(Uploader, 'upload_log_entry')
     def test_shutdown_upload(self, mocked_upload_log_entry, mocked_upload_metric):
-        graphsignal._agent.metric_store().set_gauge(scope='s1', name='n1', tags={}, value=1, update_ts=1)
+        graphsignal._tracer.metric_store().set_gauge(scope='s1', name='n1', tags={}, value=1, update_ts=1)
         graphsignal.shutdown()
 
         proto = mocked_upload_metric.call_args[0][0]

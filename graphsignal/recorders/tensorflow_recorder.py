@@ -40,6 +40,6 @@ class TensorFlowRecorder(BaseRecorder):
         add_framework_param(self._framework, 'tf.test.is_built_with_gpu_support', tf.test.is_built_with_gpu_support())
         add_framework_param(self._framework, 'tf.test.is_built_with_cuda', tf.test.is_built_with_cuda())
 
-    def on_trace_read(self, proto, context, options):
+    def on_span_read(self, proto, context, options):
         if self._framework:
             proto.frameworks.append(self._framework)
