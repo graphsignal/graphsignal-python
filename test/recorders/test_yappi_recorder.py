@@ -8,18 +8,19 @@ from unittest.mock import patch, Mock
 from google.protobuf.json_format import MessageToJson
 import pprint
 import re
+import asyncio
 
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
 from graphsignal.spans import DEFAULT_OPTIONS
-from graphsignal.recorders.cprofile_recorder import CProfileRecorder, _format_frame
+from graphsignal.recorders.yappi_recorder import YappiRecorder, _format_frame
 
 logger = logging.getLogger('graphsignal')
 
 
-class CProfileRecorderTest(unittest.TestCase):
-    def setUp(self):
+class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
@@ -28,27 +29,25 @@ class CProfileRecorderTest(unittest.TestCase):
             upload_on_shutdown=False,
             debug_mode=True)
 
-    def tearDown(self):
+    async def asyncTearDown(self):
         graphsignal.shutdown()
 
-    def test_record(self):
-        recorder = CProfileRecorder()
+    async def test_record(self):
+        recorder = YappiRecorder()
         recorder._exclude_path = 'donotmatchpath'
         recorder.setup()
         proto = signals_pb2.Span()
         context = {}
 
-        def slow_method():
+        async def slow_method():
             time.sleep(0.1)
+            await asyncio.sleep(0.1)
 
         recorder.on_span_start(proto, context, graphsignal.TraceOptions(enable_profiling=True))
-        slow_method()
-        slow_method()
+        await slow_method()
+        await slow_method()
         recorder.on_span_stop(proto, context, graphsignal.TraceOptions(enable_profiling=True))
         recorder.on_span_read(proto, context, graphsignal.TraceOptions(enable_profiling=True))
-
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(proto))
 
         self.assertTrue('profiled' in proto.labels)
 
@@ -58,7 +57,7 @@ class CProfileRecorderTest(unittest.TestCase):
         self.assertTrue(slow_call.host_time_ns > 0)
         self.assertTrue(slow_call.self_host_time_percent > 0)
 
-    def test_format_frame(self):
+    async def test_format_frame(self):
         self.assertEqual(_format_frame('p', 1, 'f'), 'f (p:1)')
         self.assertEqual(_format_frame('p', None, 'f'), 'f (p)')
         self.assertEqual(_format_frame(None, None, 'f'), 'f')

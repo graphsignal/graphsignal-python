@@ -50,9 +50,6 @@ class NVMLRecorderTest(unittest.TestCase):
         recorder.on_span_stop(proto, context, DEFAULT_OPTIONS)
         recorder.on_span_read(proto, context, DEFAULT_OPTIONS)
  
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(proto))
-
         if len(proto.device_usage) > 0:
             self.assertTrue(proto.node_usage.num_devices > 0)
 

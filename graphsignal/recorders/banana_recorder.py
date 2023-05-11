@@ -9,20 +9,20 @@ from graphsignal.recorders.base_recorder import BaseRecorder
 from graphsignal.recorders.instrumentation import instrument_method, uninstrument_method, read_args
 from graphsignal.proto_utils import parse_semver, compare_semver
 from graphsignal.proto import signals_pb2
-from graphsignal.proto_utils import add_framework_param, add_driver
+from graphsignal.proto_utils import add_library_param, add_driver
 
 logger = logging.getLogger('graphsignal')
 
 class BananaRecorder(BaseRecorder):
     def __init__(self):
-        self._framework = None
+        self._library = None
 
     def setup(self):
         if not graphsignal._tracer.auto_instrument:
             return
 
-        self._framework = signals_pb2.FrameworkInfo()
-        self._framework.name = 'Banana Python SDK'
+        self._library = signals_pb2.LibraryInfo()
+        self._library.name = 'Banana Python SDK'
 
         instrument_method(banana, 'run', 'banana.run', self.trace_run)
 
@@ -46,5 +46,5 @@ class BananaRecorder(BaseRecorder):
             span.set_data('model_outputs', ret)
 
     def on_span_read(self, proto, context, options):
-        if self._framework:
-            proto.frameworks.append(self._framework)
+        if self._library:
+            proto.libraries.append(self._library)

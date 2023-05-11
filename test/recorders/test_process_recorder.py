@@ -49,9 +49,6 @@ class ProcessRecorderTest(unittest.TestCase):
         recorder.on_span_stop(proto, context, DEFAULT_OPTIONS)
         recorder.on_span_read(proto, context, DEFAULT_OPTIONS)
 
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(proto))
-
         self.assertNotEqual(proto.node_usage.hostname, '')
         self.assertNotEqual(proto.node_usage.ip_address, '')
         self.assertNotEqual(proto.process_usage.pid, '')

@@ -8,7 +8,7 @@ import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
 from graphsignal.proto_utils import parse_semver
 from graphsignal.proto import signals_pb2
-from graphsignal.proto_utils import add_framework_param
+from graphsignal.proto_utils import add_library_param
 
 logger = logging.getLogger('graphsignal')
 

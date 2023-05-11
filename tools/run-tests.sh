@@ -3,25 +3,22 @@
 set -e
 
 source venv/bin/activate
-python -m unittest graphsignal/*_test.py
-python -m unittest graphsignal/samplers/*_test.py
-python -m unittest graphsignal/recorders/instrumentation_test.py
-python -m unittest graphsignal/recorders/process_recorder_test.py
-python -m unittest graphsignal/recorders/cprofile_recorder_test.py
-python -m unittest graphsignal/recorders/kineto_recorder_test.py
-python -m unittest graphsignal/recorders/yappi_recorder_test.py
-python -m unittest graphsignal/recorders/nvml_recorder_test.py
-python -m unittest graphsignal/recorders/pytorch_recorder_test.py
-python -m unittest graphsignal/recorders/tensorflow_recorder_test.py
-python -m unittest graphsignal/recorders/jax_recorder_test.py
-python -m unittest graphsignal/recorders/onnxruntime_recorder_test.py
-python -m unittest graphsignal/recorders/deepspeed_recorder_test.py
-python -m unittest graphsignal/recorders/openai_recorder_test.py
-python -m unittest graphsignal/recorders/langchain_recorder_test.py
-python -m unittest graphsignal/recorders/banana_recorder_test.py
-python -m unittest graphsignal/callbacks/langchain/v2_test.py
-python -m unittest graphsignal/data/builtin_types_test.py
-python -m unittest graphsignal/data/numpy_ndarray_test.py
-python -m unittest graphsignal/data/tf_tensor_test.py
-python -m unittest graphsignal/data/torch_tensor_test.py
+python -m unittest test/test_*.py
+python -m unittest test/samplers/test_*.py
+python -m unittest test/recorders/test_instrumentation.py
+python -m unittest test/recorders/test_process_recorder.py
+python -m unittest test/recorders/test_cprofile_recorder.py
+python -m unittest test/recorders/test_kineto_recorder.py
+python -m unittest test/recorders/test_yappi_recorder.py
+python -m unittest test/recorders/test_nvml_recorder.py
+python -m unittest test/recorders/test_pytorch_recorder.py
+python -m unittest test/recorders/test_openai_recorder.py
+python -m unittest test/recorders/test_langchain_recorder.py
+python -m unittest test/recorders/test_banana_recorder.py
+python -m unittest test/recorders/test_chroma_recorder.py
+python -m unittest test/callbacks/langchain/test_v2.py
+python -m unittest test/data/test_builtin_types.py
+python -m unittest test/data/test_numpy_ndarray.py
+python -m unittest test/data/test_tf_tensor.py
+python -m unittest test/data/test_torch_tensor.py
 deactivate

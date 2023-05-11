@@ -261,7 +261,7 @@ class SpansTest(unittest.TestCase):
     @patch.object(Uploader, 'upload_span')
     def test_set_data(self, mocked_upload_span):
         with Span(operation='ep1') as span:
-            span.set_data('d1', {'c1': 100, 'c2': None}, check_missing_values=True)
+            span.set_data('d1', None, check_missing_values=True)
 
         span = mocked_upload_span.call_args[0][0]
 

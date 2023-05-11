@@ -51,13 +51,10 @@ RECORDER_SPECS = {
         ('graphsignal.recorders.pytorch_recorder', 'PyTorchRecorder'),
         ('graphsignal.recorders.kineto_recorder', 'KinetoRecorder')],
     'yappi': [('graphsignal.recorders.yappi_recorder', 'YappiRecorder')],
-    'tensorflow': [('graphsignal.recorders.tensorflow_recorder', 'TensorFlowRecorder')],
-    'jax': [('graphsignal.recorders.jax_recorder', 'JAXRecorder')],
-    'onnxruntime': [('graphsignal.recorders.onnxruntime_recorder', 'ONNXRuntimeRecorder')],
-    'deepspeed': [('graphsignal.recorders.deepspeed_recorder', 'DeepSpeedRecorder')],
     'openai': [('graphsignal.recorders.openai_recorder', 'OpenAIRecorder')],
     'langchain': [('graphsignal.recorders.langchain_recorder', 'LangChainRecorder')],
     'banana_dev': [('graphsignal.recorders.banana_recorder', 'BananaRecorder')],
+    'chromadb': [('graphsignal.recorders.chroma_recorder', 'ChromaRecorder')],
     'autogpt.prompt': [('graphsignal.recorders.autogpt_recorder', 'AutoGPTRecorder')]
 }
 

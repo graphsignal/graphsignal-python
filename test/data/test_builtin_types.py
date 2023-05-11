@@ -1,7 +1,6 @@
 import unittest
 import logging
 import sys
-import time
 from unittest.mock import patch, Mock
 
 import graphsignal
@@ -33,28 +32,39 @@ class BuiltInTypesProfilerTest(unittest.TestCase):
             pass
 
         profiler = BuiltInTypesProfiler()
-        stats = profiler.compute_stats([[0, -1, 1, 2.0, 3, float('nan'), float('inf'), TestObject()], [0, None, ''],[6,7]])
+        stats = profiler.compute_stats(b'text')
         self.assertEqual(
             stats.counts,
-            {'byte_count': 260,
-             'element_count': 13,
-             'inf_count': 1,
-             'nan_count': 1,
-             'null_count': 1,
-             'zero_count': 2,
-             'empty_count': 1,
-             'negative_count': 1,
-             'positive_count': 6})
-        self.assertEqual(stats.type_name, 'list')
-        self.assertEqual(stats.shape, [3, 8])
+            {'byte_count': 4})
+        self.assertEqual(stats.type_name, 'bytes')
 
-    def test_compute_stats_none(self):
+        profiler = BuiltInTypesProfiler()
+        stats = profiler.compute_stats('textstr')
+        self.assertEqual(
+            stats.counts,
+            {'char_count': 7})
+        self.assertEqual(stats.type_name, 'str')
+
+        profiler = BuiltInTypesProfiler()
+        stats = profiler.compute_stats([1, {}])
+        self.assertEqual(
+            stats.counts,
+            {'element_count': 2})
+        self.assertEqual(stats.type_name, 'list')
+
+        profiler = BuiltInTypesProfiler()
+        stats = profiler.compute_stats([[1, 2], [3, 4], [5, 6]])
+        self.assertEqual(
+            stats.counts,
+            {'element_count': 6})
+        self.assertEqual(stats.type_name, 'list')
+        self.assertEqual(stats.shape, [3, 2])
+
         profiler = BuiltInTypesProfiler()
         stats = profiler.compute_stats(None)
         self.assertEqual(
             stats.counts, 
-            {'element_count': 1,
-             'null_count': 1})
+            {'null_count': 1})
         self.assertEqual(stats.type_name, 'NoneType')
 
     def test_encode_sample(self):

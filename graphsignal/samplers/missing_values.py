@@ -20,4 +20,8 @@ class MissingValueSampler:
                 if counts[counter_name] > 0:
                     return True
 
+        if 'element_count' in counts:
+            if counts['element_count'] == 0:
+                return True
+
         return False

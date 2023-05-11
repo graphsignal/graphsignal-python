@@ -13,12 +13,12 @@ import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
 from graphsignal.spans import DEFAULT_OPTIONS
-from graphsignal.recorders.kineto_recorder import KinetoRecorder
+from graphsignal.recorders.pytorch_recorder import PyTorchRecorder
 
 logger = logging.getLogger('graphsignal')
 
 
-class KinetoRecorderTest(unittest.TestCase):
+class PyTorchRecorderTest(unittest.TestCase):
     def setUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -32,42 +32,36 @@ class KinetoRecorderTest(unittest.TestCase):
         graphsignal.shutdown()
 
     def test_record(self):
-        recorder = KinetoRecorder()
+        recorder = PyTorchRecorder()
         recorder.setup()
 
-        x = torch.arange(-5, 5, 0.1).view(-1, 1)
-        model = torch.nn.Linear(1, 1)
+        mem1 = torch.rand(10000)
         if torch.cuda.is_available():
-            x = x.to('cuda:0')
-            model = model.to('cuda:0')
+            mem1 = mem1.cuda()
+            torch.cuda.synchronize()
 
         proto = signals_pb2.Span()
         context = {}
         recorder.on_span_start(proto, context, graphsignal.TraceOptions(enable_profiling=True))
 
-        pred = model(x)
+        mem2 = torch.rand(10000)
+        if torch.cuda.is_available():
+            mem2 = mem2.cuda()
+        del mem2
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
 
         recorder.on_span_stop(proto, context, graphsignal.TraceOptions(enable_profiling=True))
         recorder.on_span_read(proto, context, graphsignal.TraceOptions(enable_profiling=True))
 
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(proto))
+        self.assertEqual(proto.libraries[0].name, 'PyTorch')
 
-        self.assertTrue('profiled' in proto.labels)
+        self.assertEqual(proto.libraries[0].params[0].name, 'torch.cuda.is_available')
+        self.assertEqual(proto.libraries[0].params[0].value, str(torch.cuda.is_available()))
 
-        test_op_stats = None
-        for op_stats in proto.op_profile:
-            if op_stats.op_name == 'aten::addmm':
-                test_op_stats = op_stats
-                break
-        self.assertIsNotNone(test_op_stats)
-        self.assertTrue(test_op_stats.count >= 1)
-        
-        self.assertEqual(test_op_stats.op_type, signals_pb2.OpStats.OpType.PYTORCH_OP)
         if torch.cuda.is_available():
-            self.assertTrue(test_op_stats.device_time_ns >= 1)
-            self.assertTrue(test_op_stats.self_device_time_ns >= 1)
-        else:
-            self.assertTrue(test_op_stats.host_time_ns >= 1)
-            self.assertTrue(test_op_stats.self_host_time_ns >= 1)
-            self.assertTrue(test_op_stats.self_host_time_percent > 0)
+            self.assertEqual(proto.alloc_summary[0].allocator_type, signals_pb2.MemoryAllocation.AllocatorType.PYTORCH_CUDA_ALLOCATOR)
+            self.assertEqual(proto.alloc_summary[0].device_idx, 0)
+            self.assertTrue(proto.alloc_summary[0].allocated_size > 0)
+            self.assertTrue(proto.alloc_summary[0].freed_size > 0)
+            self.assertEqual(proto.alloc_summary[0].num_allocations, 1)

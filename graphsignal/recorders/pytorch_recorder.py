@@ -7,60 +7,64 @@ import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
 from graphsignal.proto_utils import parse_semver
 from graphsignal.proto import signals_pb2
-from graphsignal.proto_utils import add_framework_param, add_driver
+from graphsignal.proto_utils import add_library_param, add_driver
 
 logger = logging.getLogger('graphsignal')
 
 class PyTorchRecorder(BaseRecorder):
     def __init__(self):
-        self._framework = None
+        self._library = None
         self._comm_info = None
         self._rank = None
         self._is_cuda_available = False
 
     def setup(self):
-        self._framework = signals_pb2.FrameworkInfo()
-        self._framework.name = 'PyTorch'
-        parse_semver(self._framework.version, torch.__version__)
+        self._library = signals_pb2.LibraryInfo()
+        self._library.name = 'PyTorch'
+        parse_semver(self._library.version, torch.__version__)
 
-        add_framework_param(self._framework, 'torch.cuda.is_available', torch.cuda.is_available())
-        add_framework_param(self._framework, 'torch.backends.cuda.is_build', torch.backends.cuda.is_built())
-        add_framework_param(self._framework, 'torch.backends.cudnn.is_available', torch.backends.cudnn.is_available())
+        add_library_param(self._library, 'torch.cuda.is_available', torch.cuda.is_available())
+        add_library_param(self._library, 'torch.backends.cuda.is_build', torch.backends.cuda.is_built())
+        add_library_param(self._library, 'torch.backends.cudnn.is_available', torch.backends.cudnn.is_available())
         if torch.backends.cudnn.is_available(): 
             try:
-                add_framework_param(self._framework, 'torch.backends.cudnn.is_available', _format_version(torch.backends.cudnn.version()))
+                add_library_param(self._library, 'torch.backends.cudnn.is_available', _format_version(torch.backends.cudnn.version()))
             except RuntimeError:
                 pass
         if hasattr(torch.backends, 'mps'):
-            add_framework_param(self._framework, 'torch.backends.mps.is_available', torch.backends.mps.is_available())
-            add_framework_param(self._framework, 'torch.backends.mps.is_built', torch.backends.mps.is_built())
+            add_library_param(self._library, 'torch.backends.mps.is_available', torch.backends.mps.is_available())
+            add_library_param(self._library, 'torch.backends.mps.is_built', torch.backends.mps.is_built())
         if hasattr(torch.backends, 'mkl'):
-            add_framework_param(self._framework, 'torch.backends.mkl.is_available', torch.backends.mkl.is_available())
+            add_library_param(self._library, 'torch.backends.mkl.is_available', torch.backends.mkl.is_available())
         if hasattr(torch.backends, 'mkldnn'):
-            add_framework_param(self._framework, 'torch.backends.mkldnn.is_available', torch.backends.mkldnn.is_available())
+            add_library_param(self._library, 'torch.backends.mkldnn.is_available', torch.backends.mkldnn.is_available())
         if hasattr(torch.backends, 'openmp'):
-            add_framework_param(self._framework, 'torch.backends.openmp.is_available', torch.backends.openmp.is_available())
-        add_framework_param(self._framework, 'torch.distributed.is_available', torch.distributed.is_available())
+            add_library_param(self._library, 'torch.backends.openmp.is_available', torch.backends.openmp.is_available())
+        add_library_param(self._library, 'torch.distributed.is_available', torch.distributed.is_available())
         if dist.is_available():
-            add_framework_param(self._framework, 'torch.distributed.is_mpi_available', torch.distributed.is_mpi_available())
-            add_framework_param(self._framework, 'torch.distributed.is_nccl_available', torch.distributed.is_nccl_available())
-            add_framework_param(self._framework, 'torch.distributed.is_initialized', torch.distributed.is_initialized())
+            add_library_param(self._library, 'torch.distributed.is_mpi_available', torch.distributed.is_mpi_available())
+            add_library_param(self._library, 'torch.distributed.is_nccl_available', torch.distributed.is_nccl_available())
+            add_library_param(self._library, 'torch.distributed.is_initialized', torch.distributed.is_initialized())
             if dist.is_initialized():
-                add_framework_param(self._framework, 'torch.distributed.get_backend', torch.distributed.get_backend())
-                add_framework_param(self._framework, 'torch.distributed.get_world_size', torch.distributed.get_world_size())
-                add_framework_param(self._framework, 'torch.distributed.get_rank', torch.distributed.get_rank())
+                add_library_param(self._library, 'torch.distributed.get_backend', torch.distributed.get_backend())
+                add_library_param(self._library, 'torch.distributed.get_world_size', torch.distributed.get_world_size())
+                add_library_param(self._library, 'torch.distributed.get_rank', torch.distributed.get_rank())
                 self._rank = torch.distributed.get_rank()
 
         if torch.cuda.is_available():
             self._is_cuda_available = True
 
     def on_span_start(self, proto, context, options):
+        if not options.enable_profiling:
+            return
         if self._is_cuda_available:
             context['pytorch_mem_stats'] = {}
             for device in range(torch.cuda.device_count()):
                 context['pytorch_mem_stats'][device] = _read_mem_stats(device)
 
     def on_span_stop(self, proto, context, options):
+        if not options.enable_profiling:
+            return
         if self._is_cuda_available:
             for device in range(torch.cuda.device_count()):
                 if 'pytorch_mem_stats' in context and device in context['pytorch_mem_stats']: 
@@ -79,8 +83,10 @@ class PyTorchRecorder(BaseRecorder):
                     mem_alloc.num_ooms = mem_diff.get('num_ooms', 0)
 
     def on_span_read(self, proto, context, options):
-        if self._framework:
-            proto.frameworks.append(self._framework)
+        if not options.enable_profiling:
+            return
+        if self._library:
+            proto.libraries.append(self._library)
         if self._rank is not None:
             proto.process_usage.rank = self._rank
             proto.process_usage.has_rank = True

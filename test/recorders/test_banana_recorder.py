@@ -14,6 +14,7 @@ from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
 from graphsignal.spans import DEFAULT_OPTIONS
 from graphsignal.recorders.banana_recorder import BananaRecorder
+from graphsignal.proto_utils import find_tag, find_param, find_data_sample
 
 logger = logging.getLogger('graphsignal')
 
@@ -40,7 +41,7 @@ class BananaRecorderTest(unittest.IsolatedAsyncioTestCase):
         recorder.on_span_stop(proto, context, DEFAULT_OPTIONS)
         recorder.on_span_read(proto, context, DEFAULT_OPTIONS)
 
-        self.assertEqual(proto.frameworks[0].name, 'Banana Python SDK')
+        self.assertEqual(proto.libraries[0].name, 'Banana Python SDK')
 
     @patch.object(Uploader, 'upload_span')
     @patch.object(banana, 'run')
@@ -73,10 +74,7 @@ class BananaRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         proto = mocked_upload_span.call_args[0][0]
 
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(proto))
-
-        self.assertEqual(proto.frameworks[0].name, 'Banana Python SDK')
+        self.assertEqual(proto.libraries[0].name, 'Banana Python SDK')
 
         self.assertEqual(find_tag(proto, 'component'), 'Model')
         self.assertEqual(find_tag(proto, 'operation'), 'banana.run')
@@ -84,30 +82,5 @@ class BananaRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(find_param(proto, 'model_key'), 'model-key-1')
 
-        self.assertEqual(find_data_count(proto, 'model_inputs', 'byte_count'), 24.0)
-        self.assertEqual(find_data_count(proto, 'model_inputs', 'element_count'), 2.0)
-        self.assertEqual(find_data_count(proto, 'model_outputs', 'byte_count'), 151.0)
-        self.assertEqual(find_data_count(proto, 'model_outputs', 'element_count'), 6.0)
-
-
-def find_tag(proto, key):
-    for tag in proto.tags:
-        if tag.key == key:
-            return tag.value
-    return None
-
-
-def find_param(proto, name):
-    for param in proto.params:
-        if param.name == name:
-            return param.value
-    return None
-
-
-def find_data_count(proto, data_name, count_name):
-    for data_stats in proto.data_profile:
-        if data_stats.data_name == data_name:
-            for data_count in data_stats.counts:
-                if data_count.name == count_name:
-                    return data_count.count
-    return None
+        self.assertIsNotNone(find_data_sample(proto, 'model_inputs'))
+        self.assertIsNotNone(find_data_sample(proto, 'model_outputs'))

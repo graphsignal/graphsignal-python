@@ -66,7 +66,7 @@ Use the following examples to integrate Graphsignal tracer into your application
 
 Graphsignal **auto-instruments** and traces libraries and frameworks, such as [OpenAI](https://graphsignal.com/docs/integrations/openai/), [LangChain](https://graphsignal.com/docs/integrations/langchain/), and many others.
 
-To measure and monitor any other executions, e.g. model inference or inference API calls, wrap the code with [`start_trace()`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method or use [`@trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignalspan_function) decorator.
+To measure and monitor other operations, e.g. model inference or inference API calls, wrap the code with [`start_trace()`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method or use [`@trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
 
 ```python
 with graphsignal.start_trace('predict'):
@@ -112,7 +112,7 @@ Raw data samples, such as prompts or completions, are recorded by default. To di
 
 ## Observe
 
-After everything is setup, [log in](https://app.graphsignal.com/) to Graphsignal to monitor and analyze execution performance and monitor for issues.
+After everything is setup, [log in](https://app.graphsignal.com/) to Graphsignal to monitor and analyze your application and monitor for issues.
 
 
 ## Overhead

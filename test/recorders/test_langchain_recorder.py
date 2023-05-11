@@ -53,7 +53,7 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
         recorder.on_span_stop(proto, context, DEFAULT_OPTIONS)
         recorder.on_span_read(proto, context, DEFAULT_OPTIONS)
 
-        self.assertEqual(proto.frameworks[0].name, 'LangChain')
+        self.assertEqual(proto.libraries[0].name, 'LangChain')
 
     @patch.object(Uploader, 'upload_span')
     async def test_chain(self, mocked_upload_span):
@@ -63,5 +63,5 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         t1 = mocked_upload_span.call_args_list[0][0][0]
 
-        self.assertEqual(t1.frameworks[0].name, 'OpenAI Python Library')
-        self.assertEqual(t1.frameworks[1].name, 'LangChain')
+        self.assertEqual(t1.libraries[0].name, 'OpenAI Python Library')
+        self.assertEqual(t1.libraries[1].name, 'LangChain')

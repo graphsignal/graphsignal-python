@@ -15,6 +15,7 @@ from graphsignal.proto import signals_pb2
 from graphsignal.uploader import Uploader
 from graphsignal.spans import DEFAULT_OPTIONS
 from graphsignal.recorders.openai_recorder import OpenAIRecorder
+from graphsignal.proto_utils import find_tag, find_param, find_data_count, find_data_sample
 
 logger = logging.getLogger('graphsignal')
 
@@ -40,7 +41,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         recorder.on_span_start(proto, context, DEFAULT_OPTIONS)
         recorder.on_span_stop(proto, context, DEFAULT_OPTIONS)
         recorder.on_span_read(proto, context, DEFAULT_OPTIONS)
-        self.assertEqual(proto.frameworks[0].name, 'OpenAI Python Library')
+        self.assertEqual(proto.libraries[0].name, 'OpenAI Python Library')
 
     @patch.object(Uploader, 'upload_span')
     @patch.object(openai.Completion, 'create')
@@ -88,9 +89,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         proto = mocked_upload_span.call_args[0][0]
 
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(proto))
-
         self.assertEqual(find_tag(proto, 'component'), 'LLM')
         self.assertEqual(find_tag(proto, 'operation'), 'openai.Completion.create')
         self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/completions')
@@ -103,14 +101,13 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_param(proto, 'presence_penalty'), '0')
         self.assertEqual(find_param(proto, 'frequency_penalty'), '0')
 
-        self.assertEqual(find_data_count(proto, 'prompt', 'byte_count'), 26.0)
-        self.assertEqual(find_data_count(proto, 'prompt', 'element_count'), 2.0)
         self.assertEqual(find_data_count(proto, 'prompt', 'token_count'), 6.0)
-        self.assertEqual(find_data_count(proto, 'completion', 'byte_count'), 256.0)
-        self.assertEqual(find_data_count(proto, 'completion', 'element_count'), 15.0)
         self.assertEqual(find_data_count(proto, 'completion', 'token_count'), 96.0)
         self.assertEqual(find_data_count(proto, 'completion', 'finish_reason_stop'), 1.0)
         self.assertEqual(find_data_count(proto, 'completion', 'finish_reason_length'), 1.0)
+
+        self.assertIsNotNone(find_data_sample(proto, 'prompt'))
+        self.assertIsNotNone(find_data_sample(proto, 'completion'))
 
     @patch.object(Uploader, 'upload_span')
     @patch.object(openai.Completion, 'create')
@@ -171,15 +168,12 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         proto = mocked_upload_span.call_args[0][0]
 
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(proto))
-        self.assertEqual(find_data_count(proto, 'prompt', 'byte_count'), 37.0)
-        self.assertEqual(find_data_count(proto, 'prompt', 'element_count'), 2.0)
         self.assertEqual(find_data_count(proto, 'prompt', 'token_count'), 9.0)
-        self.assertEqual(find_data_count(proto, 'completion', 'byte_count'), 258.0)
-        self.assertEqual(find_data_count(proto, 'completion', 'element_count'), 16.0)
         self.assertEqual(find_data_count(proto, 'completion', 'finish_reason_stop'), 1.0)
         self.assertEqual(find_data_count(proto, 'completion', 'token_count'), 2.0)
+
+        self.assertIsNotNone(find_data_sample(proto, 'prompt'))
+        self.assertIsNotNone(find_data_sample(proto, 'completion'))
 
     @patch.object(Uploader, 'upload_span')
     @patch.object(openai.Completion, 'acreate')
@@ -227,9 +221,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         proto = mocked_upload_span.call_args[0][0]
 
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(proto))
-
         self.assertEqual(find_tag(proto, 'component'), 'LLM')
         self.assertEqual(find_tag(proto, 'operation'), 'openai.Completion.acreate')
         self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/completions')
@@ -242,12 +233,11 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_param(proto, 'presence_penalty'), '0')
         self.assertEqual(find_param(proto, 'frequency_penalty'), '0')
 
-        self.assertEqual(find_data_count(proto, 'prompt', 'byte_count'), 26.0)
-        self.assertEqual(find_data_count(proto, 'prompt', 'element_count'), 2.0)
         self.assertEqual(find_data_count(proto, 'prompt', 'token_count'), 6.0)
-        self.assertEqual(find_data_count(proto, 'completion', 'byte_count'), 254.0)
-        self.assertEqual(find_data_count(proto, 'completion', 'element_count'), 15.0)
         self.assertEqual(find_data_count(proto, 'completion', 'token_count'), 96.0)
+
+        self.assertIsNotNone(find_data_sample(proto, 'prompt'))
+        self.assertIsNotNone(find_data_sample(proto, 'completion'))
 
     @patch.object(Uploader, 'upload_span')
     @patch.object(openai.ChatCompletion, 'create')
@@ -301,9 +291,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         proto = mocked_upload_span.call_args[0][0]
 
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(proto))
-
         self.assertEqual(find_tag(proto, 'component'), 'LLM')
         self.assertEqual(find_tag(proto, 'operation'), 'openai.ChatCompletion.create')
         self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/chat/completions')
@@ -316,14 +303,13 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_param(proto, 'presence_penalty'), '0')
         self.assertEqual(find_param(proto, 'frequency_penalty'), '0')
 
-        self.assertEqual(find_data_count(proto, 'messages', 'byte_count'), 38.0)
-        self.assertEqual(find_data_count(proto, 'messages', 'element_count'), 4.0)
         self.assertEqual(find_data_count(proto, 'messages', 'token_count'), 6.0)
-        self.assertEqual(find_data_count(proto, 'completion', 'byte_count'), 253.0)
-        self.assertEqual(find_data_count(proto, 'completion', 'element_count'), 15.0)
         self.assertEqual(find_data_count(proto, 'completion', 'token_count'), 96.0)
         self.assertEqual(find_data_count(proto, 'completion', 'finish_reason_stop'), 1.0)
         self.assertEqual(find_data_count(proto, 'completion', 'finish_reason_length'), 1.0)
+
+        self.assertIsNotNone(find_data_sample(proto, 'messages'))
+        self.assertIsNotNone(find_data_sample(proto, 'completion'))
 
     @patch.object(Uploader, 'upload_span')
     @patch.object(openai.ChatCompletion, 'create')
@@ -403,15 +389,13 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         proto = mocked_upload_span.call_args[0][0]
 
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(proto))
-        self.assertEqual(find_data_count(proto, 'messages', 'byte_count'), 121.0)
-        self.assertEqual(find_data_count(proto, 'messages', 'element_count'), 8.0)
         self.assertEqual(find_data_count(proto, 'messages', 'token_count'), 40.0)
-        self.assertEqual(find_data_count(proto, 'completion', 'byte_count'), 264.0)
-        self.assertEqual(find_data_count(proto, 'completion', 'element_count'), 16.0)
         self.assertEqual(find_data_count(proto, 'completion', 'finish_reason_stop'), 1.0)
         self.assertEqual(find_data_count(proto, 'completion', 'token_count'), 2.0)
+
+        self.assertIsNotNone(find_data_sample(proto, 'messages'))
+        self.assertIsNotNone(find_data_sample(proto, 'completion'))
+
 
     @patch.object(Uploader, 'upload_span')
     @patch.object(openai.ChatCompletion, 'acreate')
@@ -491,15 +475,12 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         proto = mocked_upload_span.call_args[0][0]
 
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(proto))
-        self.assertEqual(find_data_count(proto, 'messages', 'byte_count'), 121.0)
-        self.assertEqual(find_data_count(proto, 'messages', 'element_count'), 8.0)
         self.assertEqual(find_data_count(proto, 'messages', 'token_count'), 40.0)
-        self.assertEqual(find_data_count(proto, 'completion', 'byte_count'), 264.0)
-        self.assertEqual(find_data_count(proto, 'completion', 'element_count'), 16.0)
         self.assertEqual(find_data_count(proto, 'completion', 'finish_reason_stop'), 1.0)
         self.assertEqual(find_data_count(proto, 'completion', 'token_count'), 2.0)
+
+        self.assertIsNotNone(find_data_sample(proto, 'messages'))
+        self.assertIsNotNone(find_data_sample(proto, 'completion'))
 
     @patch.object(Uploader, 'upload_span')
     @patch.object(openai.Edit, 'create')
@@ -535,9 +516,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         proto = mocked_upload_span.call_args[0][0]
 
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(proto))
-
         self.assertEqual(find_tag(proto, 'component'), 'LLM')
         self.assertEqual(find_tag(proto, 'operation'), 'openai.Edit.create')
         self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/edits')
@@ -547,14 +525,12 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_param(proto, 'temperature'), '0.1')
         self.assertEqual(find_param(proto, 'top_p'), '1')
 
-        self.assertEqual(find_data_count(proto, 'input', 'byte_count'), 12.0)
-        self.assertEqual(find_data_count(proto, 'input', 'element_count'), 1.0)
-        self.assertEqual(find_data_count(proto, 'instruction', 'byte_count'), 18.0)
-        self.assertEqual(find_data_count(proto, 'instruction', 'element_count'), 1.0)
         self.assertEqual(find_data_count(proto, 'instruction', 'token_count'), 18.0)
-        self.assertEqual(find_data_count(proto, 'edits', 'byte_count'), 176.0)
-        self.assertEqual(find_data_count(proto, 'edits', 'element_count'), 7.0)
         self.assertEqual(find_data_count(proto, 'edits', 'token_count'), 13.0)
+
+        self.assertIsNotNone(find_data_sample(proto, 'input'))
+        self.assertIsNotNone(find_data_sample(proto, 'instruction'))
+        self.assertIsNotNone(find_data_sample(proto, 'edits'))
 
     @patch.object(Uploader, 'upload_span')
     @patch.object(openai.Embedding, 'create')
@@ -600,9 +576,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         proto = mocked_upload_span.call_args[0][0]
 
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(proto))
-
         self.assertEqual(find_tag(proto, 'component'), 'LLM')
         self.assertEqual(find_tag(proto, 'operation'), 'openai.Embedding.create')
         self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/embeddings')
@@ -610,11 +583,10 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(find_param(proto, 'model'), 'text-embedding-ada-002')
 
-        self.assertEqual(find_data_count(proto, 'input', 'byte_count'), 22.0)
-        self.assertEqual(find_data_count(proto, 'input', 'element_count'), 2.0)
         self.assertEqual(find_data_count(proto, 'input', 'token_count'), 8.0)
-        self.assertEqual(find_data_count(proto, 'embedding', 'byte_count'), 296.0)
-        self.assertEqual(find_data_count(proto, 'embedding', 'element_count'), 14.0)
+
+        self.assertIsNotNone(find_data_sample(proto, 'input'))
+        self.assertIsNotNone(find_data_sample(proto, 'embedding'))
 
     @patch.object(Uploader, 'upload_span')
     @patch.object(openai.Image, 'create')
@@ -642,9 +614,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         proto = mocked_upload_span.call_args[0][0]
 
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(proto))
-
         self.assertEqual(find_tag(proto, 'component'), 'Model')
         self.assertEqual(find_tag(proto, 'operation'), 'openai.Image.create')
         self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/images/generations')
@@ -653,7 +622,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_param(proto, 'size'), '256x256')
         self.assertEqual(find_param(proto, 'response_format'), 'b64_json')
 
-        self.assertEqual(find_data_count(proto, 'image', 'byte_count'), 14.0)
         self.assertEqual(find_data_count(proto, 'image', 'element_count'), 1.0)
 
     @patch.object(Uploader, 'upload_span')
@@ -684,9 +652,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         proto = mocked_upload_span.call_args[0][0]
 
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(proto))
-
         self.assertEqual(find_tag(proto, 'component'), 'Model')
         self.assertEqual(find_tag(proto, 'operation'), 'openai.Audio.transcribe')
         self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/audio/transcriptions')
@@ -697,8 +662,8 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_param(proto, 'language'), 'en')
 
         self.assertEqual(find_data_count(proto, 'file', 'byte_count'), 12.0)
-        self.assertEqual(find_data_count(proto, 'prompt', 'byte_count'), 11.0)
-        self.assertEqual(find_data_count(proto, 'prompt', 'element_count'), 1.0)
+
+        self.assertIsNotNone(find_data_sample(proto, 'prompt'))
 
 
     @patch.object(Uploader, 'upload_span')
@@ -728,9 +693,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         proto = mocked_upload_span.call_args[0][0]
 
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(proto))
-
         self.assertEqual(find_tag(proto, 'component'), 'Model')
         self.assertEqual(find_tag(proto, 'operation'), 'openai.Audio.translate')
         self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/audio/translations')
@@ -740,8 +702,8 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_param(proto, 'temperature'), '0.1')
 
         self.assertEqual(find_data_count(proto, 'file', 'byte_count'), 12.0)
-        self.assertEqual(find_data_count(proto, 'prompt', 'byte_count'), 11.0)
-        self.assertEqual(find_data_count(proto, 'prompt', 'element_count'), 1.0)
+
+        self.assertIsNotNone(find_data_sample(proto, 'prompt'))
 
     @patch.object(Uploader, 'upload_span')
     @patch.object(openai.Moderation, 'create')
@@ -786,37 +748,10 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         proto = mocked_upload_span.call_args[0][0]
 
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(proto))
-
         self.assertEqual(find_tag(proto, 'component'), 'Model')
         self.assertEqual(find_tag(proto, 'operation'), 'openai.Moderation.create')
         self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/moderations')
 
         self.assertEqual(find_param(proto, 'model'), 'text-moderation-latest')
 
-        self.assertEqual(find_data_count(proto, 'input', 'byte_count'), 9.0)
-        self.assertEqual(find_data_count(proto, 'input', 'element_count'), 1.0)
-
-
-def find_tag(proto, key):
-    for tag in proto.tags:
-        if tag.key == key:
-            return tag.value
-    return None
-
-
-def find_param(proto, name):
-    for param in proto.params:
-        if param.name == name:
-            return param.value
-    return None
-
-
-def find_data_count(proto, data_name, count_name):
-    for data_stats in proto.data_profile:
-        if data_stats.data_name == data_name:
-            for data_count in data_stats.counts:
-                if data_count.name == count_name:
-                    return data_count.count
-    return None
+        self.assertIsNotNone(find_data_sample(proto, 'input'))

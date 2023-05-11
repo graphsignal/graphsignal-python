@@ -35,8 +35,8 @@ def compare_semver(semver_proto, version):
         return 0
 
 
-def add_framework_param(framework_info, name, value):
-    param = framework_info.params.add()
+def add_library_param(library_info, name, value):
+    param = library_info.params.add()
     param.name = name
     param.value = str(value)
 
@@ -45,3 +45,33 @@ def add_driver(node_info, name, version):
     driver = node_info.drivers.add()
     driver.name = name
     driver.version = version
+
+
+def find_tag(proto, key):
+    for tag in proto.tags:
+        if tag.key == key:
+            return tag.value
+    return None
+
+
+def find_param(proto, name):
+    for param in proto.params:
+        if param.name == name:
+            return param.value
+    return None
+
+
+def find_data_count(proto, data_name, count_name):
+    for data_stats in proto.data_profile:
+        if data_stats.data_name == data_name:
+            for data_count in data_stats.counts:
+                if data_count.name == count_name:
+                    return data_count.count
+    return None
+
+
+def find_data_sample(proto, data_name):
+    for data_sample in proto.data_samples:
+        if data_sample.data_name == data_name:
+            return data_sample
+    return None

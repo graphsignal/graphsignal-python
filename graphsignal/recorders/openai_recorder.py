@@ -17,7 +17,7 @@ logger = logging.getLogger('graphsignal')
 
 class OpenAIRecorder(BaseRecorder):
     def __init__(self):
-        self._framework = None
+        self._library = None
         self._cached_encodings = {}
         self._extra_content_tokens = {
             'gpt-3.5-turbo': 4,
@@ -42,11 +42,11 @@ class OpenAIRecorder(BaseRecorder):
         if not graphsignal._tracer.auto_instrument:
             return
 
-        self._framework = signals_pb2.FrameworkInfo()
-        self._framework.name = 'OpenAI Python Library'
-        parse_semver(self._framework.version, openai.version.VERSION)
+        self._library = signals_pb2.LibraryInfo()
+        self._library.name = 'OpenAI Python Library'
+        parse_semver(self._library.version, openai.version.VERSION)
 
-        if compare_semver(self._framework.version, (0, 26, 0)) < 1:
+        if compare_semver(self._library.version, (0, 26, 0)) < 1:
             logger.debug('OpenAI tracing is only supported for >= 0.26.0.')
             return
 
@@ -489,5 +489,5 @@ class OpenAIRecorder(BaseRecorder):
             span.set_data('input', params['input'])
 
     def on_span_read(self, proto, context, options):
-        if self._framework:
-            proto.frameworks.append(self._framework)
+        if self._library:
+            proto.libraries.append(self._library)

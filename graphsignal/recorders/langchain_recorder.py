@@ -12,20 +12,19 @@ logger = logging.getLogger('graphsignal')
 
 class LangChainRecorder(BaseRecorder):
     def __init__(self):
-        self._framework = None
+        self._library = None
         self._v1_handler = None
 
     def setup(self):
         if not graphsignal._tracer.auto_instrument:
             return
 
-        self._framework = signals_pb2.FrameworkInfo()
-        self._framework.name = 'LangChain'
+        self._library = signals_pb2.LibraryInfo()
+        self._library.name = 'LangChain'
         version = ''
         if hasattr(langchain, '__version__') and langchain.__version__:
-            parse_semver(self._framework.version, langchain.__version__)
+            parse_semver(self._library.version, langchain.__version__)
             version = langchain.__version__
-
 
         def is_v2():
             return (
@@ -75,5 +74,5 @@ class LangChainRecorder(BaseRecorder):
             self._v1_handler = None
 
     def on_span_read(self, proto, context, options):
-        if self._framework:
-            proto.frameworks.append(self._framework)
+        if self._library:
+            proto.libraries.append(self._library)

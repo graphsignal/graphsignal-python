@@ -25,3 +25,4 @@ MNIST
 lightning_logs
 test_trainer
 temp
+.chroma
