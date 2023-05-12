@@ -96,7 +96,6 @@ class ChromaRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_tag(query_proto, 'index'), 'test_col')
         self.assertEqual(find_param(query_proto, 'collection'), 'test_col')
         self.assertEqual(find_data_count(query_proto, 'query_embeddings', 'element_count'), 6.0)
-        self.assertIsNotNone(find_data_sample(query_proto, 'query_embeddings'))
         self.assertEqual(find_data_count(get_proto, 'documents', 'element_count'), 2.0)
         self.assertIsNotNone(find_data_sample(get_proto, 'documents'))
 

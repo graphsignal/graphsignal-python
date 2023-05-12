@@ -61,7 +61,7 @@ class ChromaRecorder(BaseRecorder):
             span.set_data('documents', params['documents'])
 
         if 'embeddings' in params:
-            span.set_data('embeddings', params['embeddings'])
+            span.set_data('embeddings', params['embeddings'], record_data_sample=False)
 
     def trace_delete(self, span, args, kwargs, ret, exc):
         params = read_args(args, kwargs, [
@@ -86,7 +86,7 @@ class ChromaRecorder(BaseRecorder):
 
         if ret:
             if 'embeddings' in ret:
-                span.set_data('embeddings', ret['embeddings'])
+                span.set_data('embeddings', ret['embeddings'], record_data_sample=False)
             if 'documents' in ret:
                 span.set_data('documents', ret['documents'])
 
@@ -107,7 +107,7 @@ class ChromaRecorder(BaseRecorder):
             span.set_param('n_results', params['n_results'])
 
         if 'query_embeddings' in params:
-            span.set_data('query_embeddings', params['query_embeddings'])
+            span.set_data('query_embeddings', params['query_embeddings'], record_data_sample=False)
 
         if 'query_texts' in params:
             span.set_data('query_texts', params['query_texts'])

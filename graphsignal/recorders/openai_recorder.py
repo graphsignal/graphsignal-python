@@ -1,8 +1,6 @@
 import logging
-import sys
 import os
-import time
-import types
+import copy
 import importlib
 import openai
 
@@ -369,7 +367,13 @@ class OpenAIRecorder(BaseRecorder):
             span.set_data('input', params['input'], counts=prompt_usage)
 
         if ret:
-            span.set_data('embedding', ret)
+            if 'data' in ret and isinstance(ret['data'], list):
+                ret = copy.deepcopy(ret)
+                for item in ret['data']:
+                    if 'embedding' in item and isinstance(item['embedding'], list):
+                        size = len(item['embedding'])
+                        item['embedding'] = f'({size} floats)'
+                span.set_data('embeddings', ret)
 
     def trace_image_generation(self, span, args, kwargs, ret, exc):
         span.set_tag('endpoint', f'{self._api_base}/images/generations')

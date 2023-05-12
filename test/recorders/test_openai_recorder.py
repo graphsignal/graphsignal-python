@@ -586,7 +586,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_data_count(proto, 'input', 'token_count'), 8.0)
 
         self.assertIsNotNone(find_data_sample(proto, 'input'))
-        self.assertIsNotNone(find_data_sample(proto, 'embedding'))
+        self.assertIsNotNone(find_data_sample(proto, 'embeddings'))
 
     @patch.object(Uploader, 'upload_span')
     @patch.object(openai.Image, 'create')
