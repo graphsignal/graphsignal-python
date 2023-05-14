@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, List, Optional, Union
 from langchain.callbacks.base import BaseCallbackHandler
-from langchain.schema import AgentAction, AgentFinish, LLMResult, ChatResult, Generation, ChatGeneration
+from langchain.schema import AgentAction, AgentFinish, LLMResult, ChatResult, BaseMessage
 from uuid import UUID
 
 import graphsignal
@@ -78,6 +78,25 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
 
+    def on_chat_model_start(
+            self,
+            serialized: Dict[str, Any],
+            messages: List[List[BaseMessage]],
+            *,
+            run_id: UUID,
+            parent_run_id: Optional[UUID] = None,
+            **kwargs: Any) -> Any:
+        try:
+            operation = 'langchain.llms.' + serialized.get('name', 'LLM')
+            span = self._start_trace(parent_run_id, run_id, operation)
+            if span:
+                span.set_tag('component', 'LLM')
+                if messages:
+                    span.set_data('messages', obj_to_dict(messages))
+        except Exception:
+            logger.error('Error in LangChain callback handler', exc_info=True)
+
+    
     def on_llm_new_token(
             self,
             token: str,
@@ -255,6 +274,21 @@ class GraphsignalAsyncCallbackHandler(GraphsignalCallbackHandler):
         super().on_llm_start(
             serialized, 
             prompts, 
+            run_id=run_id, 
+            parent_run_id=parent_run_id, 
+            **kwargs)
+
+    async def on_chat_model_start(
+            self,
+            serialized: Dict[str, Any],
+            messages: List[List[BaseMessage]],
+            *,
+            run_id: UUID,
+            parent_run_id: Optional[UUID] = None,
+            **kwargs: Any) -> Any:
+        super().on_chat_model_start(
+            serialized, 
+            messages, 
             run_id=run_id, 
             parent_run_id=parent_run_id, 
             **kwargs)

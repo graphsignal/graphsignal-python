@@ -234,7 +234,7 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_tag(t2, 'ct1'), 'v1')
         self.assertEqual(find_tag(t2, 'component'), 'LLM')
         self.assertEqual(find_tag(t2, 'operation'), 'langchain.llms.ChatOpenAI')
-        self.assertIsNotNone(find_data_sample(t2, 'prompts'))
+        self.assertIsNotNone(find_data_sample(t2, 'messages'))
 
         self.assertEqual(t3.labels, [])
         self.assertEqual(find_tag(t3, 'ct1'), 'v1')

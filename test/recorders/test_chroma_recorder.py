@@ -30,7 +30,6 @@ class ChromaRecorderTest(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         graphsignal.shutdown()
 
-    @unittest.skip("temp")
     async def test_record(self):
         recorder = ChromaRecorder()
         recorder.setup()
