@@ -1,17 +1,17 @@
-# Graphsignal: AI Application Monitoring
+# Graphsignal: Observability For AI Stack
 
 [![License](http://img.shields.io/github/license/graphsignal/graphsignal-python)](https://github.com/graphsignal/graphsignal-python/blob/main/LICENSE)
 [![Version](https://img.shields.io/github/v/tag/graphsignal/graphsignal-python?label=version)](https://github.com/graphsignal/graphsignal-python)
 [![Status](https://img.shields.io/uptimerobot/status/m787882560-d6b932eb0068e8e4ade7f40c?label=SaaS%20status)](https://stats.uptimerobot.com/gMBNpCqqqJ)
 
 
-Graphsignal is an observability platform for AI applications that use LLMs or other models. It helps engineers make AI applications faster, reliable and more efficient by monitoring and analyzing performance, resources, data, errors and costs.
+Graphsignal is an observability platform for AI agents and LLM-powered applications. It helps AI developers ensure applications run as expected and users have the best experience. With Graphsignal, developers can:
 
-* Trace and analyze application latency, throughput, and errors.
-* Monitor moltimodal data to identify issues and silent failures.
-* Get notified about errors and anomalies with full AI context.
+* Trace requests and runs with full AI context.
+* See latency breakdown by operations.
+* Analyze model API costs for deployments, models, or users.
+* Get notified about errors and anomalies.
 * Monitor API, compute, and GPU utilization.
-* Analyze model API costs for deployments, models, and any custom tags.
 
 [![Dashboards](https://graphsignal.com/external/screencast-dashboards.gif)](https://graphsignal.com/)
 
