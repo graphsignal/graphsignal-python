@@ -90,7 +90,7 @@ class HuggingFaceRecorderTest(unittest.IsolatedAsyncioTestCase):
         hf_rec.setup()
 
         agent = OpenAiAgent(model="text-davinci-003")
-        agent.run('Translate the following text to French: Hi, how are you?', remote=True)
+        agent.run('Translate the following text to French: System update available.', remote=True)
 
         hf_rec.shutdown()
         oai_rec.shutdown()
@@ -100,12 +100,14 @@ class HuggingFaceRecorderTest(unittest.IsolatedAsyncioTestCase):
         s1 = mocked_upload_span.call_args_list[2][0][0]
 
         self.assertEqual(find_tag(s1, 'component'), 'Agent')
-        self.assertEqual(find_tag(s1, 'operation'), 'transformer.tools.Agent.run')
+        self.assertEqual(find_tag(s1, 'operation'), 'transformers.tools.Agent.run')
         self.assertIsNotNone(find_data_sample(s1, 'task'))
         self.assertIsNotNone(find_data_sample(s1, 'output'))
 
         self.assertEqual(find_tag(s2, 'component'), 'Tool')
-        self.assertEqual(find_tag(s2, 'operation'), 'transformer.tools.RemoteTool')
+        self.assertEqual(find_tag(s2, 'operation'), 'transformers.tools.TranslationTool')
+        self.assertIsNotNone(find_tag(s2, 'endpoint'))
+        self.assertIsNotNone(find_data_sample(s2, 'inputs'))
         self.assertIsNotNone(find_data_sample(s2, 'outputs'))
 
         self.assertEqual(find_tag(s3, 'component'), 'LLM')

@@ -25,18 +25,18 @@ class ChromaRecorder(BaseRecorder):
 
         from chromadb.api.models.Collection import Collection
         for method_name in ['add', 'update', 'upsert']:
-            instrument_method(Collection, method_name, f'chroma.collection.{method_name}', self.trace_add)
-        instrument_method(Collection, 'delete', 'chroma.collection.delete', self.trace_delete)
-        instrument_method(Collection, 'get', 'chroma.collection.get', self.trace_get)
-        instrument_method(Collection, 'query', 'chroma.collection.query', self.trace_query)
+            instrument_method(Collection, method_name, f'chroma.collection.{method_name}', trace_func=self.trace_add)
+        instrument_method(Collection, 'delete', 'chroma.collection.delete', trace_func=self.trace_delete)
+        instrument_method(Collection, 'get', 'chroma.collection.get', trace_func=self.trace_get)
+        instrument_method(Collection, 'query', 'chroma.collection.query', trace_func=self.trace_query)
 
     def shutdown(self):
         from chromadb.api.models.Collection import Collection
         for method_name in ['add', 'update', 'upsert']:
-            uninstrument_method(Collection, method_name, f'chroma.collection.{method_name}')
-        uninstrument_method(Collection, 'delete', 'chroma.collection.delete')
-        uninstrument_method(Collection, 'get', 'chroma.collection.get')
-        uninstrument_method(Collection, 'query', 'chroma.collection.query')
+            uninstrument_method(Collection, method_name)
+        uninstrument_method(Collection, 'delete')
+        uninstrument_method(Collection, 'get')
+        uninstrument_method(Collection, 'query')
 
     def _fill(self, span, collection):
         span.set_tag('component', 'Memory')

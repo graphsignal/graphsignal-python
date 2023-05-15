@@ -8,8 +8,12 @@ import graphsignal
 logger = logging.getLogger('graphsignal')
 
 
-def instrument_method(obj, func_name, operation, trace_func, data_func=None):
+def instrument_method(obj, func_name, op_name=None, op_func=None, trace_func=None, data_func=None):
     def before_func(args, kwargs):
+        if op_name is None:
+            operation = op_func(args, kwargs)
+        else:
+            operation = op_name
         return dict(span=graphsignal.start_trace(operation=operation))
 
     def after_func(args, kwargs, ret, exc, context):
@@ -39,12 +43,12 @@ def instrument_method(obj, func_name, operation, trace_func, data_func=None):
                 data_func(span, item)
 
     if not patch_method(obj, func_name, before_func=before_func, after_func=after_func, yield_func=yield_func):
-        logger.debug('Cannot instrument %s.', operation)
+        logger.debug('Cannot instrument %s.', func_name)
 
 
-def uninstrument_method(obj, func_name, operation):
+def uninstrument_method(obj, func_name):
     if not unpatch_method(obj, func_name):
-        logger.debug('Cannot uninstrument %s.', operation)
+        logger.debug('Cannot uninstrument %s.', func_name)
 
 
 def patch_method(obj, func_name, before_func=None, after_func=None, yield_func=None):

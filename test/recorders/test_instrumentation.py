@@ -31,7 +31,7 @@ class Dummy:
             yield 'item' + str(i)
 
 
-class RecorderUtilsTest(unittest.IsolatedAsyncioTestCase):
+class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -53,7 +53,7 @@ class RecorderUtilsTest(unittest.IsolatedAsyncioTestCase):
             nonlocal trace_func_called
             trace_func_called = True
 
-        instrument_method(obj, 'test', 'ep1', trace_func)
+        instrument_method(obj, 'test', 'ep1', trace_func=trace_func)
 
         obj.test(1, 2, c=3)
 
@@ -71,7 +71,7 @@ class RecorderUtilsTest(unittest.IsolatedAsyncioTestCase):
             nonlocal trace_func_called
             trace_func_called = True
 
-        instrument_method(obj, 'test_gen', 'ep1', trace_func)
+        instrument_method(obj, 'test_gen', 'ep1', trace_func=trace_func)
 
         for item in obj.test_gen():
             pass

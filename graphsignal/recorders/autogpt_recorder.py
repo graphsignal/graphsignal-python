@@ -26,11 +26,11 @@ class AutoGPTRecorder(BaseRecorder):
         self._library = signals_pb2.LibraryInfo()
         self._library.name = 'AutoGPT'
 
-        instrument_method(autogpt.agent.agent, 'chat_with_ai', 'autogpt.chat.chat_with_ai', self.trace_chat_with_ai)
-        instrument_method(autogpt.agent.agent, 'execute_command', 'autogpt.app.execute_command', self.trace_execute_command)
+        instrument_method(autogpt.agent.agent, 'chat_with_ai', 'autogpt.chat.chat_with_ai', trace_func=self.trace_chat_with_ai)
+        instrument_method(autogpt.agent.agent, 'execute_command', 'autogpt.app.execute_command', trace_func=self.trace_execute_command)
 
     def shutdown(self):
-        uninstrument_method(autogpt.agent.agent, 'chat_with_ai', 'autogpt.chat.chat_with_ai')
+        uninstrument_method(autogpt.agent.agent, 'chat_with_ai')
 
     def trace_chat_with_ai(self, span, args, kwargs, ret, exc):
         params = read_args(args, kwargs, ['prompt', 'user_input', 'full_message_history', 'permanent_memory', 'token_limit'])
@@ -43,11 +43,11 @@ class AutoGPTRecorder(BaseRecorder):
                 instrument_method(params['permanent_memory'], 
                     'get_relevant',
                     params['permanent_memory'].__class__.__name__ + '.get_relevant',
-                    self.trace_memory_get_relevant)
+                    trace_func=self.trace_memory_get_relevant)
                 instrument_method(params['permanent_memory'], 
                     'add',
                     params['permanent_memory'].__class__.__name__ + '.add',
-                    self.trace_memory_add)
+                    trace_func=self.trace_memory_add)
 
         if 'token_limit' in params:
             span.set_param('token_limit', params['token_limit'])

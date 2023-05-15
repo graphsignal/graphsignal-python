@@ -598,7 +598,7 @@ class Span:
         return 'Span({0})'.format(self._operation)
 
 
-def _sanitize_str(val, max_len=50):
+def _sanitize_str(val, max_len=250):
     return str(val)[:max_len]
 
 
