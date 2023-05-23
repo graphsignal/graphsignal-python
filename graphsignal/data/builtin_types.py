@@ -14,7 +14,7 @@ class BuiltInTypesProfiler(BaseDataProfiler):
         super().__init__()
 
     def is_instance(self, data):
-        return isinstance(data, (list, dict, tuple, set, str, int, float, complex)) or data is None
+        return True
 
     def compute_stats(self, data):
         shape = None
@@ -33,10 +33,14 @@ class BuiltInTypesProfiler(BaseDataProfiler):
                 counts['element_count'] = len(data)
         elif data is None:
             counts['null_count'] = 1
+
         return DataStats(type_name=type(data).__name__, shape=shape, counts=counts)
 
     def encode_sample(self, data):
-        return DataSample(content_type='application/json', content_bytes=json.dumps(data).encode('utf-8'))
+        data_dict = _obj_to_dict(data)
+        return DataSample(
+            content_type='application/json', 
+            content_bytes=json.dumps(data_dict).encode('utf-8'))
 
 
 def _is_array(data):
@@ -64,3 +68,18 @@ def _elems(data):
          return sum([_elems(elem) for elem in data])
     else:
         return 1
+
+
+def _obj_to_dict(obj, level=0):
+    if level >= 10:
+        return
+    if isinstance(obj, (int, float, str, bool, type(None))):
+        return obj
+    elif isinstance(obj, dict):
+        return {k: _obj_to_dict(v, level=level+1) for k, v in obj.items()}
+    elif isinstance(obj, (list, set, tuple)):
+        return [_obj_to_dict(e, level=level+1) for e in obj]
+    elif hasattr(obj, '__dict__'):
+        return _obj_to_dict(vars(obj), level=level+1)
+    else:
+        return str(obj)

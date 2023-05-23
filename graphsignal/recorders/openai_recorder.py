@@ -356,10 +356,10 @@ class OpenAIRecorder(BaseRecorder):
                 span.set_param(param_name, params[param_name])
 
         prompt_usage = {}
-        if 'model' in ret:
+        if ret and 'model' in ret:
             span.set_tag('model', ret['model'])
 
-        if 'usage' in ret:
+        if ret and 'usage' in ret:
             if 'prompt_tokens' in ret['usage']:
                 prompt_usage['token_count'] = ret['usage']['prompt_tokens']
 

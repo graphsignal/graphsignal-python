@@ -53,6 +53,7 @@ RECORDER_SPECS = {
     'yappi': [('graphsignal.recorders.yappi_recorder', 'YappiRecorder')],
     'openai': [('graphsignal.recorders.openai_recorder', 'OpenAIRecorder')],
     'langchain': [('graphsignal.recorders.langchain_recorder', 'LangChainRecorder')],
+    'llama_index': [('graphsignal.recorders.llama_index_recorder', 'LlamaIndexRecorder')],
     'transformers': [('graphsignal.recorders.huggingface_recorder', 'HuggingFaceRecorder')],
     'banana_dev': [('graphsignal.recorders.banana_recorder', 'BananaRecorder')],
     'chromadb': [('graphsignal.recorders.chroma_recorder', 'ChromaRecorder')],

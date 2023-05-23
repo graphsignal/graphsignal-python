@@ -13,7 +13,7 @@ class NumpyNDArrayProfiler(BaseDataProfiler):
         super().__init__()
 
     def is_instance(self, data):
-        np = self.check_module('numpy')        
+        np = self.check_module('numpy')
         return np is not None and isinstance(data, np.ndarray)
 
     def compute_stats(self, data):

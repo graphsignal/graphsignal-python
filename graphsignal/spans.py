@@ -599,7 +599,10 @@ class Span:
 
 
 def _sanitize_str(val, max_len=250):
-    return str(val)[:max_len]
+    if not isinstance(val, str):
+        return str(val)[:max_len]
+    else:
+        return val[:max_len]
 
 
 def _sha1(text, size=-1):

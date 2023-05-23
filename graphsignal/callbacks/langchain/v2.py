@@ -7,7 +7,6 @@ from uuid import UUID
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
 from graphsignal.spans import get_current_span, push_current_span, clear_span_stack
-from graphsignal.data.utils import obj_to_dict
 
 logger = logging.getLogger('graphsignal')
 
@@ -92,7 +91,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             if span:
                 span.set_tag('component', 'LLM')
                 if messages:
-                    span.set_data('messages', obj_to_dict(messages))
+                    span.set_data('messages', messages)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
 
@@ -114,7 +113,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             if span:
                 if isinstance(response, (LLMResult, ChatResult)) and hasattr(response, 'llm_output'):
                     span.set_data('output', response.llm_output)
-                    span.set_data('generations', obj_to_dict(response.generations))
+                    span.set_data('generations', response.generations)
             self._stop_trace(run_id)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
