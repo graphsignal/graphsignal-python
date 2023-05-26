@@ -1,8 +1,9 @@
 import logging
 from typing import Any, Dict, List, Optional, Union
+from uuid import UUID
+import contextvars
 from llama_index.callbacks.base import BaseCallbackHandler
 from llama_index.callbacks.schema import CBEventType
-from uuid import UUID
 
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
@@ -15,6 +16,8 @@ MAX_TRACES = 10000
 
 # is thread-safe, because event_id is unique per thread
 _span_map = {}
+
+_llama_trace_map = contextvars.ContextVar('llama_trace_map', default={})
 
 
 class GraphsignalCallbackHandler(BaseCallbackHandler):
@@ -48,7 +51,8 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
         **kwargs: Any
     ) -> str:
         try:
-            operation = f'llama_index.{event_type}'
+            operation = f'llama_index.op.{event_type}'
+
             span = self._start_trace(event_id, operation)
             if span:
                 if event_type == CBEventType.CHUNKING:
@@ -64,7 +68,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                     if payload and 'template' in payload:
                         span.set_data('template', payload['template'])
                     if payload and 'context_str' in payload:
-                        span.set_data('context_str', payload['context_str'])
+                        span.set_data('context', payload['context_str'])
                 elif event_type == CBEventType.QUERY:
                     span.set_tag('component', 'Memory')
                 elif event_type == CBEventType.RETRIEVE:
@@ -75,7 +79,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                     pass
         except Exception:
             logger.error('Error in LlamaIndex callback handler', exc_info=True)
-
 
     def on_event_end(
         self,
@@ -115,3 +118,29 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
         except Exception:
             logger.error('Error in LlamaIndex callback handler', exc_info=True)
 
+    def start_trace(self, trace_id: Optional[str] = None) -> None:
+        try:
+            if trace_id is not None:
+                trace_map = _llama_trace_map.get()
+                if trace_id not in trace_map:
+                    operation = f'llama_index.{trace_id}' if trace_id else 'llama_index.root'
+                    span = graphsignal.start_trace(operation)
+                    trace_map[trace_id] = span
+                    _llama_trace_map.set(trace_map)
+        except Exception:
+            logger.error('Error in LlamaIndex callback handler', exc_info=True)
+
+    def end_trace(
+        self,
+        trace_id: Optional[str] = None,
+        trace_map: Optional[Dict[str, List[str]]] = None,
+    ) -> None:
+        try:
+            if trace_id is not None:
+                trace_map = _llama_trace_map.get()
+                span = trace_map.pop(trace_id)
+                if span is not None:
+                    span.stop()
+                    _llama_trace_map.set(trace_map)
+        except Exception:
+            logger.error('Error in LlamaIndex callback handler', exc_info=True)
