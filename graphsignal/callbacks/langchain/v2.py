@@ -241,7 +241,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             span = self._current_span(run_id)
             if span:
                 if isinstance(action, AgentAction):
-                    span.append_data('actions', [obj_to_dict(action)])
+                    span.append_data('actions', [action])
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
 
