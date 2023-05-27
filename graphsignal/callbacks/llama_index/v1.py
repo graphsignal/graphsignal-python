@@ -51,7 +51,8 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
         **kwargs: Any
     ) -> str:
         try:
-            operation = f'llama_index.op.{event_type}'
+            event_name_str = event_type.name.lower()
+            operation = f'llama_index.op.{event_name_str}'
 
             span = self._start_trace(event_id, operation)
             if span:

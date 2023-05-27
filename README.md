@@ -62,7 +62,7 @@ python -m graphsignal -m <module>
 Use the following examples to integrate Graphsignal tracer into your application. See integration documentation and [API reference](https://graphsignal.com/docs/reference/python-api/) for full reference. More integration examples are available in [examples](https://github.com/graphsignal/examples) repo.
 
 
-### Monitoring and tracing
+### Tracing and monitoring
 
 Graphsignal **auto-instruments** and traces libraries and frameworks, such as [OpenAI](https://graphsignal.com/docs/integrations/openai/), [LangChain](https://graphsignal.com/docs/integrations/langchain/), and many others.
 
@@ -98,7 +98,7 @@ For auto-instrumented libraries, or when using `@trace_function` decorator, `sta
 
 ### Data monitoring
 
-Data is automatically monitored for auto-instrumented libraries. To track data metrics and record data profiles for other cases, [`Span.set_data()`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanset_data) method can be used.
+Data, such as prompts and completions, is automatically monitored for auto-instrumented libraries. To track data metrics and record data profiles for other cases, [`Span.set_data()`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanset_data) method can be used.
 
 ```python
 with graphsignal.start_trace('predict') as span:
