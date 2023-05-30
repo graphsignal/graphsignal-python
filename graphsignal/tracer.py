@@ -5,6 +5,7 @@ import importlib
 import socket
 import contextvars
 import importlib.abc
+import threading
 
 from graphsignal.uploader import Uploader
 from graphsignal.metrics import MetricStore
@@ -315,14 +316,17 @@ class Tracer:
             raise last_exc
 
     def emit_metric_update(self):
-        last_exc = None
-        for recorder in self.recorders():
-            try:
-                recorder.on_metric_update()
-            except Exception as exc:
-                last_exc = exc
-        if last_exc:
-            raise last_exc
+        def on_metric_update():
+            last_exc = None
+            for recorder in self.recorders():
+                try:
+                    recorder.on_metric_update()
+                except Exception as exc:
+                    last_exc = exc
+            if last_exc:
+                raise last_exc
+
+        threading.Thread(target=on_metric_update).start()
 
     def upload(self, block=False):
         if block:

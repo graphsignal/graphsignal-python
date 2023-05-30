@@ -91,8 +91,6 @@ class PyTorchRecorder(BaseRecorder):
             proto.process_usage.rank = self._rank
             proto.process_usage.has_rank = True
 
-    def on_metric_update(self):
-        pass
 
 def _format_version(version):
     major = int(version / 1000)

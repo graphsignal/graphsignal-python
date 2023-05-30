@@ -44,9 +44,6 @@ class YappiRecorder(BaseRecorder):
         yappi.clear_stats()
         self._profiler_lock.release()
 
-    def on_metric_update(self):
-        pass
-
     def _convert_to_profile(self, proto, ystats):
         stats = yappi.convert2pstats(ystats)
 

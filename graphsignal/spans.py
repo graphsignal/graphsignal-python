@@ -349,9 +349,9 @@ class Span:
 
         # update recorder metrics
         if self._options.record_metrics and _tracer().check_metric_read_interval(now):
+            _tracer().set_metric_read(now)
             try:
                 _tracer().emit_metric_update()
-                _tracer().set_metric_read(now)
             except Exception as exc:
                 logger.error('Error in span read event handlers', exc_info=True)
 
