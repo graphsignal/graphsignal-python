@@ -3,14 +3,14 @@ import logging
 import sys
 import time
 from unittest.mock import patch, Mock
-import random
 
 import graphsignal
-from graphsignal.samplers.latency_outliers import LatencyOutlierSampler
+from graphsignal.samplers.random_sampling import RandomSampler
 
 logger = logging.getLogger('graphsignal')
 
-class LatencyOutlierSamplerTest(unittest.TestCase):
+
+class RandomSamplerTest(unittest.TestCase):
     def setUp(self):
         graphsignal.configure(
             api_key='k1',
@@ -22,10 +22,13 @@ class LatencyOutlierSamplerTest(unittest.TestCase):
         graphsignal.shutdown()
 
     def test_sample(self):
-        sampler = LatencyOutlierSampler()
+        sampler = RandomSampler()
 
-        for i in range(500):
-            val = random.randint(100, 200)
-            self.assertFalse(sampler.sample(val))
-            sampler.update(val)
-        self.assertTrue(sampler.sample(1000))
+        for _ in range(1000):
+            self.assertTrue(sampler.sample())
+
+        self.assertFalse(sampler.sample())
+
+        sampler._last_reset_ts = time.time() - 61
+
+        self.assertTrue(sampler.sample())

@@ -117,7 +117,7 @@ After everything is setup, [log in](https://app.graphsignal.com/) to Graphsignal
 
 ## Overhead
 
-Graphsignal tracer is very lightweight. While all traces are monitored, Graphsignal tracer only samples and records certain traces, automatically limiting the overhead. The overhead per trace is measured to be less than 100 microseconds.
+Graphsignal tracer is very lightweight. While all traces are monitored, Graphsignal tracer only records certain traces, automatically limiting the overhead. The overhead per trace is measured to be less than 100 microseconds.
 
 
 ## Security and Privacy

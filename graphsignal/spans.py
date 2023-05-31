@@ -83,16 +83,14 @@ class DataObject:
         'name',
         'obj',
         'counts',
-        'record_data_sample',
-        'check_missing_values'
+        'record_data_sample'
     ]
 
-    def __init__(self, name, obj, counts=None, record_data_sample=True, check_missing_values=False):
+    def __init__(self, name, obj, counts=None, record_data_sample=True):
         self.name = name
         self.obj = obj
         self.counts = counts
         self.record_data_sample = record_data_sample
-        self.check_missing_values = check_missing_values
 
 
 class Span:
@@ -120,9 +118,7 @@ class Span:
         '_start_counter',
         '_stop_counter',
         '_exc_infos',
-        '_data_objects',
-        '_is_latency_outlier',
-        '_has_missing_values'
+        '_data_objects'
     ]
 
     def __init__(self, operation, tags=None, options=None):
@@ -163,8 +159,6 @@ class Span:
         self._proto = None
         self._exc_infos = None
         self._data_objects = None
-        self._is_latency_outlier = False
-        self._has_missing_values = False
 
         try:
             self._start()
@@ -227,7 +221,7 @@ class Span:
         if self._options.record_samples:
             # sample if parent span is being sampled or this span is root
             if self._is_root:
-                if _tracer().random_sampler(self._operation).sample('random'):
+                if _tracer().random_sampler().sample():
                     self._init_sampling(sampling_type=signals_pb2.Span.SamplingType.RANDOM_SAMPLING)
             else:
                 if self._parent_span.is_sampling():
@@ -277,19 +271,9 @@ class Span:
         # if exception, but the span is not being recorded, try to start tracing
         if self._options.record_samples:
             if not self._is_sampling and self._exc_infos and len(self._exc_infos) > 0:
-                if _tracer().random_sampler(self._operation).sample('exceptions'):
+                if _tracer().random_sampler().sample():
                     self._init_sampling(sampling_type=signals_pb2.Span.SamplingType.ERROR_SAMPLING)
                     self._propagate_sampling()
-
-        # check for outliers
-        lo_sampler = _tracer().lo_sampler(self._operation)
-        if self._options.record_samples:
-            self._is_latency_outlier = lo_sampler.sample(self._latency_ns / 1e9)
-            if not self._is_sampling and self._is_latency_outlier:
-                if _tracer().random_sampler(self._operation).sample('latency-outliers'):
-                    self._init_sampling(sampling_type=signals_pb2.Span.SamplingType.ERROR_SAMPLING)
-                    self._propagate_sampling()
-        lo_sampler.update(self._latency_ns / 1e9)
 
         # update RED metrics
         if self._options.record_metrics:
@@ -319,11 +303,6 @@ class Span:
                     if data_obj.counts is not None:
                         stats.counts.update(data_obj.counts)
 
-                    # check missing values
-                    if data_obj.check_missing_values:
-                        if _tracer().mv_sampler(self._operation).sample(data_obj.name, stats.counts):
-                            self._has_missing_values = True
-
                     # update data metrics
                     data_tags = span_tags.copy()
                     data_tags['data'] = data_obj.name
@@ -332,13 +311,6 @@ class Span:
                             scope='data', name=count_name, tags=data_tags, value=count, update_ts=now)
                 except Exception as exc:
                     logger.error('Error computing data stats', exc_info=True)
-
-        # if missing values detected, but the span is not being recorded, try to start sampling
-        if self._options.record_samples:
-            if not self._is_sampling and self._has_missing_values:
-                if _tracer().random_sampler(self._operation).sample('missing-values'):
-                    self._init_sampling(sampling_type=signals_pb2.Span.SamplingType.ERROR_SAMPLING)
-                    self._propagate_sampling()
 
         # emit read event
         if self._is_sampling:
@@ -364,10 +336,6 @@ class Span:
                 self._proto.labels.insert(0, 'root')
             if self._exc_infos and len(self._exc_infos) > 0:
                 self._proto.labels.append('exception')
-            if self._is_latency_outlier:
-                self._proto.labels.append('latency-outlier')
-            if self._has_missing_values:
-                self._proto.labels.append('missing-values')
             self._proto.process_usage.start_ms = _tracer()._process_start_ms
 
             # copy span context
@@ -513,8 +481,7 @@ class Span:
             name: str, 
             obj: Any, 
             counts: Optional[Dict[str, int]] = None, 
-            record_data_sample: Optional[bool] = True, 
-            check_missing_values: Optional[bool] = False) -> None:
+            record_data_sample: Optional[bool] = True) -> None:
         if self._data_objects is None:
             self._data_objects = {}
 
@@ -534,15 +501,13 @@ class Span:
             name=name,
             obj=obj,
             counts=counts,
-            record_data_sample=record_data_sample,
-            check_missing_values=check_missing_values)
+            record_data_sample=record_data_sample)
 
     def append_data(self, 
             name: str, 
             obj: Any, 
             counts: Optional[Dict[str, int]] = None, 
-            record_data_sample: Optional[bool] = True, 
-            check_missing_values: Optional[bool] = False) -> None:
+            record_data_sample: Optional[bool] = True) -> None:
         if self._data_objects is None:
             self._data_objects = {}
 
@@ -574,8 +539,7 @@ class Span:
                 name=name,
                 obj=obj,
                 counts=counts,
-                record_data_sample=record_data_sample,
-                check_missing_values=check_missing_values)
+                record_data_sample=record_data_sample)
 
     def _span_tags(self, extra_tags=None):
         span_tags = {

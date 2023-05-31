@@ -10,9 +10,7 @@ import threading
 from graphsignal.uploader import Uploader
 from graphsignal.metrics import MetricStore
 from graphsignal.logs import LogStore
-from graphsignal.samplers.random_samples import RandomSampler
-from graphsignal.samplers.latency_outliers import LatencyOutlierSampler
-from graphsignal.samplers.missing_values import MissingValueSampler
+from graphsignal.samplers.random_sampling import RandomSampler
 
 logger = logging.getLogger('graphsignal')
 
@@ -154,9 +152,7 @@ class Tracer:
         self._metric_store = None
         self._log_store = None
         self._recorders = None
-        self._random_samplers = None
-        self._lo_samplers = None
-        self._mv_samplers = None
+        self._random_sampler = None
 
         self._process_start_ms = int(time.time() * 1e3)
 
@@ -169,10 +165,8 @@ class Tracer:
         self._uploader.setup()
         self._metric_store = MetricStore()
         self._log_store = LogStore()
+        self._random_sampler = RandomSampler()
         self._recorders = {}
-        self._random_samplers = {}
-        self._lo_samplers = {}
-        self._mv_samplers = {}
 
         # initialize tracer log handler
         self._tracer_log_handler = GraphsignalTracerLogHandler(self)
@@ -210,9 +204,7 @@ class Tracer:
         self._recorders = None
         self._metric_store = None
         self._log_store = None
-        self._lo_samplers = None
-        self._random_samplers = None
-        self._mv_samplers = None
+        self._random_sampler = None
         self._uploader = None
 
         self.context_tags.set({})
@@ -264,26 +256,8 @@ class Tracer:
     def log_store(self):
         return self._log_store
 
-    def random_sampler(self, operation):
-        if operation in self._random_samplers:
-            return self._random_samplers[operation]
-        else:
-            random_sampler = self._random_samplers[operation] = RandomSampler()
-            return random_sampler
-
-    def lo_sampler(self, operation):
-        if operation in self._lo_samplers:
-            return self._lo_samplers[operation]
-        else:
-            lo_sampler = self._lo_samplers[operation] = LatencyOutlierSampler()
-            return lo_sampler
-
-    def mv_sampler(self, operation):
-        if operation in self._mv_samplers:
-            return self._mv_samplers[operation]
-        else:
-            lo_sampler = self._mv_samplers[operation] = MissingValueSampler()
-            return lo_sampler
+    def random_sampler(self):
+        return self._random_sampler
 
     def emit_span_start(self, proto, context, options):
         last_exc = None

@@ -10,7 +10,6 @@ import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.spans import Span, TraceOptions, DEFAULT_OPTIONS, get_current_span
 from graphsignal.recorders.process_recorder import ProcessRecorder
-from graphsignal.samplers.random_samples import RandomSampler
 from graphsignal.uploader import Uploader
 
 
@@ -242,32 +241,15 @@ class SpansTest(unittest.TestCase):
         self.assertEqual(store._metrics[key].counter, 1)
 
     @patch.object(Uploader, 'upload_span')
-    def test_outlier(self, mocked_upload_span):
-        for _ in range(500):
-            with Span(operation='ep1'):
-                time.sleep(0.00001)
-        with Span(operation='ep1'):
-            time.sleep(0.01)
-
-        has_outliers = False
-        for call_args in mocked_upload_span.call_args_list:
-            span = call_args[0][0]
-            if 'latency-outlier' in span.labels:
-                has_outliers = True
-                self.assertEqual(span.sampling_type, signals_pb2.Span.SamplingType.ERROR_SAMPLING)
-                break
-        self.assertTrue(has_outliers)
-
-    @patch.object(Uploader, 'upload_span')
     def test_set_data(self, mocked_upload_span):
         with Span(operation='ep1') as span:
-            span.set_data('d1', None, check_missing_values=True)
+            span.set_data('d1', None)
 
         span = mocked_upload_span.call_args[0][0]
 
         self.assertTrue(span.start_us > 0)
         self.assertTrue(span.end_us > 0)
-        self.assertEqual(span.labels, ['root', 'missing-values'])
+        self.assertEqual(span.labels, ['root'])
 
     @patch.object(Uploader, 'upload_span')
     def test_subspans(self, mocked_upload_span):
@@ -344,7 +326,7 @@ class SpansTest(unittest.TestCase):
             with Span(operation='ep1') as span:
                 span.set_tag('k1', 'v1')
                 span.set_param('k2', 'v2')
-                span.set_data('test', 'test string data', check_missing_values=True)
+                span.set_data('test', 'test string data')
         took_ns = time.perf_counter_ns() - start_ns
 
         #stats = pstats.Stats(profiler).sort_stats('time')
