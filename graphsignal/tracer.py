@@ -18,7 +18,7 @@ logger = logging.getLogger('graphsignal')
 class GraphsignalTracerLogHandler(logging.Handler):
     def __init__(self, tracer):
         super().__init__()
-        self._tracer = tracer  
+        self._tracer = tracer
 
     def emit(self, record):
         try:
@@ -172,6 +172,10 @@ class Tracer:
         self._tracer_log_handler = GraphsignalTracerLogHandler(self)
         logger.addHandler(self._tracer_log_handler)
 
+        # initialize tags variable
+        if not self.tags:
+            self.tags = {}
+
         # initialize context tags variable
         self.context_tags = contextvars.ContextVar('graphsignal_context_tags', default={})
 
@@ -206,6 +210,8 @@ class Tracer:
         self._log_store = None
         self._random_sampler = None
         self._uploader = None
+
+        self.tags = None
 
         self.context_tags.set({})
         self.context_tags = None

@@ -93,12 +93,10 @@ def set_tag(key: str, value: str) -> None:
     if not key:
         logger.error('set_tag: key must be provided')
         return
-    if value is None:
-        logger.error('set_tag: value must be provided')
-        return
 
-    if _tracer.tags is None:
-        _tracer.tags = {}
+    if value is None:
+        _tracer.tags.pop(key, None)
+        return
 
     if len(_tracer.tags) > Span.MAX_RUN_TAGS:
         logger.error('set_tag: too many tags (>{0})'.format(Span.MAX_RUN_TAGS))
@@ -113,11 +111,14 @@ def set_context_tag(key: str, value: str) -> None:
     if not key:
         logger.error('set_context_tag: key must be provided')
         return
-    if value is None:
-        logger.error('set_context_tag: value must be provided')
-        return
 
     tags = _tracer.context_tags.get()
+
+    if value is None:
+        tags.pop(key, None)
+        _tracer.context_tags.set(tags)
+        return
+
     if len(tags) > Span.MAX_RUN_TAGS:
         logger.error('set_context_tag: too many tags (>{0})'.format(Span.MAX_RUN_TAGS))
         return

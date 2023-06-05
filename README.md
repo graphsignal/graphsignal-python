@@ -7,7 +7,7 @@
 
 Graphsignal is an observability platform for AI agents and LLM-powered applications. It helps developers ensure AI applications run as expected and users have the best experience. With Graphsignal, developers can:
 
-* Trace requests and runs with full AI context.
+* Trace requests, runs, and sessions with full AI context.
 * See latency breakdown by operations.
 * Analyze model API costs for deployments, models, or users.
 * Get notified about errors and anomalies.
@@ -56,17 +56,34 @@ python -m graphsignal <script>
 python -m graphsignal -m <module>
 ```
 
-
 ## Integrate
 
-Use the following examples to integrate Graphsignal tracer into your application. See integration documentation and [API reference](https://graphsignal.com/docs/reference/python-api/) for full reference. More integration examples are available in [examples](https://github.com/graphsignal/examples) repo.
+### Automatic integration
+
+Graphsignal **auto-instruments** and traces libraries and frameworks, such as [OpenAI](https://graphsignal.com/docs/integrations/openai/), [LangChain](https://graphsignal.com/docs/integrations/langchain/), [LlamaIndex](https://graphsignal.com/docs/integrations/llama-index/), [Hugging Face](https://graphsignal.com/docs/integrations/hugging-face/). Traces, errors, and data, such as prompts and completions, are automatically recorded and available for analysis at [app.graphsignal.com](https://app.graphsignal.com/).
+
+Some integration examples are available in [examples](https://github.com/graphsignal/examples) repo.
 
 
-### Tracing and monitoring
+**User tracking
 
-Graphsignal **auto-instruments** and traces libraries and frameworks, such as [OpenAI](https://graphsignal.com/docs/integrations/openai/), [LangChain](https://graphsignal.com/docs/integrations/langchain/), and many others.
+User tracking allows grouping and visualization of user-related traces, interactions, metrics, and costs. It also enables detection of user interaction outliers and other events.
 
-To measure and monitor other operations, e.g. model inference or inference API calls, wrap the code with [`start_trace()`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method or use [`@trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
+To enable user tracking, set user identifier as `user` tag for every request, e.g. in a request handler.
+
+```python
+graphsignal.set_context_tag('user', user_id)
+```
+
+If you are running a single process per user and added Graphsignal at command line, you can set the `user` tag in an environment variable.
+
+```bash
+env GRAPHSIGNAL_TAGS="user=user_id" python -m graphsignal <script>
+```
+
+### Tracing any operation
+
+To measure and monitor operations that are not automatically instrumented, e.g. any model inference or inference API calls, wrap the code with [`start_trace()`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method or use [`@trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
 
 ```python
 with graphsignal.start_trace('predict'):
@@ -82,23 +99,24 @@ def predict(x):
 Enable profiling to additionally record code-level statistics. Profiling is disabled by default due to potential overhead. To enable, provide [`TraceOptions`](https://graphsignal.com/docs/reference/python-api/#graphsignaltraceoptions) object.
 
 ```python
-with graphsignal.start_trace(
-        operation='predict', 
-        options=graphsignal.TraceOptions(enable_profiling=True)):
+with graphsignal.start_trace('predict', options=graphsignal.TraceOptions(enable_profiling=True)):
     pred = model(x)
 ```
 
 The tracer will automatically choose a profiler depending on available modules. Currently, CProfile, PyTorch Kineto and Yappi are supported. The Kineto profiler is used if `torch` module is detected and Yappi profiler is used if `yappi` module is detected. Otherwise, CProfile is used. To properly profile `asyncio` coroutines, simply `pip install yappi`.
 
 
+See [API reference](https://graphsignal.com/docs/reference/python-api/) for full documentation.
+
+
 ### Exception tracking
 
-For auto-instrumented libraries, or when using `@trace_function` decorator, `start_trace()` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`Span.add_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanadd_exception) method.
+For auto-instrumented libraries, or when using `@trace_function` decorator, `start_trace()` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`Trace.add_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanadd_exception).
 
 
 ### Data monitoring
 
-Data, such as prompts and completions, is automatically monitored for auto-instrumented libraries. To track data metrics and record data profiles for other cases, [`Span.set_data()`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanset_data) method can be used.
+Data, such as prompts and completions, is automatically monitored for auto-instrumented libraries. To track data metrics and record data profiles for other cases, [`Trace.set_data()`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanset_data) method can be used.
 
 ```python
 with graphsignal.start_trace('predict') as span:
@@ -107,12 +125,12 @@ with graphsignal.start_trace('predict') as span:
 
 The following data types are currently supported: `list`, `dict`, `set`, `tuple`, `str`, `bytes`, `numpy.ndarray`, `tensorflow.Tensor`, `torch.Tensor`.
 
-Raw data samples, such as prompts or completions, are recorded by default. To disable, set `record_data_samples=False` in `graphsignal.configure`. Note, that data statistics, such as size, shape or number of missing values will still be recorded.
+Raw data samples, such as prompts and completions, are recorded by default. To disable, set `record_data_samples=False` in `graphsignal.configure`. Note, that data statistics, such as size, shape or number of missing values will still be recorded.
 
 
 ## Observe
 
-After everything is setup, [log in](https://app.graphsignal.com/) to Graphsignal to monitor and analyze your application and monitor for issues.
+[Log in](https://app.graphsignal.com/) to Graphsignal to monitor and analyze your application and monitor for issues.
 
 
 ## Overhead

@@ -334,8 +334,6 @@ class Span:
             self._proto.end_us = end_us
             if self._is_root:
                 self._proto.labels.insert(0, 'root')
-            if self._exc_infos and len(self._exc_infos) > 0:
-                self._proto.labels.append('exception')
             self._proto.process_usage.start_ms = _tracer()._process_start_ms
 
             # copy span context
@@ -433,12 +431,13 @@ class Span:
         if not key:
             logger.error('set_tag: key must be provided')
             return
-        if value is None:
-            logger.error('set_tag: value must be provided')
-            return
 
         if self._tags is None:
             self._tags = {}
+
+        if value is None:
+            self._tags.pop(key, None)
+            return
 
         if len(self._tags) > Span.MAX_SPAN_TAGS:
             logger.error('set_tag: too many tags (>{0})'.format(Span.MAX_SPAN_TAGS))
