@@ -65,7 +65,7 @@ Graphsignal **auto-instruments** and traces libraries and frameworks, such as [O
 Some integration examples are available in [examples](https://github.com/graphsignal/examples) repo.
 
 
-**User tracking
+### User tracking
 
 User tracking allows grouping and visualization of user-related traces, interactions, metrics, and costs. It also enables detection of user interaction outliers and other events.
 
