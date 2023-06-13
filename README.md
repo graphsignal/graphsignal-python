@@ -135,7 +135,7 @@ Raw data samples, such as prompts and completions, are recorded by default. To d
 
 ## Overhead
 
-Graphsignal tracer is very lightweight. While all traces are monitored, Graphsignal tracer only records certain traces, automatically limiting the overhead. The overhead per trace is measured to be less than 100 microseconds.
+Graphsignal tracer is very lightweight. The overhead per trace is measured to be less than 100 microseconds.
 
 
 ## Security and Privacy

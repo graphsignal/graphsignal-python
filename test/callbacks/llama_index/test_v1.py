@@ -56,6 +56,8 @@ class LlamaIndexCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
 
     @patch.object(Uploader, 'upload_span')
     async def test_callback(self, mocked_upload_span):
+        os.environ['OPENAI_API_KEY'] = 'fake-key'
+
         graphsignal.set_context_tag('ct1', 'v1')
 
         documents = [Document('one')]
@@ -69,6 +71,9 @@ class LlamaIndexCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
 
         query_engine = index.as_query_engine()
         query_engine.query("two")
+
+        #for call in mocked_upload_span.call_args_list:
+        #    print(find_tag(call[0][0], 'operation'))
 
         index_root_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.index_construction')
         self.assertEqual(index_root_span.labels, ['root'])
@@ -133,13 +138,13 @@ class LlamaIndexCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(llm_span.context.parent_span_id, synthesize_span.span_id)
         self.assertEqual(llm_span.context.root_span_id, query_root_span.span_id)
 
-        llm_chain_span = find_call_by_operation(mocked_upload_span.call_args_list, 'langchain.chains.LLMChain')
+        llm_chain_span = find_call_by_operation(mocked_upload_span.call_args_list, 'langchain.chains.llm.LLMChain')
         self.assertEqual(llm_chain_span.labels, [])
         self.assertEqual(find_tag(llm_chain_span, 'ct1'), 'v1')
         self.assertEqual(llm_chain_span.context.parent_span_id, llm_span.span_id)
         self.assertEqual(llm_chain_span.context.root_span_id, query_root_span.span_id)
 
-        fake_llm_span = find_call_by_operation(mocked_upload_span.call_args_list, 'langchain.llms.FakeListLLM')
+        fake_llm_span = find_call_by_operation(mocked_upload_span.call_args_list, 'langchain.llms.fake.FakeListLLM')
         self.assertEqual(fake_llm_span.labels, [])
         self.assertEqual(find_tag(fake_llm_span, 'ct1'), 'v1')
         self.assertEqual(fake_llm_span.context.parent_span_id, llm_chain_span.span_id)

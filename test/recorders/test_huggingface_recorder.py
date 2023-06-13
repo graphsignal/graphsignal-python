@@ -89,6 +89,7 @@ class HuggingFaceRecorderTest(unittest.IsolatedAsyncioTestCase):
         hf_rec = HuggingFaceRecorder()
         hf_rec.setup()
 
+        os.environ['OPENAI_API_KEY'] = 'fake-key'
         agent = OpenAiAgent(model="text-davinci-003")
         agent.run('Translate the following text to French: System update available.', remote=True)
 

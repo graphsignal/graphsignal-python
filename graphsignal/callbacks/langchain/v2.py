@@ -68,7 +68,9 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             parent_run_id: Optional[UUID] = None,
             **kwargs: Any) -> None:
         try:
-            operation = 'langchain.llms.' + serialized.get('name', 'LLM')
+            operation = _get_operation_name(
+                serialized=serialized, 
+                default_name='langchain.llms.' + serialized.get('name', 'LLM'))
             span = self._start_trace(parent_run_id, run_id, operation)
             if span:
                 span.set_tag('component', 'LLM')
@@ -86,7 +88,9 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             parent_run_id: Optional[UUID] = None,
             **kwargs: Any) -> Any:
         try:
-            operation = 'langchain.llms.' + serialized.get('name', 'LLM')
+            operation = _get_operation_name(
+                serialized=serialized, 
+                default_name='langchain.llms.' + serialized.get('name', 'LLM'))
             span = self._start_trace(parent_run_id, run_id, operation)
             if span:
                 span.set_tag('component', 'LLM')
@@ -142,8 +146,9 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             parent_run_id: Optional[UUID] = None,
             **kwargs: Any) -> None:
         try:
-            chain_name = serialized.get('name', 'Chain')
-            operation = 'langchain.chains.' + chain_name
+            operation = _get_operation_name(
+                serialized=serialized, 
+                default_name='langchain.chains.' + serialized.get('name', 'Chain'))
             span = self._start_trace(parent_run_id, run_id, operation)
             if span:
                 span.set_tag('component', 'Agent')
@@ -191,7 +196,9 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             parent_run_id: Optional[UUID] = None,
             **kwargs: Any) -> None:
         try:
-            operation = 'langchain.agents.tools.' + serialized.get('name', 'Tool')
+            operation = _get_operation_name(
+                serialized=serialized, 
+                default_name= 'langchain.agents.tools.' + serialized.get('name', 'Tool'))
             span = self._start_trace(parent_run_id, run_id, operation)
             if span:
                 span.set_tag('component', 'Tool')
@@ -257,6 +264,11 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             **kwargs: Any) -> Any:
         pass
 
+
+def _get_operation_name(serialized, default_name):
+    if 'id' in serialized and isinstance(serialized['id'], list):
+        return '.'.join(serialized['id'])
+    return default_name
 
 class GraphsignalAsyncCallbackHandler(GraphsignalCallbackHandler):
     def __init__(self, **kwargs: Any) -> None:

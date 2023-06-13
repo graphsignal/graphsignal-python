@@ -397,6 +397,8 @@ class Span:
                                 sample_proto.content_bytes = sample.content_bytes
                         except Exception as exc:
                             logger.debug('Error encoding {0} sample for operation {1}'.format(data_name, self._operation))
+                    else:
+                        data_stats_proto.sample_recording_disabled = True
 
             # queue span proto for upload
             _tracer().uploader().upload_span(self._proto)
