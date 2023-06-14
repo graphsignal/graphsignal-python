@@ -311,6 +311,91 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(find_data_sample(proto, 'messages'))
         self.assertIsNotNone(find_data_sample(proto, 'completion'))
 
+
+    @patch.object(Uploader, 'upload_span')
+    @patch.object(openai.ChatCompletion, 'create')
+    async def test_chat_completion_create_function(self, mocked_create, mocked_upload_span):
+        # mocking overrides autoinstrumentation, reinstrument
+        recorder = OpenAIRecorder()
+        recorder.setup()
+
+        mocked_create.return_value = {
+            "choices": [
+                {
+                    "finish_reason": "function_call",
+                    "index": 0,
+                    "message": {
+                        "content": None,
+                        "function_call": {
+                            "name": "get_current_weather",
+                            "arguments": "{\n  \"location\": \"Boston, MA\"\n}"
+                        }
+                    },
+                }
+            ],
+            "created": 1675070122,
+            "id": "chatcmpl-id",
+            "model": "gpt-3.5-turbo-0613",
+            "object": "chat.completion",
+            "usage": {
+                "completion_tokens": 78,
+                "prompt_tokens": 18,
+                "total_tokens": 96
+            }
+        }
+
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo-0613", 
+            messages=[{'role': 'system', 'content': 'What\'s the weather like in Boston?'}],
+            functions=[
+                {
+                    "name": "get_current_weather",
+                    "description": "Get the current weather in a given location",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "location": {
+                                "type": "string",
+                                "description": "The city and state, e.g. San Francisco, CA",
+                            },
+                            "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
+                        },
+                        "required": ["location"],
+                    },
+                }
+            ],
+            function_call="auto",
+            temperature=0.1,
+            top_p=1,
+            max_tokens=1024,
+            frequency_penalty=0,
+            presence_penalty=0)
+
+        recorder.shutdown()
+
+        proto = mocked_upload_span.call_args[0][0]
+
+        self.assertEqual(find_tag(proto, 'component'), 'LLM')
+        self.assertEqual(find_tag(proto, 'operation'), 'openai.ChatCompletion.create')
+        self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/chat/completions')
+        self.assertEqual(find_tag(proto, 'model'), 'gpt-3.5-turbo-0613')
+
+        self.assertEqual(find_param(proto, 'model'), 'gpt-3.5-turbo-0613')
+        self.assertEqual(find_param(proto, 'function_call'), 'auto')
+        self.assertEqual(find_param(proto, 'max_tokens'), '1024')
+        self.assertEqual(find_param(proto, 'temperature'), '0.1')
+        self.assertEqual(find_param(proto, 'top_p'), '1')
+        self.assertEqual(find_param(proto, 'presence_penalty'), '0')
+        self.assertEqual(find_param(proto, 'frequency_penalty'), '0')
+
+        self.assertEqual(find_data_count(proto, 'messages', 'token_count'), 18.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'token_count'), 78.0)
+        self.assertEqual(find_data_count(proto, 'completion', 'finish_reason_function_call'), 1.0)
+
+        self.assertIsNotNone(find_data_sample(proto, 'messages'))
+        self.assertIsNotNone(find_data_sample(proto, 'functions'))
+        self.assertIsNotNone(find_data_sample(proto, 'completion'))
+
     @patch.object(Uploader, 'upload_span')
     @patch.object(openai.ChatCompletion, 'create')
     async def test_chat_completion_create_stream(self, mocked_create, mocked_upload_span):

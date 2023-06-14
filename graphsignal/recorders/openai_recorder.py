@@ -215,6 +215,7 @@ class OpenAIRecorder(BaseRecorder):
 
         param_names = [
             'model',
+            'function_call',
             'max_tokens',
             'temperature',
             'top_p',
@@ -265,7 +266,8 @@ class OpenAIRecorder(BaseRecorder):
         prompt_usage = {}
         completion_usage = {
             'finish_reason_stop': 0,
-            'finish_reason_length': 0
+            'finish_reason_length': 0,
+            'finish_reason_function_call': 0
         }
         if ret and 'usage' in ret and not exc:
             if 'prompt_tokens' in ret['usage']:
@@ -276,6 +278,9 @@ class OpenAIRecorder(BaseRecorder):
         if 'messages' in params:
             span.set_data('messages', params['messages'], counts=prompt_usage)
 
+        if 'functions' in params:
+            span.set_data('functions', params['functions'])
+
         if ret:
             if 'choices' in ret:
                 for choice in ret['choices']:
@@ -284,6 +289,8 @@ class OpenAIRecorder(BaseRecorder):
                             completion_usage['finish_reason_stop'] += 1
                         elif choice['finish_reason'] == 'length':
                             completion_usage['finish_reason_length'] += 1
+                        elif choice['finish_reason'] == 'function_call':
+                            completion_usage['finish_reason_function_call'] += 1
             span.set_data('completion', ret, counts=completion_usage)
 
     def trace_chat_completion_data(self, span, item):
