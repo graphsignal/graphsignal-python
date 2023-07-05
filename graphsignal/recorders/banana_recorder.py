@@ -1,7 +1,6 @@
 import logging
 import sys
 import time
-import banana_dev as banana
 
 import graphsignal
 from graphsignal.spans import TraceOptions
@@ -24,26 +23,37 @@ class BananaRecorder(BaseRecorder):
         self._library = signals_pb2.LibraryInfo()
         self._library.name = 'Banana Python SDK'
 
-        instrument_method(banana, 'run', 'banana.run', trace_func=self.trace_run)
+        from banana_dev import Client
+        instrument_method(Client, 'call', 'banana.call', trace_func=self.trace_call)
 
     def shutdown(self):
-        uninstrument_method(banana, 'run')
+        from banana_dev import Client
+        uninstrument_method(Client, 'call')
 
-    def trace_run(self, span, args, kwargs, ret, exc):
-        params = read_args(args, kwargs, ['api_key', 'model_key', 'model_inputs'])
+    def trace_call(self, span, args, kwargs, ret, exc):
+        client = args[0]
+        params = read_args(args, kwargs, ['self', 'route', 'json'])
+
+        url = client.url if client.url else ''
+        endpoint = url + params.get('route', '')
 
         span.set_tag('component', 'Model')
-        span.set_tag('endpoint', 'https://api.banana.dev')
+        if endpoint:
+            span.set_tag('endpoint', endpoint)
 
-        if 'model_key' in params:
-            span.set_tag('model_key', params['model_key'])
-            span.set_param('model_key', params['model_key'])
+        if client.model_key:
+            span.set_tag('model_key', client.model_key)
+            span.set_param('model_key', client.model_key)
 
-        if 'model_inputs' in params:
-            span.set_data('model_inputs', params['model_inputs'])
+        if 'json' in params:
+            span.set_data('json', params['json'])
+        if 'headers' in params:
+            span.set_data('headers', params['headers'])
 
-        if ret:
-            span.set_data('model_outputs', ret)
+        if isinstance(ret, tuple):
+            span.set_data('output', ret[0])
+            if len(ret) > 1:
+                span.set_data('meta', ret[1])
 
     def on_span_read(self, proto, context, options):
         if self._library:

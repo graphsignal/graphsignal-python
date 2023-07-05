@@ -347,15 +347,15 @@ class Span:
             # copy tags
             for key, value in span_tags.items():
                 tag = self._proto.tags.add()
-                tag.key = _sanitize_str(key)
-                tag.value = _sanitize_str(value)
+                tag.key = _sanitize_str(key, max_len=50)
+                tag.value = _sanitize_str(value, max_len=250)
 
             # copy params
             if self._params is not None:
                 for name, value in self._params.items():
                     param = self._proto.params.add()
-                    param.name = _sanitize_str(name)
-                    param.value = _sanitize_str(value)
+                    param.name = _sanitize_str(name, max_len=50)
+                    param.value = _sanitize_str(value, max_len=250)
 
             # copy exception
             if self._exc_infos:

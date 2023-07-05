@@ -60,11 +60,12 @@ class LlamaIndexCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
 
         graphsignal.set_context_tag('ct1', 'v1')
 
-        documents = [Document('one')]
+        documents = [Document()]
+        documents[0].text = "one"
         service_context = ServiceContext.from_defaults()
         service_context.embed_model = TestEmbedding(callback_manager=service_context.callback_manager)
         llm = FakeListLLM(responses=['three'])
-        predictor = LLMPredictor(llm, False, callback_manager=service_context.callback_manager)
+        predictor = LLMPredictor(llm, callback_manager=service_context.callback_manager)
         service_context.llm_predictor = predictor
 
         index = GPTVectorStoreIndex.from_documents(documents, service_context=service_context)
@@ -82,17 +83,8 @@ class LlamaIndexCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         node_parsing_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.node_parsing')
         self.assertEqual(find_tag(node_parsing_span, 'ct1'), 'v1')
         self.assertEqual(find_data_count(node_parsing_span, 'documents', 'element_count'), 1)
-        self.assertEqual(find_data_count(node_parsing_span, 'nodes', 'element_count'), 1)
         self.assertEqual(node_parsing_span.context.parent_span_id, index_root_span.span_id)
         self.assertEqual(node_parsing_span.context.root_span_id, index_root_span.span_id)
-
-        chunking_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.chunking')
-        self.assertEqual(chunking_span.labels, [])
-        self.assertEqual(find_tag(chunking_span, 'ct1'), 'v1')
-        self.assertEqual(find_data_count(chunking_span, 'text', 'char_count'), 3)
-        self.assertEqual(find_data_count(chunking_span, 'chunks', 'element_count'), 1)
-        self.assertEqual(chunking_span.context.parent_span_id, node_parsing_span.span_id)
-        self.assertEqual(chunking_span.context.root_span_id, index_root_span.span_id)
 
         query_root_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.query')
         self.assertEqual(query_root_span.labels, ['root'])
@@ -108,7 +100,6 @@ class LlamaIndexCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(retrieve_span.labels, [])
         self.assertEqual(find_tag(retrieve_span, 'component'), 'Memory')
         self.assertEqual(find_tag(retrieve_span, 'ct1'), 'v1')
-        self.assertEqual(find_data_count(retrieve_span, 'nodes', 'element_count'), 1)
         self.assertEqual(retrieve_span.context.parent_span_id, query_span.span_id)
         self.assertEqual(retrieve_span.context.root_span_id, query_root_span.span_id)
 
@@ -132,22 +123,16 @@ class LlamaIndexCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_tag(llm_span, 'component'), 'LLM')
         self.assertEqual(find_tag(llm_span, 'ct1'), 'v1')
         self.assertEqual(find_data_count(llm_span, 'context', 'char_count'), 3)
-        self.assertEqual(find_data_count(llm_span, 'formatted_prompt', 'char_count'), 159)
+        self.assertEqual(find_data_count(llm_span, 'formatted_prompt', 'char_count'), 158)
         self.assertEqual(find_data_count(llm_span, 'response', 'char_count'), 5)
         self.assertIsNotNone(find_data_sample(llm_span, 'template'))
         self.assertEqual(llm_span.context.parent_span_id, synthesize_span.span_id)
         self.assertEqual(llm_span.context.root_span_id, query_root_span.span_id)
 
-        llm_chain_span = find_call_by_operation(mocked_upload_span.call_args_list, 'langchain.chains.llm.LLMChain')
-        self.assertEqual(llm_chain_span.labels, [])
-        self.assertEqual(find_tag(llm_chain_span, 'ct1'), 'v1')
-        self.assertEqual(llm_chain_span.context.parent_span_id, llm_span.span_id)
-        self.assertEqual(llm_chain_span.context.root_span_id, query_root_span.span_id)
-
         fake_llm_span = find_call_by_operation(mocked_upload_span.call_args_list, 'langchain.llms.fake.FakeListLLM')
         self.assertEqual(fake_llm_span.labels, [])
         self.assertEqual(find_tag(fake_llm_span, 'ct1'), 'v1')
-        self.assertEqual(fake_llm_span.context.parent_span_id, llm_chain_span.span_id)
+        self.assertEqual(fake_llm_span.context.parent_span_id, llm_span.span_id)
         self.assertEqual(fake_llm_span.context.root_span_id, query_root_span.span_id)
 
 

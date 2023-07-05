@@ -34,7 +34,7 @@ class BaseMetric:
         for key, value in self.tags.items():
             tag = proto.tags.add()
             tag.key = str(key)[:50]
-            tag.value = str(value)[:50]
+            tag.value = str(value)[:250]
         proto.type = self.type
         if self.unit is not None:
             proto.unit = self.unit

@@ -32,7 +32,7 @@ class LogEntry:
             for key, value in self.tags.items():
                 tag = proto.tags.add()
                 tag.key = str(key)[:50]
-                tag.value = str(value)[:50]
+                tag.value = str(value)[:250]
         proto.level = self.level if self.level else ''
         proto.message = self.message if self.message else ''
         proto.exception = self.exception if self.exception else ''
