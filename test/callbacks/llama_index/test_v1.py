@@ -56,7 +56,7 @@ class LlamaIndexCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
 
     @patch.object(Uploader, 'upload_span')
     async def test_callback(self, mocked_upload_span):
-        os.environ['OPENAI_API_KEY'] = 'fake-key'
+        os.environ['OPENAI_API_KEY'] = 'sk-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk'
 
         graphsignal.set_context_tag('ct1', 'v1')
 
@@ -122,10 +122,8 @@ class LlamaIndexCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(llm_span.labels, [])
         self.assertEqual(find_tag(llm_span, 'component'), 'LLM')
         self.assertEqual(find_tag(llm_span, 'ct1'), 'v1')
-        self.assertEqual(find_data_count(llm_span, 'context', 'char_count'), 3)
         self.assertEqual(find_data_count(llm_span, 'formatted_prompt', 'char_count'), 158)
-        self.assertEqual(find_data_count(llm_span, 'response', 'char_count'), 5)
-        self.assertIsNotNone(find_data_sample(llm_span, 'template'))
+        self.assertIsNotNone(find_data_sample(llm_span, 'completion'))
         self.assertEqual(llm_span.context.parent_span_id, synthesize_span.span_id)
         self.assertEqual(llm_span.context.root_span_id, query_root_span.span_id)
 

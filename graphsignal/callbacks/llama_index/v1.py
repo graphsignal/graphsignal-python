@@ -100,10 +100,13 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                 elif event_type == CBEventType.EMBEDDING:
                     pass
                 elif event_type == CBEventType.LLM:
-                    if payload and 'formatted_prompt' in payload:
-                        span.set_data('formatted_prompt', payload['formatted_prompt'])
-                    if payload and 'response' in payload:
-                        span.set_data('response', payload['response'])
+                    if payload:
+                        if 'formatted_prompt' in payload:
+                            span.set_data('formatted_prompt', payload['formatted_prompt'])
+                        if 'response' in payload:
+                            span.set_data('response', payload['response'])
+                        if 'completion' in payload:
+                            span.set_data('completion', payload['completion'])
                 elif event_type == CBEventType.QUERY:
                     pass
                 elif event_type == CBEventType.RETRIEVE:
