@@ -33,11 +33,11 @@ class NVMLRecorderTest(unittest.TestCase):
         recorder = NVMLRecorder()
         recorder.setup()
 
-        model = torch.nn.Linear(1, 1)
+        model = torch.nn.Conv2d(1, 1, kernel_size=(1, 1))
         if torch.cuda.is_available():
             model = model.cuda()
 
-        x = torch.arange(-50, 50, 0.00001).view(-1, 1)
+        x = torch.arange(-5, 5, 0.1).view(1, 1, -1, 1)
         if torch.cuda.is_available():
             x = x.cuda()
         pred = model(x)

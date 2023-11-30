@@ -20,4 +20,5 @@ pip install --upgrade yappi
 pip install --upgrade banana-dev
 pip install --upgrade chromadb
 pip install --upgrade llama_index
+pip install --upgrade nltk
 deactivate

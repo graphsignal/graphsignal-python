@@ -60,7 +60,7 @@ def patch_method(obj, func_name, before_func=None, after_func=None, yield_func=N
     if hasattr(func, '__graphsignal_wrapped__'):
         return False
 
-    if asyncio.iscoroutinefunction(func):
+    if asyncio.iscoroutinefunction(func) or asyncio.iscoroutinefunction(getattr(func, '__wrapped__', None)):
         if yield_func:
             async def async_generator_wrapper(gen, yield_func, context):
                 async for item in gen:

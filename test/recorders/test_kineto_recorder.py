@@ -35,8 +35,8 @@ class KinetoRecorderTest(unittest.TestCase):
         recorder = KinetoRecorder()
         recorder.setup()
 
-        x = torch.arange(-5, 5, 0.1).view(-1, 1)
-        model = torch.nn.Linear(1, 1)
+        x = torch.arange(-5, 5, 0.1).view(1, 1, -1, 1)
+        model = torch.nn.Conv2d(1, 1, kernel_size=(1, 1))
         if torch.cuda.is_available():
             x = x.to('cuda:0')
             model = model.to('cuda:0')
@@ -54,7 +54,8 @@ class KinetoRecorderTest(unittest.TestCase):
 
         test_op_stats = None
         for op_stats in proto.op_profile:
-            if op_stats.op_name == 'aten::addmm':
+            print(op_stats.op_name)
+            if op_stats.op_name == 'aten::conv2d':
                 test_op_stats = op_stats
                 break
         self.assertIsNotNone(test_op_stats)

@@ -7,7 +7,7 @@ import openai
 import graphsignal
 from graphsignal.spans import TraceOptions
 from graphsignal.recorders.base_recorder import BaseRecorder
-from graphsignal.recorders.instrumentation import instrument_method, uninstrument_method, read_args
+from graphsignal.recorders.instrumentation import instrument_method, uninstrument_method, read_args, patch_method
 from graphsignal.proto_utils import parse_semver, compare_semver
 from graphsignal.proto import signals_pb2
 
@@ -16,6 +16,9 @@ logger = logging.getLogger('graphsignal')
 class OpenAIRecorder(BaseRecorder):
     def __init__(self):
         self._library = None
+        self._base_url = None
+        self._openai_version_0_26_0 = False
+        self._openai_version_1_0_0 = False
         self._cached_encodings = {}
         self._extra_content_tokens = {
             'gpt-3.5-turbo': 4,
@@ -44,54 +47,83 @@ class OpenAIRecorder(BaseRecorder):
         self._library.name = 'OpenAI Python Library'
         parse_semver(self._library.version, openai.version.VERSION)
 
-        if compare_semver(self._library.version, (0, 26, 0)) < 1:
+        if compare_semver(self._library.version, (1, 0, 0)) >= 0:
+            self._openai_version_1_0_0 = True
+
+            def after_init(args, kwargs, ret, exc, context):
+                client = args[0]
+                self._base_url = client.base_url
+
+                instrument_method(client.completions, 'create', 'openai.completions.create', trace_func=self.trace_completion, data_func=self.trace_completion_data)
+                instrument_method(client.chat.completions, 'create', 'openai.chat.completions.create', trace_func=self.trace_chat_completion, data_func=self.trace_chat_completion_data)
+                instrument_method(client.edits, 'create', 'openai.edits.create', trace_func=self.trace_edits)
+                instrument_method(client.embeddings, 'create', 'openai.embeddings.create', trace_func=self.trace_embedding)
+                instrument_method(client.images, 'create', 'openai.images.create', trace_func=self.trace_image_generation)
+                instrument_method(client.images, 'create_variation', 'openai.images.create_variation', trace_func=self.trace_image_variation)
+                instrument_method(client.images, 'edit', 'openai.images.edit', trace_func=self.trace_image_edit)
+                instrument_method(client.audio.transcriptions, 'create', 'openai.audio.transcriptions.create', trace_func=self.trace_audio_transcription)
+                instrument_method(client.audio.translations, 'create', 'openai.audio.translations.create', trace_func=self.trace_audio_translation)
+                instrument_method(client.moderations, 'create', 'openai.moderations.create', trace_func=self.trace_moderation)
+
+            patch_method(openai.OpenAI, '__init__', after_func=after_init)
+            patch_method(openai.AsyncOpenAI, '__init__', after_func=after_init)
+            patch_method(openai.AzureOpenAI, '__init__', after_func=after_init)
+            patch_method(openai.AsyncAzureOpenAI, '__init__', after_func=after_init)
+
+        elif compare_semver(self._library.version, (0, 26, 0)) >= 0:
+            self._openai_version_0_26_0 = True
+            self._base_url = openai.api_base + '/'
+
+            instrument_method(openai.Completion, 'create', 'openai.Completion.create', trace_func=self.trace_completion, data_func=self.trace_completion_data)
+            instrument_method(openai.Completion, 'acreate', 'openai.Completion.acreate', trace_func=self.trace_completion, data_func=self.trace_completion_data)
+            instrument_method(openai.ChatCompletion, 'create', 'openai.ChatCompletion.create', trace_func=self.trace_chat_completion, data_func=self.trace_chat_completion_data)
+            instrument_method(openai.ChatCompletion, 'acreate', 'openai.ChatCompletion.acreate', trace_func=self.trace_chat_completion, data_func=self.trace_chat_completion_data)
+            instrument_method(openai.Edit, 'create', 'openai.Edit.create', trace_func=self.trace_edits)
+            instrument_method(openai.Edit, 'acreate', 'openai.Edit.acreate', trace_func=self.trace_edits)
+            instrument_method(openai.Embedding, 'create', 'openai.Embedding.create', trace_func=self.trace_embedding)
+            instrument_method(openai.Embedding, 'acreate', 'openai.Embedding.acreate', trace_func=self.trace_embedding)
+            instrument_method(openai.Image, 'create', 'openai.Image.create', trace_func=self.trace_image_generation)
+            instrument_method(openai.Image, 'acreate', 'openai.Image.acreate', trace_func=self.trace_image_generation)
+            instrument_method(openai.Image, 'create_variation', 'openai.Image.create_variation', trace_func=self.trace_image_variation)
+            instrument_method(openai.Image, 'acreate_variation', 'openai.Image.acreate_variation', trace_func=self.trace_image_variation)
+            instrument_method(openai.Image, 'create_edit', 'openai.Image.create_edit', trace_func=self.trace_image_edit)
+            instrument_method(openai.Image, 'acreate_edit', 'openai.Image.acreate_edit', trace_func=self.trace_image_edit)
+            instrument_method(openai.Audio, 'transcribe', 'openai.Audio.transcribe', trace_func=self.trace_audio_transcription)
+            instrument_method(openai.Audio, 'atranscribe', 'openai.Audio.atranscribe', trace_func=self.trace_audio_transcription)
+            instrument_method(openai.Audio, 'translate', 'openai.Audio.translate', trace_func=self.trace_audio_translation)
+            instrument_method(openai.Audio, 'atranslate', 'openai.Audio.atranslate', trace_func=self.trace_audio_translation)
+            instrument_method(openai.Moderation, 'create', 'openai.Moderation.create', trace_func=self.trace_moderation)
+            instrument_method(openai.Moderation, 'acreate', 'openai.Moderation.acreate', trace_func=self.trace_moderation)
+
+        else:
             logger.debug('OpenAI tracing is only supported for >= 0.26.0.')
             return
 
-        self._api_base = openai.api_base
-
-        instrument_method(openai.Completion, 'create', 'openai.Completion.create', trace_func=self.trace_completion, data_func=self.trace_completion_data)
-        instrument_method(openai.Completion, 'acreate', 'openai.Completion.acreate', trace_func=self.trace_completion, data_func=self.trace_completion_data)
-        instrument_method(openai.ChatCompletion, 'create', 'openai.ChatCompletion.create', trace_func=self.trace_chat_completion, data_func=self.trace_chat_completion_data)
-        instrument_method(openai.ChatCompletion, 'acreate', 'openai.ChatCompletion.acreate', trace_func=self.trace_chat_completion, data_func=self.trace_chat_completion_data)
-        instrument_method(openai.Edit, 'create', 'openai.Edit.create', trace_func=self.trace_edits)
-        instrument_method(openai.Edit, 'acreate', 'openai.Edit.acreate', trace_func=self.trace_edits)
-        instrument_method(openai.Embedding, 'create', 'openai.Embedding.create', trace_func=self.trace_embedding)
-        instrument_method(openai.Embedding, 'acreate', 'openai.Embedding.acreate', trace_func=self.trace_embedding)
-        instrument_method(openai.Image, 'create', 'openai.Image.create', trace_func=self.trace_image_generation)
-        instrument_method(openai.Image, 'acreate', 'openai.Image.acreate', trace_func=self.trace_image_generation)
-        instrument_method(openai.Image, 'create_variation', 'openai.Image.create_variation', trace_func=self.trace_image_variation)
-        instrument_method(openai.Image, 'acreate_variation', 'openai.Image.acreate_variation', trace_func=self.trace_image_variation)
-        instrument_method(openai.Image, 'create_edit', 'openai.Image.create_edit', trace_func=self.trace_image_edit)
-        instrument_method(openai.Image, 'acreate_edit', 'openai.Image.acreate_edit', trace_func=self.trace_image_edit)
-        instrument_method(openai.Audio, 'transcribe', 'openai.Audio.transcribe', trace_func=self.trace_audio_transcription)
-        instrument_method(openai.Audio, 'atranscribe', 'openai.Audio.atranscribe', trace_func=self.trace_audio_transcription)
-        instrument_method(openai.Audio, 'translate', 'openai.Audio.translate', trace_func=self.trace_audio_translation)
-        instrument_method(openai.Audio, 'atranslate', 'openai.Audio.atranslate', trace_func=self.trace_audio_translation)
-        instrument_method(openai.Moderation, 'create', 'openai.Moderation.create', trace_func=self.trace_moderation)
-        instrument_method(openai.Moderation, 'acreate', 'openai.Moderation.acreate', trace_func=self.trace_moderation)
 
     def shutdown(self):
-        uninstrument_method(openai.Completion, 'create')
-        uninstrument_method(openai.Completion, 'acreate')
-        uninstrument_method(openai.ChatCompletion, 'create')
-        uninstrument_method(openai.ChatCompletion, 'acreate')
-        uninstrument_method(openai.Edit, 'create')
-        uninstrument_method(openai.Edit, 'acreate')
-        uninstrument_method(openai.Embedding, 'create')
-        uninstrument_method(openai.Embedding, 'acreate')
-        uninstrument_method(openai.Image, 'create')
-        uninstrument_method(openai.Image, 'acreate')
-        uninstrument_method(openai.Image, 'create_variation')
-        uninstrument_method(openai.Image, 'acreate_variation')
-        uninstrument_method(openai.Image, 'create_edit')
-        uninstrument_method(openai.Image, 'acreate_edit')
-        uninstrument_method(openai.Audio, 'transcribe')
-        uninstrument_method(openai.Audio, 'atranscribe')
-        uninstrument_method(openai.Audio, 'translate')
-        uninstrument_method(openai.Audio, 'atranslate')
-        uninstrument_method(openai.Moderation, 'create')
-        uninstrument_method(openai.Moderation, 'acreate')
+        if compare_semver(self._library.version, (1, 0, 0)) >= 0:
+            pass
+        elif compare_semver(self._library.version, (0, 26, 0)) >= 0:
+            uninstrument_method(openai.Completion, 'create')
+            uninstrument_method(openai.Completion, 'acreate')
+            uninstrument_method(openai.ChatCompletion, 'create')
+            uninstrument_method(openai.ChatCompletion, 'acreate')
+            uninstrument_method(openai.Edit, 'create')
+            uninstrument_method(openai.Edit, 'acreate')
+            uninstrument_method(openai.Embedding, 'create')
+            uninstrument_method(openai.Embedding, 'acreate')
+            uninstrument_method(openai.Image, 'create')
+            uninstrument_method(openai.Image, 'acreate')
+            uninstrument_method(openai.Image, 'create_variation')
+            uninstrument_method(openai.Image, 'acreate_variation')
+            uninstrument_method(openai.Image, 'create_edit')
+            uninstrument_method(openai.Image, 'acreate_edit')
+            uninstrument_method(openai.Audio, 'transcribe')
+            uninstrument_method(openai.Audio, 'atranscribe')
+            uninstrument_method(openai.Audio, 'translate')
+            uninstrument_method(openai.Audio, 'atranslate')
+            uninstrument_method(openai.Moderation, 'create')
+            uninstrument_method(openai.Moderation, 'acreate')
 
     def count_tokens(self, model, text):
         if model not in self._cached_encodings:
@@ -119,7 +151,7 @@ class OpenAIRecorder(BaseRecorder):
         params = kwargs # no positional args
 
         span.set_tag('component', 'LLM')
-        span.set_tag('endpoint', f'{self._api_base}/completions')
+        span.set_tag('endpoint', f'{self._base_url}completions')
 
         if 'model' in params:
             span.set_tag('model', params['model'])
@@ -136,7 +168,8 @@ class OpenAIRecorder(BaseRecorder):
             'stop',
             'presence_penalty',
             'frequency_penalty',
-            'best_of'
+            'best_of',
+            'seed'
         ]
         for param_name in param_names:
             if param_name in params:
@@ -160,8 +193,8 @@ class OpenAIRecorder(BaseRecorder):
                 span.set_data('prompt', params['prompt'], counts=prompt_usage)
             return
 
-        if ret and 'model' in ret:
-            span.set_tag('model', ret['model'])
+        if self._openai_version_1_0_0:
+            ret = ret.model_dump()
 
         prompt_usage = {}
         completion_usage = {
@@ -188,6 +221,9 @@ class OpenAIRecorder(BaseRecorder):
             span.set_data('completion', ret, counts=completion_usage)
 
     def trace_completion_data(self, span, item):
+        if self._openai_version_1_0_0:
+            item = item.model_dump()
+
         completion_usage = {
             'finish_reason_stop': 0,
             'finish_reason_length': 0,
@@ -208,7 +244,7 @@ class OpenAIRecorder(BaseRecorder):
         params = kwargs # no positional args
 
         span.set_tag('component', 'LLM')
-        span.set_tag('endpoint', f'{self._api_base}/chat/completions')
+        span.set_tag('endpoint', f'{self._base_url}chat/completions')
 
         if 'model' in params:
             span.set_tag('model', params['model'])
@@ -225,7 +261,10 @@ class OpenAIRecorder(BaseRecorder):
             'stop',
             'presence_penalty',
             'frequency_penalty',
-            'best_of'
+            'best_of',
+            'response_format',
+            'tool_choice',
+            'seed'
         ]
         for param_name in param_names:
             if param_name in params:
@@ -263,6 +302,9 @@ class OpenAIRecorder(BaseRecorder):
         if ret and 'model' in ret:
             span.set_tag('model', ret['model'])
 
+        if self._openai_version_1_0_0:
+            ret = ret.model_dump()
+
         prompt_usage = {}
         completion_usage = {
             'finish_reason_stop': 0,
@@ -281,6 +323,9 @@ class OpenAIRecorder(BaseRecorder):
         if 'functions' in params:
             span.set_data('functions', params['functions'])
 
+        if 'tools' in params:
+            span.set_data('tools', params['tools'])
+
         if ret:
             if 'choices' in ret:
                 for choice in ret['choices']:
@@ -294,6 +339,9 @@ class OpenAIRecorder(BaseRecorder):
             span.set_data('completion', ret, counts=completion_usage)
 
     def trace_chat_completion_data(self, span, item):
+        if self._openai_version_1_0_0:
+            item = item.model_dump()
+
         completion_usage = {
             'finish_reason_stop': 0,
             'finish_reason_length': 0,
@@ -314,7 +362,7 @@ class OpenAIRecorder(BaseRecorder):
         params = kwargs # no positional args
 
         span.set_tag('component', 'LLM')
-        span.set_tag('endpoint', f'{self._api_base}/edits')
+        span.set_tag('endpoint', f'{self._base_url}edits')
 
         if 'model' in params:
             span.set_tag('model', params['model'])
@@ -328,6 +376,9 @@ class OpenAIRecorder(BaseRecorder):
         for param_name in param_names:
             if param_name in params:
                 span.set_param(param_name, params[param_name])
+
+        if self._openai_version_1_0_0:
+            ret = ret.model_dump()
 
         prompt_usage = {}
         completion_usage = {}
@@ -350,7 +401,7 @@ class OpenAIRecorder(BaseRecorder):
         params = kwargs # no positional args
 
         span.set_tag('component', 'LLM')
-        span.set_tag('endpoint', f'{self._api_base}/embeddings')
+        span.set_tag('endpoint', f'{self._base_url}embeddings')
 
         if 'model' in params:
             span.set_tag('model', params['model'])
@@ -361,6 +412,9 @@ class OpenAIRecorder(BaseRecorder):
         for param_name in param_names:
             if param_name in params:
                 span.set_param(param_name, params[param_name])
+
+        if self._openai_version_1_0_0:
+            ret = ret.model_dump()
 
         prompt_usage = {}
         if ret and 'model' in ret:
@@ -383,15 +437,15 @@ class OpenAIRecorder(BaseRecorder):
                 span.set_data('embeddings', ret)
 
     def trace_image_generation(self, span, args, kwargs, ret, exc):
-        span.set_tag('endpoint', f'{self._api_base}/images/generations')
+        span.set_tag('endpoint', f'{self._base_url}images/generations')
         self.trace_image_endpoint(span, args, kwargs, ret, exc)
 
     def trace_image_variation(self, span, args, kwargs, ret, exc):
-        span.set_tag('endpoint', f'{self._api_base}/images/variations')
+        span.set_tag('endpoint', f'{self._base_url}images/variations')
         self.trace_image_endpoint(span, args, kwargs, ret, exc)
 
     def trace_image_edit(self, span, args, kwargs, ret, exc):
-        span.set_tag('endpoint', f'{self._api_base}/images/edits')
+        span.set_tag('endpoint', f'{self._base_url}images/edits')
         self.trace_image_endpoint(span, args, kwargs, ret, exc)
 
     def trace_image_endpoint(self, span, args, kwargs, ret, exc):
@@ -424,7 +478,7 @@ class OpenAIRecorder(BaseRecorder):
         params = read_args(args, kwargs, ['model', 'file', 'prompt', 'response_format', 'temperature', 'language'])
 
         span.set_tag('component', 'Model')
-        span.set_tag('endpoint', f'{self._api_base}/audio/transcriptions')
+        span.set_tag('endpoint', f'{self._base_url}audio/transcriptions')
 
         if 'model' in params:
             span.set_tag('model', params['model'])
@@ -449,6 +503,9 @@ class OpenAIRecorder(BaseRecorder):
         if 'prompt' in params:
             span.set_data('prompt', params['prompt'])
 
+        if self._openai_version_1_0_0:
+            ret = ret.model_dump()
+
         if ret and 'text' in ret:
             span.set_data('text', ret['text'])
 
@@ -456,7 +513,7 @@ class OpenAIRecorder(BaseRecorder):
         params = read_args(args, kwargs, ['model', 'file', 'prompt', 'response_format', 'temperature'])
 
         span.set_tag('component', 'Model')
-        span.set_tag('endpoint', f'{self._api_base}/audio/translations')
+        span.set_tag('endpoint', f'{self._base_url}audio/translations')
 
         if 'model' in params:
             span.set_tag('model', params['model'])
@@ -480,6 +537,9 @@ class OpenAIRecorder(BaseRecorder):
         if 'prompt' in params:
             span.set_data('prompt', params['prompt'])
 
+        if self._openai_version_1_0_0:
+            ret = ret.model_dump()
+
         if ret and 'text' in ret:
             span.set_data('text', ret['text'])
 
@@ -487,7 +547,7 @@ class OpenAIRecorder(BaseRecorder):
         params = read_args(args, kwargs, ['input', 'model'])
 
         span.set_tag('component', 'Model')
-        span.set_tag('endpoint', f'{self._api_base}/moderations')
+        span.set_tag('endpoint', f'{self._base_url}moderations')
 
         if 'model' in params:
             span.set_tag('model', params['model'])
