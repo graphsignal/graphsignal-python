@@ -13,7 +13,7 @@ python setup.py sdist bdist_wheel
 for bundle in dist/*.tar.gz; do
 	echo "Publishing $bundle..."
 	twine check $bundle
-	twine upload $bundle
+	twine upload --repository pypi $bundle
 done
 
 deactivate
