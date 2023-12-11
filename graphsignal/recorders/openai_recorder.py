@@ -21,22 +21,37 @@ class OpenAIRecorder(BaseRecorder):
         self._openai_version_1_0_0 = False
         self._cached_encodings = {}
         self._extra_content_tokens = {
-            'gpt-3.5-turbo': 4,
+            'gpt-3.5-turbo': 3,
             'gpt-3.5-turbo-0301': 4,
             'gpt-4': 3,
-            'gpt-4-0314': 3
+            'gpt-4-0314': 3,
+            'gpt-4-32k-0314': 3,
+            'gpt-3.5-turbo-0613': 3,
+            'gpt-3.5-turbo-16k-0613': 3,
+            'gpt-4-0613': 3,
+            'gpt-4-32k-0613': 3
         }
         self._extra_name_tokens = {
-            'gpt-3.5-turbo': -1,
-            'gpt-3.5-turbo-0301': 1,
+            'gpt-3.5-turbo': 1,
+            'gpt-3.5-turbo-0301': -1,
             'gpt-4': 1,
-            'gpt-4-0314': 1
+            'gpt-4-0314': 1,
+            'gpt-4-32k-0314': 1,
+            'gpt-3.5-turbo-0613': 1,
+            'gpt-3.5-turbo-16k-0613': 1,
+            'gpt-4-0613': 1,
+            'gpt-4-32k-0613': 1
         }
         self._extra_reply_tokens = {
             'gpt-3.5-turbo': 3,
             'gpt-3.5-turbo-0301': 3,
             'gpt-4': 3,
-            'gpt-4-0314': 3
+            'gpt-4-0314': 3,
+            'gpt-4-32k-0314': 3,
+            'gpt-3.5-turbo-0613': 3,
+            'gpt-3.5-turbo-16k-0613': 3,
+            'gpt-4-0613': 3,
+            'gpt-4-32k-0613': 3
         }
 
     def setup(self):
