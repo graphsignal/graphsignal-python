@@ -26,6 +26,9 @@ class DummyLLM(LLM):
     def _call(self, prompt: str, stop: Optional[List[str]] = None) -> str:
         return 'Final Answer:42'
 
+    async def _acall(self, prompt: str, stop: Optional[List[str]] = None) -> str:
+        return 'Final Answer:42'
+
     @property
     def _identifying_params(self) -> Mapping[str, Any]:
         return {}

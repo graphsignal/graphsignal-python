@@ -13,6 +13,7 @@ python -m unittest test/recorders/test_yappi_recorder.py
 python -m unittest test/recorders/test_nvml_recorder.py
 python -m unittest test/recorders/test_pytorch_recorder.py
 python -m unittest test/recorders/test_openai_recorder.py
+python -m unittest test/recorders/test_openai_recorder_1_0.py
 python -m unittest test/recorders/test_langchain_recorder.py
 python -m unittest test/recorders/test_llama_index_recorder.py
 #python -m unittest test/recorders/test_huggingface_recorder.py

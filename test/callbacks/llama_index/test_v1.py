@@ -133,7 +133,7 @@ class LlamaIndexCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(llm_span.context.parent_span_id, synthesize_span.span_id)
         self.assertEqual(llm_span.context.root_span_id, query_root_span.span_id)
 
-        fake_llm_span = find_call_by_operation(mocked_upload_span.call_args_list, 'langchain.llms.fake.FakeListLLM')
+        fake_llm_span = find_call_by_operation(mocked_upload_span.call_args_list, 'langchain_community.llms.fake.FakeListLLM')
         self.assertEqual(fake_llm_span.labels, [])
         self.assertEqual(find_tag(fake_llm_span, 'ct1'), 'v1')
         self.assertEqual(fake_llm_span.context.parent_span_id, llm_span.span_id)

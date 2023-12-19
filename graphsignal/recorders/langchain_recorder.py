@@ -27,11 +27,12 @@ class LangChainRecorder(BaseRecorder):
             version = langchain.__version__
 
         def is_v2():
-            return (
-                hasattr(langchain.callbacks, 'manager') and
-                hasattr(langchain.callbacks.manager, 'CallbackManager') and
-                hasattr(langchain.callbacks.manager, 'AsyncCallbackManager')
-            )
+            try:
+                from langchain.callbacks.manager import CallbackManager
+                from langchain.callbacks.manager import AsyncCallbackManager
+            except ImportError:
+                return False
+            return True
 
         def is_v1():
             return hasattr(langchain.callbacks, 'get_callback_manager')
