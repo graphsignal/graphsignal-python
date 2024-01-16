@@ -80,6 +80,9 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(trace_func_called)
         self.assertEqual(proto.tags[1].value, 'ep1')
+        self.assertTrue(proto.context.start_ns > 0)
+        self.assertTrue(proto.context.end_ns > 0)
+        self.assertTrue(proto.context.first_byte_ns > 0)
 
     async def test_patch_method(self):
         obj = Dummy()

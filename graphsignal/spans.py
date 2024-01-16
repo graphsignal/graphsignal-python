@@ -110,13 +110,13 @@ class Span:
         '_parent_span',
         '_is_sampling',
         '_is_root',
-        '_latency_ns',
         '_context',
         '_proto',
         '_is_started',
         '_is_stopped',
         '_start_counter',
         '_stop_counter',
+        '_first_byte_counter',
         '_exc_infos',
         '_data_objects'
     ]
@@ -152,9 +152,9 @@ class Span:
         self._parent_span = None
         self._is_sampling = False
         self._is_root = False
-        self._latency_ns = None
         self._start_counter = None
         self._stop_counter = None
+        self._first_byte_counter = None
         self._context = False
         self._proto = None
         self._exc_infos = None
@@ -252,11 +252,14 @@ class Span:
 
         if self._stop_counter is None:
             self._measure()
-        self._latency_ns = self._stop_counter - self._start_counter
+        latency_ns = self._stop_counter - self._start_counter
+        first_byte_ns = None
+        if self._first_byte_counter:
+            first_byte_ns = self._first_byte_counter - self._start_counter
 
         now = time.time()
         end_us = int(now * 1e6)
-        start_us = int(end_us - self._latency_ns / 1e3)
+        start_us = int(end_us - latency_ns / 1e3)
         now = int(now)
 
         # emit stop event
@@ -278,7 +281,10 @@ class Span:
         # update RED metrics
         if self._options.record_metrics:
             _tracer().metric_store().update_histogram(
-                scope='performance', name='latency', tags=span_tags, value=self._latency_ns, update_ts=now, is_time=True)
+                scope='performance', name='latency', tags=span_tags, value=latency_ns, update_ts=now, is_time=True)
+            if first_byte_ns:
+                _tracer().metric_store().update_histogram(
+                    scope='performance', name='first_byte', tags=span_tags, value=first_byte_ns, update_ts=now, is_time=True)
             _tracer().metric_store().inc_counter(
                 scope='performance', name='call_count', tags=span_tags, value=1, update_ts=now)
             if self._exc_infos and len(self._exc_infos) > 0:
@@ -339,6 +345,8 @@ class Span:
             # copy span context
             self._proto.context.start_ns = self._start_counter
             self._proto.context.end_ns = self._stop_counter
+            if self._first_byte_counter:
+                self._proto.context.first_byte_ns = self._first_byte_counter
             if self._parent_span and self._parent_span._proto:
                 self._proto.context.parent_span_id = self._parent_span._proto.span_id
             if self._root_span and self._root_span._proto:
@@ -410,6 +418,10 @@ class Span:
     def measure(self) -> None:
         if not self._is_stopped:
             self._measure()
+
+    def first_byte(self) -> None:
+        if not self._first_byte_counter:
+            self._first_byte_counter = time.perf_counter_ns()
 
     def stop(self) -> None:
         try:

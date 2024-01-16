@@ -71,7 +71,6 @@ class OpenAIRecorder(BaseRecorder):
 
                 instrument_method(client.completions, 'create', 'openai.completions.create', trace_func=self.trace_completion, data_func=self.trace_completion_data)
                 instrument_method(client.chat.completions, 'create', 'openai.chat.completions.create', trace_func=self.trace_chat_completion, data_func=self.trace_chat_completion_data)
-                instrument_method(client.edits, 'create', 'openai.edits.create', trace_func=self.trace_edits)
                 instrument_method(client.embeddings, 'create', 'openai.embeddings.create', trace_func=self.trace_embedding)
                 instrument_method(client.images, 'create', 'openai.images.create', trace_func=self.trace_image_generation)
                 instrument_method(client.images, 'create_variation', 'openai.images.create_variation', trace_func=self.trace_image_variation)
@@ -191,11 +190,11 @@ class OpenAIRecorder(BaseRecorder):
                 span.set_param(param_name, params[param_name])
 
         if 'stream' in params and params['stream']:
-            if 'model' in params and 'prompt' in params:
+            if 'prompt' in params:
                 prompt_usage = {
                     'token_count': 0
                 }
-                if not exc:
+                if 'model' in params and not exc:
                     if isinstance(params['prompt'], str):
                         prompt_tokens = self.count_tokens(params['model'], params['prompt'])
                         if prompt_tokens:
@@ -205,35 +204,35 @@ class OpenAIRecorder(BaseRecorder):
                             prompt_tokens = self.count_tokens(params['model'], prompt)
                             if prompt_tokens:
                                 prompt_usage['token_count'] += prompt_tokens
+
                 span.set_data('prompt', params['prompt'], counts=prompt_usage)
-            return
+        else:
+            if self._openai_version_1_0_0:
+                ret = ret.model_dump()
 
-        if self._openai_version_1_0_0:
-            ret = ret.model_dump()
+            prompt_usage = {}
+            completion_usage = {
+                'finish_reason_stop': 0,
+                'finish_reason_length': 0
+            }
+            if ret and 'usage' in ret and not exc:
+                if 'prompt_tokens' in ret['usage']:
+                    prompt_usage['token_count'] = ret['usage']['prompt_tokens']
+                if 'completion_tokens' in ret['usage']:
+                    completion_usage['token_count'] = ret['usage']['completion_tokens']
 
-        prompt_usage = {}
-        completion_usage = {
-            'finish_reason_stop': 0,
-            'finish_reason_length': 0
-        }
-        if ret and 'usage' in ret and not exc:
-            if 'prompt_tokens' in ret['usage']:
-                prompt_usage['token_count'] = ret['usage']['prompt_tokens']
-            if 'completion_tokens' in ret['usage']:
-                completion_usage['token_count'] = ret['usage']['completion_tokens']
+            if 'prompt' in params:
+                span.set_data('prompt', params['prompt'], counts=prompt_usage)
 
-        if 'prompt' in params:
-            span.set_data('prompt', params['prompt'], counts=prompt_usage)
-
-        if ret:
-            if 'choices' in ret:
-                for choice in ret['choices']:
-                    if 'finish_reason' in choice:
-                        if choice['finish_reason'] == 'stop':
-                            completion_usage['finish_reason_stop'] += 1
-                        elif choice['finish_reason'] == 'length':
-                            completion_usage['finish_reason_length'] += 1
-            span.set_data('completion', ret, counts=completion_usage)
+            if ret:
+                if 'choices' in ret:
+                    for choice in ret['choices']:
+                        if 'finish_reason' in choice:
+                            if choice['finish_reason'] == 'stop':
+                                completion_usage['finish_reason_stop'] += 1
+                            elif choice['finish_reason'] == 'length':
+                                completion_usage['finish_reason_length'] += 1
+                span.set_data('completion', ret, counts=completion_usage)
 
     def trace_completion_data(self, span, item):
         if self._openai_version_1_0_0:
@@ -286,11 +285,11 @@ class OpenAIRecorder(BaseRecorder):
                 span.set_param(param_name, params[param_name])
 
         if 'stream' in params and params['stream']:
-            if 'model' in params and 'messages' in params:
+            if 'messages' in params:
                 prompt_usage = {
                     'token_count': 0
                 }
-                if not exc:
+                if 'model' in params and not exc:
                     # Based on token counting example
                     # https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
                     model = params['model']
@@ -311,47 +310,53 @@ class OpenAIRecorder(BaseRecorder):
                                 prompt_usage['token_count'] += self._extra_name_tokens.get(model, 0)
                     if prompt_usage['token_count'] > 0:
                         prompt_usage['token_count'] += self._extra_reply_tokens.get(model, 0)
+
                 span.set_data('messages', params['messages'], counts=prompt_usage)
-            return
 
-        if ret and 'model' in ret:
-            span.set_tag('model', ret['model'])
+            if 'functions' in params:
+                span.set_data('functions', params['functions'])
 
-        if self._openai_version_1_0_0:
-            ret = ret.model_dump()
+            if 'tools' in params:
+                span.set_data('tools', params['tools'])
+        else:
+            if ret and 'model' in ret:
+                span.set_tag('model', ret['model'])
 
-        prompt_usage = {}
-        completion_usage = {
-            'finish_reason_stop': 0,
-            'finish_reason_length': 0,
-            'finish_reason_function_call': 0
-        }
-        if ret and 'usage' in ret and not exc:
-            if 'prompt_tokens' in ret['usage']:
-                prompt_usage['token_count'] = ret['usage']['prompt_tokens']
-            if 'completion_tokens' in ret['usage']:
-                completion_usage['token_count'] = ret['usage']['completion_tokens']
+            if self._openai_version_1_0_0:
+                ret = ret.model_dump()
 
-        if 'messages' in params:
-            span.set_data('messages', params['messages'], counts=prompt_usage)
+            prompt_usage = {}
+            completion_usage = {
+                'finish_reason_stop': 0,
+                'finish_reason_length': 0,
+                'finish_reason_function_call': 0
+            }
+            if ret and 'usage' in ret and not exc:
+                if 'prompt_tokens' in ret['usage']:
+                    prompt_usage['token_count'] = ret['usage']['prompt_tokens']
+                if 'completion_tokens' in ret['usage']:
+                    completion_usage['token_count'] = ret['usage']['completion_tokens']
 
-        if 'functions' in params:
-            span.set_data('functions', params['functions'])
+            if 'messages' in params:
+                span.set_data('messages', params['messages'], counts=prompt_usage)
 
-        if 'tools' in params:
-            span.set_data('tools', params['tools'])
+            if 'functions' in params:
+                span.set_data('functions', params['functions'])
 
-        if ret:
-            if 'choices' in ret:
-                for choice in ret['choices']:
-                    if 'finish_reason' in choice:
-                        if choice['finish_reason'] == 'stop':
-                            completion_usage['finish_reason_stop'] += 1
-                        elif choice['finish_reason'] == 'length':
-                            completion_usage['finish_reason_length'] += 1
-                        elif choice['finish_reason'] == 'function_call':
-                            completion_usage['finish_reason_function_call'] += 1
-            span.set_data('completion', ret, counts=completion_usage)
+            if 'tools' in params:
+                span.set_data('tools', params['tools'])
+
+            if ret:
+                if 'choices' in ret:
+                    for choice in ret['choices']:
+                        if 'finish_reason' in choice:
+                            if choice['finish_reason'] == 'stop':
+                                completion_usage['finish_reason_stop'] += 1
+                            elif choice['finish_reason'] == 'length':
+                                completion_usage['finish_reason_length'] += 1
+                            elif choice['finish_reason'] == 'function_call':
+                                completion_usage['finish_reason_function_call'] += 1
+                span.set_data('completion', ret, counts=completion_usage)
 
     def trace_chat_completion_data(self, span, item):
         if self._openai_version_1_0_0:

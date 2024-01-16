@@ -39,6 +39,7 @@ def instrument_method(obj, func_name, op_name=None, op_func=None, trace_func=Non
         if stopped:
             span.stop()
         else:
+            span.first_byte()
             if data_func:
                 data_func(span, item)
 
@@ -171,11 +172,23 @@ def unpatch_method(obj, func_name):
 
 
 def is_generator(obj):
-    return obj and isinstance(obj, types.GeneratorType)
+    if not obj:
+        return False
+    if isinstance(obj, types.GeneratorType):
+        return True
+    if hasattr(obj, '__iter__') and hasattr(obj, '__next__'):
+        return True
+    return False
 
 
 def is_async_generator(obj):
-    return obj and isinstance(obj, types.AsyncGeneratorType)
+    if not obj:
+        return False
+    if isinstance(obj, types.AsyncGeneratorType):
+        return True
+    if hasattr(obj, '__aiter__') and hasattr(obj, '__anext__'):
+        return True
+    return False
 
 
 def read_args(args, kwargs, names):
