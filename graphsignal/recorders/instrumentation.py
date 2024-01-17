@@ -39,7 +39,7 @@ def instrument_method(obj, func_name, op_name=None, op_func=None, trace_func=Non
         if stopped:
             span.stop()
         else:
-            span.first_byte()
+            span.first_token()
             if data_func:
                 data_func(span, item)
 
