@@ -49,8 +49,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         recorder.on_span_stop(proto, context, graphsignal.TraceOptions(enable_profiling=True))
         recorder.on_span_read(proto, context, graphsignal.TraceOptions(enable_profiling=True))
 
-        self.assertTrue('profiled' in proto.labels)
-
         slow_call = next(call for call in proto.op_profile if 'slow_method' in call.op_name)
         self.assertEqual(slow_call.op_type, signals_pb2.OpStats.OpType.PYTHON_OP)
         self.assertTrue(slow_call.self_host_time_ns > 0)

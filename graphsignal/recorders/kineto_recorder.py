@@ -87,8 +87,6 @@ class KinetoRecorder(BaseRecorder):
         for kernel_stats in kernel_index.values():
             proto.kernel_profile.append(kernel_stats)
 
-        proto.labels.append('profiled')
-
         self._profiler_lock.release()
 
 

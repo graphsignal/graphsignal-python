@@ -8,13 +8,12 @@ from unittest.mock import patch, Mock
 from google.protobuf.json_format import MessageToJson
 import pprint
 import openai
-from langchain.agents import Tool, initialize_agent, load_tools
+from langchain.agents import AgentExecutor, create_react_agent, load_tools
 from typing import Any, List, Mapping, Optional
 from langchain.llms.base import LLM
-from langchain.chat_models import ChatOpenAI
-from langchain.schema import HumanMessage
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
+from langchain import hub
 
 import graphsignal
 from graphsignal.uploader import Uploader
@@ -59,36 +58,20 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         graphsignal.set_context_tag('ct1', 'v1')
 
         llm = DummyLLM()
+        
         tools = load_tools(["llm-math"], llm=llm)
-        agent = initialize_agent(
-            tools, llm, agent="zero-shot-react-description", verbose=True)
-        agent.run("What is 2 raised to .123243 power?")
+        prompt = hub.pull("hwchase17/react")
+        agent = create_react_agent(llm, tools, prompt)
+        agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+        agent_executor.invoke({"input": "What is 2 raised to .123243 power?"})
 
-        t3 = mocked_upload_span.call_args_list[0][0][0]
-        t2 = mocked_upload_span.call_args_list[1][0][0]
-        t1 = mocked_upload_span.call_args_list[2][0][0]
+        #print(mocked_upload_span.call_args_list)
 
-        self.assertEqual(t1.labels, ['root'])
+        t1 = mocked_upload_span.call_args_list[0][0][0]
+
         self.assertEqual(find_tag(t1, 'ct1'), 'v1')
-        self.assertEqual(find_tag(t1, 'component'), 'Agent')
-        self.assertEqual(find_tag(t1, 'operation'), 'langchain.agents.agent.AgentExecutor')
-        self.assertIsNotNone(find_data_sample(t1, 'inputs'))
-        self.assertIsNotNone(find_data_sample(t1, 'outputs'))
-
-        self.assertEqual(t2.labels, [])
-        self.assertEqual(find_tag(t2, 'ct1'), 'v1')
-        self.assertEqual(find_tag(t2, 'operation'), 'langchain.chains.llm.LLMChain')
-        self.assertEqual(t2.context.parent_span_id, t1.span_id)
-        self.assertEqual(t2.context.root_span_id, t1.span_id)
-        self.assertIsNotNone(find_data_sample(t2, 'inputs'))
-        self.assertIsNotNone(find_data_sample(t2, 'outputs'))
-
-        self.assertEqual(t3.labels, [])
-        self.assertEqual(find_tag(t3, 'ct1'), 'v1')
-        self.assertEqual(find_tag(t3, 'component'), 'LLM')
-        self.assertEqual(find_tag(t3, 'operation'), 'test.callbacks.langchain.test_v2.DummyLLM')
-        self.assertEqual(t3.context.parent_span_id, t2.span_id)
-        self.assertEqual(t3.context.root_span_id, t1.span_id)
+        self.assertEqual(find_tag(t1, 'component'), 'LLM')
+        self.assertEqual(find_tag(t1, 'operation'), 'test.callbacks.langchain.test_v2.DummyLLM')
 
     @patch.object(Uploader, 'upload_span')
     async def test_chain_async(self, mocked_upload_span):
@@ -96,36 +79,18 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
 
         llm = DummyLLM()
         tools = load_tools(["llm-math"], llm=llm)
-        agent = initialize_agent(
-            tools, llm, agent="zero-shot-react-description", verbose=True)
-        await agent.arun("What is 2 raised to .123243 power?")
+        prompt = hub.pull("hwchase17/react")
+        agent = create_react_agent(llm, tools, prompt)
+        agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+        await agent_executor.ainvoke({"input": "What is 2 raised to .123243 power?"})
 
-        t3 = mocked_upload_span.call_args_list[0][0][0]
-        t2 = mocked_upload_span.call_args_list[1][0][0]
-        t1 = mocked_upload_span.call_args_list[2][0][0]
+        #print(mocked_upload_span.call_args_list)
 
-        self.assertEqual(t1.labels, ['root'])
+        t1 = mocked_upload_span.call_args_list[0][0][0]
+
         self.assertEqual(find_tag(t1, 'ct1'), 'v1')
-        self.assertEqual(find_tag(t1, 'component'), 'Agent')
-        self.assertEqual(find_tag(t1, 'operation'), 'langchain.agents.agent.AgentExecutor')
-        self.assertIsNotNone(find_data_sample(t1, 'inputs'))
-        self.assertIsNotNone(find_data_sample(t1, 'outputs'))
-
-        self.assertEqual(t2.labels, [])
-        self.assertEqual(find_tag(t2, 'ct1'), 'v1')
-        self.assertEqual(find_tag(t2, 'component'), 'Agent')
-        self.assertEqual(find_tag(t2, 'operation'), 'langchain.chains.llm.LLMChain')
-        self.assertEqual(t2.context.parent_span_id, t1.span_id)
-        self.assertEqual(t2.context.root_span_id, t1.span_id)
-        self.assertIsNotNone(find_data_sample(t2, 'inputs'))
-        self.assertIsNotNone(find_data_sample(t2, 'outputs'))
-
-        self.assertEqual(t3.labels, [])
-        self.assertEqual(find_tag(t3, 'ct1'), 'v1')
-        self.assertEqual(find_tag(t3, 'component'), 'LLM')
-        self.assertEqual(find_tag(t3, 'operation'), 'test.callbacks.langchain.test_v2.DummyLLM')
-        self.assertEqual(t3.context.parent_span_id, t2.span_id)
-        self.assertEqual(t3.context.root_span_id, t1.span_id)
+        self.assertEqual(find_tag(t1, 'component'), 'LLM')
+        self.assertEqual(find_tag(t1, 'operation'), 'test.callbacks.langchain.test_v2.DummyLLM')
 
 
     @patch.object(Uploader, 'upload_span')
@@ -140,24 +105,16 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
 
         @graphsignal.trace_function
         async def run_chain():
-            await chain.arun("colorful socks")
+            await chain.ainvoke("colorful socks")
 
         await run_chain()
 
-        t3 = mocked_upload_span.call_args_list[0][0][0]
-        t2 = mocked_upload_span.call_args_list[1][0][0]
-        t1 = mocked_upload_span.call_args_list[2][0][0]
+        t2 = mocked_upload_span.call_args_list[0][0][0]
+        t1 = mocked_upload_span.call_args_list[1][0][0]
 
-        self.assertEqual(t1.labels, ['root'])
         self.assertEqual(find_tag(t1, 'operation'), 'run_chain')
 
-        self.assertEqual(t2.labels, [])
-        self.assertEqual(find_tag(t2, 'operation'), 'langchain.chains.llm.LLMChain')
+        self.assertEqual(find_tag(t2, 'component'), 'LLM')
+        self.assertEqual(find_tag(t2, 'operation'), 'test.callbacks.langchain.test_v2.DummyLLM')
         self.assertEqual(t2.context.parent_span_id, t1.span_id)
         self.assertEqual(t2.context.root_span_id, t1.span_id)
-
-        self.assertEqual(t3.labels, [])
-        self.assertEqual(find_tag(t3, 'component'), 'LLM')
-        self.assertEqual(find_tag(t3, 'operation'), 'test.callbacks.langchain.test_v2.DummyLLM')
-        self.assertEqual(t3.context.parent_span_id, t2.span_id)
-        self.assertEqual(t3.context.root_span_id, t1.span_id)

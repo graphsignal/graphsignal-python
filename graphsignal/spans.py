@@ -338,8 +338,6 @@ class Span:
             # copy data to span proto
             self._proto.start_us = start_us
             self._proto.end_us = end_us
-            if self._is_root:
-                self._proto.labels.insert(0, 'root')
             self._proto.process_usage.start_ms = _tracer()._process_start_ms
 
             # copy span context

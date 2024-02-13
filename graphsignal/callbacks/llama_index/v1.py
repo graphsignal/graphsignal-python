@@ -56,13 +56,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
 
             span = self._start_trace(event_id, operation)
             if span:
-                if event_type == CBEventType.CHUNKING:
-                    if payload and 'text' in payload:
-                        span.set_data('text', payload['text'])
-                elif event_type == CBEventType.NODE_PARSING:
-                    if payload and 'documents' in payload:
-                        span.set_data('documents', payload['documents'])
-                elif event_type == CBEventType.EMBEDDING:
+                if event_type == CBEventType.EMBEDDING:
                     span.set_tag('component', 'LLM')
                 elif event_type == CBEventType.LLM:
                     span.set_tag('component', 'LLM')
@@ -76,8 +70,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                     span.set_tag('component', 'Memory')
                 elif event_type == CBEventType.SYNTHESIZE:
                     span.set_tag('component', 'Memory')
-                elif event_type == CBEventType.TREE:
-                    pass
         except Exception:
             logger.error('Error in LlamaIndex callback handler', exc_info=True)
 
@@ -91,13 +83,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
         try:
             span = self._current_span(event_id)
             if span:
-                if event_type == CBEventType.CHUNKING:
-                    if payload and 'chunks' in payload:
-                        span.set_data('chunks', payload['chunks'])
-                elif event_type == CBEventType.NODE_PARSING:
-                    if payload and 'nodes' in payload:
-                        span.set_data('nodes',payload['nodes'])
-                elif event_type == CBEventType.EMBEDDING:
+                if event_type == CBEventType.EMBEDDING:
                     pass
                 elif event_type == CBEventType.LLM:
                     if payload:
@@ -115,9 +101,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                 elif event_type == CBEventType.SYNTHESIZE:
                     if payload and 'response' in payload:
                         span.set_data('response', str(payload['response']))
-                elif event_type == CBEventType.TREE:
-                    if payload and 'chunks' in payload:
-                        span.set_data('chunks', payload['chunks'])
             self._stop_trace(event_id)
         except Exception:
             logger.error('Error in LlamaIndex callback handler', exc_info=True)

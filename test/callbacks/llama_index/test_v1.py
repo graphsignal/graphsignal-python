@@ -81,18 +81,7 @@ class LlamaIndexCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         #for call in mocked_upload_span.call_args_list:
         #    print(find_tag(call[0][0], 'operation'))
 
-        index_root_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.index_construction')
-        self.assertEqual(index_root_span.labels, ['root'])
-        self.assertEqual(find_tag(index_root_span, 'ct1'), 'v1')
-
-        node_parsing_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.node_parsing')
-        self.assertEqual(find_tag(node_parsing_span, 'ct1'), 'v1')
-        self.assertEqual(find_data_count(node_parsing_span, 'documents', 'element_count'), 1)
-        self.assertEqual(node_parsing_span.context.parent_span_id, index_root_span.span_id)
-        self.assertEqual(node_parsing_span.context.root_span_id, index_root_span.span_id)
-
         query_root_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.query')
-        self.assertEqual(query_root_span.labels, ['root'])
         self.assertEqual(find_tag(query_root_span, 'ct1'), 'v1')
 
         query_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.query')
@@ -102,21 +91,18 @@ class LlamaIndexCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(query_span.context.root_span_id, query_root_span.span_id)
 
         retrieve_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.retrieve')
-        self.assertEqual(retrieve_span.labels, [])
         self.assertEqual(find_tag(retrieve_span, 'component'), 'Memory')
         self.assertEqual(find_tag(retrieve_span, 'ct1'), 'v1')
         self.assertEqual(retrieve_span.context.parent_span_id, query_span.span_id)
         self.assertEqual(retrieve_span.context.root_span_id, query_root_span.span_id)
 
         embedding_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.embedding')
-        self.assertEqual(embedding_span.labels, [])
         self.assertEqual(find_tag(embedding_span, 'component'), 'LLM')
         self.assertEqual(find_tag(embedding_span, 'ct1'), 'v1')
         self.assertEqual(retrieve_span.context.parent_span_id, query_span.span_id)
         self.assertEqual(retrieve_span.context.root_span_id, query_root_span.span_id)
 
         synthesize_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.synthesize')
-        self.assertEqual(synthesize_span.labels, [])
         self.assertEqual(find_tag(synthesize_span, 'component'), 'Memory')
         self.assertEqual(find_tag(synthesize_span, 'ct1'), 'v1')
         self.assertEqual(find_data_count(synthesize_span, 'response', 'char_count'), 5)
@@ -124,7 +110,6 @@ class LlamaIndexCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(synthesize_span.context.root_span_id, query_root_span.span_id)
 
         llm_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.llm')
-        self.assertEqual(llm_span.labels, [])
         self.assertEqual(find_tag(llm_span, 'component'), 'LLM')
         self.assertEqual(find_tag(llm_span, 'ct1'), 'v1')
         #self.assertEqual(find_data_count(llm_span, 'formatted_prompt', 'char_count'), 170)
@@ -134,7 +119,6 @@ class LlamaIndexCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(llm_span.context.root_span_id, query_root_span.span_id)
 
         fake_llm_span = find_call_by_operation(mocked_upload_span.call_args_list, 'langchain_community.llms.fake.FakeListLLM')
-        self.assertEqual(fake_llm_span.labels, [])
         self.assertEqual(find_tag(fake_llm_span, 'ct1'), 'v1')
         self.assertEqual(fake_llm_span.context.parent_span_id, llm_span.span_id)
         self.assertEqual(fake_llm_span.context.root_span_id, query_root_span.span_id)

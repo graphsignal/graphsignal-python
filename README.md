@@ -69,16 +69,23 @@ Some integration examples are available in [examples](https://github.com/graphsi
 
 User tracking allows grouping and visualization of user-related traces, interactions, metrics, and costs. It also enables detection of user interaction outliers and other events.
 
-To enable user tracking, set user identifier as `user` tag for every request, e.g. in a request handler.
+To enable user tracking, set user identifier as `user_id` tag for every request, e.g. in a request handler:
 
 ```python
-graphsignal.set_context_tag('user', user_id)
+graphsignal.set_context_tag('user_id', user_id)
 ```
 
-If you are running a single process per user and added Graphsignal at command line, you can set the `user` tag in an environment variable.
+or directly, when tracing manually:
+
+```python
+with graphsignal.start_llm_trace(tags=dict(user_id=user_id)):
+    ...
+```
+
+If you are running a single process per user and added Graphsignal at command line, you can set the `user_id` tag in an environment variable.
 
 ```bash
-env GRAPHSIGNAL_TAGS="user=user_id" python -m graphsignal <script>
+env GRAPHSIGNAL_TAGS="user_id=123" python -m graphsignal <script>
 ```
 
 ### Tracing any operation

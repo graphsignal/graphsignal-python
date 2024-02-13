@@ -50,8 +50,6 @@ class KinetoRecorderTest(unittest.TestCase):
         recorder.on_span_stop(proto, context, graphsignal.TraceOptions(enable_profiling=True))
         recorder.on_span_read(proto, context, graphsignal.TraceOptions(enable_profiling=True))
 
-        self.assertTrue('profiled' in proto.labels)
-
         test_op_stats = None
         for op_stats in proto.op_profile:
             print(op_stats.op_name)

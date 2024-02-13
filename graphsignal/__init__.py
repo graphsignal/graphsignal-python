@@ -105,6 +105,12 @@ def set_tag(key: str, value: str) -> None:
     _tracer.tags[key] = value
 
 
+def get_tag(key: str) -> Optional[str]:
+    _check_configured()
+
+    return _tracer.tags.get(key, None)
+
+
 def set_context_tag(key: str, value: str) -> None:
     _check_configured()
 
@@ -127,6 +133,12 @@ def set_context_tag(key: str, value: str) -> None:
     _tracer.context_tags.set(tags)
 
 
+def get_context_tag(key: str) -> Optional[str]:
+    _check_configured()
+
+    return _tracer.context_tags.get().get(key, None)
+
+
 def start_trace(
         operation: str,
         tags: Optional[Dict[str, str]] = None,
@@ -134,6 +146,17 @@ def start_trace(
     _check_configured()
 
     return Span(operation=operation, tags=tags, options=options)
+
+
+def start_llm_trace(
+        operation: str,
+        tags: Optional[Dict[str, str]] = None,
+        options: Optional[TraceOptions] = None) -> 'Span':
+    if tags is None:
+        tags = dict(component='LLM')
+    else:
+        tags['component'] = 'LLM'
+    return start_trace(operation, tags, options)
 
 
 def trace_function(

@@ -15,6 +15,7 @@ fi
 pip install --upgrade openai
 pip install --upgrade tiktoken
 pip install --upgrade langchain
+pip install --upgrade langchainhub
 pip install --upgrade transformers[agents]
 pip install --upgrade yappi
 pip install --upgrade banana-dev

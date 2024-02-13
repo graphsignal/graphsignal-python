@@ -64,20 +64,17 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
         t2 = mocked_upload_span.call_args_list[1][0][0]
         t1 = mocked_upload_span.call_args_list[2][0][0]
 
-        self.assertEqual(t1.labels, ['root'])
         self.assertEqual(find_tag(t1, 'component'), 'Agent')
         self.assertEqual(find_tag(t1, 'operation'), 'langchain.chains.AgentExecutor')
         self.assertEqual(find_data_count(t1, 'inputs', 'byte_count'), 34.0)
         self.assertEqual(find_data_count(t1, 'outputs', 'byte_count'), 2.0)
 
-        self.assertEqual(t2.labels, [])
         self.assertEqual(find_tag(t2, 'operation'), 'langchain.chains.LLMChain')
         self.assertEqual(t2.context.parent_span_id, t1.span_id)
         self.assertEqual(t2.context.root_span_id, t1.span_id)
         self.assertEqual(find_data_count(t2, 'inputs', 'byte_count'), 61.0)
         self.assertEqual(find_data_count(t2, 'outputs', 'byte_count'), 15.0)
 
-        self.assertEqual(t3.labels, [])
         self.assertEqual(find_tag(t3, 'component'), 'LLM')
         self.assertEqual(find_tag(t3, 'operation'), 'langchain.llms.DummyLLM')
         self.assertEqual(t3.context.parent_span_id, t2.span_id)
