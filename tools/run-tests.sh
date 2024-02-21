@@ -19,7 +19,7 @@ python -m unittest test/recorders/test_llama_index_recorder.py
 #python -m unittest test/recorders/test_huggingface_recorder.py
 #python -m unittest test/recorders/test_chroma_recorder.py
 python -m unittest test/callbacks/langchain/test_v2.py
-python -m unittest test/callbacks/llama_index/test_v1.py
+python -m unittest test/callbacks/llama_index/test_v2.py
 python -m unittest test/data/test_builtin_types.py
 python -m unittest test/data/test_numpy_ndarray.py
 python -m unittest test/data/test_tf_tensor.py

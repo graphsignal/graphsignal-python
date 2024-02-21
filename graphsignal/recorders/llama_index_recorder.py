@@ -3,7 +3,7 @@ import llama_index
 
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
-from graphsignal.proto_utils import parse_semver
+from graphsignal.proto_utils import parse_semver, compare_semver
 from graphsignal.proto import signals_pb2
 from graphsignal.recorders.instrumentation import patch_method
 
@@ -28,10 +28,16 @@ class LlamaIndexRecorder(BaseRecorder):
 
         def is_v1():
             return (
-                hasattr(llama_index.indices.service_context, 'ServiceContext')
+                hasattr(llama_index, 'indices') and hasattr(llama_index.indices.service_context, 'ServiceContext')
             )
 
-        if is_v1():
+        def is_v2():
+            return compare_semver(self._library.version, (0, 10, 10)) >= 0
+
+        if is_v2():
+            # the handler should be added manually for now
+            pass
+        elif is_v1():
             from graphsignal.callbacks.llama_index.v1 import GraphsignalCallbackHandler
             from llama_index.indices.service_context import ServiceContext
             def after_from_defaults(args, kwargs, ret, exc, context):

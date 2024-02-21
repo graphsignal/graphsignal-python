@@ -78,7 +78,7 @@ graphsignal.set_context_tag('user_id', user_id)
 or directly, when tracing manually:
 
 ```python
-with graphsignal.start_llm_trace(tags=dict(user_id=user_id)):
+with graphsignal.start_trace(tags=dict(user_id=user_id)):
     ...
 ```
 

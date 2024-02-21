@@ -148,17 +148,6 @@ def start_trace(
     return Span(operation=operation, tags=tags, options=options)
 
 
-def start_llm_trace(
-        operation: str,
-        tags: Optional[Dict[str, str]] = None,
-        options: Optional[TraceOptions] = None) -> 'Span':
-    if tags is None:
-        tags = dict(component='LLM')
-    else:
-        tags['component'] = 'LLM'
-    return start_trace(operation, tags, options)
-
-
 def trace_function(
         func=None, 
         *,
