@@ -414,7 +414,7 @@ class Span:
             self, 
             name: str, 
             content: Any, 
-            usage: Optional[Dict[str, float]] = None, 
+            usage: Optional[Dict[str, Union[int, float]]] = None, 
             record_payload: Optional[bool] = True) -> None:
         if self._payloads is None:
             self._payloads = {}

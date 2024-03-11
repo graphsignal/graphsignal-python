@@ -24,7 +24,7 @@ Learn more at [graphsignal.com](https://graphsignal.com).
 Install Graphsignal library by running:
 
 ```
-pip install graphsignal
+pip install --upgrade graphsignal
 ```
 
 Or clone and install the [GitHub repository](https://github.com/graphsignal/graphsignal-python):
@@ -42,7 +42,7 @@ Configure Graphsignal tracer by specifying your API key directly or via `GRAPHSI
 ```python
 import graphsignal
 
-graphsignal.configure(api_key='my-api-key', deployment='my-model-prod-v1') 
+graphsignal.configure(api_key='my-api-key', deployment='my-app')
 ```
 
 To get an API key, sign up for a free account at [graphsignal.com](https://graphsignal.com). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.com/settings/api-keys) page.
@@ -61,10 +61,56 @@ python -m graphsignal -m <module>
 
 ### Automatic integration
 
-Graphsignal **auto-instruments** and traces libraries and frameworks, such as [OpenAI](https://graphsignal.com/docs/integrations/openai/), [LangChain](https://graphsignal.com/docs/integrations/langchain/), [LlamaIndex](https://graphsignal.com/docs/integrations/llama-index/), [Hugging Face](https://graphsignal.com/docs/integrations/hugging-face/). Traces, errors, and data, such as prompts and completions, are automatically recorded and available for analysis at [app.graphsignal.com](https://app.graphsignal.com/).
+Graphsignal **auto-instruments** and traces libraries and frameworks, such as [OpenAI](https://graphsignal.com/docs/integrations/openai/) and [LangChain](https://graphsignal.com/docs/integrations/langchain/). Traces, errors, and data, such as prompts and completions, are automatically recorded and available for analysis at [app.graphsignal.com](https://app.graphsignal.com/).
 
 Some integration examples are available in [examples](https://github.com/graphsignal/examples) repo.
 
+
+## Session tracking
+
+Session groups multiple traces together to represent a run, thread, conversation or user interactions. Session tracking allows session-level visualization, analytics and issue detection. It also enables detection of session outliers and other issues.
+
+Set a session identifier as `session_id` tag for every request, e.g. in a request handler:
+
+```python
+graphsignal.set_context_tag('session_id', session_id)
+```
+
+or directly, when tracing manually:
+
+```python
+with graphsignal.trace(tags=dict(session_id=session_id)):
+    ...
+```
+
+If you are running a single process per session and added Graphsignal at command line, you can set the `session_id` tag in an environment variable.
+
+```sh
+env GRAPHSIGNAL_TAGS="session_id=123" python -m graphsignal <script>
+```
+
+## Session tracking
+
+Session groups multiple traces together to represent a run, thread, conversation or user interactions. Session tracking allows session-level visualization, analytics and issue detection. It also enables detection of session outliers and other issues.
+
+Set a session identifier as `session_id` tag for every request, e.g. in a request handler:
+
+```python
+graphsignal.set_context_tag('session_id', session_id)
+```
+
+or directly, when tracing manually:
+
+```python
+with graphsignal.trace(tags=dict(session_id=session_id)):
+    ...
+```
+
+If you are running a single process per session and added Graphsignal at command line, you can set the `session_id` tag in an environment variable.
+
+```bash
+env GRAPHSIGNAL_TAGS="session_id=123" python -m graphsignal <script>
+```
 
 ### User tracking
 
@@ -89,47 +135,18 @@ If you are running a single process per user and added Graphsignal at command li
 env GRAPHSIGNAL_TAGS="user_id=123" python -m graphsignal <script>
 ```
 
-### Tracing any operation
-
-To measure and monitor operations that are not automatically instrumented, e.g. any model inference or inference API calls, wrap the code with [`trace()`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace) method or use [`@trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
-
-```python
-with graphsignal.trace('predict'):
-    pred = model(x)
-```
-
-See [API reference](https://graphsignal.com/docs/reference/python-api/) for full documentation.
-
-
-### Exception tracking
-
-For auto-instrumented libraries, or when using `@trace_function` decorator, `trace()` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`Span.add_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanadd_exception).
-
-
-### Payload monitoring
-
-Payload, such as prompts and completions, are automatically monitored for auto-instrumented libraries. To track data metrics and record data profiles for other cases, [`Trace.set_payload()`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanset_payload) method can be used.
-
-```python
-with graphsignal.trace('generate') as span:
-    span.set_payload('input', input_data, usage=dict(token_count=input_token_count))
-```
-
-
-Raw payloads, such as prompts and completions, are recorded by default. To disable, set `record_payloads=False` in `graphsignal.configure`. Note, that data statistics, such as size, shape or number of missing values will still be recorded.
-
 
 **Scores and feedback**
 
 Scores allow recording an evaluation of any event or object, such as generation, run, session, or user. Scores can be associated with events or objects using tags, but can also be set directly to a span.
 
-Tag request, run, session, or user:
+Tag request, run, session, or user for each request or run:
 
 ```python
 graphsignal.set_context_tag('run_id', run_id)
 ```
 
-or
+or directly, when tracing manually:
 
 ```python
 with graphsignal.trace('generate', tags=dict('run_id', run_id)):
@@ -151,7 +168,32 @@ with graphsignal.trace('generate') as span:
 
 ```
 
-See API reference for more information on [`graphsignal.score`](/docs/reference/python-api/#graphsignalscore) and [`Span.score`](/docs/reference/python-api/#graphsignalspanscore) methods.
+See API reference for more information on [`graphsignal.score`](https://graphsignal.com/docs/reference/python-api/#graphsignalscore) and [`Span.score`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanscore) methods.
+
+
+**Manual tracing**
+
+To measure and monitor operations that are not automatically instrumented, e.g. any model inference or inference API calls, wrap the code with [`trace()`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace) method or use [`@trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
+
+To record payloads and track usage metrics, use [`Span.set_payload()`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanset_payload). When tracing LLM generations, you can provide payloads in [OpenAI format](https://platform.openai.com/docs/api-reference/chat), which is supported by Graphsignal.
+
+```python
+with graphsignal.trace('generate') as span:
+    output_data = generate(input_data)
+    span.set_payload('input', input_data, usage=dict(token_count=input_token_count))
+    span.set_payload('output', input_data, usage=dict(token_count=output_token_count))
+```
+
+```python
+@graphsignal.trace_function
+def predict(x):
+    return model(x)
+```
+
+See [API reference](https://graphsignal.com/docs/reference/python-api/) for full documentation.
+
+
+For auto-instrumented libraries, or when using `@trace_function` decorator, `trace()` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`Span.add_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanadd_exception).
 
 
 ## Analyze
@@ -168,7 +210,7 @@ Graphsignal tracer is very lightweight. The overhead per trace is measured to be
 
 Graphsignal tracer can only open outbound connections to `signal-api.graphsignal.com` and send data, no inbound connections or commands are possible.
 
-Raw payloads, e.g. prompts, are recorded by default. This feature can be disabled at tracer initialization time, if necessary.
+Payloads, such as prompts and completions, are recorded by default in case of automatic tracing. To disable, set `record_payloads=False` in `graphsignal.configure`.
 
 
 ## Troubleshooting
