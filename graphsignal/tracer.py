@@ -10,7 +10,6 @@ import threading
 from graphsignal.uploader import Uploader
 from graphsignal.metrics import MetricStore
 from graphsignal.logs import LogStore
-from graphsignal.samplers.random_sampling import RandomSampler
 
 logger = logging.getLogger('graphsignal')
 
@@ -43,20 +42,11 @@ class GraphsignalTracerLogHandler(logging.Handler):
 
 RECORDER_SPECS = {
     '(default)': [
-        ('graphsignal.recorders.cprofile_recorder', 'CProfileRecorder'),
         ('graphsignal.recorders.process_recorder', 'ProcessRecorder'),
         ('graphsignal.recorders.nvml_recorder', 'NVMLRecorder')],
-    'torch': [
-        ('graphsignal.recorders.pytorch_recorder', 'PyTorchRecorder'),
-        ('graphsignal.recorders.kineto_recorder', 'KinetoRecorder')],
-    'yappi': [('graphsignal.recorders.yappi_recorder', 'YappiRecorder')],
     'openai': [('graphsignal.recorders.openai_recorder', 'OpenAIRecorder')],
     'langchain': [('graphsignal.recorders.langchain_recorder', 'LangChainRecorder')],
-    'llama_index': [('graphsignal.recorders.llama_index_recorder', 'LlamaIndexRecorder')],
-    'transformers': [('graphsignal.recorders.huggingface_recorder', 'HuggingFaceRecorder')],
-    'banana_dev': [('graphsignal.recorders.banana_recorder', 'BananaRecorder')],
-    'chromadb': [('graphsignal.recorders.chroma_recorder', 'ChromaRecorder')],
-    'autogpt.prompt': [('graphsignal.recorders.autogpt_recorder', 'AutoGPTRecorder')]
+    'llama_index': [('graphsignal.recorders.llama_index_recorder', 'LlamaIndexRecorder')]
 }
 
 class SourceLoaderWrapper(importlib.abc.SourceLoader):
@@ -121,7 +111,7 @@ class Tracer:
             deployment=None, 
             tags=None, 
             auto_instrument=True, 
-            record_data_samples=False, 
+            record_payloads=False, 
             upload_on_shutdown=True, 
             debug_mode=False):
         if debug_mode:
@@ -138,7 +128,7 @@ class Tracer:
         self.tags = tags
         self.context_tags = None
         self.auto_instrument = auto_instrument
-        self.record_data_samples = record_data_samples
+        self.record_payloads = record_payloads
         self.upload_on_shutdown = upload_on_shutdown
         self.debug_mode = debug_mode
         self.hostname = None
@@ -152,7 +142,6 @@ class Tracer:
         self._metric_store = None
         self._log_store = None
         self._recorders = None
-        self._random_sampler = None
 
         self._process_start_ms = int(time.time() * 1e3)
 
@@ -165,7 +154,6 @@ class Tracer:
         self._uploader.setup()
         self._metric_store = MetricStore()
         self._log_store = LogStore()
-        self._random_sampler = RandomSampler()
         self._recorders = {}
 
         # initialize tracer log handler
@@ -208,7 +196,6 @@ class Tracer:
         self._recorders = None
         self._metric_store = None
         self._log_store = None
-        self._random_sampler = None
         self._uploader = None
 
         self.tags = None
@@ -262,34 +249,31 @@ class Tracer:
     def log_store(self):
         return self._log_store
 
-    def random_sampler(self):
-        return self._random_sampler
-
-    def emit_span_start(self, proto, context, options):
+    def emit_span_start(self, proto, context):
         last_exc = None
         for recorder in self.recorders():
             try:
-                recorder.on_span_start(proto, context, options)
+                recorder.on_span_start(proto, context)
             except Exception as exc:
                 last_exc = exc
         if last_exc:
             raise last_exc
 
-    def emit_span_stop(self, proto, context, options):
+    def emit_span_stop(self, proto, context):
         last_exc = None
         for recorder in self.recorders():
             try:
-                recorder.on_span_stop(proto, context, options)
+                recorder.on_span_stop(proto, context)
             except Exception as exc:
                 last_exc = exc
         if last_exc:
             raise last_exc
 
-    def emit_span_read(self, proto, context, options):
+    def emit_span_read(self, proto, context):
         last_exc = None
         for recorder in self.recorders():
             try:
-                recorder.on_span_read(proto, context, options)
+                recorder.on_span_read(proto, context)
             except Exception as exc:
                 last_exc = exc
         if last_exc:

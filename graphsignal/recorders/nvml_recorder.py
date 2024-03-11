@@ -5,10 +5,57 @@ import time
 
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
-from graphsignal.proto import signals_pb2
 from graphsignal.vendor.pynvml.pynvml import *
 
 logger = logging.getLogger('graphsignal')
+
+
+class DeviceUsage:
+    def __init__(self):
+        self.device_type = None
+        self.device_idx = None
+        self.device_id = None
+        self.device_name = None
+        self.architecture = None
+        self.compute_capability = None
+        self.mem_total = 0
+        self.mem_used = 0
+        self.mem_free = 0
+        self.mem_reserved = 0
+        self.gpu_utilization_percent = 0
+        self.mem_access_percent = 0
+        self.pcie_throughput_tx = 0
+        self.pcie_throughput_rx = 0
+        self.nvlink_throughput_data_tx_kibs = 0
+        self.nvlink_throughput_data_rx_kibs = 0
+        self.gpu_temp_c = 0
+        self.power_usage_w = 0
+        self.fan_speed_percent = 0
+        self.mxu_utilization_percent = 0
+        self.processes = []
+        self.drivers = []
+
+
+class DeviceProcessUsage:
+    def __init__(self):
+        self.pid = None
+        self.gpu_instance_id = None
+        self.compute_instance_id = None
+        self.mem_used = None
+
+
+class DriverInfo:
+    def __init__(self):
+        self.name = None
+        self.version = None
+
+
+class SemVer:
+    def __init__(self):
+        self.major = 0
+        self.minor = 0
+        self.patch = 0
+
 
 class NVMLRecorder(BaseRecorder):
     MIN_SAMPLE_READ_INTERVAL_US = int(10 * 1e6)
@@ -42,21 +89,13 @@ class NVMLRecorder(BaseRecorder):
         except BaseException:
             logger.error('Error shutting down NVML', exc_info=True)
 
-    def on_span_read(self, proto, context, options):
-        if self._last_snapshot:
-            proto.node_usage.num_devices = self._last_snapshot.node_usage.num_devices
-            for driver in self._last_snapshot.node_usage.drivers:
-                proto.node_usage.drivers.append(driver)
-            for du in self._last_snapshot.device_usage:
-                proto.device_usage.append(du)
-
     def on_metric_update(self):
         now = int(time.time())
-        proto = self.take_snapshot()
-        if not proto:
+        device_usages = self.take_snapshot()
+        if len(device_usages) == 0:
             return
 
-        for idx, device_usage in enumerate(proto.device_usage):
+        for idx, device_usage in enumerate(device_usages):
             store = graphsignal._tracer.metric_store()
             metric_tags = {'deployment': graphsignal._tracer.deployment}
             if graphsignal._tracer.hostname:
@@ -98,35 +137,34 @@ class NVMLRecorder(BaseRecorder):
 
     def take_snapshot(self):
         if not self._is_initialized:
-            return
+            return []
 
-        proto = signals_pb2.Span()
+        device_usages = []
 
         now_us = int(time.time() * 1e6)
 
         device_count = nvmlDeviceGetCount()
 
-        proto.node_usage.num_devices = device_count
+        for idx in range(0, device_count):
+            device_usage = DeviceUsage()
+            device_usages.append(device_usage)
 
-        if device_count > 0:
             try:
                 version = nvmlSystemGetCudaDriverVersion_v2()
                 if version:
-                    driver_info = proto.node_usage.drivers.add()
+                    driver_info = DriverInfo()
+                    device_usage.drivers.append(driver_info)
                     driver_info.name = 'CUDA'
                     driver_info.version = _format_version(version)
             except NVMLError as err:
                 _log_nvml_error(err)
 
-        for idx in range(0, device_count):
             try:
                 handle = nvmlDeviceGetHandleByIndex(idx)
             except NVMLError as err:
                 _log_nvml_error(err)
                 continue
 
-            device_usage = proto.device_usage.add()
-            device_usage.device_type = signals_pb2.DeviceUsage.DeviceType.GPU_DEVICE
             device_usage.device_idx = idx
 
             try:
@@ -163,6 +201,7 @@ class NVMLRecorder(BaseRecorder):
 
             try:
                 cc_major, cc_minor = nvmlDeviceGetCudaComputeCapability(handle)
+                device_usage.compute_capability = SemVer()
                 device_usage.compute_capability.major = cc_major
                 device_usage.compute_capability.minor = cc_minor
             except NVMLError as err:
@@ -194,7 +233,8 @@ class NVMLRecorder(BaseRecorder):
                     for process_info in process_infos:
                         if process_info.pid not in seen_pids:
                             seen_pids.add(process_info.pid)
-                            device_process_usage = device_usage.processes.add()
+                            device_process_usage = DeviceProcessUsage()
+                            device_usage.processes.append(device_process_usage)
                             device_process_usage.pid = process_info.pid
                             device_process_usage.compute_instance_id = process_info.computeInstanceId
                             device_process_usage.gpu_instance_id = process_info.gpuInstanceId
@@ -247,7 +287,7 @@ class NVMLRecorder(BaseRecorder):
                             device_usage.nvlink_throughput_data_rx_kibs = (value - last_value) / (interval_us * 1e6)
                     self._last_nvlink_throughput_data_rx[idx] = nvlink_throughput_data_rx
             except NVMLError as err:
-                log_nvml_error(err)
+                _log_nvml_error(err)
 
             try:
                 device_usage.gpu_temp_c = nvmlDeviceGetTemperature(
@@ -265,8 +305,8 @@ class NVMLRecorder(BaseRecorder):
             except NVMLError as err:
                 _log_nvml_error(err)
 
-        self._last_snapshot = proto
-        return proto
+        self._last_snapshot = device_usages
+        return device_usages
 
 
 def _avg_sample_value(sample_value_type, samples):
@@ -303,9 +343,9 @@ def _nvml_value(value_type, value):
 
 def _log_nvml_error(err):
     if (err.value == NVML_ERROR_NOT_SUPPORTED):
-        logger.debug('NVML call not supported', exc_info=True)
+        logger.debug('NVML call not supported')
     elif (err.value == NVML_ERROR_NOT_FOUND):
-        logger.debug('NVML call not found', exc_info=True)
+        logger.debug('NVML call not found')
     else:
         logger.error('Error calling NVML', exc_info=True)
 

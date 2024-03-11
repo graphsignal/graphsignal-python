@@ -2,15 +2,13 @@ import unittest
 import logging
 import sys
 from unittest.mock import patch, Mock
-import torch
+import socket
 from google.protobuf.json_format import MessageToJson
 import pprint
 import time
 import random
 
 import graphsignal
-from graphsignal.proto import signals_pb2
-from graphsignal.spans import DEFAULT_OPTIONS
 from graphsignal.recorders.process_recorder import ProcessRecorder
 
 logger = logging.getLogger('graphsignal')
@@ -43,27 +41,10 @@ class ProcessRecorderTest(unittest.TestCase):
 
         recorder.take_snapshot()
 
-        proto = signals_pb2.Span()
-        context = {}
-        recorder.on_span_start(proto, context, DEFAULT_OPTIONS)
-        recorder.on_span_stop(proto, context, DEFAULT_OPTIONS)
-        recorder.on_span_read(proto, context, DEFAULT_OPTIONS)
-
-        self.assertNotEqual(proto.node_usage.hostname, '')
-        self.assertNotEqual(proto.node_usage.ip_address, '')
-        self.assertNotEqual(proto.process_usage.pid, '')
-        if sys.platform != 'win32':
-            self.assertTrue(proto.node_usage.mem_total > 0)
-            self.assertTrue(proto.node_usage.mem_used > 0)
-            self.assertTrue(proto.process_usage.cpu_usage_percent > 0)
-            self.assertTrue(proto.process_usage.current_rss > 0)
-            self.assertTrue(proto.process_usage.max_rss > 0)
-            self.assertTrue(proto.process_usage.vm_size > 0)
-
         recorder.on_metric_update()
 
         store = graphsignal._tracer.metric_store()
-        metric_tags =  {'deployment': 'd1', 'hostname': proto.node_usage.hostname}
+        metric_tags =  {'deployment': 'd1', 'hostname': socket.gethostname()}
         key = store.metric_key('system', 'process_cpu_usage', metric_tags)
         self.assertTrue(store._metrics[key].gauge > 0)
         key = store.metric_key('system', 'process_memory', metric_tags)

@@ -9,7 +9,6 @@ import pprint
 import random
 
 import graphsignal
-from graphsignal.proto import signals_pb2
 
 logger = logging.getLogger('graphsignal')
 

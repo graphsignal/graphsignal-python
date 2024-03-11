@@ -3,7 +3,7 @@ import llama_index
 
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
-from graphsignal.proto_utils import parse_semver, compare_semver
+from graphsignal.recorders.instrumentation import parse_semver, compare_semver
 from graphsignal.proto import signals_pb2
 from graphsignal.recorders.instrumentation import patch_method
 
@@ -12,19 +12,17 @@ logger = logging.getLogger('graphsignal')
 
 class LlamaIndexRecorder(BaseRecorder):
     def __init__(self):
-        self._library = None
+        self._library_version = None
         self._v1_handler = None
 
     def setup(self):
         if not graphsignal._tracer.auto_instrument:
             return
 
-        self._library = signals_pb2.LibraryInfo()
-        self._library.name = 'LlamaIndex'
         version = ''
         if hasattr(llama_index, '__version__') and llama_index.__version__:
-            parse_semver(self._library.version, llama_index.__version__)
             version = llama_index.__version__
+            self._library_version = version
 
         def is_v1():
             return (
@@ -32,7 +30,7 @@ class LlamaIndexRecorder(BaseRecorder):
             )
 
         def is_v2():
-            return compare_semver(self._library.version, (0, 10, 10)) >= 0
+            return self._library_version and compare_semver(self._library_version, (0, 10, 10)) >= 0
 
         if is_v2():
             # the handler should be added manually for now
@@ -56,6 +54,8 @@ class LlamaIndexRecorder(BaseRecorder):
             llama_index.callbacks.get_callback_manager().remove_handler(self._v1_handler)
             self._v1_handler = None
 
-    def on_span_read(self, proto, context, options):
-        if self._library:
-            proto.libraries.append(self._library)
+    def on_span_read(self, span, context):
+        if self._library_version:
+            entry = span.config.add()
+            entry.key = 'llama_index'
+            entry.value = self._library_version

@@ -42,11 +42,11 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
     def on_llm_start(
             self, serialized: Dict[str, Any], prompts: List[str], **kwargs: Any) -> None:
         operation = 'langchain.llms.' + serialized.get('name', 'LLM')
-        span = graphsignal.start_trace(operation)
+        span = graphsignal.trace(operation)
         span.set_tag('component', 'LLM')
         push_current_span(span)
         if prompts:
-            span.set_data('prompts', prompts)
+            span.set_payload('prompts', prompts)
 
     def on_llm_new_token(self, token: str, **kwargs: Any) -> Any:
         pass
@@ -70,19 +70,19 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             self, serialized: Dict[str, Any], inputs: Dict[str, Any], **kwargs: Any) -> None:
         chain_name = serialized.get('name', 'Chain')
         operation = 'langchain.chains.' + chain_name
-        span = graphsignal.start_trace(operation)
+        span = graphsignal.trace(operation)
         if chain_name.endswith('AgentExecutor'):
             span.set_tag('component', 'Agent')
         push_current_span(span)
         if inputs:
-            span.set_data('inputs', inputs)
+            span.set_payload('inputs', inputs)
 
     def on_chain_end(self, outputs: Dict[str, Any], **kwargs: Any) -> None:
         span = pop_current_span()
         if not span:
             return
         if outputs:
-            span.set_data('outputs', outputs)
+            span.set_payload('outputs', outputs)
         span.stop()
 
     def on_chain_error(
@@ -97,7 +97,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
     def on_tool_start(
             self, serialized: Dict[str, Any], input_str: str, **kwargs: Any) -> None:
         operation = 'langchain.agents.tools.' + serialized.get('name', 'Tool')
-        span = graphsignal.start_trace(operation)
+        span = graphsignal.trace(operation)
         span.set_tag('component', 'Tool')
         push_current_span(span)
 
@@ -106,7 +106,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
         if not span:
             return
         if output:
-            span.set_data('output', output)
+            span.set_payload('output', output)
         span.stop()
 
     def on_tool_error(

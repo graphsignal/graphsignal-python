@@ -10,7 +10,7 @@ from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
-from graphsignal.recorders.instrumentation import patch_method, instrument_method, read_args
+from graphsignal.recorders.instrumentation import patch_method, instrument_method, read_args, parse_semver, compare_semver
 from graphsignal.uploader import Uploader
 
 logger = logging.getLogger('graphsignal')
@@ -151,3 +151,21 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(values, {'a': 1, 'b': 2, 'c': 3})
 
         test(1, 2, c=3)
+
+    async def test_parse_semver(self):
+        parsed_version = parse_semver('1.2.3')
+        self.assertEqual(parsed_version[0], 1)
+        self.assertEqual(parsed_version[1], 2)
+        self.assertEqual(parsed_version[2], 3)
+
+        parsed_version = parse_semver('1.2')
+        self.assertEqual(parsed_version[0], 1)
+        self.assertEqual(parsed_version[1], 2)
+        self.assertEqual(parsed_version[2], 0)
+
+    async def test_compare_semver(self):
+        self.assertEqual(compare_semver((1, 2, 0), (1, 3, 0)), -1)
+
+        self.assertEqual(compare_semver((1, 2, 3), (1, 2, 3)), 0)
+
+        self.assertEqual(compare_semver((1, 2, 3), (1, 2, 2)), 1)

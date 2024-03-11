@@ -4,10 +4,12 @@ import logging
 import atexit
 import functools
 import asyncio
+import time
 
 from graphsignal.version import __version__
 from graphsignal.tracer import Tracer
-from graphsignal.spans import Span, TraceOptions, get_current_span
+from graphsignal.spans import Span, get_current_span, _uuid_sha1, _sanitize_str
+from graphsignal.proto import signals_pb2
 
 logger = logging.getLogger('graphsignal')
 
@@ -56,7 +58,7 @@ def configure(
         deployment: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
         auto_instrument: Optional[bool] = True,
-        record_data_samples: Optional[bool] = True,
+        record_payloads: Optional[bool] = True,
         upload_on_shutdown: Optional[bool] = True,
         debug_mode: Optional[bool] = False) -> None:
     global _tracer
@@ -77,7 +79,7 @@ def configure(
         deployment=deployment,
         tags=tags,
         auto_instrument=auto_instrument,
-        record_data_samples=record_data_samples,
+        record_payloads=record_payloads,
         upload_on_shutdown=upload_on_shutdown,
         debug_mode=debug_mode)
     _tracer.setup()
@@ -139,23 +141,27 @@ def get_context_tag(key: str) -> Optional[str]:
     return _tracer.context_tags.get().get(key, None)
 
 
-def start_trace(
+def trace(
         operation: str,
-        tags: Optional[Dict[str, str]] = None,
-        options: Optional[TraceOptions] = None) -> 'Span':
+        tags: Optional[Dict[str, str]] = None) -> 'Span':
     _check_configured()
 
-    return Span(operation=operation, tags=tags, options=options)
+    return Span(operation=operation, tags=tags)
+
+
+def start_trace(
+        operation: str,
+        tags: Optional[Dict[str, str]] = None) -> 'Span':
+    trace(operation, tags)
 
 
 def trace_function(
         func=None, 
         *,
         operation: Optional[str] = None,
-        tags: Optional[Dict[str, str]] = None,
-        options: Optional[TraceOptions] = None):
+        tags: Optional[Dict[str, str]] = None):
     if func is None:
-        return functools.partial(trace_function, operation=operation, tags=tags, options=options)
+        return functools.partial(trace_function, operation=operation, tags=tags)
 
     if operation is None:
         operation_or_name = func.__name__
@@ -165,13 +171,13 @@ def trace_function(
     if asyncio.iscoroutinefunction(func):
         @functools.wraps(func)
         async def tf_async_wrapper(*args, **kwargs):
-            async with start_trace(operation=operation_or_name, tags=tags, options=options):
+            async with trace(operation=operation_or_name, tags=tags):
                 return await func(*args, **kwargs)
         return tf_async_wrapper
     else:
         @functools.wraps(func)
         def tf_wrapper(*args, **kwargs):
-            with start_trace(operation=operation_or_name, tags=tags, options=options):
+            with trace(operation=operation_or_name, tags=tags):
                 return func(*args, **kwargs)
         return tf_wrapper
 
@@ -180,6 +186,49 @@ def current_span() -> Optional['Span']:
     _check_configured()
 
     return get_current_span()
+
+
+def score(
+        name: str, 
+        tags: Optional[Dict[str, str]] = None,
+        score: Optional[Union[int, float]] = None, 
+        severity: Optional[int] = None,
+        comment: Optional[str] = None) -> None:
+    _check_configured()
+
+    now = int(time.time())
+
+    if not name:
+        logger.error('score: name is required')
+        return
+
+    score_obj = signals_pb2.Score()
+    score_obj.score_id = _uuid_sha1(size=12)
+    score_obj.name = name
+
+    tag = score_obj.tags.add()
+    tag.key = 'deployment'
+    tag.value = _tracer.deployment
+
+    if tags:
+        for tag_key, tag_value in tags.items():
+            tag = score_obj.tags.add()
+            tag.key = _sanitize_str(tag_key, max_len=50)
+            tag.value = _sanitize_str(tag_value, max_len=250)
+
+    if score is not None:
+        score_obj.score = score
+
+    if severity and severity >= 1 and severity <= 5:
+        score_obj.severity = severity
+
+    if comment:
+        score_obj.comment = comment
+
+    score_obj.create_ts = now
+
+    _tracer.uploader().upload_score(score_obj)
+    _tracer.tick(now)
 
 
 def upload(block=False) -> None:
@@ -206,8 +255,9 @@ __all__ = [
     'upload',
     'shutdown',
     'start_trace',
+    'trace',
     'function_trace',
-    'TraceOptions',
     'Span',
+    'score',
     'callbacks'
 ]

@@ -3,8 +3,6 @@ import langchain
 
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
-from graphsignal.proto_utils import parse_semver
-from graphsignal.proto import signals_pb2
 from graphsignal.recorders.instrumentation import patch_method
 
 logger = logging.getLogger('graphsignal')
@@ -12,19 +10,17 @@ logger = logging.getLogger('graphsignal')
 
 class LangChainRecorder(BaseRecorder):
     def __init__(self):
-        self._library = None
+        self._library_version = None
         self._v1_handler = None
 
     def setup(self):
         if not graphsignal._tracer.auto_instrument:
             return
 
-        self._library = signals_pb2.LibraryInfo()
-        self._library.name = 'LangChain'
         version = ''
         if hasattr(langchain, '__version__') and langchain.__version__:
-            parse_semver(self._library.version, langchain.__version__)
             version = langchain.__version__
+            self._library_version = version
 
         def is_v2():
             try:
@@ -74,6 +70,8 @@ class LangChainRecorder(BaseRecorder):
             langchain.callbacks.get_callback_manager().remove_handler(self._v1_handler)
             self._v1_handler = None
 
-    def on_span_read(self, proto, context, options):
-        if self._library:
-            proto.libraries.append(self._library)
+    def on_span_read(self, span, context):
+        if self._library_version:
+            entry = span.config.add()
+            entry.key = 'langchain.library.version'
+            entry.value = self._library_version

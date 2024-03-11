@@ -14,8 +14,6 @@ except ImportError:
 
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
-from graphsignal.proto import signals_pb2
-from graphsignal.proto_utils import parse_semver
 
 logger = logging.getLogger('graphsignal')
 
@@ -29,6 +27,49 @@ VM_SIZE_REGEXP = re.compile(r'VmSize:\s+(\d+)\s+kB')
 MEM_TOTAL_REGEXP = re.compile(r'MemTotal:\s+(\d+)\s+kB')
 MEM_FREE_REGEXP = re.compile(r'MemFree:\s+(\d+)\s+kB')
 
+
+class ProcessUsage:
+    def __init__(self):
+        self.pid = 0
+        self.rank = 0
+        self.has_rank = False
+        self.local_rank = 0
+        self.has_local_rank = False
+        self.start_ms = 0
+        self.cpu_name = None
+        self.cpu_usage_percent = 0
+        self.max_rss = 0
+        self.current_rss = 0
+        self.vm_size = 0
+        self.runtime = None
+        self.runtime_version = None
+        self.runtime_impl = None
+
+
+class NodeUsage:
+    def __init__(self):
+        self.hostname = None
+        self.ip_address = None
+        self.node_rank = 0
+        self.has_node_rank = False
+        self.mem_used = 0
+        self.mem_total = 0
+        self.platform = None
+        self.machine = None
+        self.os_name = None
+        self.os_version = None
+        self.num_devices = 0
+
+class SemVer:
+    def __init__(self):
+        self.major = 0
+        self.minor = 0
+        self.patch = 0
+    
+    def __str__(self):
+        return f'{self.major}.{self.minor}.{self.patch}'
+
+
 class ProcessRecorder(BaseRecorder):
     MIN_CPU_READ_INTERVAL_US = 1 * 1e6
 
@@ -40,41 +81,50 @@ class ProcessRecorder(BaseRecorder):
     def setup(self):
         self.take_snapshot()
 
-    def on_span_read(self, proto, context, options):
-        if self._last_snapshot:
-            proto.process_usage.CopyFrom(self._last_snapshot.process_usage)
-            proto.node_usage.CopyFrom(self._last_snapshot.node_usage)
-
     def on_metric_update(self):
         now = int(time.time())
 
-        proto = self.take_snapshot()
+        process_usage, node_usage = self.take_snapshot()
 
         store = graphsignal._tracer.metric_store()
         metric_tags = {'deployment': graphsignal._tracer.deployment}
         if graphsignal._tracer.hostname:
             metric_tags['hostname'] = graphsignal._tracer.hostname
 
-        if proto.process_usage.cpu_usage_percent > 0:
+        if process_usage.cpu_usage_percent > 0:
             store.set_gauge(
                 scope='system', name='process_cpu_usage', tags=metric_tags, 
-                value=proto.process_usage.cpu_usage_percent, update_ts=now, unit='%')
-        if proto.process_usage.current_rss > 0:
+                value=process_usage.cpu_usage_percent, update_ts=now, unit='%')
+        if process_usage.current_rss > 0:
             store.set_gauge(
                 scope='system', name='process_memory', tags=metric_tags, 
-                value=proto.process_usage.current_rss, update_ts=now, is_size=True)
-        if proto.process_usage.vm_size > 0:
+                value=process_usage.current_rss, update_ts=now, is_size=True)
+        if process_usage.vm_size > 0:
             store.set_gauge(
                 scope='system', name='virtual_memory', tags=metric_tags, 
-                value=proto.process_usage.vm_size, update_ts=now, is_size=True)
-        if proto.node_usage.mem_used > 0:
+                value=process_usage.vm_size, update_ts=now, is_size=True)
+        if node_usage.mem_used > 0:
             store.set_gauge(
                 scope='system', name='node_memory_used', tags=metric_tags, 
-                value=proto.node_usage.mem_used, update_ts=now, is_size=True)
+                value=node_usage.mem_used, update_ts=now, is_size=True)
+
+    def on_span_read(self, span, context):
+        if self._last_snapshot:
+            process_usage, node_usage = self._last_snapshot
+            entry = span.config.add()
+            entry.key = 'os.name'
+            entry.value = node_usage.os_name
+            entry = span.config.add()
+            entry.key = 'os.version'
+            entry.value = node_usage.os_version
+            entry = span.config.add()
+            entry.key = 'runtime.name'
+            entry.value = process_usage.runtime
+            entry = span.config.add()
+            entry.key = 'runtime.version'
+            entry.value = str(process_usage.runtime_version)
 
     def take_snapshot(self):
-        proto = signals_pb2.Span()
-
         if not OS_WIN:
             rusage_self = resource.getrusage(resource.RUSAGE_SELF)
 
@@ -85,8 +135,8 @@ class ProcessRecorder(BaseRecorder):
         now = time.time()
         pid = os.getpid()
 
-        node_usage = proto.node_usage
-        process_usage = proto.process_usage
+        node_usage = NodeUsage()
+        process_usage = ProcessUsage()
 
         process_usage.pid = pid
 
@@ -147,7 +197,8 @@ class ProcessRecorder(BaseRecorder):
             logger.error('Error reading node information', exc_info=True)
 
         try:
-            process_usage.runtime = signals_pb2.ProcessUsage.Runtime.PYTHON
+            process_usage.runtime = 'Python'
+            process_usage.runtime_version = SemVer()
             process_usage.runtime_version.major = sys.version_info.major
             process_usage.runtime_version.minor = sys.version_info.minor
             process_usage.runtime_version.patch = sys.version_info.micro
@@ -155,8 +206,9 @@ class ProcessRecorder(BaseRecorder):
         except BaseException:
             logger.error('Error reading process information', exc_info=True)
 
-        self._last_snapshot = proto
-        return proto
+        self._last_snapshot = (process_usage, node_usage)
+        return self._last_snapshot
+
 
 def _rusage_cpu_time(rusage):
     return int((rusage.ru_utime + rusage.ru_stime) * 1e6)  # microseconds

@@ -6,6 +6,7 @@ from unittest.mock import patch, Mock
 
 import graphsignal
 from graphsignal.spans import Span
+from graphsignal.uploader import Uploader
 
 logger = logging.getLogger('graphsignal')
 
@@ -85,3 +86,25 @@ class GraphsignalTest(unittest.TestCase):
 
         mocked_start.assert_called_once()
         mocked_stop.assert_called_once()
+
+    @patch.object(Uploader, 'upload_score')
+    def test_score(self, mocked_upload_score):
+        graphsignal.score(
+            name='s1', 
+            tags=dict(t1='v1'), 
+            score=0.5, 
+            severity=2, 
+            comment='c1')
+
+        score = mocked_upload_score.call_args[0][0]
+
+        self.assertTrue(score.score_id is not None and score.score_id != '')
+        self.assertEqual(score.name, 's1')
+        self.assertEqual(score.tags[0].key, 'deployment')
+        self.assertEqual(score.tags[0].value, 'd1')
+        self.assertEqual(score.tags[1].key, 't1')
+        self.assertEqual(score.tags[1].value, 'v1')
+        self.assertEqual(score.score, 0.5)
+        self.assertEqual(score.severity, 2)
+        self.assertEqual(score.comment, 'c1')
+        self.assertTrue(score.create_ts > 0)

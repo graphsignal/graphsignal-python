@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rsignals.proto\x12\x13graphsignal.signals\"\xda\x01\n\rUploadRequest\x12(\n\x05spans\x18\x01 \x03(\x0b\x32\x19.graphsignal.signals.Span\x12*\n\x06scores\x18\x05 \x03(\x0b\x32\x1a.graphsignal.signals.Score\x12,\n\x07metrics\x18\x03 \x03(\x0b\x32\x1b.graphsignal.signals.Metric\x12\x32\n\x0blog_entries\x18\x04 \x03(\x0b\x32\x1d.graphsignal.signals.LogEntry\x12\x11\n\tupload_ms\x18\x02 \x01(\x04\"\x10\n\x0eUploadResponse\"\x8e\x01\n\nSpanRecord\x12\x0f\n\x07\x64\x61ta_id\x18\x01 \x01(\t\x12\x14\n\x0coperation_id\x18\x02 \x01(\t\x12\'\n\x04span\x18\x04 \x01(\x0b\x32\x19.graphsignal.signals.Span\x12\x1a\n\x12\x64\x61ta_retention_sec\x18\x05 \x01(\x04\x12\x14\n\x0ctime_skew_ms\x18\x06 \x01(\x12\"\x95\x08\n\x04Span\x12\x0f\n\x07span_id\x18\x30 \x01(\t\x12\x10\n\x08start_us\x18\x05 \x01(\x04\x12\x0e\n\x06\x65nd_us\x18\x06 \x01(\x04\x12\x0e\n\x06labels\x18\x41 \x03(\t\x12=\n\rsampling_type\x18\x42 \x01(\x0e\x32&.graphsignal.signals.Span.SamplingType\x12-\n\x07\x63ontext\x18? \x01(\x0b\x32\x1c.graphsignal.signals.Context\x12&\n\x04tags\x18- \x03(\x0b\x32\x18.graphsignal.signals.Tag\x12*\n\x06params\x18; \x03(\x0b\x32\x1a.graphsignal.signals.Param\x12\x32\n\nexceptions\x18/ \x03(\x0b\x32\x1e.graphsignal.signals.Exception\x12<\n\ralloc_summary\x18< \x03(\x0b\x32%.graphsignal.signals.MemoryAllocation\x12\x30\n\nop_profile\x18= \x03(\x0b\x32\x1c.graphsignal.signals.OpStats\x12\x38\n\x0ekernel_profile\x18> \x03(\x0b\x32 .graphsignal.signals.KernelStats\x12\x34\n\x0c\x64\x61ta_profile\x18\x32 \x03(\x0b\x32\x1e.graphsignal.signals.DataStats\x12\x35\n\x0c\x64\x61ta_samples\x18@ \x03(\x0b\x32\x1f.graphsignal.signals.DataSample\x12\x32\n\nmodel_info\x18& \x01(\x0b\x32\x1e.graphsignal.signals.ModelInfo\x12\x33\n\tlibraries\x18$ \x03(\x0b\x32 .graphsignal.signals.LibraryInfo\x12\x36\n\x0c\x64\x65vice_usage\x18\x12 \x03(\x0b\x32 .graphsignal.signals.DeviceUsage\x12\x32\n\nnode_usage\x18\x19 \x01(\x0b\x32\x1e.graphsignal.signals.NodeUsage\x12\x38\n\rprocess_usage\x18\x1a \x01(\x0b\x32!.graphsignal.signals.ProcessUsage\x12\x34\n\x0btracer_info\x18# \x01(\x0b\x32\x1f.graphsignal.signals.TracerInfo\"x\n\x0cSamplingType\x12\x16\n\x12UNDEFINED_SAMPLING\x10\x00\x12\x13\n\x0fRANDOM_SAMPLING\x10\x01\x12\x13\n\x0fPARENT_SAMPLING\x10\x02\x12\x12\n\x0e\x43HILD_SAMPLING\x10\x04\x12\x12\n\x0e\x45RROR_SAMPLING\x10\x03\"!\n\x03Tag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"$\n\x05Param\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xc0\x01\n\x07\x43ontext\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x10\n\x08start_ns\x18\x02 \x01(\x04\x12\x0e\n\x06\x65nd_ns\x18\x03 \x01(\x04\x12\x16\n\x0e\x66irst_token_ns\x18\n \x01(\x04\x12\x0f\n\x07span_id\x18\x07 \x01(\t\x12\x14\n\x0croot_span_id\x18\x08 \x01(\t\x12\x16\n\x0eparent_span_id\x18\t \x01(\t\x12.\n\x08\x63ontexts\x18\x05 \x03(\x0b\x32\x1c.graphsignal.signals.Context\"C\n\tException\x12\x10\n\x08\x65xc_type\x18\x01 \x01(\t\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x13\n\x0bstack_trace\x18\x03 \x01(\t\"5\n\x06SemVer\x12\r\n\x05major\x18\x01 \x01(\x05\x12\r\n\x05minor\x18\x02 \x01(\x05\x12\r\n\x05patch\x18\x03 \x01(\x05\"\xc2\x02\n\x10MemoryAllocation\x12K\n\x0e\x61llocator_type\x18\x01 \x01(\x0e\x32\x33.graphsignal.signals.MemoryAllocation.AllocatorType\x12\x12\n\ndevice_idx\x18\x02 \x01(\x04\x12\x16\n\x0e\x61llocated_size\x18\x03 \x01(\x04\x12\x15\n\rreserved_size\x18\x04 \x01(\x04\x12\x12\n\nfreed_size\x18\x05 \x01(\x04\x12\x17\n\x0fnum_allocations\x18\x06 \x01(\x04\x12\x19\n\x11num_alloc_retries\x18\x07 \x01(\x04\x12\x10\n\x08num_ooms\x18\x08 \x01(\x04\"D\n\rAllocatorType\x12\x17\n\x13UNDEFINED_ALLOCATOR\x10\x00\x12\x1a\n\x16PYTORCH_CUDA_ALLOCATOR\x10\x01\"\xcd\x03\n\x07OpStats\x12\x34\n\x07op_type\x18\x01 \x01(\x0e\x32#.graphsignal.signals.OpStats.OpType\x12\x0f\n\x07op_name\x18\x02 \x01(\t\x12\r\n\x05\x63ount\x18\x03 \x01(\x04\x12\x14\n\x0chost_time_ns\x18\x04 \x01(\x04\x12\x19\n\x11self_host_time_ns\x18\x05 \x01(\x04\x12\x1e\n\x16self_host_time_percent\x18\x06 \x01(\x01\x12\x16\n\x0e\x64\x65vice_time_ns\x18\x07 \x01(\x04\x12\x1b\n\x13self_device_time_ns\x18\x08 \x01(\x04\x12\x13\n\x0bhost_memory\x18\t \x01(\x04\x12\x18\n\x10self_host_memory\x18\n \x01(\x04\x12\x15\n\rdevice_memory\x18\x0b \x01(\x04\x12\x1a\n\x12self_device_memory\x18\x0c \x01(\x04\x12\x11\n\tdata_size\x18\r \x01(\x04\x12\x14\n\x0c\x64\x61ta_per_sec\x18\x0e \x01(\x01\x12\r\n\x05\x66lops\x18\x0f \x01(\x04\"L\n\x06OpType\x12\x10\n\x0cUNDEFINED_OP\x10\x00\x12\r\n\tPYTHON_OP\x10\x01\x12\x0e\n\nPYTORCH_OP\x10\x02\x12\x11\n\rCOLLECTIVE_OP\x10\x03\"k\n\x0bKernelStats\x12\x12\n\ndevice_idx\x18\x01 \x01(\x04\x12\x0f\n\x07op_name\x18\x02 \x01(\t\x12\x13\n\x0bkernel_name\x18\x03 \x01(\t\x12\r\n\x05\x63ount\x18\x04 \x01(\x04\x12\x13\n\x0b\x64uration_ns\x18\x05 \x01(\x04\"\xc7\x01\n\tDataStats\x12\x11\n\tdata_name\x18\x01 \x01(\t\x12\x11\n\tdata_type\x18\x02 \x01(\t\x12\r\n\x05shape\x18\x04 \x03(\x04\x12\x38\n\x06\x63ounts\x18\x05 \x03(\x0b\x32(.graphsignal.signals.DataStats.DataCount\x12!\n\x19sample_recording_disabled\x18\x06 \x01(\x08\x1a(\n\tDataCount\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05\x63ount\x18\x02 \x01(\x04\"L\n\nDataSample\x12\x11\n\tdata_name\x18\x01 \x01(\t\x12\x14\n\x0c\x63ontent_type\x18\x02 \x01(\t\x12\x15\n\rcontent_bytes\x18\x03 \x01(\x0c\"O\n\tModelInfo\x12\x14\n\x0cmodel_format\x18\x04 \x01(\t\x12\x12\n\nmodel_name\x18\x03 \x01(\t\x12\x18\n\x10model_size_bytes\x18\x02 \x01(\x04\"\xb5\x01\n\x0bLibraryInfo\x12\x0c\n\x04name\x18\x04 \x01(\t\x12,\n\x07version\x18\x02 \x01(\x0b\x32\x1b.graphsignal.signals.SemVer\x12=\n\x06params\x18\x03 \x03(\x0b\x32-.graphsignal.signals.LibraryInfo.LibraryParam\x1a+\n\x0cLibraryParam\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xd3\x05\n\x0b\x44\x65viceUsage\x12@\n\x0b\x64\x65vice_type\x18\x0b \x01(\x0e\x32+.graphsignal.signals.DeviceUsage.DeviceType\x12\x12\n\ndevice_idx\x18\x15 \x01(\x04\x12\x11\n\tdevice_id\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65vice_name\x18\x02 \x01(\t\x12\x14\n\x0c\x61rchitecture\x18\x11 \x01(\t\x12\x37\n\x12\x63ompute_capability\x18\x0f \x01(\x0b\x32\x1b.graphsignal.signals.SemVer\x12\x11\n\tmem_total\x18\x03 \x01(\x04\x12\x10\n\x08mem_used\x18\x04 \x01(\x04\x12\x10\n\x08mem_free\x18\x05 \x01(\x04\x12\x14\n\x0cmem_reserved\x18\x13 \x01(\x04\x12\x1f\n\x17gpu_utilization_percent\x18\x06 \x01(\x01\x12\x1a\n\x12mem_access_percent\x18\x10 \x01(\x01\x12\x1a\n\x12pcie_throughput_tx\x18\r \x01(\x01\x12\x1a\n\x12pcie_throughput_rx\x18\x0e \x01(\x01\x12&\n\x1envlink_throughput_data_tx_kibs\x18\x17 \x01(\x01\x12&\n\x1envlink_throughput_data_rx_kibs\x18\x18 \x01(\x01\x12\x12\n\ngpu_temp_c\x18\x08 \x01(\x01\x12\x15\n\rpower_usage_w\x18\t \x01(\x01\x12\x19\n\x11\x66\x61n_speed_percent\x18\n \x01(\x01\x12\x1f\n\x17mxu_utilization_percent\x18\x0c \x01(\x01\x12:\n\tprocesses\x18\x14 \x03(\x0b\x32\'.graphsignal.signals.DeviceProcessUsage\"B\n\nDeviceType\x12\x14\n\x10UNDEFINED_DEVICE\x10\x00\x12\x0e\n\nGPU_DEVICE\x10\x02\x12\x0e\n\nTPU_DEVICE\x10\x03\"i\n\x12\x44\x65viceProcessUsage\x12\x0b\n\x03pid\x18\x01 \x01(\x04\x12\x17\n\x0fgpu_instance_id\x18\x02 \x01(\x04\x12\x1b\n\x13\x63ompute_instance_id\x18\x03 \x01(\x04\x12\x10\n\x08mem_used\x18\x04 \x01(\x04\"\x93\x03\n\x0cProcessUsage\x12\x0b\n\x03pid\x18\x13 \x01(\x04\x12\x0c\n\x04rank\x18\x14 \x01(\x04\x12\x10\n\x08has_rank\x18\x15 \x01(\x08\x12\x12\n\nlocal_rank\x18\x16 \x01(\x04\x12\x16\n\x0ehas_local_rank\x18\x17 \x01(\x08\x12\x10\n\x08start_ms\x18\x0e \x01(\x04\x12\x10\n\x08\x63pu_name\x18\x10 \x01(\t\x12\x19\n\x11\x63pu_usage_percent\x18\x01 \x01(\x01\x12\x0f\n\x07max_rss\x18\x02 \x01(\x04\x12\x13\n\x0b\x63urrent_rss\x18\x03 \x01(\x04\x12\x0f\n\x07vm_size\x18\x04 \x01(\x04\x12:\n\x07runtime\x18\x06 \x01(\x0e\x32).graphsignal.signals.ProcessUsage.Runtime\x12\x34\n\x0fruntime_version\x18\x07 \x01(\x0b\x32\x1b.graphsignal.signals.SemVer\x12\x14\n\x0cruntime_impl\x18\x08 \x01(\t\",\n\x07Runtime\x12\x15\n\x11RUNTIME_UNDEFINED\x10\x00\x12\n\n\x06PYTHON\x10\x01\"\xc6\x02\n\tNodeUsage\x12\x10\n\x08hostname\x18\x01 \x01(\t\x12\x12\n\nip_address\x18\x07 \x01(\t\x12\x11\n\tnode_rank\x18\x0c \x01(\x04\x12\x15\n\rhas_node_rank\x18\r \x01(\x08\x12\x10\n\x08mem_used\x18\t \x01(\x04\x12\x11\n\tmem_total\x18\n \x01(\x04\x12\x10\n\x08platform\x18\x02 \x01(\t\x12\x0f\n\x07machine\x18\x03 \x01(\t\x12\x0f\n\x07os_name\x18\x04 \x01(\t\x12\x12\n\nos_version\x18\x05 \x01(\t\x12\x13\n\x0bnum_devices\x18\x06 \x01(\x05\x12:\n\x07\x64rivers\x18\x0b \x03(\x0b\x32).graphsignal.signals.NodeUsage.DriverInfo\x1a+\n\nDriverInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"\xb2\x01\n\nTracerInfo\x12?\n\x0btracer_type\x18\x01 \x01(\x0e\x32*.graphsignal.signals.TracerInfo.TracerType\x12,\n\x07version\x18\x03 \x01(\x0b\x32\x1b.graphsignal.signals.SemVer\"5\n\nTracerType\x12\x14\n\x10UNDEFINED_TRACER\x10\x00\x12\x11\n\rPYTHON_TRACER\x10\x01\"{\n\x0bScoreRecord\x12\x0f\n\x07\x64\x61ta_id\x18\x01 \x01(\t\x12)\n\x05score\x18\x02 \x01(\x0b\x32\x1a.graphsignal.signals.Score\x12\x1a\n\x12\x64\x61ta_retention_sec\x18\x03 \x01(\x04\x12\x14\n\x0ctime_skew_ms\x18\x04 \x01(\x12\"\x93\x01\n\x05Score\x12\x10\n\x08score_id\x18\x07 \x01(\t\x12\x0f\n\x07span_id\x18\x01 \x01(\t\x12&\n\x04tags\x18\x02 \x03(\x0b\x32\x18.graphsignal.signals.Tag\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x0f\n\x07\x63omment\x18\x04 \x01(\t\x12\r\n\x05score\x18\x05 \x01(\x01\x12\x11\n\tcreate_ts\x18\x06 \x01(\x04\"\x91\x01\n\x0cMetricRecord\x12\x0f\n\x07\x64\x61ta_id\x18\x01 \x01(\t\x12\x11\n\tmetric_id\x18\x02 \x01(\t\x12+\n\x06metric\x18\x03 \x01(\x0b\x32\x1b.graphsignal.signals.Metric\x12\x1a\n\x12\x64\x61ta_retention_sec\x18\x04 \x01(\x04\x12\x14\n\x0ctime_skew_ms\x18\x05 \x01(\x12\"\xba\x03\n\x06Metric\x12\r\n\x05scope\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12&\n\x04tags\x18\x03 \x03(\x0b\x32\x18.graphsignal.signals.Tag\x12\x34\n\x04type\x18\x04 \x01(\x0e\x32&.graphsignal.signals.Metric.MetricType\x12\x0c\n\x04unit\x18\x05 \x01(\t\x12\x0f\n\x07is_time\x18\x06 \x01(\x08\x12\x0f\n\x07is_size\x18\x07 \x01(\x08\x12\x0f\n\x05gauge\x18\x08 \x01(\x01H\x00\x12\x11\n\x07\x63ounter\x18\t \x01(\x04H\x00\x12:\n\thistogram\x18\n \x01(\x0b\x32%.graphsignal.signals.Metric.HistogramH\x00\x12\x11\n\tupdate_ts\x18\x0b \x01(\x04\x1a)\n\tHistogram\x12\x0c\n\x04\x62ins\x18\x01 \x03(\x04\x12\x0e\n\x06\x63ounts\x18\x02 \x03(\x04\"^\n\nMetricType\x12\x14\n\x10UNDEFINED_METRIC\x10\x00\x12\x10\n\x0cGAUGE_METRIC\x10\x01\x12\x12\n\x0e\x43OUNTER_METRIC\x10\x02\x12\x14\n\x10HISTOGRAM_METRIC\x10\x03\x42\x07\n\x05value\"\x93\x01\n\tLogRecord\x12\x0f\n\x07\x64\x61ta_id\x18\x01 \x01(\t\x12\x11\n\tlogger_id\x18\x02 \x01(\t\x12\x30\n\tlog_entry\x18\x04 \x01(\x0b\x32\x1d.graphsignal.signals.LogEntry\x12\x1a\n\x12\x64\x61ta_retention_sec\x18\x05 \x01(\x04\x12\x14\n\x0ctime_skew_ms\x18\x06 \x01(\x12\"\x95\x01\n\x08LogEntry\x12\r\n\x05scope\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12&\n\x04tags\x18\x03 \x03(\x0b\x32\x18.graphsignal.signals.Tag\x12\r\n\x05level\x18\x04 \x01(\t\x12\x0f\n\x07message\x18\x05 \x01(\t\x12\x11\n\texception\x18\x06 \x01(\t\x12\x11\n\tcreate_ts\x18\x07 \x01(\x04\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rsignals.proto\x12\x13graphsignal.signals\"\xda\x01\n\rUploadRequest\x12(\n\x05spans\x18\x01 \x03(\x0b\x32\x19.graphsignal.signals.Span\x12*\n\x06scores\x18\x05 \x03(\x0b\x32\x1a.graphsignal.signals.Score\x12,\n\x07metrics\x18\x03 \x03(\x0b\x32\x1b.graphsignal.signals.Metric\x12\x32\n\x0blog_entries\x18\x04 \x03(\x0b\x32\x1d.graphsignal.signals.LogEntry\x12\x11\n\tupload_ms\x18\x02 \x01(\x04\"\x10\n\x0eUploadResponse\"\x8e\x01\n\nSpanRecord\x12\x0f\n\x07\x64\x61ta_id\x18\x01 \x01(\t\x12\x14\n\x0coperation_id\x18\x02 \x01(\t\x12\'\n\x04span\x18\x04 \x01(\x0b\x32\x19.graphsignal.signals.Span\x12\x1a\n\x12\x64\x61ta_retention_sec\x18\x05 \x01(\x04\x12\x14\n\x0ctime_skew_ms\x18\x06 \x01(\x12\"\xd8\x02\n\x04Span\x12\x0f\n\x07span_id\x18\x30 \x01(\t\x12\x10\n\x08start_us\x18\x05 \x01(\x04\x12\x0e\n\x06\x65nd_us\x18\x06 \x01(\x04\x12-\n\x07\x63ontext\x18? \x01(\x0b\x32\x1c.graphsignal.signals.Context\x12&\n\x04tags\x18- \x03(\x0b\x32\x18.graphsignal.signals.Tag\x12\x32\n\nexceptions\x18/ \x03(\x0b\x32\x1e.graphsignal.signals.Exception\x12.\n\x08payloads\x18@ \x03(\x0b\x32\x1c.graphsignal.signals.Payload\x12\x30\n\x05usage\x18\\ \x03(\x0b\x32!.graphsignal.signals.UsageCounter\x12\x30\n\x06\x63onfig\x18Z \x03(\x0b\x32 .graphsignal.signals.ConfigEntry\"q\n\x07\x43ontext\x12\x10\n\x08start_ns\x18\x02 \x01(\x04\x12\x0e\n\x06\x65nd_ns\x18\x03 \x01(\x04\x12\x16\n\x0e\x66irst_token_ns\x18\n \x01(\x04\x12\x14\n\x0croot_span_id\x18\x08 \x01(\t\x12\x16\n\x0eparent_span_id\x18\t \x01(\t\"!\n\x03Tag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"C\n\tException\x12\x10\n\x08\x65xc_type\x18\x01 \x01(\t\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x13\n\x0bstack_trace\x18\x03 \x01(\t\"D\n\x07Payload\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0c\x63ontent_type\x18\x02 \x01(\t\x12\x15\n\rcontent_bytes\x18\x03 \x01(\x0c\"A\n\x0cUsageCounter\x12\x14\n\x0cpayload_name\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\r\n\x05value\x18\x03 \x01(\x04\")\n\x0b\x43onfigEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"{\n\x0bScoreRecord\x12\x0f\n\x07\x64\x61ta_id\x18\x01 \x01(\t\x12)\n\x05score\x18\x02 \x01(\x0b\x32\x1a.graphsignal.signals.Score\x12\x1a\n\x12\x64\x61ta_retention_sec\x18\x03 \x01(\x04\x12\x14\n\x0ctime_skew_ms\x18\x04 \x01(\x12\"\xa5\x01\n\x05Score\x12\x10\n\x08score_id\x18\x07 \x01(\t\x12\x0f\n\x07span_id\x18\x01 \x01(\t\x12&\n\x04tags\x18\x02 \x03(\x0b\x32\x18.graphsignal.signals.Tag\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x0f\n\x07\x63omment\x18\x04 \x01(\t\x12\r\n\x05score\x18\x05 \x01(\x01\x12\x10\n\x08severity\x18\x08 \x01(\r\x12\x11\n\tcreate_ts\x18\x06 \x01(\x04\"\x91\x01\n\x0cMetricRecord\x12\x0f\n\x07\x64\x61ta_id\x18\x01 \x01(\t\x12\x11\n\tmetric_id\x18\x02 \x01(\t\x12+\n\x06metric\x18\x03 \x01(\x0b\x32\x1b.graphsignal.signals.Metric\x12\x1a\n\x12\x64\x61ta_retention_sec\x18\x04 \x01(\x04\x12\x14\n\x0ctime_skew_ms\x18\x05 \x01(\x12\"\xba\x03\n\x06Metric\x12\r\n\x05scope\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12&\n\x04tags\x18\x03 \x03(\x0b\x32\x18.graphsignal.signals.Tag\x12\x34\n\x04type\x18\x04 \x01(\x0e\x32&.graphsignal.signals.Metric.MetricType\x12\x0c\n\x04unit\x18\x05 \x01(\t\x12\x0f\n\x07is_time\x18\x06 \x01(\x08\x12\x0f\n\x07is_size\x18\x07 \x01(\x08\x12\x0f\n\x05gauge\x18\x08 \x01(\x01H\x00\x12\x11\n\x07\x63ounter\x18\t \x01(\x04H\x00\x12:\n\thistogram\x18\n \x01(\x0b\x32%.graphsignal.signals.Metric.HistogramH\x00\x12\x11\n\tupdate_ts\x18\x0b \x01(\x04\x1a)\n\tHistogram\x12\x0c\n\x04\x62ins\x18\x01 \x03(\x04\x12\x0e\n\x06\x63ounts\x18\x02 \x03(\x04\"^\n\nMetricType\x12\x14\n\x10UNDEFINED_METRIC\x10\x00\x12\x10\n\x0cGAUGE_METRIC\x10\x01\x12\x12\n\x0e\x43OUNTER_METRIC\x10\x02\x12\x14\n\x10HISTOGRAM_METRIC\x10\x03\x42\x07\n\x05value\"\x93\x01\n\tLogRecord\x12\x0f\n\x07\x64\x61ta_id\x18\x01 \x01(\t\x12\x11\n\tlogger_id\x18\x02 \x01(\t\x12\x30\n\tlog_entry\x18\x04 \x01(\x0b\x32\x1d.graphsignal.signals.LogEntry\x12\x1a\n\x12\x64\x61ta_retention_sec\x18\x05 \x01(\x04\x12\x14\n\x0ctime_skew_ms\x18\x06 \x01(\x12\"\x95\x01\n\x08LogEntry\x12\r\n\x05scope\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12&\n\x04tags\x18\x03 \x03(\x0b\x32\x18.graphsignal.signals.Tag\x12\r\n\x05level\x18\x04 \x01(\t\x12\x0f\n\x07message\x18\x05 \x01(\t\x12\x11\n\texception\x18\x06 \x01(\t\x12\x11\n\tcreate_ts\x18\x07 \x01(\x04\x62\x06proto3')
 
 
 
@@ -22,26 +22,12 @@ _UPLOADREQUEST = DESCRIPTOR.message_types_by_name['UploadRequest']
 _UPLOADRESPONSE = DESCRIPTOR.message_types_by_name['UploadResponse']
 _SPANRECORD = DESCRIPTOR.message_types_by_name['SpanRecord']
 _SPAN = DESCRIPTOR.message_types_by_name['Span']
-_TAG = DESCRIPTOR.message_types_by_name['Tag']
-_PARAM = DESCRIPTOR.message_types_by_name['Param']
 _CONTEXT = DESCRIPTOR.message_types_by_name['Context']
+_TAG = DESCRIPTOR.message_types_by_name['Tag']
 _EXCEPTION = DESCRIPTOR.message_types_by_name['Exception']
-_SEMVER = DESCRIPTOR.message_types_by_name['SemVer']
-_MEMORYALLOCATION = DESCRIPTOR.message_types_by_name['MemoryAllocation']
-_OPSTATS = DESCRIPTOR.message_types_by_name['OpStats']
-_KERNELSTATS = DESCRIPTOR.message_types_by_name['KernelStats']
-_DATASTATS = DESCRIPTOR.message_types_by_name['DataStats']
-_DATASTATS_DATACOUNT = _DATASTATS.nested_types_by_name['DataCount']
-_DATASAMPLE = DESCRIPTOR.message_types_by_name['DataSample']
-_MODELINFO = DESCRIPTOR.message_types_by_name['ModelInfo']
-_LIBRARYINFO = DESCRIPTOR.message_types_by_name['LibraryInfo']
-_LIBRARYINFO_LIBRARYPARAM = _LIBRARYINFO.nested_types_by_name['LibraryParam']
-_DEVICEUSAGE = DESCRIPTOR.message_types_by_name['DeviceUsage']
-_DEVICEPROCESSUSAGE = DESCRIPTOR.message_types_by_name['DeviceProcessUsage']
-_PROCESSUSAGE = DESCRIPTOR.message_types_by_name['ProcessUsage']
-_NODEUSAGE = DESCRIPTOR.message_types_by_name['NodeUsage']
-_NODEUSAGE_DRIVERINFO = _NODEUSAGE.nested_types_by_name['DriverInfo']
-_TRACERINFO = DESCRIPTOR.message_types_by_name['TracerInfo']
+_PAYLOAD = DESCRIPTOR.message_types_by_name['Payload']
+_USAGECOUNTER = DESCRIPTOR.message_types_by_name['UsageCounter']
+_CONFIGENTRY = DESCRIPTOR.message_types_by_name['ConfigEntry']
 _SCORERECORD = DESCRIPTOR.message_types_by_name['ScoreRecord']
 _SCORE = DESCRIPTOR.message_types_by_name['Score']
 _METRICRECORD = DESCRIPTOR.message_types_by_name['MetricRecord']
@@ -49,12 +35,6 @@ _METRIC = DESCRIPTOR.message_types_by_name['Metric']
 _METRIC_HISTOGRAM = _METRIC.nested_types_by_name['Histogram']
 _LOGRECORD = DESCRIPTOR.message_types_by_name['LogRecord']
 _LOGENTRY = DESCRIPTOR.message_types_by_name['LogEntry']
-_SPAN_SAMPLINGTYPE = _SPAN.enum_types_by_name['SamplingType']
-_MEMORYALLOCATION_ALLOCATORTYPE = _MEMORYALLOCATION.enum_types_by_name['AllocatorType']
-_OPSTATS_OPTYPE = _OPSTATS.enum_types_by_name['OpType']
-_DEVICEUSAGE_DEVICETYPE = _DEVICEUSAGE.enum_types_by_name['DeviceType']
-_PROCESSUSAGE_RUNTIME = _PROCESSUSAGE.enum_types_by_name['Runtime']
-_TRACERINFO_TRACERTYPE = _TRACERINFO.enum_types_by_name['TracerType']
 _METRIC_METRICTYPE = _METRIC.enum_types_by_name['MetricType']
 UploadRequest = _reflection.GeneratedProtocolMessageType('UploadRequest', (_message.Message,), {
   'DESCRIPTOR' : _UPLOADREQUEST,
@@ -84,26 +64,19 @@ Span = _reflection.GeneratedProtocolMessageType('Span', (_message.Message,), {
   })
 _sym_db.RegisterMessage(Span)
 
-Tag = _reflection.GeneratedProtocolMessageType('Tag', (_message.Message,), {
-  'DESCRIPTOR' : _TAG,
-  '__module__' : 'signals_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.signals.Tag)
-  })
-_sym_db.RegisterMessage(Tag)
-
-Param = _reflection.GeneratedProtocolMessageType('Param', (_message.Message,), {
-  'DESCRIPTOR' : _PARAM,
-  '__module__' : 'signals_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.signals.Param)
-  })
-_sym_db.RegisterMessage(Param)
-
 Context = _reflection.GeneratedProtocolMessageType('Context', (_message.Message,), {
   'DESCRIPTOR' : _CONTEXT,
   '__module__' : 'signals_pb2'
   # @@protoc_insertion_point(class_scope:graphsignal.signals.Context)
   })
 _sym_db.RegisterMessage(Context)
+
+Tag = _reflection.GeneratedProtocolMessageType('Tag', (_message.Message,), {
+  'DESCRIPTOR' : _TAG,
+  '__module__' : 'signals_pb2'
+  # @@protoc_insertion_point(class_scope:graphsignal.signals.Tag)
+  })
+_sym_db.RegisterMessage(Tag)
 
 Exception = _reflection.GeneratedProtocolMessageType('Exception', (_message.Message,), {
   'DESCRIPTOR' : _EXCEPTION,
@@ -112,120 +85,26 @@ Exception = _reflection.GeneratedProtocolMessageType('Exception', (_message.Mess
   })
 _sym_db.RegisterMessage(Exception)
 
-SemVer = _reflection.GeneratedProtocolMessageType('SemVer', (_message.Message,), {
-  'DESCRIPTOR' : _SEMVER,
+Payload = _reflection.GeneratedProtocolMessageType('Payload', (_message.Message,), {
+  'DESCRIPTOR' : _PAYLOAD,
   '__module__' : 'signals_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.signals.SemVer)
+  # @@protoc_insertion_point(class_scope:graphsignal.signals.Payload)
   })
-_sym_db.RegisterMessage(SemVer)
+_sym_db.RegisterMessage(Payload)
 
-MemoryAllocation = _reflection.GeneratedProtocolMessageType('MemoryAllocation', (_message.Message,), {
-  'DESCRIPTOR' : _MEMORYALLOCATION,
+UsageCounter = _reflection.GeneratedProtocolMessageType('UsageCounter', (_message.Message,), {
+  'DESCRIPTOR' : _USAGECOUNTER,
   '__module__' : 'signals_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.signals.MemoryAllocation)
+  # @@protoc_insertion_point(class_scope:graphsignal.signals.UsageCounter)
   })
-_sym_db.RegisterMessage(MemoryAllocation)
+_sym_db.RegisterMessage(UsageCounter)
 
-OpStats = _reflection.GeneratedProtocolMessageType('OpStats', (_message.Message,), {
-  'DESCRIPTOR' : _OPSTATS,
+ConfigEntry = _reflection.GeneratedProtocolMessageType('ConfigEntry', (_message.Message,), {
+  'DESCRIPTOR' : _CONFIGENTRY,
   '__module__' : 'signals_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.signals.OpStats)
+  # @@protoc_insertion_point(class_scope:graphsignal.signals.ConfigEntry)
   })
-_sym_db.RegisterMessage(OpStats)
-
-KernelStats = _reflection.GeneratedProtocolMessageType('KernelStats', (_message.Message,), {
-  'DESCRIPTOR' : _KERNELSTATS,
-  '__module__' : 'signals_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.signals.KernelStats)
-  })
-_sym_db.RegisterMessage(KernelStats)
-
-DataStats = _reflection.GeneratedProtocolMessageType('DataStats', (_message.Message,), {
-
-  'DataCount' : _reflection.GeneratedProtocolMessageType('DataCount', (_message.Message,), {
-    'DESCRIPTOR' : _DATASTATS_DATACOUNT,
-    '__module__' : 'signals_pb2'
-    # @@protoc_insertion_point(class_scope:graphsignal.signals.DataStats.DataCount)
-    })
-  ,
-  'DESCRIPTOR' : _DATASTATS,
-  '__module__' : 'signals_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.signals.DataStats)
-  })
-_sym_db.RegisterMessage(DataStats)
-_sym_db.RegisterMessage(DataStats.DataCount)
-
-DataSample = _reflection.GeneratedProtocolMessageType('DataSample', (_message.Message,), {
-  'DESCRIPTOR' : _DATASAMPLE,
-  '__module__' : 'signals_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.signals.DataSample)
-  })
-_sym_db.RegisterMessage(DataSample)
-
-ModelInfo = _reflection.GeneratedProtocolMessageType('ModelInfo', (_message.Message,), {
-  'DESCRIPTOR' : _MODELINFO,
-  '__module__' : 'signals_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.signals.ModelInfo)
-  })
-_sym_db.RegisterMessage(ModelInfo)
-
-LibraryInfo = _reflection.GeneratedProtocolMessageType('LibraryInfo', (_message.Message,), {
-
-  'LibraryParam' : _reflection.GeneratedProtocolMessageType('LibraryParam', (_message.Message,), {
-    'DESCRIPTOR' : _LIBRARYINFO_LIBRARYPARAM,
-    '__module__' : 'signals_pb2'
-    # @@protoc_insertion_point(class_scope:graphsignal.signals.LibraryInfo.LibraryParam)
-    })
-  ,
-  'DESCRIPTOR' : _LIBRARYINFO,
-  '__module__' : 'signals_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.signals.LibraryInfo)
-  })
-_sym_db.RegisterMessage(LibraryInfo)
-_sym_db.RegisterMessage(LibraryInfo.LibraryParam)
-
-DeviceUsage = _reflection.GeneratedProtocolMessageType('DeviceUsage', (_message.Message,), {
-  'DESCRIPTOR' : _DEVICEUSAGE,
-  '__module__' : 'signals_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.signals.DeviceUsage)
-  })
-_sym_db.RegisterMessage(DeviceUsage)
-
-DeviceProcessUsage = _reflection.GeneratedProtocolMessageType('DeviceProcessUsage', (_message.Message,), {
-  'DESCRIPTOR' : _DEVICEPROCESSUSAGE,
-  '__module__' : 'signals_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.signals.DeviceProcessUsage)
-  })
-_sym_db.RegisterMessage(DeviceProcessUsage)
-
-ProcessUsage = _reflection.GeneratedProtocolMessageType('ProcessUsage', (_message.Message,), {
-  'DESCRIPTOR' : _PROCESSUSAGE,
-  '__module__' : 'signals_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.signals.ProcessUsage)
-  })
-_sym_db.RegisterMessage(ProcessUsage)
-
-NodeUsage = _reflection.GeneratedProtocolMessageType('NodeUsage', (_message.Message,), {
-
-  'DriverInfo' : _reflection.GeneratedProtocolMessageType('DriverInfo', (_message.Message,), {
-    'DESCRIPTOR' : _NODEUSAGE_DRIVERINFO,
-    '__module__' : 'signals_pb2'
-    # @@protoc_insertion_point(class_scope:graphsignal.signals.NodeUsage.DriverInfo)
-    })
-  ,
-  'DESCRIPTOR' : _NODEUSAGE,
-  '__module__' : 'signals_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.signals.NodeUsage)
-  })
-_sym_db.RegisterMessage(NodeUsage)
-_sym_db.RegisterMessage(NodeUsage.DriverInfo)
-
-TracerInfo = _reflection.GeneratedProtocolMessageType('TracerInfo', (_message.Message,), {
-  'DESCRIPTOR' : _TRACERINFO,
-  '__module__' : 'signals_pb2'
-  # @@protoc_insertion_point(class_scope:graphsignal.signals.TracerInfo)
-  })
-_sym_db.RegisterMessage(TracerInfo)
+_sym_db.RegisterMessage(ConfigEntry)
 
 ScoreRecord = _reflection.GeneratedProtocolMessageType('ScoreRecord', (_message.Message,), {
   'DESCRIPTOR' : _SCORERECORD,
@@ -287,73 +166,33 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _SPANRECORD._serialized_start=278
   _SPANRECORD._serialized_end=420
   _SPAN._serialized_start=423
-  _SPAN._serialized_end=1468
-  _SPAN_SAMPLINGTYPE._serialized_start=1348
-  _SPAN_SAMPLINGTYPE._serialized_end=1468
-  _TAG._serialized_start=1470
-  _TAG._serialized_end=1503
-  _PARAM._serialized_start=1505
-  _PARAM._serialized_end=1541
-  _CONTEXT._serialized_start=1544
-  _CONTEXT._serialized_end=1736
-  _EXCEPTION._serialized_start=1738
-  _EXCEPTION._serialized_end=1805
-  _SEMVER._serialized_start=1807
-  _SEMVER._serialized_end=1860
-  _MEMORYALLOCATION._serialized_start=1863
-  _MEMORYALLOCATION._serialized_end=2185
-  _MEMORYALLOCATION_ALLOCATORTYPE._serialized_start=2117
-  _MEMORYALLOCATION_ALLOCATORTYPE._serialized_end=2185
-  _OPSTATS._serialized_start=2188
-  _OPSTATS._serialized_end=2649
-  _OPSTATS_OPTYPE._serialized_start=2573
-  _OPSTATS_OPTYPE._serialized_end=2649
-  _KERNELSTATS._serialized_start=2651
-  _KERNELSTATS._serialized_end=2758
-  _DATASTATS._serialized_start=2761
-  _DATASTATS._serialized_end=2960
-  _DATASTATS_DATACOUNT._serialized_start=2920
-  _DATASTATS_DATACOUNT._serialized_end=2960
-  _DATASAMPLE._serialized_start=2962
-  _DATASAMPLE._serialized_end=3038
-  _MODELINFO._serialized_start=3040
-  _MODELINFO._serialized_end=3119
-  _LIBRARYINFO._serialized_start=3122
-  _LIBRARYINFO._serialized_end=3303
-  _LIBRARYINFO_LIBRARYPARAM._serialized_start=3260
-  _LIBRARYINFO_LIBRARYPARAM._serialized_end=3303
-  _DEVICEUSAGE._serialized_start=3306
-  _DEVICEUSAGE._serialized_end=4029
-  _DEVICEUSAGE_DEVICETYPE._serialized_start=3963
-  _DEVICEUSAGE_DEVICETYPE._serialized_end=4029
-  _DEVICEPROCESSUSAGE._serialized_start=4031
-  _DEVICEPROCESSUSAGE._serialized_end=4136
-  _PROCESSUSAGE._serialized_start=4139
-  _PROCESSUSAGE._serialized_end=4542
-  _PROCESSUSAGE_RUNTIME._serialized_start=4498
-  _PROCESSUSAGE_RUNTIME._serialized_end=4542
-  _NODEUSAGE._serialized_start=4545
-  _NODEUSAGE._serialized_end=4871
-  _NODEUSAGE_DRIVERINFO._serialized_start=4828
-  _NODEUSAGE_DRIVERINFO._serialized_end=4871
-  _TRACERINFO._serialized_start=4874
-  _TRACERINFO._serialized_end=5052
-  _TRACERINFO_TRACERTYPE._serialized_start=4999
-  _TRACERINFO_TRACERTYPE._serialized_end=5052
-  _SCORERECORD._serialized_start=5054
-  _SCORERECORD._serialized_end=5177
-  _SCORE._serialized_start=5180
-  _SCORE._serialized_end=5327
-  _METRICRECORD._serialized_start=5330
-  _METRICRECORD._serialized_end=5475
-  _METRIC._serialized_start=5478
-  _METRIC._serialized_end=5920
-  _METRIC_HISTOGRAM._serialized_start=5774
-  _METRIC_HISTOGRAM._serialized_end=5815
-  _METRIC_METRICTYPE._serialized_start=5817
-  _METRIC_METRICTYPE._serialized_end=5911
-  _LOGRECORD._serialized_start=5923
-  _LOGRECORD._serialized_end=6070
-  _LOGENTRY._serialized_start=6073
-  _LOGENTRY._serialized_end=6222
+  _SPAN._serialized_end=767
+  _CONTEXT._serialized_start=769
+  _CONTEXT._serialized_end=882
+  _TAG._serialized_start=884
+  _TAG._serialized_end=917
+  _EXCEPTION._serialized_start=919
+  _EXCEPTION._serialized_end=986
+  _PAYLOAD._serialized_start=988
+  _PAYLOAD._serialized_end=1056
+  _USAGECOUNTER._serialized_start=1058
+  _USAGECOUNTER._serialized_end=1123
+  _CONFIGENTRY._serialized_start=1125
+  _CONFIGENTRY._serialized_end=1166
+  _SCORERECORD._serialized_start=1168
+  _SCORERECORD._serialized_end=1291
+  _SCORE._serialized_start=1294
+  _SCORE._serialized_end=1459
+  _METRICRECORD._serialized_start=1462
+  _METRICRECORD._serialized_end=1607
+  _METRIC._serialized_start=1610
+  _METRIC._serialized_end=2052
+  _METRIC_HISTOGRAM._serialized_start=1906
+  _METRIC_HISTOGRAM._serialized_end=1947
+  _METRIC_METRICTYPE._serialized_start=1949
+  _METRIC_METRICTYPE._serialized_end=2043
+  _LOGRECORD._serialized_start=2055
+  _LOGRECORD._serialized_end=2202
+  _LOGENTRY._serialized_start=2205
+  _LOGENTRY._serialized_end=2354
 # @@protoc_insertion_point(module_scope)

@@ -7,8 +7,9 @@
 
 Graphsignal is an observability platform for AI agents and LLM-powered applications. It helps developers ensure AI applications run as expected and users have the best experience. With Graphsignal, developers can:
 
-* Trace requests, runs, and sessions with full AI context.
-* See latency breakdown by operations.
+* Trace generations, runs, and sessions with full AI context.
+* Score any user interactions and application execution.
+* See latency breakdowns and distributions.
 * Analyze model API costs for deployments, models, or users.
 * Get notified about errors and anomalies.
 * Monitor API, compute, and GPU utilization.
@@ -78,7 +79,7 @@ graphsignal.set_context_tag('user_id', user_id)
 or directly, when tracing manually:
 
 ```python
-with graphsignal.start_trace(tags=dict(user_id=user_id)):
+with graphsignal.trace(tags=dict(user_id=user_id)):
     ...
 ```
 
@@ -90,52 +91,70 @@ env GRAPHSIGNAL_TAGS="user_id=123" python -m graphsignal <script>
 
 ### Tracing any operation
 
-To measure and monitor operations that are not automatically instrumented, e.g. any model inference or inference API calls, wrap the code with [`start_trace()`](https://graphsignal.com/docs/reference/python-api/#graphsignalstart_trace) method or use [`@trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
+To measure and monitor operations that are not automatically instrumented, e.g. any model inference or inference API calls, wrap the code with [`trace()`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace) method or use [`@trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
 
 ```python
-with graphsignal.start_trace('predict'):
+with graphsignal.trace('predict'):
     pred = model(x)
 ```
-
-```python
-@graphsignal.trace_function
-def predict(x):
-    return model(x)
-```
-
-Enable profiling to additionally record code-level statistics. Profiling is disabled by default due to potential overhead. To enable, provide [`TraceOptions`](https://graphsignal.com/docs/reference/python-api/#graphsignaltraceoptions) object.
-
-```python
-with graphsignal.start_trace('predict', options=graphsignal.TraceOptions(enable_profiling=True)):
-    pred = model(x)
-```
-
-The tracer will automatically choose a profiler depending on available modules. Currently, CProfile, PyTorch Kineto and Yappi are supported. The Kineto profiler is used if `torch` module is detected and Yappi profiler is used if `yappi` module is detected. Otherwise, CProfile is used. To properly profile `asyncio` coroutines, simply `pip install yappi`.
-
 
 See [API reference](https://graphsignal.com/docs/reference/python-api/) for full documentation.
 
 
 ### Exception tracking
 
-For auto-instrumented libraries, or when using `@trace_function` decorator, `start_trace()` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`Trace.add_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanadd_exception).
+For auto-instrumented libraries, or when using `@trace_function` decorator, `trace()` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`Span.add_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanadd_exception).
 
 
-### Data monitoring
+### Payload monitoring
 
-Data, such as prompts and completions, is automatically monitored for auto-instrumented libraries. To track data metrics and record data profiles for other cases, [`Trace.set_data()`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanset_data) method can be used.
+Payload, such as prompts and completions, are automatically monitored for auto-instrumented libraries. To track data metrics and record data profiles for other cases, [`Trace.set_payload()`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanset_payload) method can be used.
 
 ```python
-with graphsignal.start_trace('predict') as span:
-    span.set_data('input', input_data)
+with graphsignal.trace('generate') as span:
+    span.set_payload('input', input_data, usage=dict(token_count=input_token_count))
 ```
 
-The following data types are currently supported: `list`, `dict`, `set`, `tuple`, `str`, `bytes`, `numpy.ndarray`, `tensorflow.Tensor`, `torch.Tensor`.
 
-Raw data samples, such as prompts and completions, are recorded by default. To disable, set `record_data_samples=False` in `graphsignal.configure`. Note, that data statistics, such as size, shape or number of missing values will still be recorded.
+Raw payloads, such as prompts and completions, are recorded by default. To disable, set `record_payloads=False` in `graphsignal.configure`. Note, that data statistics, such as size, shape or number of missing values will still be recorded.
 
 
-## Observe
+**Scores and feedback**
+
+Scores allow recording an evaluation of any event or object, such as generation, run, session, or user. Scores can be associated with events or objects using tags, but can also be set directly to a span.
+
+Tag request, run, session, or user:
+
+```python
+graphsignal.set_context_tag('run_id', run_id)
+```
+
+or
+
+```python
+with graphsignal.trace('generate', tags=dict('run_id', run_id)):
+    ...
+```
+
+Create a score for a tag. This can be done at a later time and/or by other application. For example, when user clicks thumbs-up or thumbs-down for a request or a session:
+
+```python
+graphsignal.score('user_feedback', tags=dict('run_id', run_id), score=1, comment=user_comment)
+```
+
+You can also associate a score with a span directly:
+
+```python
+with graphsignal.trace('generate') as span:
+    ...
+    span.score('prompt_injection', score=0.7, severity=2)
+
+```
+
+See API reference for more information on [`graphsignal.score`](/docs/reference/python-api/#graphsignalscore) and [`Span.score`](/docs/reference/python-api/#graphsignalspanscore) methods.
+
+
+## Analyze
 
 [Log in](https://app.graphsignal.com/) to Graphsignal to monitor and analyze your application and monitor for issues.
 
@@ -149,7 +168,7 @@ Graphsignal tracer is very lightweight. The overhead per trace is measured to be
 
 Graphsignal tracer can only open outbound connections to `signal-api.graphsignal.com` and send data, no inbound connections or commands are possible.
 
-Raw data samples, e.g. prompts, are recorded by default. This feature can be disabled at tracer initialization time, if necessary.
+Raw payloads, e.g. prompts, are recorded by default. This feature can be disabled at tracer initialization time, if necessary.
 
 
 ## Troubleshooting

@@ -38,7 +38,10 @@ class Uploader:
 
     def upload_span(self, span):
         self.upload_signal(span)
-    
+
+    def upload_score(self, score):
+        self.upload_signal(score)
+
     def upload_metric(self, metric):
         self.upload_signal(metric)
 
@@ -118,6 +121,8 @@ def _create_upload_request(outgoing):
     for signal in outgoing:
         if isinstance(signal, signals_pb2.Span):
             upload_request.spans.append(signal)
+        elif isinstance(signal, signals_pb2.Score):
+            upload_request.scores.append(signal)
         elif isinstance(signal, signals_pb2.Metric):
             upload_request.metrics.append(signal)
         elif isinstance(signal, signals_pb2.LogEntry):

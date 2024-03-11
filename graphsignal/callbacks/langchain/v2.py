@@ -10,7 +10,7 @@ from uuid import UUID
 
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
-from graphsignal.spans import get_current_span, push_current_span, clear_span_stack
+from graphsignal.spans import get_current_span, push_current_span, pop_current_span
 
 logger = logging.getLogger('graphsignal')
 
@@ -48,8 +48,19 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
         # set as context tag for other non langchain spans to pick up
         graphsignal.set_context_tag('chain_id', chain_id)
 
+        # propagate parent span
+        parent_span = self._span_map.get(parent_run_id, None)
+        if parent_span:
+            push_current_span(parent_span)
+        if get_current_span() == None and self._parent_span:
+            push_current_span(self._parent_span)
+
     def _clear_context(self, run_id):
         self._chain_id_map.pop(run_id, None)
+
+        current_span = get_current_span()
+        if current_span != None:
+            pop_current_span(current_span)
 
     def _get_chain_id(self, run_id):
         return self._chain_id_map.get(run_id, None)
@@ -58,12 +69,10 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
         if run_id in self._span_map or len(self._span_map) > MAX_TRACES:
             return None
 
-        # set parent span in case it contextvars are not propagated
-        if self._parent_span and get_current_span() == None:
-            push_current_span(self._parent_span)
-
-        span = graphsignal.start_trace(operation)
+        span = graphsignal.trace(operation)
         self._span_map[run_id] = span
+
+        span.set_tag('library', 'langchain')
 
         chain_id = self._get_chain_id(run_id)
         if chain_id:
@@ -98,8 +107,12 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             span = self._start_trace(parent_run_id, run_id, operation)
             if span:
                 span.set_tag('component', 'LLM')
+                input = dict(messages=[])
                 if prompts:
-                    span.set_data('prompts', prompts)
+                    for prompt in prompts:
+                        input['messages'].append(dict(content=prompt))
+                if len(input['messages']) > 0:
+                    span.set_payload('input', input)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
 
@@ -122,8 +135,14 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             span = self._start_trace(parent_run_id, run_id, operation)
             if span:
                 span.set_tag('component', 'LLM')
+                input = dict(messages=[])
                 if messages:
-                    span.set_data('messages', messages)
+                    for message_list in messages:
+                        for message in message_list:
+                            if hasattr(message, 'content'):
+                                input['messages'].append(dict(content=message.content))
+                if len(input['messages']) > 0:
+                    span.set_payload('input', input)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
 
@@ -149,11 +168,26 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
         try:
             span = self._current_span(run_id)
             if span:
-                if isinstance(response, (LLMResult, ChatResult)):
-                    if hasattr(response, 'llm_output'):
-                        span.set_data('output', response.llm_output)
-                    if hasattr(response, 'generations'):
-                        span.set_data('generations', response.generations)
+                output = dict(choices=[])
+                if isinstance(response, ChatResult):
+                    if hasattr(response, 'generations') and isinstance(response.generations, list):
+                        for generation in response.generations:
+                            if hasattr(generation, 'message'):
+                                if hasattr(generation.message, 'content'):
+                                    output['choices'].append(dict(message=dict(content=generation.message.content)))
+                            elif hasattr(generation, 'text'):
+                                output['choices'].append(generation.text)
+                elif isinstance(response, LLMResult):
+                    if hasattr(response, 'generations') and isinstance(response.generations, list):
+                        for generation_list in response.generations:
+                            for generation in generation_list:
+                                if hasattr(generation, 'message'):
+                                    if hasattr(generation.message, 'content'):
+                                        output['choices'].append(dict(message=dict(content=generation.message.content)))
+                                elif hasattr(generation, 'text'):
+                                    output['choices'].append(generation.text)
+                if len(output['choices']) > 0:
+                    span.set_payload('output', output)
             self._stop_trace(run_id)
 
             self._clear_context(run_id)
@@ -190,6 +224,16 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             **kwargs: Any) -> None:
         try:
             self._propagate_context(parent_run_id, run_id)
+
+            if not parent_run_id: # only trace chain root
+                operation = _get_operation_name(
+                    serialized=serialized, 
+                    default_name= 'langchain.agents.agent.' + serialized.get('name', 'AgentExecutor'))
+                span = self._start_trace(parent_run_id, run_id, operation)
+                if span:
+                    span.set_tag('component', 'Agent')
+                    if inputs:
+                        span.set_payload('inputs', inputs)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
 
@@ -201,6 +245,13 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             tags: Optional[List[str]] = None,
             **kwargs: Any) -> None:
         try:
+            span = self._current_span(run_id)
+            if span:
+                if outputs:
+                    span.set_payload('outputs', outputs)
+
+            self._stop_trace(run_id)
+
             self._clear_context(run_id)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
@@ -213,6 +264,12 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             tags: Optional[List[str]] = None,
             **kwargs: Any) -> None:
         try:
+            span = self._current_span(run_id)
+            if span:
+                if isinstance(error, Exception):
+                    span.add_exception(error)
+            self._stop_trace(run_id)
+
             self._clear_context(run_id)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
@@ -238,7 +295,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             if span:
                 span.set_tag('component', 'Tool')
                 if input_str:
-                    span.set_data('input', input_str)
+                    span.set_payload('input', input_str)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
 
@@ -254,7 +311,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             span = self._current_span(run_id)
             if span:
                 if output:
-                    span.set_data('output', output)
+                    span.set_payload('output', output)
             self._stop_trace(run_id)
 
             self._clear_context(run_id)
@@ -330,7 +387,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             if span:
                 span.set_tag('component', 'Memory')
                 if query:
-                    span.set_data('query', query)
+                    span.set_payload('query', query)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
 
@@ -346,7 +403,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             span = self._current_span(run_id)
             if span:
                 if documents:
-                    span.set_data('documents', documents)
+                    span.set_payload('documents', documents)
             self._stop_trace(run_id)
 
             self._clear_context(run_id)

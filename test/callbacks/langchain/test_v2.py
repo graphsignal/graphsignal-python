@@ -19,7 +19,7 @@ import graphsignal
 from graphsignal.uploader import Uploader
 from graphsignal.callbacks.langchain.v2 import GraphsignalCallbackHandler
 from graphsignal.recorders.openai_recorder import OpenAIRecorder
-from graphsignal.proto_utils import find_tag, find_data_count, find_data_sample
+from test.proto_utils import find_tag, find_usage, find_payload
 
 logger = logging.getLogger('graphsignal')
 
@@ -70,6 +70,7 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         t1 = mocked_upload_span.call_args_list[0][0][0]
 
         self.assertEqual(find_tag(t1, 'ct1'), 'v1')
+        self.assertEqual(find_tag(t1, 'library'), 'langchain')
         self.assertEqual(find_tag(t1, 'component'), 'LLM')
         self.assertEqual(find_tag(t1, 'operation'), 'test.callbacks.langchain.test_v2.DummyLLM')
 
@@ -89,6 +90,7 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         t1 = mocked_upload_span.call_args_list[0][0][0]
 
         self.assertEqual(find_tag(t1, 'ct1'), 'v1')
+        self.assertEqual(find_tag(t1, 'library'), 'langchain')
         self.assertEqual(find_tag(t1, 'component'), 'LLM')
         self.assertEqual(find_tag(t1, 'operation'), 'test.callbacks.langchain.test_v2.DummyLLM')
 
@@ -111,10 +113,16 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
 
         t2 = mocked_upload_span.call_args_list[0][0][0]
         t1 = mocked_upload_span.call_args_list[1][0][0]
+        t0 = mocked_upload_span.call_args_list[2][0][0]
 
-        self.assertEqual(find_tag(t1, 'operation'), 'run_chain')
+        self.assertEqual(find_tag(t0, 'operation'), 'run_chain')
 
+        self.assertEqual(find_tag(t1, 'operation'), 'langchain.chains.llm.LLMChain')
+        self.assertEqual(t1.context.parent_span_id, t0.span_id)
+        self.assertEqual(t1.context.root_span_id, t0.span_id)
+
+        self.assertEqual(find_tag(t2, 'library'), 'langchain')
         self.assertEqual(find_tag(t2, 'component'), 'LLM')
         self.assertEqual(find_tag(t2, 'operation'), 'test.callbacks.langchain.test_v2.DummyLLM')
         self.assertEqual(t2.context.parent_span_id, t1.span_id)
-        self.assertEqual(t2.context.root_span_id, t1.span_id)
+        self.assertEqual(t2.context.root_span_id, t0.span_id)

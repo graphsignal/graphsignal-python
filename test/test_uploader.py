@@ -37,7 +37,7 @@ class UploaderTest(unittest.TestCase):
         graphsignal._tracer.uploader().clear()
         graphsignal.shutdown()
 
-    @patch.object(Uploader, '_post')
+    @patch.object(Uploader, '_post', return_value=signals_pb2.UploadResponse().SerializeToString())
     def test_flush(self, mocked_post):
         proto = signals_pb2.Span()
         graphsignal._tracer.uploader().upload_span(proto)
@@ -70,7 +70,7 @@ class UploaderTest(unittest.TestCase):
         mocked_post.assert_called_once()
         self.assertEqual(len(graphsignal._tracer.uploader()._buffer), 0)
 
-    @patch.object(Uploader, '_post')
+    @patch.object(Uploader, '_post', return_value=signals_pb2.UploadResponse().SerializeToString())
     def test_flush_fail(self, mocked_post):
         def side_effect(*args):
             raise URLError("Ex1")

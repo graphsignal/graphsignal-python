@@ -29,7 +29,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
         if event_id in _span_map or len(_span_map) > MAX_TRACES:
             return None
 
-        span = graphsignal.start_trace(operation)
+        span = graphsignal.trace(operation)
         _span_map[event_id] = span
         return span
 
@@ -61,9 +61,9 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                 if span:
                     span.set_tag('component', 'LLM')
                     if payload and 'template' in payload:
-                        span.set_data('template', payload['template'])
+                        span.set_payload('template', payload['template'])
                     if payload and 'context_str' in payload:
-                        span.set_data('context', payload['context_str'])
+                        span.set_payload('context', payload['context_str'])
             elif event_type == CBEventType.QUERY:
                 span = self._start_trace(event_id, operation)
                 if span:
@@ -94,19 +94,19 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                 elif event_type == CBEventType.LLM:
                     if payload:
                         if 'formatted_prompt' in payload:
-                            span.set_data('formatted_prompt', payload['formatted_prompt'])
+                            span.set_payload('formatted_prompt', payload['formatted_prompt'])
                         if 'response' in payload:
-                            span.set_data('response', payload['response'])
+                            span.set_payload('response', payload['response'])
                         if 'completion' in payload:
-                            span.set_data('completion', payload['completion'])
+                            span.set_payload('completion', payload['completion'])
                 elif event_type == CBEventType.QUERY:
                     pass
                 elif event_type == CBEventType.RETRIEVE:
                     if payload and 'nodes' in payload:
-                        span.set_data('nodes', payload['nodes'])
+                        span.set_payload('nodes', payload['nodes'])
                 elif event_type == CBEventType.SYNTHESIZE:
                     if payload and 'response' in payload:
-                        span.set_data('response', str(payload['response']))
+                        span.set_payload('response', str(payload['response']))
                 self._stop_trace(event_id)
         except Exception:
             logger.error('Error in LlamaIndex callback handler', exc_info=True)

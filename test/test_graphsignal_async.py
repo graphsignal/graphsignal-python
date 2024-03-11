@@ -27,11 +27,11 @@ class GraphsignalAsyncTest(unittest.IsolatedAsyncioTestCase):
 
     @patch.object(Span, '_stop', return_value=None)
     @patch.object(Span, '_start', return_value=None)
-    async def test_start_trace(self, mocked_start, mocked_stop):
+    async def test_trace(self, mocked_start, mocked_stop):
         async def test_func(p):
             return 1 + p
 
-        with graphsignal.start_trace(operation='ep1'):
+        with graphsignal.trace(operation='ep1'):
             ret = await test_func(12)
             self.assertEqual(ret, 13)
 

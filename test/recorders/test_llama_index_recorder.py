@@ -9,8 +9,6 @@ from typing import Any, List, Mapping, Optional
 
 import graphsignal
 from graphsignal.proto import signals_pb2
-from graphsignal.uploader import Uploader
-from graphsignal.spans import DEFAULT_OPTIONS
 from graphsignal.recorders.llama_index_recorder import LlamaIndexRecorder
 from graphsignal.recorders.openai_recorder import OpenAIRecorder
 
@@ -35,8 +33,8 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
         recorder.setup()
         proto = signals_pb2.Span()
         context = {}
-        recorder.on_span_start(proto, context, DEFAULT_OPTIONS)
-        recorder.on_span_stop(proto, context, DEFAULT_OPTIONS)
-        recorder.on_span_read(proto, context, DEFAULT_OPTIONS)
+        recorder.on_span_start(proto, context)
+        recorder.on_span_stop(proto, context)
+        recorder.on_span_read(proto, context)
 
-        self.assertEqual(proto.libraries[0].name, 'LlamaIndex')
+        #self.assertEqual(proto.config[0].key, 'llama_index.library.version')

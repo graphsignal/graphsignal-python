@@ -22,7 +22,7 @@ import graphsignal
 from graphsignal.uploader import Uploader
 from graphsignal.callbacks.llama_index.v2 import GraphsignalCallbackHandler
 from graphsignal.recorders.openai_recorder import OpenAIRecorder
-from graphsignal.proto_utils import find_tag, find_data_count, find_data_sample
+from test.proto_utils import find_tag, find_usage, find_payload
 
 logger = logging.getLogger('graphsignal')
 
@@ -106,15 +106,14 @@ class LlamaIndexCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         synthesize_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.synthesize')
         self.assertEqual(find_tag(synthesize_span, 'component'), 'Memory')
         self.assertEqual(find_tag(synthesize_span, 'ct1'), 'v1')
-        self.assertEqual(find_data_count(synthesize_span, 'response', 'char_count'), 5)
         self.assertEqual(synthesize_span.context.parent_span_id, query_span.span_id)
         self.assertEqual(synthesize_span.context.root_span_id, query_span.span_id)
 
         llm_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.llm')
         self.assertEqual(find_tag(llm_span, 'component'), 'LLM')
         self.assertEqual(find_tag(llm_span, 'ct1'), 'v1')
-        self.assertIsNotNone(find_data_sample(llm_span, 'formatted_prompt'))
-        self.assertIsNotNone(find_data_sample(llm_span, 'completion'))
+        self.assertIsNotNone(find_payload(llm_span, 'formatted_prompt'))
+        self.assertIsNotNone(find_payload(llm_span, 'completion'))
         self.assertEqual(llm_span.context.parent_span_id, synthesize_span.span_id)
         self.assertEqual(llm_span.context.root_span_id, query_span.span_id)
 

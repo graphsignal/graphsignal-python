@@ -2,10 +2,13 @@ import logging
 from functools import wraps
 import asyncio
 import types
+import re
 
 import graphsignal
 
 logger = logging.getLogger('graphsignal')
+
+version_regexp = re.compile(r'^(\d+)\.?(\d+)?\.?(\d+)?')
 
 
 def instrument_method(obj, func_name, op_name=None, op_func=None, trace_func=None, data_func=None):
@@ -14,7 +17,7 @@ def instrument_method(obj, func_name, op_name=None, op_func=None, trace_func=Non
             operation = op_func(args, kwargs)
         else:
             operation = op_name
-        return dict(span=graphsignal.start_trace(operation=operation))
+        return dict(span=graphsignal.trace(operation=operation))
 
     def after_func(args, kwargs, ret, exc, context):
         span = context['span']
@@ -197,3 +200,28 @@ def read_args(args, kwargs, names):
         values[name] = arg
     values.update(kwargs)
     return values
+
+
+def parse_semver(version):
+    parsed_version = [0, 0, 0]
+    version_match = version_regexp.match(str(version))
+    if version_match is not None:
+        groups = version_match.groups()
+        if groups[0] is not None:
+            parsed_version[0] = int(groups[0])
+        if groups[1] is not None:
+            parsed_version[1] = int(groups[1])
+        if groups[2] is not None:
+            parsed_version[2] = int(groups[2])
+    return tuple(parsed_version)
+
+
+def compare_semver(version1, version2):
+    version1_int = version1[0] * 1e6 + version1[1] * 1e3 + version1[2]
+    version2_int = version2[0] * 1e6 + version2[1] * 1e3 + version2[2]
+    if version1_int < version2_int:
+        return -1
+    if version1_int > version2_int:
+        return 1
+    else:
+        return 0
