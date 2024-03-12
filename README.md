@@ -66,7 +66,7 @@ Graphsignal **auto-instruments** and traces libraries and frameworks, such as [O
 Some integration examples are available in [examples](https://github.com/graphsignal/examples) repo.
 
 
-## Session tracking
+### Session tracking
 
 Session groups multiple traces together to represent a run, thread, conversation or user interactions. Session tracking allows session-level visualization, analytics and issue detection. It also enables detection of session outliers and other issues.
 
@@ -113,7 +113,7 @@ env GRAPHSIGNAL_TAGS="user_id=123" python -m graphsignal <script>
 ```
 
 
-**Scores and feedback**
+### Scores and feedback
 
 Scores allow recording an evaluation of any event or object, such as generation, run, session, or user. Scores can be associated with events or objects using tags, but can also be set directly to a span.
 
@@ -148,7 +148,7 @@ with graphsignal.trace('generate') as span:
 See API reference for more information on [`graphsignal.score`](https://graphsignal.com/docs/reference/python-api/#graphsignalscore) and [`Span.score`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanscore) methods.
 
 
-**Manual tracing**
+### Manual tracing
 
 To measure and monitor operations that are not automatically instrumented, wrap the code with [`trace()`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace) method or use [`@trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
 
