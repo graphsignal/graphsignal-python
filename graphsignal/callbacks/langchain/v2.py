@@ -50,7 +50,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
 
         # propagate parent span
         parent_span = self._span_map.get(parent_run_id, None)
-        if parent_span:
+        if parent_span and get_current_span() != parent_span:
             push_current_span(parent_span)
         if get_current_span() == None and self._parent_span:
             push_current_span(self._parent_span)
