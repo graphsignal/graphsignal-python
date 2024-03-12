@@ -110,7 +110,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
             proto = mocked_upload_span.call_args[0][0]
 
-            self.assertEqual(find_tag(proto, 'component'), 'LLM')
+            self.assertEqual(find_tag(proto, 'model_type'), 'chat')
             self.assertEqual(find_tag(proto, 'library'), 'openai')
             self.assertEqual(find_tag(proto, 'operation'), 'openai.chat.completions.create')
             self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/chat/completions')
@@ -187,7 +187,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
             proto = mocked_upload_span.call_args[0][0]
 
-            self.assertEqual(find_tag(proto, 'component'), 'LLM')
+            self.assertEqual(find_tag(proto, 'model_type'), 'chat')
             self.assertEqual(find_tag(proto, 'operation'), 'openai.chat.completions.create')
             self.assertEqual(find_tag(proto, 'api_provider'), 'openai')
             self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/chat/completions')
@@ -360,7 +360,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
             proto = mocked_upload_span.call_args[0][0]
 
 
-            self.assertEqual(find_tag(proto, 'component'), 'LLM')
+            self.assertEqual(find_tag(proto, 'model_type'), 'chat')
             self.assertEqual(find_tag(proto, 'model'), 'gpt-4')
             self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/chat/completions')
 
@@ -446,7 +446,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
             proto = mocked_upload_span.call_args[0][0]
 
-            self.assertEqual(find_tag(proto, 'component'), 'LLM')
             self.assertEqual(find_tag(proto, 'operation'), 'openai.embeddings.create')
             self.assertEqual(find_tag(proto, 'endpoint'), 'https://api.openai.com/v1/embeddings')
             self.assertEqual(find_tag(proto, 'model'), 'text-embedding-ada-002-v2')

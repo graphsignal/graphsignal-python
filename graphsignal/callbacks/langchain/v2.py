@@ -106,7 +106,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                 default_name='langchain.llms.' + serialized.get('name', 'LLM'))
             span = self._start_trace(parent_run_id, run_id, operation)
             if span:
-                span.set_tag('component', 'LLM')
+                span.set_tag('model_type', 'chat')
                 input = dict(messages=[])
                 if prompts:
                     for prompt in prompts:
@@ -134,7 +134,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                 default_name='langchain.llms.' + serialized.get('name', 'LLM'))
             span = self._start_trace(parent_run_id, run_id, operation)
             if span:
-                span.set_tag('component', 'LLM')
+                span.set_tag('model_type', 'chat')
                 input = dict(messages=[])
                 if messages:
                     for message_list in messages:
@@ -231,7 +231,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                     default_name= 'langchain.agents.agent.' + serialized.get('name', 'AgentExecutor'))
                 span = self._start_trace(parent_run_id, run_id, operation)
                 if span:
-                    span.set_tag('component', 'Agent')
                     if inputs:
                         span.set_payload('inputs', inputs)
         except Exception:
@@ -293,7 +292,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                 default_name= 'langchain.agents.tools.' + serialized.get('name', 'Tool'))
             span = self._start_trace(parent_run_id, run_id, operation)
             if span:
-                span.set_tag('component', 'Tool')
                 if input_str:
                     span.set_payload('input', input_str)
         except Exception:
@@ -385,7 +383,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                 default_name= 'langchain.retrievers.' + serialized.get('name', 'Retriever'))
             span = self._start_trace(parent_run_id, run_id, operation)
             if span:
-                span.set_tag('component', 'Memory')
                 if query:
                     span.set_payload('query', query)
         except Exception:

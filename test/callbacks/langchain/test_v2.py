@@ -71,7 +71,6 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(find_tag(t1, 'ct1'), 'v1')
         self.assertEqual(find_tag(t1, 'library'), 'langchain')
-        self.assertEqual(find_tag(t1, 'component'), 'LLM')
         self.assertEqual(find_tag(t1, 'operation'), 'test.callbacks.langchain.test_v2.DummyLLM')
 
     @patch.object(Uploader, 'upload_span')
@@ -91,7 +90,6 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(find_tag(t1, 'ct1'), 'v1')
         self.assertEqual(find_tag(t1, 'library'), 'langchain')
-        self.assertEqual(find_tag(t1, 'component'), 'LLM')
         self.assertEqual(find_tag(t1, 'operation'), 'test.callbacks.langchain.test_v2.DummyLLM')
 
 
@@ -122,7 +120,6 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(t1.context.root_span_id, t0.span_id)
 
         self.assertEqual(find_tag(t2, 'library'), 'langchain')
-        self.assertEqual(find_tag(t2, 'component'), 'LLM')
         self.assertEqual(find_tag(t2, 'operation'), 'test.callbacks.langchain.test_v2.DummyLLM')
         self.assertEqual(t2.context.parent_span_id, t1.span_id)
         self.assertEqual(t2.context.root_span_id, t0.span_id)

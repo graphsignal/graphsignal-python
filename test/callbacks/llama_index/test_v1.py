@@ -85,31 +85,26 @@ class LlamaIndexCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_tag(query_root_span, 'ct1'), 'v1')
 
         query_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.query')
-        self.assertEqual(find_tag(query_span, 'component'), 'Memory')
         self.assertEqual(find_tag(query_span, 'ct1'), 'v1')
         self.assertEqual(query_span.context.parent_span_id, query_root_span.span_id)
         self.assertEqual(query_span.context.root_span_id, query_root_span.span_id)
 
         retrieve_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.retrieve')
-        self.assertEqual(find_tag(retrieve_span, 'component'), 'Memory')
         self.assertEqual(find_tag(retrieve_span, 'ct1'), 'v1')
         self.assertEqual(retrieve_span.context.parent_span_id, query_span.span_id)
         self.assertEqual(retrieve_span.context.root_span_id, query_root_span.span_id)
 
         embedding_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.embedding')
-        self.assertEqual(find_tag(embedding_span, 'component'), 'LLM')
         self.assertEqual(find_tag(embedding_span, 'ct1'), 'v1')
         self.assertEqual(retrieve_span.context.parent_span_id, query_span.span_id)
         self.assertEqual(retrieve_span.context.root_span_id, query_root_span.span_id)
 
         synthesize_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.synthesize')
-        self.assertEqual(find_tag(synthesize_span, 'component'), 'Memory')
         self.assertEqual(find_tag(synthesize_span, 'ct1'), 'v1')
         self.assertEqual(synthesize_span.context.parent_span_id, query_span.span_id)
         self.assertEqual(synthesize_span.context.root_span_id, query_root_span.span_id)
 
         llm_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.llm')
-        self.assertEqual(find_tag(llm_span, 'component'), 'LLM')
         self.assertEqual(find_tag(llm_span, 'ct1'), 'v1')
         self.assertIsNotNone(find_payload(llm_span, 'formatted_prompt'))
         self.assertIsNotNone(find_payload(llm_span, 'completion'))

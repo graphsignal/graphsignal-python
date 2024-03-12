@@ -56,28 +56,19 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
 
             if event_type == CBEventType.EMBEDDING:
                 span = self._start_trace(event_id, operation)
-                if span:
-                    span.set_tag('component', 'LLM')
             elif event_type == CBEventType.LLM:
                 span = self._start_trace(event_id, operation)
                 if span:
-                    span.set_tag('component', 'LLM')
                     if payload and 'template' in payload:
                         span.set_payload('template', payload['template'])
                     if payload and 'context_str' in payload:
                         span.set_payload('context', payload['context_str'])
             elif event_type == CBEventType.QUERY:
                 span = self._start_trace(event_id, operation)
-                if span:
-                    span.set_tag('component', 'Memory')
             elif event_type == CBEventType.RETRIEVE:
                 span = self._start_trace(event_id, operation)
-                if span:
-                    span.set_tag('component', 'Memory')
             elif event_type == CBEventType.SYNTHESIZE:
                 span = self._start_trace(event_id, operation)
-                if span:
-                    span.set_tag('component', 'Memory')
         except Exception:
             logger.error('Error in LlamaIndex callback handler', exc_info=True)
 

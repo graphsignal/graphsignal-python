@@ -43,7 +43,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             self, serialized: Dict[str, Any], prompts: List[str], **kwargs: Any) -> None:
         operation = 'langchain.llms.' + serialized.get('name', 'LLM')
         span = graphsignal.trace(operation)
-        span.set_tag('component', 'LLM')
         push_current_span(span)
         if prompts:
             span.set_payload('prompts', prompts)
@@ -71,8 +70,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
         chain_name = serialized.get('name', 'Chain')
         operation = 'langchain.chains.' + chain_name
         span = graphsignal.trace(operation)
-        if chain_name.endswith('AgentExecutor'):
-            span.set_tag('component', 'Agent')
         push_current_span(span)
         if inputs:
             span.set_payload('inputs', inputs)
@@ -98,7 +95,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             self, serialized: Dict[str, Any], input_str: str, **kwargs: Any) -> None:
         operation = 'langchain.agents.tools.' + serialized.get('name', 'Tool')
         span = graphsignal.trace(operation)
-        span.set_tag('component', 'Tool')
         push_current_span(span)
 
     def on_tool_end(self, output: str, **kwargs: Any) -> None:

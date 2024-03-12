@@ -116,7 +116,7 @@ class OpenAIRecorder(BaseRecorder):
     def trace_chat_completion(self, span, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
-        span.set_tag('component', 'LLM')
+        span.set_tag('model_type', 'chat')
         self.set_common_tags(span, 'chat/completions')
         if 'model' in params:
             span.set_tag('model', params['model'])
@@ -217,7 +217,6 @@ class OpenAIRecorder(BaseRecorder):
     def trace_embedding(self, span, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
-        span.set_tag('component', 'LLM')
         self.set_common_tags(span, 'embeddings')
         if 'model' in params:
             span.set_tag('model', params['model'])
@@ -251,19 +250,16 @@ class OpenAIRecorder(BaseRecorder):
         span.set_payload('input', input_data, usage=input_usage)
 
     def trace_image_generation(self, span, args, kwargs, ret, exc):
-        span.set_tag('component', 'LLM')
         self.set_common_tags(span, 'images/generations')
 
         self.trace_image_endpoint(span, args, kwargs, ret, exc)
 
     def trace_image_variation(self, span, args, kwargs, ret, exc):
-        span.set_tag('component', 'LLM')
         self.set_common_tags(span, 'images/variations')
 
         self.trace_image_endpoint(span, args, kwargs, ret, exc)
 
     def trace_image_edit(self, span, args, kwargs, ret, exc):
-        span.set_tag('component', 'LLM')
         self.set_common_tags(span, 'images/edits')
 
         self.trace_image_endpoint(span, args, kwargs, ret, exc)
@@ -301,7 +297,6 @@ class OpenAIRecorder(BaseRecorder):
     def trace_audio_transcription(self, span, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
-        span.set_tag('component', 'LLM')
         self.set_common_tags(span, 'audio/transcriptions')
         if 'model' in params:
             span.set_tag('model', params['model'])
@@ -334,7 +329,6 @@ class OpenAIRecorder(BaseRecorder):
     def trace_audio_translation(self, span, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
-        span.set_tag('component', 'LLM')
         self.set_common_tags(span, 'audio/translations')
         if 'model' in params:
             span.set_tag('model', params['model'])

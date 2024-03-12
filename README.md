@@ -173,25 +173,31 @@ See API reference for more information on [`graphsignal.score`](https://graphsig
 
 **Manual tracing**
 
-To measure and monitor operations that are not automatically instrumented, e.g. any model inference or inference API calls, wrap the code with [`trace()`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace) method or use [`@trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
+To measure and monitor operations that are not automatically instrumented, wrap the code with [`trace()`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace) method or use [`@trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
 
-To record payloads and track usage metrics, use [`Span.set_payload()`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanset_payload). When tracing LLM generations, you can provide payloads in [OpenAI format](https://platform.openai.com/docs/api-reference/chat), which is supported by Graphsignal.
+To record payloads and track usage metrics, use [`Span.set_payload()`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanset_payload). 
 
 ```python
-with graphsignal.trace('generate') as span:
-    output_data = generate(input_data)
-    span.set_payload('input', input_data, usage=dict(token_count=input_token_count))
-    span.set_payload('output', input_data, usage=dict(token_count=output_token_count))
+with graphsignal.trace('my-operation') as span:
+    ...
+    span.set_payload('my-data', data, usage=dict(size=my_data_size))
 ```
 
 ```python
 @graphsignal.trace_function
-def predict(x):
-    return model(x)
+def my_function():
+    ...
 ```
 
-See [API reference](https://graphsignal.com/docs/reference/python-api/) for full documentation.
+When tracing LLM generations, provide payloads in [OpenAI format](https://platform.openai.com/docs/api-reference/chat), which is supported by Graphsignal. Set `model_type='chat'` tag and add input and output data as `input` and `output` payloads respectively.
 
+```python
+with graphsignal.trace('generate', tags=dict(model_type='chat')) as span:
+    output_data = my_llm_call(input_data)
+    ...
+    span.set_payload('input', input_data, usage=dict(token_count=input_token_count))
+    span.set_payload('output', input_data, usage=dict(token_count=output_token_count))
+```
 
 For auto-instrumented libraries, or when using `@trace_function` decorator, `trace()` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`Span.add_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanadd_exception).
 
