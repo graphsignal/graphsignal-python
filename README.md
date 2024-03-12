@@ -85,29 +85,6 @@ with graphsignal.trace(tags=dict(session_id=session_id)):
 
 If you are running a single process per session and added Graphsignal at command line, you can set the `session_id` tag in an environment variable.
 
-```sh
-env GRAPHSIGNAL_TAGS="session_id=123" python -m graphsignal <script>
-```
-
-## Session tracking
-
-Session groups multiple traces together to represent a run, thread, conversation or user interactions. Session tracking allows session-level visualization, analytics and issue detection. It also enables detection of session outliers and other issues.
-
-Set a session identifier as `session_id` tag for every request, e.g. in a request handler:
-
-```python
-graphsignal.set_context_tag('session_id', session_id)
-```
-
-or directly, when tracing manually:
-
-```python
-with graphsignal.trace(tags=dict(session_id=session_id)):
-    ...
-```
-
-If you are running a single process per session and added Graphsignal at command line, you can set the `session_id` tag in an environment variable.
-
 ```bash
 env GRAPHSIGNAL_TAGS="session_id=123" python -m graphsignal <script>
 ```
