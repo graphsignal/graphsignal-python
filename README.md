@@ -68,7 +68,7 @@ Some integration examples are available in [examples](https://github.com/graphsi
 
 ### Session tracking
 
-Session groups multiple traces together to represent a run, thread, conversation or user interactions. Session tracking allows session-level visualization, analytics and issue detection. It also enables detection of session outliers and other issues.
+Session groups multiple traces together to represent a run, thread, conversation or user interactions. Session tracking allows session-level visualization, analytics and issue detection.
 
 Set a session identifier as `session_id` tag for every request, e.g. in a request handler:
 
@@ -91,7 +91,7 @@ env GRAPHSIGNAL_TAGS="session_id=123" python -m graphsignal <script>
 
 ### User tracking
 
-User tracking allows grouping and visualization of user-related traces, interactions, metrics, and costs. It also enables detection of user interaction outliers and other events.
+User tracking allows grouping and visualization of user-related traces, interactions, metrics, and costs. It also enables detection of user interaction outliers and other issues.
 
 To enable user tracking, set user identifier as `user_id` tag for every request, e.g. in a request handler:
 
@@ -173,7 +173,7 @@ with graphsignal.trace('generate', tags=dict(model_type='chat')) as span:
     output_data = my_llm_call(input_data)
     ...
     span.set_payload('input', input_data, usage=dict(token_count=input_token_count))
-    span.set_payload('output', input_data, usage=dict(token_count=output_token_count))
+    span.set_payload('output', output_data, usage=dict(token_count=output_token_count))
 ```
 
 For auto-instrumented libraries, or when using `@trace_function` decorator, `trace()` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`Span.add_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanadd_exception).
