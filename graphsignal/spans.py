@@ -575,7 +575,7 @@ def encode_data_payload(data):
 
 
 def _obj_to_dict(obj, level=0):
-    if level >= 10:
+    if level >= 50:
         return
     if isinstance(obj, (int, float, str, bool, type(None))):
         return obj

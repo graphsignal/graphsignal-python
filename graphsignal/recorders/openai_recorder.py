@@ -121,40 +121,10 @@ class OpenAIRecorder(BaseRecorder):
         if 'model' in params:
             span.set_tag('model', params['model'])
 
-        param_names = [
-            'messages',
-            'model',
-            'function_call',
-            'functions',
-            'tools',
-            'max_tokens',
-            'temperature',
-            'top_logprobs',
-            'top_p',
-            'n',
-            'stream',
-            'logprobs',
-            'stop',
-            'presence_penalty',
-            'frequency_penalty',
-            'best_of',
-            'response_format',
-            'tool_choice',
-            'seed',
-            'user',
-            'extra_headers',
-            'extra_query',
-            'extra_body',
-            'timeout'
-        ]
-
-        input_data = {}
         input_usage = {
             'token_count': 0
         }
-        for param_name in param_names:
-            if param_name in params:
-                input_data[param_name] = params[param_name]
+
         if 'stream' in params and params['stream']:
             if 'messages' in params:
                 if 'model' in params and not exc:
@@ -179,14 +149,13 @@ class OpenAIRecorder(BaseRecorder):
                     if input_usage['token_count'] > 0:
                         input_usage['token_count'] += self._extra_reply_tokens.get(model, 0)
 
-            span.set_payload('input', input_data, usage=input_usage)
+            span.set_payload('input', params, usage=input_usage)
         else:
             if ret and 'model' in ret:
                 span.set_tag('model', ret['model'])
 
             ret = ret.model_dump()
 
-            input_data = {}
             input_usage = {}
             output_usage = {
                 'token_count': 0
@@ -197,7 +166,7 @@ class OpenAIRecorder(BaseRecorder):
                 if 'completion_tokens' in ret['usage']:
                     output_usage['token_count'] = ret['usage']['completion_tokens']
 
-            span.set_payload('input', input_data, usage=input_usage)
+            span.set_payload('input', params, usage=input_usage)
 
             if ret:
                 span.set_payload('output', ret, usage=output_usage)
@@ -221,22 +190,7 @@ class OpenAIRecorder(BaseRecorder):
         if 'model' in params:
             span.set_tag('model', params['model'])
 
-        input_data = {}
         input_usage = {}
-
-        param_names = [
-            'model',
-            'input',
-            'encoding_format',
-            'dimensions',
-            'user',
-            'extra_headers',
-            'extra_query',
-            'extra_body'
-        ]
-        for param_name in param_names:
-            if param_name in params:
-                input_data[param_name] = params[param_name]
 
         ret = ret.model_dump()
 
@@ -247,7 +201,7 @@ class OpenAIRecorder(BaseRecorder):
             if 'prompt_tokens' in ret['usage']:
                 input_usage['token_count'] = ret['usage']['prompt_tokens']
 
-        span.set_payload('input', input_data, usage=input_usage)
+        span.set_payload('input', params, usage=input_usage)
 
     def trace_image_generation(self, span, args, kwargs, ret, exc):
         self.set_common_tags(span, 'images/generations')
@@ -267,23 +221,7 @@ class OpenAIRecorder(BaseRecorder):
     def trace_image_endpoint(self, span, args, kwargs, ret, exc):
         params = kwargs # no positional args
 
-        param_names = [
-            'prompt',
-            'n',
-            'size',
-            'response_format',
-            'extra_headers',
-            'extra_query',
-            'extra_body'
-        ]
-
-        input_data = {}
-
-        for param_name in param_names:
-            if param_name in params:
-                input_data[param_name] = params[param_name]
-
-        span.set_payload('input', input_data)
+        span.set_payload('input', params)
 
         if ret and 'data' in ret:
             image_data = []
@@ -301,25 +239,7 @@ class OpenAIRecorder(BaseRecorder):
         if 'model' in params:
             span.set_tag('model', params['model'])
 
-        param_names = [
-            'prompt',
-            'file',
-            'model',
-            'temperature',
-            'response_format',
-            'language',
-            'extra_headers',
-            'extra_query',
-            'extra_body'
-        ]
-
-        input_data = {}
-
-        for param_name in param_names:
-            if param_name in params:
-                input_data[param_name] = params[param_name]
-
-        span.set_payload('input', input_data)
+        span.set_payload('input', params)
 
         ret = ret.model_dump()
 
@@ -335,21 +255,7 @@ class OpenAIRecorder(BaseRecorder):
 
         input_data = {}
 
-        param_names = [
-            'prompt',
-            'file',
-            'model',
-            'temperature',
-            'response_format',
-            'extra_headers',
-            'extra_query',
-            'extra_body'
-        ]
-        for param_name in param_names:
-            if param_name in params:
-                input_data[param_name] = params[param_name]
-
-        span.set_payload('input', input_data)
+        span.set_payload('input', params)
 
         ret = ret.model_dump()
 
@@ -363,20 +269,7 @@ class OpenAIRecorder(BaseRecorder):
         if 'model' in params:
             span.set_tag('model', params['model'])
 
-        input_data = {}
-
-        param_names = [
-            'input',
-            'model',
-            'extra_headers',
-            'extra_query',
-            'extra_body'
-        ]
-        for param_name in param_names:
-            if param_name in params:
-                input_data[param_name] = params[param_name]
-
-        span.set_payload('input', input_data)
+        span.set_payload('input', params)
 
     def on_span_read(self, span, context):
         if self._library_version:

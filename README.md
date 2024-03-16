@@ -106,6 +106,8 @@ with graphsignal.trace(tags=dict(user_id=user_id)):
     ...
 ```
 
+You can additionally set `user_name` and `user_email` tags.
+
 If you are running a single process per user and added Graphsignal at command line, you can set the `user_id` tag in an environment variable.
 
 ```bash

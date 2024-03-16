@@ -176,7 +176,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                                 if hasattr(generation.message, 'content'):
                                     output['choices'].append(dict(message=dict(content=generation.message.content)))
                             elif hasattr(generation, 'text'):
-                                output['choices'].append(generation.text)
+                                output['choices'].append(dict(message=dict(content=generation.text)))
                 elif isinstance(response, LLMResult):
                     if hasattr(response, 'generations') and isinstance(response.generations, list):
                         for generation_list in response.generations:
@@ -185,7 +185,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                                     if hasattr(generation.message, 'content'):
                                         output['choices'].append(dict(message=dict(content=generation.message.content)))
                                 elif hasattr(generation, 'text'):
-                                    output['choices'].append(generation.text)
+                                    output['choices'].append(dict(message=dict(content=generation.text)))
                 if len(output['choices']) > 0:
                     span.set_payload('output', output)
             self._stop_trace(run_id)

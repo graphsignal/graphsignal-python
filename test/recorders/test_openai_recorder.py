@@ -31,6 +31,7 @@ os.environ['OPENAI_API_KEY'] = 'sk-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
 
 class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
+        self.maxDiff = None
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
