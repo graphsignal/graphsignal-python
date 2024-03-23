@@ -6,7 +6,7 @@ import math
 
 import graphsignal
 from graphsignal import version
-from graphsignal.proto import signals_pb2
+from graphsignal import client
 
 logger = logging.getLogger('graphsignal')
 
@@ -28,26 +28,28 @@ class BaseMetric:
     def export(self):
         self.is_updated = False
 
-        proto = signals_pb2.Metric()
-        proto.scope = self.scope
-        proto.name = self.name
+        model = client.Metric(
+            scope=self.scope,
+            name=self.name,
+            tags=[],
+            type=self.type,
+            is_time=self.is_time,
+            is_size=self.is_size,
+            update_ts=self.update_ts)
         for key, value in self.tags.items():
-            tag = proto.tags.add()
-            tag.key = str(key)[:50]
-            tag.value = str(value)[:250]
-        proto.type = self.type
+            model.tags.append(client.Tag(
+                key=str(key)[:50],
+                value=str(value)[:250]
+            ))
         if self.unit is not None:
-            proto.unit = self.unit
-        proto.is_time = self.is_time
-        proto.is_size = self.is_size
-        proto.update_ts = self.update_ts
-        return proto
+            model.unit = self.unit
+        return model
 
 
 class GaugeMetric(BaseMetric):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.type = signals_pb2.Metric.MetricType.GAUGE_METRIC
+        self.type = 'gauge'
         self.gauge = None
 
     def update(self, value, update_ts):
@@ -58,17 +60,17 @@ class GaugeMetric(BaseMetric):
 
     def export(self):
         with self._update_lock:
-            proto = super().export()
+            model = super().export()
             if self.gauge is not None:
-                proto.gauge = self.gauge
+                model.gauge = self.gauge
             self.gauge = None
-            return proto
+            return model
 
 
 class CounterMetric(BaseMetric):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.type = signals_pb2.Metric.MetricType.COUNTER_METRIC
+        self.type = 'counter'
         self.counter = 0
 
     def update(self, value, update_ts):
@@ -79,17 +81,17 @@ class CounterMetric(BaseMetric):
 
     def export(self):
         with self._update_lock:
-            proto = super().export()
+            model = super().export()
             if self.counter > 0:
-                proto.counter = self.counter
+                model.counter = self.counter
                 self.counter = 0
-            return proto
+            return model
 
 
 class HistogramMetric(BaseMetric):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.type = signals_pb2.Metric.MetricType.HISTOGRAM_METRIC
+        self.type = 'histogram'
         self.histogram = {}
 
     def update(self, value, update_ts):
@@ -104,12 +106,13 @@ class HistogramMetric(BaseMetric):
 
     def export(self):
         with self._update_lock:
-            proto = super().export()
+            model = super().export()
+            model.histogram = client.Histogram(bins=[], counts=[])
             for bin, count in self.histogram.items():
-                proto.histogram.bins.append(bin)
-                proto.histogram.counts.append(count)
+                model.histogram.bins.append(bin)
+                model.histogram.counts.append(count)
             self.histogram = {}
-            return proto
+            return model
 
 
 class MetricStore:
@@ -159,12 +162,12 @@ class MetricStore:
         return False
 
     def export(self):
-        protos = []
+        models = []
         with self._update_lock:
             for metric in self._metrics.values():
                 if metric.is_updated:
-                    protos.append(metric.export())
-        return protos
+                    models.append(metric.export())
+        return models
 
     def clear(self):
         with self._update_lock:

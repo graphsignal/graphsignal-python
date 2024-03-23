@@ -3,7 +3,6 @@ import logging
 import sys
 import os
 from unittest.mock import patch, Mock
-from google.protobuf.json_format import MessageToJson
 import pprint
 import openai
 from langchain.agents import Tool, initialize_agent, load_tools
@@ -18,7 +17,7 @@ import graphsignal
 from graphsignal.uploader import Uploader
 from graphsignal.recorders.openai_recorder import OpenAIRecorder
 from graphsignal.callbacks.langchain.v1 import GraphsignalCallbackHandler
-from test.proto_utils import find_tag, find_usage
+from test.model_utils import find_tag, find_usage
 
 logger = logging.getLogger('graphsignal')
 
@@ -69,11 +68,11 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_usage(t1, 'outputs', 'byte_count'), 2.0)
 
         self.assertEqual(find_tag(t2, 'operation'), 'langchain.chains.LLMChain')
-        self.assertEqual(t2.context.parent_span_id, t1.span_id)
-        self.assertEqual(t2.context.root_span_id, t1.span_id)
+        self.assertEqual(t2.parent_span_id, t1.span_id)
+        self.assertEqual(t2.root_span_id, t1.span_id)
         self.assertEqual(find_usage(t2, 'inputs', 'byte_count'), 61.0)
         self.assertEqual(find_usage(t2, 'outputs', 'byte_count'), 15.0)
 
         self.assertEqual(find_tag(t3, 'operation'), 'langchain.llms.DummyLLM')
-        self.assertEqual(t3.context.parent_span_id, t2.span_id)
-        self.assertEqual(t3.context.root_span_id, t1.span_id)
+        self.assertEqual(t3.parent_span_id, t2.span_id)
+        self.assertEqual(t3.root_span_id, t1.span_id)

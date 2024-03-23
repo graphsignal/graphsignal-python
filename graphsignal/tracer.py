@@ -123,7 +123,7 @@ class Tracer:
         if api_url:
             self.api_url = api_url
         else:
-            self.api_url = 'https://signal-api.graphsignal.com'
+            self.api_url = 'https://api.graphsignal.com'
         self.deployment = deployment
         self.tags = tags
         self.context_tags = None
@@ -249,31 +249,31 @@ class Tracer:
     def log_store(self):
         return self._log_store
 
-    def emit_span_start(self, proto, context):
+    def emit_span_start(self, model, context):
         last_exc = None
         for recorder in self.recorders():
             try:
-                recorder.on_span_start(proto, context)
+                recorder.on_span_start(model, context)
             except Exception as exc:
                 last_exc = exc
         if last_exc:
             raise last_exc
 
-    def emit_span_stop(self, proto, context):
+    def emit_span_stop(self, model, context):
         last_exc = None
         for recorder in self.recorders():
             try:
-                recorder.on_span_stop(proto, context)
+                recorder.on_span_stop(model, context)
             except Exception as exc:
                 last_exc = exc
         if last_exc:
             raise last_exc
 
-    def emit_span_read(self, proto, context):
+    def emit_span_read(self, model, context):
         last_exc = None
         for recorder in self.recorders():
             try:
-                recorder.on_span_read(proto, context)
+                recorder.on_span_read(model, context)
             except Exception as exc:
                 last_exc = exc
         if last_exc:

@@ -2,14 +2,13 @@ import unittest
 import logging
 import sys
 from unittest.mock import patch, Mock
-from google.protobuf.json_format import MessageToJson
 import pprint
 from typing import Any, List, Mapping, Optional
 from langchain.llms.base import LLM
 
 
 import graphsignal
-from graphsignal.proto import signals_pb2
+from graphsignal import client
 from graphsignal.uploader import Uploader
 from graphsignal.recorders.langchain_recorder import LangChainRecorder
 from graphsignal.recorders.openai_recorder import OpenAIRecorder
@@ -49,13 +48,18 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
     async def test_record(self):
         recorder = LangChainRecorder()
         recorder.setup()
-        proto = signals_pb2.Span()
+        model = client.Span(
+            span_id='s1',
+            start_us=0,
+            end_us=0,
+            config=[]
+        )
         context = {}
-        recorder.on_span_start(proto, context)
-        recorder.on_span_stop(proto, context)
-        recorder.on_span_read(proto, context)
+        recorder.on_span_start(model, context)
+        recorder.on_span_stop(model, context)
+        recorder.on_span_read(model, context)
 
-        self.assertEqual(proto.config[0].key, 'langchain.library.version')
+        self.assertEqual(model.config[0].key, 'langchain.library.version')
 
     @patch.object(Uploader, 'upload_span')
     async def test_chain(self, mocked_upload_span):

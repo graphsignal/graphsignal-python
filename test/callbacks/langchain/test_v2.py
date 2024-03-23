@@ -5,7 +5,6 @@ import os
 import json
 import time
 from unittest.mock import patch, Mock
-from google.protobuf.json_format import MessageToJson
 import pprint
 import openai
 from langchain.agents import AgentExecutor, create_react_agent, load_tools
@@ -19,7 +18,7 @@ import graphsignal
 from graphsignal.uploader import Uploader
 from graphsignal.callbacks.langchain.v2 import GraphsignalCallbackHandler
 from graphsignal.recorders.openai_recorder import OpenAIRecorder
-from test.proto_utils import find_tag, find_usage, find_payload
+from test.model_utils import find_tag, find_usage, find_payload
 
 logger = logging.getLogger('graphsignal')
 
@@ -116,10 +115,10 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_tag(t0, 'operation'), 'run_chain')
 
         self.assertEqual(find_tag(t1, 'operation'), 'langchain.chains.llm.LLMChain')
-        self.assertEqual(t1.context.parent_span_id, t0.span_id)
-        self.assertEqual(t1.context.root_span_id, t0.span_id)
+        self.assertEqual(t1.parent_span_id, t0.span_id)
+        self.assertEqual(t1.root_span_id, t0.span_id)
 
         self.assertEqual(find_tag(t2, 'library'), 'langchain')
         self.assertEqual(find_tag(t2, 'operation'), 'test.callbacks.langchain.test_v2.DummyLLM')
-        self.assertEqual(t2.context.parent_span_id, t1.span_id)
-        self.assertEqual(t2.context.root_span_id, t0.span_id)
+        self.assertEqual(t2.parent_span_id, t1.span_id)
+        self.assertEqual(t2.root_span_id, t0.span_id)

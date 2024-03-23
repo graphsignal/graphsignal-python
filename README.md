@@ -150,6 +150,9 @@ with graphsignal.trace('generate') as span:
 See API reference for more information on [`graphsignal.score`](https://graphsignal.com/docs/reference/python-api/#graphsignalscore) and [`Span.score`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanscore) methods.
 
 
+Use [REST API](https://graphsignal.com/docs/reference/rest-api) to upload scores from any application or environment.
+
+
 ### Manual tracing
 
 To measure and monitor operations that are not automatically instrumented, wrap the code with [`trace()`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace) method or use [`@trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
@@ -193,7 +196,7 @@ Graphsignal tracer is very lightweight. The overhead per trace is measured to be
 
 ## Security and Privacy
 
-Graphsignal tracer can only open outbound connections to `signal-api.graphsignal.com` and send data, no inbound connections or commands are possible.
+Graphsignal tracer can only open outbound connections to `api.graphsignal.com` and send data, no inbound connections or commands are possible.
 
 Payloads, such as prompts and completions, are recorded by default in case of automatic tracing. To disable, set `record_payloads=False` in `graphsignal.configure`.
 
@@ -202,4 +205,4 @@ Payloads, such as prompts and completions, are recorded by default in case of au
 
 To enable debug logging, add `debug_mode=True` to `configure()`. If the debug log doesn't give you any hints on how to fix a problem, please report it to our support team via your account.
 
-In case of connection issues, please make sure outgoing connections to `https://signal-api.graphsignal.com` are allowed.
+In case of connection issues, please make sure outgoing connections to `https://api.graphsignal.com` are allowed.

@@ -5,7 +5,7 @@ import time
 from unittest.mock import patch, Mock
 
 import graphsignal
-from graphsignal.spans import Span, get_current_span, encode_data_payload
+from graphsignal.spans import Span, get_current_span, encode_payload
 from graphsignal.recorders.process_recorder import ProcessRecorder
 from graphsignal.uploader import Uploader
 
@@ -57,10 +57,9 @@ class SpansTest(unittest.TestCase):
 
         self.assertTrue(span.start_us > 0)
         self.assertTrue(span.end_us > 0)
-        self.assertTrue(span.context.end_ns > 0)
-        self.assertTrue(span.context.start_ns > 0)
-        self.assertTrue(span.context.first_token_ns > 0)
-        self.assertEqual(span.context.root_span_id, span.span_id)
+        self.assertTrue(span.latency_ns > 0)
+        self.assertTrue(span.ttft_ns > 0)
+        self.assertEqual(span.root_span_id, span.span_id)
         self.assertEqual(span.tags[0].key, 'deployment')
         self.assertEqual(span.tags[0].value, 'd1')
         self.assertEqual(span.tags[1].key, 'operation')
@@ -83,12 +82,12 @@ class SpansTest(unittest.TestCase):
         self.assertEqual(span.usage[1].payload_name, 'input')
         self.assertEqual(span.usage[1].name, 'c2')
         self.assertEqual(span.usage[1].value, 2)
-        self.assertEqual(span.usage[2].payload_name, '')
+        self.assertEqual(span.usage[2].payload_name, None)
         self.assertEqual(span.usage[2].name, 'c3')
         self.assertEqual(span.usage[2].value, 3)
         self.assertEqual(span.payloads[0].name, 'input')
         self.assertEqual(span.payloads[0].content_type, 'application/json')
-        self.assertEqual(span.payloads[0].content_bytes, b'[[1, 2], [3, 4]]')
+        self.assertEqual(span.payloads[0].content_base64, 'W1sxLCAyXSwgWzMsIDRdXQ==')
         self.assertEqual(span.config[0].key, 'graphsignal.library.version')
 
         store = graphsignal._tracer.metric_store()
@@ -100,14 +99,14 @@ class SpansTest(unittest.TestCase):
         key = store.metric_key('performance', 'call_count', metric_tags)
         self.assertEqual(store._metrics[key].counter, 10)
 
-        data_tags = metric_tags.copy()
-        key = store.metric_key('data', 'c3', data_tags)
+        usage_tags = metric_tags.copy()
+        key = store.metric_key('usage', 'c3', usage_tags)
         self.assertEqual(store._metrics[key].counter, 30)
 
-        data_tags['payload'] = 'input'
-        key = store.metric_key('data', 'c1', data_tags)
+        usage_tags['payload'] = 'input'
+        key = store.metric_key('usage', 'c1', usage_tags)
         self.assertEqual(store._metrics[key].counter, 10)
-        key = store.metric_key('data', 'c2', data_tags)
+        key = store.metric_key('usage', 'c2', usage_tags)
         self.assertEqual(store._metrics[key].counter, 20)
 
         score = mocked_upload_score.call_args[0][0]
@@ -150,9 +149,9 @@ class SpansTest(unittest.TestCase):
 
         self.assertTrue(t1.start_us > 0)
         self.assertTrue(t1.end_us > 0)
-        self.assertEqual(t1.context.root_span_id, t1.span_id)
-        self.assertEqual(t2.context.parent_span_id, t1.span_id)
-        self.assertEqual(t2.context.root_span_id, t1.span_id)
+        self.assertEqual(t1.root_span_id, t1.span_id)
+        self.assertEqual(t2.parent_span_id, t1.span_id)
+        self.assertEqual(t2.root_span_id, t1.span_id)
 
         self.assertTrue(t2.start_us > 0)
         self.assertTrue(t2.end_us > 0)
@@ -172,7 +171,7 @@ class SpansTest(unittest.TestCase):
 
         self.assertTrue(span.start_us > 0)
         self.assertTrue(span.end_us > 0)
-        self.assertEqual(span.context.root_span_id, span.span_id)
+        self.assertEqual(span.root_span_id, span.span_id)
         self.assertEqual(find_log_entry(store, 'ex1').tags['deployment'], 'd1')
         self.assertIsNotNone(find_log_entry(store, 'ex1').message)
         self.assertIsNotNone(find_log_entry(store, 'ex1').exception)
@@ -212,7 +211,7 @@ class SpansTest(unittest.TestCase):
         self.assertTrue(span.span_id != '')
         self.assertTrue(span.start_us > 0)
         self.assertTrue(span.end_us > 0)
-        self.assertEqual(span.context.root_span_id, span.span_id)
+        self.assertEqual(span.root_span_id, span.span_id)
         self.assertEqual(span.exceptions[0].exc_type, 'Exception')
         self.assertEqual(span.exceptions[0].message, 'ex1')
         self.assertNotEqual(span.exceptions[0].stack_trace, '')
@@ -235,7 +234,7 @@ class SpansTest(unittest.TestCase):
 
         self.assertTrue(span.start_us > 0)
         self.assertTrue(span.end_us > 0)
-        self.assertEqual(span.context.root_span_id, span.span_id)
+        self.assertEqual(span.root_span_id, span.span_id)
         self.assertEqual(span.exceptions[0].exc_type, 'Exception')
         self.assertEqual(span.exceptions[0].message, 'ex2')
         self.assertNotEqual(span.exceptions[0].stack_trace, '')
@@ -258,7 +257,7 @@ class SpansTest(unittest.TestCase):
 
         self.assertTrue(span.start_us > 0)
         self.assertTrue(span.end_us > 0)
-        self.assertEqual(span.context.root_span_id, span.span_id)
+        self.assertEqual(span.root_span_id, span.span_id)
         self.assertEqual(span.exceptions[0].exc_type, 'Exception')
         self.assertEqual(span.exceptions[0].message, 'ex2')
         self.assertNotEqual(span.exceptions[0].stack_trace, '')
@@ -277,7 +276,7 @@ class SpansTest(unittest.TestCase):
 
         self.assertTrue(span.start_us > 0)
         self.assertTrue(span.end_us > 0)
-        self.assertEqual(span.context.root_span_id, span.span_id)
+        self.assertEqual(span.root_span_id, span.span_id)
 
     @patch.object(Uploader, 'upload_span')
     def test_subspans(self, mocked_upload_span):
@@ -293,18 +292,19 @@ class SpansTest(unittest.TestCase):
         t4 = mocked_upload_span.call_args_list[2][0][0]
         t1 = mocked_upload_span.call_args_list[3][0][0]
 
-        self.assertEqual(t1.context.parent_span_id, '')
-        self.assertEqual(t1.context.root_span_id, t1.span_id)
+        self.assertEqual(t1.parent_span_id, None)
+        self.assertEqual(t1.root_span_id, t1.span_id)
 
-        self.assertEqual(t2.context.parent_span_id, t1.span_id)
-        self.assertEqual(t2.context.root_span_id, t1.span_id)
+        self.assertEqual(t2.parent_span_id, t1.span_id)
+        self.assertEqual(t2.root_span_id, t1.span_id)
 
-        self.assertEqual(t3.context.parent_span_id, t2.span_id)
-        self.assertEqual(t3.context.root_span_id, t1.span_id)
+        self.assertEqual(t3.parent_span_id, t2.span_id)
+        self.assertEqual(t3.root_span_id, t1.span_id)
 
-        self.assertEqual(t4.context.parent_span_id, t1.span_id)
-        self.assertEqual(t4.context.root_span_id, t1.span_id)
+        self.assertEqual(t4.parent_span_id, t1.span_id)
+        self.assertEqual(t4.root_span_id, t1.span_id)
 
+    #@unittest.skip('for now')
     @patch.object(Uploader, 'upload_span')
     def test_overhead(self, mocked_upload_span):
         #import cProfile, pstats
@@ -326,8 +326,8 @@ class SpansTest(unittest.TestCase):
 
         self.assertTrue(took_ns / calls < 200 * 1e3) # less than 200 microseconds per trace
 
-    def test_encode_data_payload(self):
-        content_type, content_bytes = encode_data_payload(['text\n', 2.0, float('nan')])
+    def test_encode_payload(self):
+        content_type, content_bytes = encode_payload(['text\n', 2.0, float('nan')])
         self.assertEqual(content_type, 'application/json')
         self.assertEqual(content_bytes, b'["text\\n", 2.0, NaN]')
 

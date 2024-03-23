@@ -12,8 +12,9 @@ try:
 except ImportError:
     pass
 
-import graphsignal
+from graphsignal import client
 from graphsignal.recorders.base_recorder import BaseRecorder
+import graphsignal
 
 logger = logging.getLogger('graphsignal')
 
@@ -108,21 +109,21 @@ class ProcessRecorder(BaseRecorder):
                 scope='system', name='node_memory_used', tags=metric_tags, 
                 value=node_usage.mem_used, update_ts=now, is_size=True)
 
-    def on_span_read(self, span, context):
+    def on_span_read(self, model, context):
         if self._last_snapshot:
             process_usage, node_usage = self._last_snapshot
-            entry = span.config.add()
-            entry.key = 'os.name'
-            entry.value = node_usage.os_name
-            entry = span.config.add()
-            entry.key = 'os.version'
-            entry.value = node_usage.os_version
-            entry = span.config.add()
-            entry.key = 'runtime.name'
-            entry.value = process_usage.runtime
-            entry = span.config.add()
-            entry.key = 'runtime.version'
-            entry.value = str(process_usage.runtime_version)
+            model.config.append(client.ConfigEntry(
+                key='os.name',
+                value=node_usage.os_name))
+            model.config.append(client.ConfigEntry(
+                key='os.version',
+                value=node_usage.os_version))
+            model.config.append(client.ConfigEntry(
+                key='runtime.name',
+                value=process_usage.runtime))
+            model.config.append(client.ConfigEntry(
+                key='runtime.version',
+                value=str(process_usage.runtime_version)))
 
     def take_snapshot(self):
         if not OS_WIN:

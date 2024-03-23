@@ -5,6 +5,7 @@ set -e
 source venv/bin/activate
 pip install --upgrade pip
 pip install --upgrade setuptools
+pip install --upgrade pydantic
 pip install --upgrade torch
 pip install --upgrade openai
 pip install --upgrade tiktoken

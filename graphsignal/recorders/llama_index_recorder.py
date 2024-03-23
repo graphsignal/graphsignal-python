@@ -4,8 +4,8 @@ import llama_index
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
 from graphsignal.recorders.instrumentation import parse_semver, compare_semver
-from graphsignal.proto import signals_pb2
 from graphsignal.recorders.instrumentation import patch_method
+from graphsignal import client
 
 logger = logging.getLogger('graphsignal')
 
@@ -54,8 +54,8 @@ class LlamaIndexRecorder(BaseRecorder):
             llama_index.callbacks.get_callback_manager().remove_handler(self._v1_handler)
             self._v1_handler = None
 
-    def on_span_read(self, span, context):
+    def on_span_read(self, model, context):
         if self._library_version:
-            entry = span.config.add()
-            entry.key = 'llama_index'
-            entry.value = self._library_version
+            model.config.append(client.ConfigEntry(
+                key='llama_index.library.version',
+                value=self._library_version))

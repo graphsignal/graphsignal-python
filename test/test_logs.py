@@ -4,7 +4,6 @@ import sys
 import os
 import time
 from unittest.mock import patch, Mock
-from google.protobuf.json_format import MessageToJson
 import pprint
 import random
 
@@ -29,16 +28,16 @@ class LogStoreTest(unittest.TestCase):
         store.clear()
         store.log_message(scope='s1', name='m1', tags={'t1': '1'}, level='l1', message='msg1', exception='exc1')
         store.log_message(scope='s1', name='m1', tags={'t1': '1'}, level='l1', message='msg2', exception='exc2')
-        protos = store.export()
-        self.assertEqual(len(protos), 2)
-        self.assertEqual(protos[0].scope, 's1')
-        self.assertEqual(protos[0].name, 'm1')
-        self.assertEqual(protos[0].tags[0].key, 't1')
-        self.assertEqual(protos[0].tags[0].value, '1')
-        self.assertEqual(protos[0].level, 'l1')
-        self.assertEqual(protos[0].message, 'msg1')
-        self.assertEqual(protos[0].exception, 'exc1')
-        self.assertEqual(protos[0].create_ts, 1)
+        models = store.export()
+        self.assertEqual(len(models), 2)
+        self.assertEqual(models[0].scope, 's1')
+        self.assertEqual(models[0].name, 'm1')
+        self.assertEqual(models[0].tags[0].key, 't1')
+        self.assertEqual(models[0].tags[0].value, '1')
+        self.assertEqual(models[0].level, 'l1')
+        self.assertEqual(models[0].message, 'msg1')
+        self.assertEqual(models[0].exception, 'exc1')
+        self.assertEqual(models[0].create_ts, 1)
 
     def test_has_unexported(self):
         store = graphsignal._tracer.log_store()

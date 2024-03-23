@@ -1,23 +1,18 @@
 import unittest
 import sys
-import json
-import threading
 import time
-import gzip
 import logging
+import threading
+import json
+import gzip
 from io import BytesIO
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.request import urlopen
-from urllib.request import Request
-from urllib.parse import urlencode
-from urllib.error import URLError
-
 
 from unittest.mock import patch, Mock
 
 import graphsignal
 from graphsignal.uploader import Uploader
-from graphsignal.proto import signals_pb2
+from graphsignal import client
 
 logger = logging.getLogger('graphsignal')
 
@@ -37,76 +32,66 @@ class UploaderTest(unittest.TestCase):
         graphsignal._tracer.uploader().clear()
         graphsignal.shutdown()
 
-    @patch.object(Uploader, '_post', return_value=signals_pb2.UploadResponse().SerializeToString())
-    def test_flush(self, mocked_post):
-        proto = signals_pb2.Span()
-        graphsignal._tracer.uploader().upload_span(proto)
+    @patch.object(client.DefaultApi, 'upload_spans')
+    def test_flush(self, mocked_upload_spans):
+        model = client.Span(span_id='1', start_us=0, end_us=0)
+        graphsignal._tracer.uploader().upload_span(model)
         graphsignal._tracer.uploader().flush()
 
-        mocked_post.assert_called_once()
+        mocked_upload_spans.assert_called_once()
         self.assertEqual(len(graphsignal._tracer.uploader()._buffer), 0)
 
-    @patch.object(Uploader, '_post', return_value=signals_pb2.UploadResponse().SerializeToString())
-    def test_flush_in_thread(self, mocked_post):
+    @patch.object(client.DefaultApi, 'upload_spans')
+    def test_flush_in_thread(self, mocked_upload_spans):
         graphsignal._tracer.uploader().FLUSH_DELAY_SEC = 0.01
-        proto = signals_pb2.Span()
-        graphsignal._tracer.uploader().upload_span(proto)
+        model = client.Span(span_id='1', start_us=0, end_us=0)
+        graphsignal._tracer.uploader().upload_span(model)
         graphsignal._tracer.uploader().flush_in_thread()
         time.sleep(0.1)
 
-        mocked_post.assert_called_once()
+        mocked_upload_spans.assert_called_once()
         self.assertEqual(len(graphsignal._tracer.uploader()._buffer), 0)
 
-    @patch.object(Uploader, '_post', return_value=signals_pb2.UploadResponse().SerializeToString())
-    def test_flush_in_thread_cancelled(self, mocked_post):
+    @patch.object(client.DefaultApi, 'upload_spans')
+    def test_flush_in_thread_cancelled(self, mocked_upload_spans):
         graphsignal._tracer.uploader().FLUSH_DELAY_SEC = 5
-        proto = signals_pb2.Span()
-        graphsignal._tracer.uploader().upload_span(proto)
+        model = client.Span(span_id='1', start_us=0, end_us=0)
+        graphsignal._tracer.uploader().upload_span(model)
         graphsignal._tracer.uploader().flush_in_thread()
         self.assertIsNotNone(graphsignal._tracer.uploader()._flush_timer)
         graphsignal._tracer.uploader().flush()
         self.assertIsNone(graphsignal._tracer.uploader()._flush_timer)
 
-        mocked_post.assert_called_once()
+        mocked_upload_spans.assert_called_once()
         self.assertEqual(len(graphsignal._tracer.uploader()._buffer), 0)
 
-    @patch.object(Uploader, '_post', return_value=signals_pb2.UploadResponse().SerializeToString())
-    def test_flush_fail(self, mocked_post):
+    @patch.object(client.DefaultApi, 'upload_spans')
+    def test_flush_fail(self, mocked_upload_spans):
         def side_effect(*args):
-            raise URLError("Ex1")
-        mocked_post.side_effect = side_effect
+            raise Exception("Ex1")
+        mocked_upload_spans.side_effect = side_effect
 
-        proto = signals_pb2.Span()
-        graphsignal._tracer.uploader().upload_span(proto)
-        graphsignal._tracer.uploader().upload_span(proto)
+        model = client.Span(span_id='1', start_us=0, end_us=0)
+        graphsignal._tracer.uploader().upload_span(model)
+        graphsignal._tracer.uploader().upload_span(model)
         graphsignal._tracer.uploader().flush()
 
         self.assertEqual(len(graphsignal._tracer.uploader()._buffer), 2)
 
-    def test_post(self):
+    def test_upload_spans(self):
         graphsignal._tracer.api_url = 'http://localhost:5005'
 
         server = TestServer(5005)
-        server.set_response_data(
-            signals_pb2.UploadResponse().SerializeToString())
+        server.set_response_data(b'{}')
         server.start()
 
-        proto = signals_pb2.Span()
-        proto.span_id = 't1'
-        upload_request = signals_pb2.UploadRequest()
-        upload_request.spans.append(proto)
-        upload_request.upload_ms = 123
-        graphsignal._tracer.uploader()._post(
-            'signals', upload_request.SerializeToString())
+        model = client.Span(span_id='s1', start_us=0, end_us=0)
+        graphsignal._tracer.uploader().upload_span(model)
+        graphsignal._tracer.uploader().flush()
 
-        received_upload_request = signals_pb2.UploadRequest()
-        received_upload_request.ParseFromString(server.get_request_data())
-        self.assertEqual(
-            received_upload_request.spans[0].span_id, 't1')
-        self.assertEqual(received_upload_request.upload_ms, 123)
+        self.assertEqual(json.loads(server.get_request_data())[0]['span_id'], 's1')
 
         server.join()
-
 
 class TestServer(threading.Thread):
     def __init__(self, port, delay=None, handler_func=None):
@@ -156,9 +141,12 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.request_url = self.path
         content_len = int(self.headers.get('content-length'))
 
-        decompressed_data = gzip.GzipFile(
-            fileobj=BytesIO(self.rfile.read(content_len))).read()
-        RequestHandler.request_data = decompressed_data
+        if self.headers.get('content-encoding') == 'gzip':
+            decompressed_data = gzip.GzipFile(
+                fileobj=BytesIO(self.rfile.read(content_len))).read()
+            RequestHandler.request_data = decompressed_data
+        else:
+            RequestHandler.request_data = self.rfile.read(content_len)
 
         self.send_response(RequestHandler.response_code)
         self.send_header('Content-Type', RequestHandler.response_type)

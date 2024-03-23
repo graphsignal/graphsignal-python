@@ -6,7 +6,7 @@ import math
 
 import graphsignal
 from graphsignal import version
-from graphsignal.proto import signals_pb2
+from graphsignal import client
 
 logger = logging.getLogger('graphsignal')
 
@@ -25,20 +25,24 @@ class LogEntry:
         self.create_ts = int(time.time())
 
     def export(self):
-        proto = signals_pb2.LogEntry()
-        proto.scope = self.scope if self.scope else ''
-        proto.name = self.name if self.name else ''
+        model = client.LogEntry(
+            scope=self.scope,
+            name=self.name,
+            tags=[],
+            message=self.message,
+            create_ts=self.create_ts
+        )
         if self.tags is not None:
             for key, value in self.tags.items():
-                tag = proto.tags.add()
-                tag.key = str(key)[:50]
-                tag.value = str(value)[:250]
-        proto.level = self.level if self.level else ''
-        proto.message = self.message if self.message else ''
-        proto.exception = self.exception if self.exception else ''
-        proto.create_ts = self.create_ts
+                model.tags.append(client.Tag(
+                    key=str(key)[:50],
+                    value=str(value)[:250]))
+        if self.level:
+            model.level = self.level
+        if self.exception:
+            model.exception = self.exception
 
-        return proto
+        return model
     
     def __repr__(self):
         return f'LogEntry(scope={self.scope}, name={self.name}, tags={self.tags}, level={self.level}, message={self.message}, exception={self.exception}, create_ts={self.create_ts})'
@@ -74,7 +78,7 @@ class LogStore:
             scope=scope, 
             name=name, 
             tags=tags, 
-            level=level, 
+            level=level or 'info', 
             message=message, 
             exception=exception)
         with self._update_lock:
@@ -99,11 +103,11 @@ class LogStore:
         return len(self._logs) > 0
 
     def export(self):
-        protos = []
+        models = []
         with self._update_lock:
             for entry in self._logs:
-                protos.append(entry.export())
-        return protos
+                models.append(entry.export())
+        return models
 
     def clear(self):
         with self._update_lock:

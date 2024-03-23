@@ -38,9 +38,12 @@ setup(
         'Topic :: Scientific/Engineering',
         'Topic :: Scientific/Engineering :: Artificial Intelligence'
     ],
-    python_requires='>=3.7',
+    python_requires='>=3.8',
     install_requires=[
-        'protobuf>3.0'
+        "urllib3 >= 1.25.3, < 2.1.0",
+        "python-dateutil",
+        "pydantic >= 2",
+        "typing-extensions >= 4.7.1",
     ],
     packages = find_packages(exclude=['*.sh', '*_test.py'])
 )

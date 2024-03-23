@@ -7,6 +7,7 @@ import openai
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
 from graphsignal.recorders.instrumentation import instrument_method, patch_method, parse_semver, compare_semver
+from graphsignal import client
 
 logger = logging.getLogger('graphsignal')
 
@@ -271,8 +272,8 @@ class OpenAIRecorder(BaseRecorder):
 
         span.set_payload('input', params)
 
-    def on_span_read(self, span, context):
+    def on_span_read(self, model, context):
         if self._library_version:
-            entry = span.config.add()
-            entry.key = 'openai.library.version'
-            entry.value = self._library_version
+            model.config.append(client.ConfigEntry(
+                key='openai.library.version',
+                value=self._library_version))

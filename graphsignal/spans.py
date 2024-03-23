@@ -7,10 +7,11 @@ import contextvars
 import uuid
 import hashlib
 import json
+import base64
 
 import graphsignal
 from graphsignal import version
-from graphsignal.proto import signals_pb2
+from graphsignal import client
 
 logger = logging.getLogger('graphsignal')
 
@@ -99,7 +100,7 @@ class Span:
         '_parent_span',
         '_is_root',
         '_context',
-        '_proto',
+        '_model',
         '_is_started',
         '_is_stopped',
         '_start_counter',
@@ -139,7 +140,7 @@ class Span:
         self._stop_counter = None
         self._first_token_counter = None
         self._context = False
-        self._proto = None
+        self._model = None
         self._exc_infos = None
         self._payloads = None
         self._usage = None
@@ -185,18 +186,27 @@ class Span:
         self._is_root = not self._parent_span
         self._root_span = self._parent_span.root_span() if self._parent_span else self
 
-        self._proto = signals_pb2.Span()
-        self._proto.span_id = _uuid_sha1(size=12)
+        self._model = client.Span(
+            span_id= _uuid_sha1(size=12),
+            start_us=0,
+            end_us=0,
+            tags=[],
+            exceptions=[],
+            usage=[],
+            payloads=[],
+            config=[]
+        )
 
-        entry = self._proto.config.add()
-        entry.key = 'graphsignal.library.version'
-        entry.value = version.__version__
+        self._model.config.append(client.ConfigEntry(
+            key='graphsignal.library.version',
+            value=version.__version__
+        ))
 
         self._context = {}
 
         # emit start event
         try:
-            _tracer().emit_span_start(self._proto, self._context)
+            _tracer().emit_span_start(self._model, self._context)
         except Exception as exc:
             logger.error('Error in span start event handlers', exc_info=True)
 
@@ -219,9 +229,9 @@ class Span:
         if self._stop_counter is None:
             self._measure()
         latency_ns = self._stop_counter - self._start_counter
-        first_token_ns = None
+        ttft_ns = None
         if self._first_token_counter:
-            first_token_ns = self._first_token_counter - self._start_counter
+            ttft_ns = self._first_token_counter - self._start_counter
 
         now = time.time()
         end_us = int(now * 1e6)
@@ -230,7 +240,7 @@ class Span:
 
         # emit stop event
         try:
-            _tracer().emit_span_stop(self._proto, self._context)
+            _tracer().emit_span_stop(self._model, self._context)
         except Exception as exc:
             logger.error('Error in span stop event handlers', exc_info=True)
 
@@ -239,9 +249,9 @@ class Span:
         # update RED metrics
         _tracer().metric_store().update_histogram(
             scope='performance', name='latency', tags=span_tags, value=latency_ns, update_ts=now, is_time=True)
-        if first_token_ns:
+        if ttft_ns:
             _tracer().metric_store().update_histogram(
-                scope='performance', name='first_token', tags=span_tags, value=first_token_ns, update_ts=now, is_time=True)
+                scope='performance', name='first_token', tags=span_tags, value=ttft_ns, update_ts=now, is_time=True)
         _tracer().metric_store().inc_counter(
             scope='performance', name='call_count', tags=span_tags, value=1, update_ts=now)
         if self._exc_infos and len(self._exc_infos) > 0:
@@ -259,17 +269,17 @@ class Span:
                 if payload.usage:
                     for name, value in payload.usage.items():
                         _tracer().metric_store().inc_counter(
-                            scope='data', name=name, tags=usage_tags, value=value, update_ts=now)
+                            scope='usage', name=name, tags=usage_tags, value=value, update_ts=now)
 
         if self._usage is not None:
             for usage in self._usage.values():
                 usage_tags = span_tags.copy()
                 _tracer().metric_store().inc_counter(
-                    scope='data', name=usage.name, tags=usage_tags, value=usage.value, update_ts=now)
+                    scope='usage', name=usage.name, tags=usage_tags, value=usage.value, update_ts=now)
 
         # emit read event
         try:
-            _tracer().emit_span_read(self._proto, self._context)
+            _tracer().emit_span_read(self._model, self._context)
         except Exception as exc:
             logger.error('Error in span read event handlers', exc_info=True)
 
@@ -282,71 +292,83 @@ class Span:
                 logger.error('Error in span read event handlers', exc_info=True)
 
         # fill and upload span
-        # copy data to span proto
-        self._proto.start_us = start_us
-        self._proto.end_us = end_us
+        # copy data to span model
+        self._model.start_us = start_us
+        self._model.end_us = end_us
+        if self._parent_span and self._parent_span._model:
+            self._model.parent_span_id = self._parent_span._model.span_id
+        if self._root_span and self._root_span._model:
+            self._model.root_span_id = self._root_span._model.span_id
 
-        # copy span context
-        self._proto.context.start_ns = self._start_counter
-        self._proto.context.end_ns = self._stop_counter
-        if self._first_token_counter:
-            self._proto.context.first_token_ns = self._first_token_counter
-        if self._parent_span and self._parent_span._proto:
-            self._proto.context.parent_span_id = self._parent_span._proto.span_id
-        if self._root_span and self._root_span._proto:
-            self._proto.context.root_span_id = self._root_span._proto.span_id
+        self._model.latency_ns = latency_ns
+        if ttft_ns:
+            self._model.ttft_ns = ttft_ns
 
         # copy tags
         for key, value in span_tags.items():
-            tag = self._proto.tags.add()
-            tag.key = _sanitize_str(key, max_len=50)
-            tag.value = _sanitize_str(value, max_len=250)
+            self._model.tags.append(client.Tag(
+                key=_sanitize_str(key, max_len=50),
+                value=_sanitize_str(value, max_len=250)
+            ))
 
         # copy exception
         if self._exc_infos:
             for exc_info in self._exc_infos:
-                exception_proto = self._proto.exceptions.add()
+                exc_type = None
+                message = None
+                stack_trace = None
                 if exc_info[0] and hasattr(exc_info[0], '__name__'):
-                    exception_proto.exc_type = str(exc_info[0].__name__)
+                    exc_type = str(exc_info[0].__name__)
                 if exc_info[1]:
-                    exception_proto.message = str(exc_info[1])
+                    message = str(exc_info[1])
                 if exc_info[2]:
                     frames = traceback.format_tb(exc_info[2])
                     if len(frames) > 0:
-                        exception_proto.stack_trace = ''.join(frames)
+                        stack_trace = ''.join(frames)
+
+                if exc_type and message:
+                    exception_model = client.Exception(
+                        exc_type=exc_type,
+                        message=message,
+                    )
+                    if stack_trace:
+                        exception_model.stack_trace = stack_trace
+                    self._model.exceptions.append(exception_model)
 
         # copy usage counters
         if self._payloads is not None:
             for payload in self._payloads.values():
                 if payload.usage:
                     for name, value in payload.usage.items():
-                        uc = self._proto.usage.add()
-                        uc.payload_name = payload.name
-                        uc.name = name
-                        uc.value = value
+                        self._model.usage.append(client.UsageCounter(
+                            payload_name=payload.name,
+                            name=name,
+                            value=value
+                        ))
         if self._usage is not None:
             for usage in self._usage.values():
-                uc = self._proto.usage.add()
-                uc.name = usage.name
-                uc.value = usage.value
+                self._model.usage.append(client.UsageCounter(
+                    name=usage.name,
+                    value=usage.value
+                ))
 
-
-        # copy data payload
+        # copy payload
         if self._payloads is not None:
             for payload in self._payloads.values():
                 if _tracer().record_payloads and payload.record_payload:
                     try:
-                        content_type, content_bytes = encode_data_payload(payload.content)
+                        content_type, content_bytes = encode_payload(payload.content)
                         if len(content_bytes) <= Span.MAX_PAYLOAD_BYTES:
-                            payload_proto = self._proto.payloads.add()
-                            payload_proto.name = payload.name
-                            payload_proto.content_type = content_type
-                            payload_proto.content_bytes = content_bytes
+                            self._model.payloads.append(client.Payload(
+                                name=payload.name,
+                                content_type=content_type,
+                                content_base64=base64.b64encode(content_bytes).decode('utf-8')
+                            ))
                     except Exception as exc:
                         logger.debug('Error encoding {0} payload for operation {1}'.format(payload.name, self._operation))
 
-        # queue span proto for upload
-        _tracer().uploader().upload_span(self._proto)
+        # queue span model for upload
+        _tracer().uploader().upload_span(self._model)
 
         # trigger upload
         if self._is_root:
@@ -506,15 +528,19 @@ class Span:
             logger.error('Span.score: name is required')
             return
 
-        score_obj = signals_pb2.Score()
-        score_obj.score_id = _uuid_sha1(size=12)
-        score_obj.span_id = self._proto.span_id
-        score_obj.name = name
+        score_obj = client.Score(
+            score_id=_uuid_sha1(size=12),
+            tags=[],
+            span_id=self._model.span_id,
+            name=name,
+            create_ts=now
+        )
 
         for tag_key, tag_value in self._span_tags().items():
-            tag = score_obj.tags.add()
-            tag.key = _sanitize_str(tag_key, max_len=50)
-            tag.value = _sanitize_str(tag_value, max_len=250)
+            score_obj.tags.append(client.Tag(
+                key=_sanitize_str(tag_key, max_len=50),
+                value=_sanitize_str(tag_value, max_len=250)
+            ))
 
         if score is not None:
             score_obj.score = score
@@ -525,8 +551,6 @@ class Span:
         if comment:
             score_obj.comment = comment
         
-        score_obj.create_ts = now
-
         _tracer().uploader().upload_score(score_obj)
         _tracer().tick(now)
 
@@ -569,9 +593,9 @@ def _uuid_sha1(size=-1):
     return _sha1(str(uuid.uuid4()), size)
 
 
-def encode_data_payload(data):
-    data_dict = _obj_to_dict(data)
-    return ('application/json', json.dumps(data_dict).encode('utf-8'))
+def encode_payload(content):
+    content_dict = _obj_to_dict(content)
+    return ('application/json', json.dumps(content_dict).encode('utf-8'))
 
 
 def _obj_to_dict(obj, level=0):

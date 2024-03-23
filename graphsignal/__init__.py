@@ -9,7 +9,7 @@ import time
 from graphsignal.version import __version__
 from graphsignal.tracer import Tracer
 from graphsignal.spans import Span, get_current_span, _uuid_sha1, _sanitize_str
-from graphsignal.proto import signals_pb2
+from graphsignal import client
 
 logger = logging.getLogger('graphsignal')
 
@@ -202,32 +202,32 @@ def score(
         logger.error('score: name is required')
         return
 
-    score_obj = signals_pb2.Score()
-    score_obj.score_id = _uuid_sha1(size=12)
-    score_obj.name = name
+    model = client.Score(
+        score_id=_uuid_sha1(size=12),
+        tags=[],
+        name=name,
+        create_ts=now)
 
-    tag = score_obj.tags.add()
-    tag.key = 'deployment'
-    tag.value = _tracer.deployment
+    model.tags.append(client.Tag(
+        key='deployment',
+        value=_tracer.deployment))
 
     if tags:
         for tag_key, tag_value in tags.items():
-            tag = score_obj.tags.add()
-            tag.key = _sanitize_str(tag_key, max_len=50)
-            tag.value = _sanitize_str(tag_value, max_len=250)
+            model.tags.append(client.Tag(
+                key=_sanitize_str(tag_key, max_len=50),
+                value=_sanitize_str(tag_value, max_len=250)))
 
     if score is not None:
-        score_obj.score = score
+        model.score = score
 
     if severity and severity >= 1 and severity <= 5:
-        score_obj.severity = severity
+        model.severity = severity
 
     if comment:
-        score_obj.comment = comment
+        model.comment = comment
 
-    score_obj.create_ts = now
-
-    _tracer.uploader().upload_score(score_obj)
+    _tracer.uploader().upload_score(model)
     _tracer.tick(now)
 
 

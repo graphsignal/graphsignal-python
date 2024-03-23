@@ -3,7 +3,6 @@ import logging
 import sys
 from unittest.mock import patch, Mock
 import torch
-from google.protobuf.json_format import MessageToJson
 import pprint
 import time
 import socket

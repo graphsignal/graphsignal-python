@@ -6,7 +6,6 @@ import os
 import json
 import time
 from unittest.mock import patch, Mock
-from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
@@ -57,10 +56,10 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
 
         obj.test(1, 2, c=3)
 
-        proto = mocked_upload_span.call_args[0][0]
+        model = mocked_upload_span.call_args[0][0]
 
         self.assertTrue(trace_func_called)
-        self.assertEqual(proto.tags[1].value, 'ep1')
+        self.assertEqual(model.tags[1].value, 'ep1')
 
     @patch.object(Uploader, 'upload_span')
     async def test_instrument_method_generator(self, mocked_upload_span):
@@ -76,13 +75,12 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
         for item in obj.test_gen():
             pass
 
-        proto = mocked_upload_span.call_args[0][0]
+        model = mocked_upload_span.call_args[0][0]
 
         self.assertTrue(trace_func_called)
-        self.assertEqual(proto.tags[1].value, 'ep1')
-        self.assertTrue(proto.context.start_ns > 0)
-        self.assertTrue(proto.context.end_ns > 0)
-        self.assertTrue(proto.context.first_token_ns > 0)
+        self.assertEqual(model.tags[1].value, 'ep1')
+        self.assertTrue(model.latency_ns > 0)
+        self.assertTrue(model.ttft_ns > 0)
 
     async def test_patch_method(self):
         obj = Dummy()

@@ -5,7 +5,6 @@ import os
 import json
 import time
 from unittest.mock import patch, Mock
-from google.protobuf.json_format import MessageToJson
 import pprint
 import openai
 from typing import Any, List, Mapping, Optional
@@ -19,7 +18,7 @@ import graphsignal
 from graphsignal.uploader import Uploader
 from graphsignal.callbacks.llama_index.v1 import GraphsignalCallbackHandler
 from graphsignal.recorders.openai_recorder import OpenAIRecorder
-from test.proto_utils import find_tag, find_usage, find_payload
+from test.model_utils import find_tag, find_usage, find_payload
 
 logger = logging.getLogger('graphsignal')
 
@@ -86,35 +85,35 @@ class LlamaIndexCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
 
         query_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.query')
         self.assertEqual(find_tag(query_span, 'ct1'), 'v1')
-        self.assertEqual(query_span.context.parent_span_id, query_root_span.span_id)
-        self.assertEqual(query_span.context.root_span_id, query_root_span.span_id)
+        self.assertEqual(query_span.parent_span_id, query_root_span.span_id)
+        self.assertEqual(query_span.root_span_id, query_root_span.span_id)
 
         retrieve_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.retrieve')
         self.assertEqual(find_tag(retrieve_span, 'ct1'), 'v1')
-        self.assertEqual(retrieve_span.context.parent_span_id, query_span.span_id)
-        self.assertEqual(retrieve_span.context.root_span_id, query_root_span.span_id)
+        self.assertEqual(retrieve_span.parent_span_id, query_span.span_id)
+        self.assertEqual(retrieve_span.root_span_id, query_root_span.span_id)
 
         embedding_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.embedding')
         self.assertEqual(find_tag(embedding_span, 'ct1'), 'v1')
-        self.assertEqual(retrieve_span.context.parent_span_id, query_span.span_id)
-        self.assertEqual(retrieve_span.context.root_span_id, query_root_span.span_id)
+        self.assertEqual(retrieve_span.parent_span_id, query_span.span_id)
+        self.assertEqual(retrieve_span.root_span_id, query_root_span.span_id)
 
         synthesize_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.synthesize')
         self.assertEqual(find_tag(synthesize_span, 'ct1'), 'v1')
-        self.assertEqual(synthesize_span.context.parent_span_id, query_span.span_id)
-        self.assertEqual(synthesize_span.context.root_span_id, query_root_span.span_id)
+        self.assertEqual(synthesize_span.parent_span_id, query_span.span_id)
+        self.assertEqual(synthesize_span.root_span_id, query_root_span.span_id)
 
         llm_span = find_call_by_operation(mocked_upload_span.call_args_list, 'llama_index.op.llm')
         self.assertEqual(find_tag(llm_span, 'ct1'), 'v1')
         self.assertIsNotNone(find_payload(llm_span, 'formatted_prompt'))
         self.assertIsNotNone(find_payload(llm_span, 'completion'))
-        self.assertEqual(llm_span.context.parent_span_id, synthesize_span.span_id)
-        self.assertEqual(llm_span.context.root_span_id, query_root_span.span_id)
+        self.assertEqual(llm_span.parent_span_id, synthesize_span.span_id)
+        self.assertEqual(llm_span.root_span_id, query_root_span.span_id)
 
         fake_llm_span = find_call_by_operation(mocked_upload_span.call_args_list, 'langchain_community.llms.fake.FakeListLLM')
         self.assertEqual(find_tag(fake_llm_span, 'ct1'), 'v1')
-        self.assertEqual(fake_llm_span.context.parent_span_id, llm_span.span_id)
-        self.assertEqual(fake_llm_span.context.root_span_id, query_root_span.span_id)
+        self.assertEqual(fake_llm_span.parent_span_id, llm_span.span_id)
+        self.assertEqual(fake_llm_span.root_span_id, query_root_span.span_id)
 
 
 def find_call_by_operation(calls, operation):

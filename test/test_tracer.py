@@ -4,7 +4,6 @@ import sys
 import os
 import time
 from unittest.mock import patch, Mock
-from google.protobuf.json_format import MessageToJson
 import pprint
 
 import graphsignal
@@ -28,7 +27,7 @@ class TracerTest(unittest.TestCase):
         graphsignal._tracer.metric_store().set_gauge(scope='s1', name='n1', tags={}, value=1, update_ts=1)
         graphsignal.shutdown()
 
-        proto = mocked_upload_metric.call_args[0][0]
+        model = mocked_upload_metric.call_args[0][0]
 
-        self.assertEqual(proto.scope, 's1')
-        self.assertEqual(proto.name, 'n1')
+        self.assertEqual(model.scope, 's1')
+        self.assertEqual(model.name, 'n1')
