@@ -27,7 +27,7 @@ class Score(BaseModel):
     """
     Score
     """ # noqa: E501
-    score_id: StrictStr = Field(description="Unique identifier for the score.")
+    score_id: Optional[StrictStr] = Field(default=None, description="Unique identifier for the score.")
     span_id: Optional[StrictStr] = Field(default=None, description="The associated span identifier, if the score is being associated with a span.")
     tags: Optional[List[Tag]] = Field(default=None, description="Tags associated with the score.")
     name: StrictStr = Field(description="The name of the score.")

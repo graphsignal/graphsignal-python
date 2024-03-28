@@ -415,6 +415,11 @@ class Span:
 
         self._tags[key] = value
 
+    def get_tag(self, key):
+        if self._tags is None:
+            return None
+        return self._tags.get(key)
+
     def add_exception(self, exc: Optional[Exception] = None, exc_info: Optional[bool] = None) -> None:
         if exc is not None and not isinstance(exc, Exception):
             logger.error('add_exception: exc must be instance of Exception')

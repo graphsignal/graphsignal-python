@@ -13,10 +13,10 @@ from langchain.llms.base import LLM
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain import hub
+from langchain_core.messages import HumanMessage
 
 import graphsignal
 from graphsignal.uploader import Uploader
-from graphsignal.callbacks.langchain.v2 import GraphsignalCallbackHandler
 from graphsignal.recorders.openai_recorder import OpenAIRecorder
 from test.model_utils import find_tag, find_usage, find_payload
 
@@ -51,6 +51,19 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):
         graphsignal.shutdown()
+
+
+    @patch.object(Uploader, 'upload_span')
+    async def test_callback_tags(self, mocked_upload_span):
+        from graphsignal.callbacks.langchain import GraphsignalCallbackHandler
+        llm = DummyLLM(callbacks=[GraphsignalCallbackHandler(tags=dict(k1='v1'))])
+
+        llm.invoke([HumanMessage(content="Tell me a joke")])
+
+        t1 = mocked_upload_span.call_args_list[0][0][0]
+
+        self.assertEqual(find_tag(t1, 'k1'), 'v1')
+
 
     @patch.object(Uploader, 'upload_span')
     async def test_chain(self, mocked_upload_span):

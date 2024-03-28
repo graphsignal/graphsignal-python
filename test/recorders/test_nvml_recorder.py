@@ -2,7 +2,6 @@ import unittest
 import logging
 import sys
 from unittest.mock import patch, Mock
-import torch
 import pprint
 import time
 import socket
@@ -30,6 +29,7 @@ class NVMLRecorderTest(unittest.TestCase):
         recorder = NVMLRecorder()
         recorder.setup()
 
+        import torch
         model = torch.nn.Conv2d(1, 1, kernel_size=(1, 1))
         if torch.cuda.is_available():
             model = model.cuda()

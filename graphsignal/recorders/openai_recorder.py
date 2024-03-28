@@ -106,7 +106,7 @@ class OpenAIRecorder(BaseRecorder):
             return len(encoding.encode(text))
         return None
 
-    def set_common_tags(self, span, endpoint):
+    def set_common_tags(self, span, endpoint, params):
         span.set_tag('library', 'openai')
         if 'openai.com' in str(self._base_url):
             span.set_tag('api_provider', 'openai')
@@ -114,11 +114,33 @@ class OpenAIRecorder(BaseRecorder):
             span.set_tag('api_provider', 'azure')
         span.set_tag('endpoint', f'{self._base_url}{endpoint}')
 
+        # header tags
+        try:
+            tags_header_value = None
+            if 'extra_headers' in params and isinstance(params['extra_headers'], dict):
+                for header_key, header_value in params['extra_headers'].items():
+                    if header_key.lower() == 'graphsignal-tags':
+                        tags_header_value = header_value
+                        del params['extra_headers'][header_key]
+                        break
+
+            if isinstance(tags_header_value, str):
+                header_tags = dict([el.strip(' ') for el in kv.split('=')] for kv in tags_header_value.split(','))
+                for tag_key, tag_value in header_tags.items():
+                    span.set_tag(tag_key, tag_value)
+        except Exception:
+            logger.error('Error parsing Graphsignal-Tags extra header', exc_info=True)
+
+        # user tag
+        if 'user' in params:
+            if not graphsignal.get_tag('user_id') and not graphsignal.get_context_tag('user_id') and not span.get_tag('user_id'):
+                span.set_tag('user_id', params['user'])
+
     def trace_chat_completion(self, span, args, kwargs, ret, exc):
-        params = kwargs # no positional args
+        params = kwargs
 
         span.set_tag('model_type', 'chat')
-        self.set_common_tags(span, 'chat/completions')
+        self.set_common_tags(span, 'chat/completions', params)
         if 'model' in params:
             span.set_tag('model', params['model'])
 
@@ -185,9 +207,9 @@ class OpenAIRecorder(BaseRecorder):
             span.append_payload('output', [item], usage=output_usage)
 
     def trace_embedding(self, span, args, kwargs, ret, exc):
-        params = kwargs # no positional args
+        params = kwargs
 
-        self.set_common_tags(span, 'embeddings')
+        self.set_common_tags(span, 'embeddings', params)
         if 'model' in params:
             span.set_tag('model', params['model'])
 
@@ -205,24 +227,30 @@ class OpenAIRecorder(BaseRecorder):
         span.set_payload('input', params, usage=input_usage)
 
     def trace_image_generation(self, span, args, kwargs, ret, exc):
-        self.set_common_tags(span, 'images/generations')
+        params = kwargs
+
+        self.set_common_tags(span, 'images/generations', params)
 
         self.trace_image_endpoint(span, args, kwargs, ret, exc)
 
     def trace_image_variation(self, span, args, kwargs, ret, exc):
-        self.set_common_tags(span, 'images/variations')
+        params = kwargs
+
+        self.set_common_tags(span, 'images/variations', params)
 
         self.trace_image_endpoint(span, args, kwargs, ret, exc)
 
     def trace_image_edit(self, span, args, kwargs, ret, exc):
-        self.set_common_tags(span, 'images/edits')
+        params = kwargs
+
+        self.set_common_tags(span, 'images/edits', params)
 
         self.trace_image_endpoint(span, args, kwargs, ret, exc)
 
     def trace_image_endpoint(self, span, args, kwargs, ret, exc):
-        params = kwargs # no positional args
+        params = kwargs
 
-        span.set_payload('input', params)
+        span.set_payload('input', params, params)
 
         if ret and 'data' in ret:
             image_data = []
@@ -234,9 +262,9 @@ class OpenAIRecorder(BaseRecorder):
             span.set_payload('output', image_data)
 
     def trace_audio_transcription(self, span, args, kwargs, ret, exc):
-        params = kwargs # no positional args
+        params = kwargs
 
-        self.set_common_tags(span, 'audio/transcriptions')
+        self.set_common_tags(span, 'audio/transcriptions', params)
         if 'model' in params:
             span.set_tag('model', params['model'])
 
@@ -248,9 +276,9 @@ class OpenAIRecorder(BaseRecorder):
             span.set_payload('output', ret['text'])
 
     def trace_audio_translation(self, span, args, kwargs, ret, exc):
-        params = kwargs # no positional args
+        params = kwargs
 
-        self.set_common_tags(span, 'audio/translations')
+        self.set_common_tags(span, 'audio/translations', params)
         if 'model' in params:
             span.set_tag('model', params['model'])
 
@@ -266,7 +294,7 @@ class OpenAIRecorder(BaseRecorder):
     def trace_moderation(self, span, args, kwargs, ret, exc):
         params = kwargs
 
-        self.set_common_tags(span, 'moderations')
+        self.set_common_tags(span, 'moderations', params)
         if 'model' in params:
             span.set_tag('model', params['model'])
 

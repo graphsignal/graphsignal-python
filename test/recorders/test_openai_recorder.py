@@ -114,7 +114,11 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
                 top_p=1,
                 max_tokens=1024,
                 frequency_penalty=0,
-                presence_penalty=0)
+                presence_penalty=0,
+                user='u1',
+                extra_headers={
+                    'Graphsignal-Tags': ' k1=v1, k2=v2'
+                })
 
             recorder.shutdown()
 
@@ -125,6 +129,8 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(find_tag(model, 'operation'), 'openai.chat.completions.create')
             self.assertEqual(find_tag(model, 'endpoint'), 'https://api.openai.com/v1/chat/completions')
             self.assertEqual(find_tag(model, 'model'), 'gpt-3.5-turbo')
+            self.assertEqual(find_tag(model, 'k1'), 'v1')
+            self.assertEqual(find_tag(model, 'user_id'), 'u1')
 
             self.assertEqual(find_usage(model, 'input', 'token_count'), 19)
             self.assertEqual(find_usage(model, 'output', 'token_count'), 8)

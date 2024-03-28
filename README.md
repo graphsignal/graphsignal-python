@@ -21,15 +21,15 @@ Learn more at [graphsignal.com](https://graphsignal.com).
 
 ## Install
 
-Install Graphsignal library by running:
+Install Graphsignal library.
 
-```
+```bash
 pip install --upgrade graphsignal
 ```
 
 Or clone and install the [GitHub repository](https://github.com/graphsignal/graphsignal-python):
 
-```
+```bash
 git clone https://github.com/graphsignal/graphsignal-python.git
 python setup.py install
 ```
@@ -57,131 +57,22 @@ python -m graphsignal <script>
 python -m graphsignal -m <module>
 ```
 
-## Integrate
 
-### Automatic integration
+## Integrate
 
 Graphsignal **auto-instruments** and traces libraries and frameworks, such as [OpenAI](https://graphsignal.com/docs/integrations/openai/) and [LangChain](https://graphsignal.com/docs/integrations/langchain/). Traces, errors, and data, such as prompts and completions, are automatically recorded and available for analysis at [app.graphsignal.com](https://app.graphsignal.com/).
 
+Refer to the guides below for detailed information on:
+
+* [Session Tracking](https://graphsignal.com/docs/guides/session-tracking/)
+* [User Tracking](https://graphsignal.com/docs/guides/user-tracking/)
+* [Manual Tracing](https://graphsignal.com/docs/guides/manual-tracing/)
+* [Scores and Feedback](https://graphsignal.com/docs/guides/scores-and-feedback/)
+* [Cost and Usage Monitoring](https://graphsignal.com/docs/guides/cost-and-usage-monitoring/)
+
+See [API reference](https://graphsignal.com/docs/reference/python-api/) for full documentation.
+
 Some integration examples are available in [examples](https://github.com/graphsignal/examples) repo.
-
-
-### Session tracking
-
-Session groups multiple traces together to represent a run, thread, conversation or user interactions. Session tracking allows session-level visualization, analytics and issue detection.
-
-Set a session identifier as `session_id` tag for every request, e.g. in a request handler:
-
-```python
-graphsignal.set_context_tag('session_id', session_id)
-```
-
-or directly, when tracing manually:
-
-```python
-with graphsignal.trace(tags=dict(session_id=session_id)):
-    ...
-```
-
-If you are running a single process per session and added Graphsignal at command line, you can set the `session_id` tag in an environment variable.
-
-```bash
-env GRAPHSIGNAL_TAGS="session_id=123" python -m graphsignal <script>
-```
-
-### User tracking
-
-User tracking allows grouping and visualization of user-related traces, interactions, metrics, and costs. It also enables detection of user interaction outliers and other issues.
-
-To enable user tracking, set user identifier as `user_id` tag for every request, e.g. in a request handler:
-
-```python
-graphsignal.set_context_tag('user_id', user_id)
-```
-
-or directly, when tracing manually:
-
-```python
-with graphsignal.trace(tags=dict(user_id=user_id)):
-    ...
-```
-
-You can additionally set `user_name` and `user_email` tags.
-
-If you are running a single process per user and added Graphsignal at command line, you can set the `user_id` tag in an environment variable.
-
-```bash
-env GRAPHSIGNAL_TAGS="user_id=123" python -m graphsignal <script>
-```
-
-
-### Scores and feedback
-
-Scores allow recording an evaluation of any event or object, such as generation, run, session, or user. Scores can be associated with events or objects using tags, but can also be set directly to a span.
-
-Tag request, run, session, or user for each request or run:
-
-```python
-graphsignal.set_context_tag('run_id', run_id)
-```
-
-or directly, when tracing manually:
-
-```python
-with graphsignal.trace('generate', tags=dict('run_id', run_id)):
-    ...
-```
-
-Create a score for a tag. This can be done at a later time and/or by other application. For example, when user clicks thumbs-up or thumbs-down for a request or a session:
-
-```python
-graphsignal.score('user_feedback', tags=dict('run_id', run_id), score=1, comment=user_comment)
-```
-
-You can also associate a score with a span directly:
-
-```python
-with graphsignal.trace('generate') as span:
-    ...
-    span.score('prompt_injection', score=0.7, severity=2)
-
-```
-
-See API reference for more information on [`graphsignal.score`](https://graphsignal.com/docs/reference/python-api/#graphsignalscore) and [`Span.score`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanscore) methods.
-
-
-Use [REST API](https://graphsignal.com/docs/reference/rest-api) to upload scores from any application or environment.
-
-
-### Manual tracing
-
-To measure and monitor operations that are not automatically instrumented, wrap the code with [`trace()`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace) method or use [`@trace_function`](https://graphsignal.com/docs/reference/python-api/#graphsignaltrace_function) decorator.
-
-To record payloads and track usage metrics, use [`Span.set_payload()`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanset_payload). 
-
-```python
-with graphsignal.trace('my-operation') as span:
-    ...
-    span.set_payload('my-data', data, usage=dict(size=my_data_size))
-```
-
-```python
-@graphsignal.trace_function
-def my_function():
-    ...
-```
-
-When tracing LLM generations, provide payloads in [OpenAI format](https://platform.openai.com/docs/api-reference/chat), which is supported by Graphsignal. Set `model_type='chat'` tag and add input and output data as `input` and `output` payloads respectively.
-
-```python
-with graphsignal.trace('generate', tags=dict(model_type='chat')) as span:
-    output_data = my_llm_call(input_data)
-    ...
-    span.set_payload('input', input_data, usage=dict(token_count=input_token_count))
-    span.set_payload('output', output_data, usage=dict(token_count=output_token_count))
-```
-
-For auto-instrumented libraries, or when using `@trace_function` decorator, `trace()` method with `with` context manager or callbacks, exceptions are **automatically** recorded. For other cases, use [`Span.add_exception`](https://graphsignal.com/docs/reference/python-api/#graphsignalspanadd_exception).
 
 
 ## Analyze

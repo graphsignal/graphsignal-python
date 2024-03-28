@@ -19,6 +19,7 @@ MAX_TRACES = 10000
 
 class GraphsignalCallbackHandler(BaseCallbackHandler):
     def __init__(self, **kwargs: Any) -> None:
+        self._passed_tags = kwargs.pop('tags', None)
         super().__init__(**kwargs)
         self._context_tags = graphsignal._tracer.context_tags.get().copy()
         self._parent_span = get_current_span()
@@ -69,7 +70,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
         if run_id in self._span_map or len(self._span_map) > MAX_TRACES:
             return None
 
-        span = graphsignal.trace(operation)
+        span = graphsignal.trace(operation, tags=self._passed_tags)
         self._span_map[run_id] = span
 
         span.set_tag('library', 'langchain')
