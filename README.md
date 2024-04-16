@@ -26,13 +26,6 @@ Install Graphsignal library.
 pip install --upgrade graphsignal
 ```
 
-Or clone and install the [GitHub repository](https://github.com/graphsignal/graphsignal-python):
-
-```bash
-git clone https://github.com/graphsignal/graphsignal-python.git
-python setup.py install
-```
-
 
 ## Configure
 

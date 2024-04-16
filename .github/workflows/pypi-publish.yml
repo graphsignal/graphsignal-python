@@ -20,6 +20,9 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install pip tools
+        run: python -m pip install --upgrade pip setuptools wheel
+
       - name: Install Poetry
         uses: snok/install-poetry@v1
 
