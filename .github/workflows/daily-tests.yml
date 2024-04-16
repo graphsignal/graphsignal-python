@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
@@ -31,12 +31,3 @@ jobs:
       - name: Run unit tests
         continue-on-error: true
         run: poetry run test
-
-      - name: Send Slack Notification on Failure
-        if: failure()
-        uses: slackapi/slack-github-action@v1.25.0
-        with:
-          channel-id: 'C06UHS25ZU3'
-          slack-message: 'The daily test run has failed. Please check the GitHub Actions logs for more details.'
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
