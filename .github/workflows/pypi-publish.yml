@@ -12,7 +12,7 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v2
         with:
-          ref: main
+          ref: 'refs/tags/${{ github.ref }}'
       
       - name: Set up Python
         uses: actions/setup-python@v2
