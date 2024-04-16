@@ -93,6 +93,7 @@ class GraphsignalTest(unittest.TestCase):
             name='s1', 
             tags=dict(t1='v1'), 
             score=0.5, 
+            unit='u1',
             severity=2, 
             comment='c1')
 
@@ -105,6 +106,7 @@ class GraphsignalTest(unittest.TestCase):
         self.assertEqual(model.tags[1].key, 't1')
         self.assertEqual(model.tags[1].value, 'v1')
         self.assertEqual(model.score, 0.5)
+        self.assertEqual(model.unit, 'u1')
         self.assertEqual(model.severity, 2)
         self.assertEqual(model.comment, 'c1')
         self.assertTrue(model.create_ts > 0)

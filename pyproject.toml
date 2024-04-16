@@ -1,5 +1,49 @@
-[build-system]
-requires = [
-    "setuptools",
-    "wheel"
+[tool.poetry]
+name = "graphsignal"
+version = "0.15.2"
+description = "Graphsignal Tracer for Python"
+authors = ["Graphsignal, Inc. <devops@graphsignal.com>"]
+license = "Apache-2.0"
+homepage = "https://graphsignal.com"
+repository = "https://graphsignal.com"
+readme = "README.md"
+keywords = ["LLM observability", "LLM analytics", "Agent observability", "Agent analytics"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development",
+    "Topic :: System :: Monitoring",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence"
 ]
+
+[tool.poetry.dependencies]
+python = ">=3.8.1,<4.0"
+urllib3 = ">=1.25.3,<2.1.0"
+python-dateutil = "*"
+pydantic = ">2"
+typing-extensions = ">4.7.1"
+
+[tool.poetry.dev-dependencies]
+torch = "*"
+openai = "*"
+tiktoken = "*"
+langchain = "*"
+langchainhub = "*"
+numexpr = "*"
+llama_index = "*"
+llama-index-llms-langchain = "*"
+nltk = "*"
+
+[tool.poetry.scripts]
+update-client = "tools.update_client:main"
+test = "tools.run_tests:main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

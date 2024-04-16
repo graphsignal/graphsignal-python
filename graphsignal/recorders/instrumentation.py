@@ -11,10 +11,10 @@ logger = logging.getLogger('graphsignal')
 version_regexp = re.compile(r'^(\d+)\.?(\d+)?\.?(\d+)?')
 
 
-def instrument_method(obj, func_name, op_name=None, op_func=None, trace_func=None, data_func=None):
+def instrument_method(obj, func_name, op_name=None, op_name_func=None, trace_func=None, data_func=None):
     def before_func(args, kwargs):
         if op_name is None:
-            operation = op_func(args, kwargs)
+            operation = op_name_func(args, kwargs)
         else:
             operation = op_name
         return dict(span=graphsignal.trace(operation=operation))

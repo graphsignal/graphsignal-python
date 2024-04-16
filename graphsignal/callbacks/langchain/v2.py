@@ -226,14 +226,13 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
         try:
             self._propagate_context(parent_run_id, run_id)
 
-            if not parent_run_id: # only trace chain root
-                operation = _get_operation_name(
-                    serialized=serialized, 
-                    default_name= 'langchain.agents.agent.' + serialized.get('name', 'AgentExecutor'))
-                span = self._start_trace(parent_run_id, run_id, operation)
-                if span:
-                    if inputs:
-                        span.set_payload('inputs', inputs)
+            operation = _get_operation_name(
+                serialized=serialized, 
+                default_name= 'langchain.agents.agent.' + serialized.get('name', 'AgentExecutor'))
+            span = self._start_trace(parent_run_id, run_id, operation)
+            if span:
+                if inputs:
+                    span.set_payload('inputs', inputs)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
 

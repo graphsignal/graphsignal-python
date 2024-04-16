@@ -1,10 +1,6 @@
 import time
 import threading
 import logging
-from urllib.request import urlopen
-from urllib.request import Request
-from urllib.parse import urlencode
-from urllib.error import URLError
 
 import graphsignal
 from graphsignal import client

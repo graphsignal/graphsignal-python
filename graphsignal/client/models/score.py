@@ -33,9 +33,10 @@ class Score(BaseModel):
     name: StrictStr = Field(description="The name of the score.")
     comment: Optional[StrictStr] = Field(default=None, description="Optional comment or description for the score.")
     score: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="The numerical value of the score.")
+    unit: Optional[StrictStr] = Field(default=None, description="The units of score value")
     severity: Optional[StrictInt] = Field(default=None, description="Optional severity level of the score.")
     create_ts: StrictInt = Field(description="Unix timestamp (seconds) when the score was created.")
-    __properties: ClassVar[List[str]] = ["score_id", "span_id", "tags", "name", "comment", "score", "severity", "create_ts"]
+    __properties: ClassVar[List[str]] = ["score_id", "span_id", "tags", "name", "comment", "score", "unit", "severity", "create_ts"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -101,6 +102,7 @@ class Score(BaseModel):
             "name": obj.get("name"),
             "comment": obj.get("comment"),
             "score": obj.get("score"),
+            "unit": obj.get("unit"),
             "severity": obj.get("severity"),
             "create_ts": obj.get("create_ts")
         })

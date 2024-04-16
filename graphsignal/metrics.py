@@ -22,7 +22,7 @@ class BaseMetric:
         self.is_size = is_size
         self.is_updated = False
 
-    def update(self):
+    def update(self, value, update_ts):
         self.is_updated = True
 
     def export(self):
@@ -54,7 +54,7 @@ class GaugeMetric(BaseMetric):
 
     def update(self, value, update_ts):
         with self._update_lock:
-            super().update()
+            super().update(value, update_ts)
             self.gauge = value
             self.update_ts = update_ts
 
@@ -75,7 +75,7 @@ class CounterMetric(BaseMetric):
 
     def update(self, value, update_ts):
         with self._update_lock:
-            super().update()
+            super().update(value, update_ts)
             self.counter += value
             self.update_ts = update_ts
 
@@ -98,7 +98,7 @@ class HistogramMetric(BaseMetric):
         if value < 1:
             return
         with self._update_lock:
-            super().update()
+            super().update(value, update_ts)
             bin_size = max(10 ** (int(math.log(value, 10)) - 1), 1)
             bin = int(value / bin_size) * bin_size
             self.histogram[bin] = self.histogram.get(bin, 0) + 1

@@ -4,14 +4,13 @@ import sys
 import time
 import traceback
 import contextvars
-import uuid
-import hashlib
 import json
 import base64
 
 import graphsignal
 from graphsignal import version
 from graphsignal import client
+from graphsignal.utils import uuid_sha1, sanitize_str
 
 logger = logging.getLogger('graphsignal')
 
@@ -127,7 +126,7 @@ class Span:
                 logger.error('Span: too many tags (>{0})'.format(Span.MAX_SPAN_TAGS))
                 return
 
-        self._operation = _sanitize_str(operation)
+        self._operation = sanitize_str(operation)
         if tags is not None:
             self._tags = dict(tags)
         else:
@@ -187,7 +186,7 @@ class Span:
         self._root_span = self._parent_span.root_span() if self._parent_span else self
 
         self._model = client.Span(
-            span_id= _uuid_sha1(size=12),
+            span_id=uuid_sha1(size=12),
             start_us=0,
             end_us=0,
             tags=[],
@@ -307,8 +306,8 @@ class Span:
         # copy tags
         for key, value in span_tags.items():
             self._model.tags.append(client.Tag(
-                key=_sanitize_str(key, max_len=50),
-                value=_sanitize_str(value, max_len=250)
+                key=sanitize_str(key, max_len=50),
+                value=sanitize_str(value, max_len=250)
             ))
 
         # copy exception
@@ -525,6 +524,7 @@ class Span:
             self,
             name: str, 
             score: Optional[Union[int, float]] = None, 
+            unit: Optional[str] = None,
             severity: Optional[int] = None,
             comment: Optional[str] = None) -> None:
         now = int(time.time())
@@ -534,7 +534,7 @@ class Span:
             return
 
         score_obj = client.Score(
-            score_id=_uuid_sha1(size=12),
+            score_id=uuid_sha1(size=12),
             tags=[],
             span_id=self._model.span_id,
             name=name,
@@ -543,12 +543,15 @@ class Span:
 
         for tag_key, tag_value in self._span_tags().items():
             score_obj.tags.append(client.Tag(
-                key=_sanitize_str(tag_key, max_len=50),
-                value=_sanitize_str(tag_value, max_len=250)
+                key=sanitize_str(tag_key, max_len=50),
+                value=sanitize_str(tag_value, max_len=250)
             ))
 
         if score is not None:
             score_obj.score = score
+
+        if unit is not None:
+            score_obj.unit = unit
 
         if severity and severity >= 1 and severity <= 5:
             score_obj.severity = severity
@@ -579,23 +582,6 @@ class Span:
 
     def repr(self):
         return 'Span({0})'.format(self._operation)
-
-
-def _sanitize_str(val, max_len=250):
-    if not isinstance(val, str):
-        return str(val)[:max_len]
-    else:
-        return val[:max_len]
-
-
-def _sha1(text, size=-1):
-    sha1_hash = hashlib.sha1()
-    sha1_hash.update(text.encode('utf-8'))
-    return sha1_hash.hexdigest()[0:size]
-
-
-def _uuid_sha1(size=-1):
-    return _sha1(str(uuid.uuid4()), size)
 
 
 def encode_payload(content):

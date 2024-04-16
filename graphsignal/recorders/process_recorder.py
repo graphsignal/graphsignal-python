@@ -112,18 +112,22 @@ class ProcessRecorder(BaseRecorder):
     def on_span_read(self, model, context):
         if self._last_snapshot:
             process_usage, node_usage = self._last_snapshot
-            model.config.append(client.ConfigEntry(
-                key='os.name',
-                value=node_usage.os_name))
-            model.config.append(client.ConfigEntry(
-                key='os.version',
-                value=node_usage.os_version))
-            model.config.append(client.ConfigEntry(
-                key='runtime.name',
-                value=process_usage.runtime))
-            model.config.append(client.ConfigEntry(
-                key='runtime.version',
-                value=str(process_usage.runtime_version)))
+            if node_usage.os_name:
+                model.config.append(client.ConfigEntry(
+                    key='os.name',
+                    value=node_usage.os_name))
+            if node_usage.os_version:
+                model.config.append(client.ConfigEntry(
+                    key='os.version',
+                    value=node_usage.os_version))
+            if process_usage.runtime:
+                model.config.append(client.ConfigEntry(
+                    key='runtime.name',
+                    value=process_usage.runtime))
+            if process_usage.runtime_version:
+                model.config.append(client.ConfigEntry(
+                    key='runtime.version',
+                    value=str(process_usage.runtime_version)))
 
     def take_snapshot(self):
         if not OS_WIN:

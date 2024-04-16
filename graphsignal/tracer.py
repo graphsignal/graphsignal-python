@@ -1,3 +1,4 @@
+from typing import Dict, Any, Union, Optional
 import logging
 import sys
 import time
@@ -6,10 +7,15 @@ import socket
 import contextvars
 import importlib.abc
 import threading
+import functools
+import asyncio
 
 from graphsignal.uploader import Uploader
 from graphsignal.metrics import MetricStore
 from graphsignal.logs import LogStore
+from graphsignal.spans import Span, get_current_span
+from graphsignal import client
+from graphsignal.utils import uuid_sha1, sanitize_str
 
 logger = logging.getLogger('graphsignal')
 
@@ -291,6 +297,127 @@ class Tracer:
                 raise last_exc
 
         threading.Thread(target=on_metric_update).start()
+
+    def set_tag(self, key: str, value: str) -> None:
+        if not key:
+            logger.error('set_tag: key must be provided')
+            return
+
+        if value is None:
+            self.tags.pop(key, None)
+            return
+
+        if len(self.tags) > Span.MAX_RUN_TAGS:
+            logger.error('set_tag: too many tags (>{0})'.format(Span.MAX_RUN_TAGS))
+            return
+
+        self.tags[key] = value
+
+    def get_tag(self, key: str) -> Optional[str]:
+        return self.tags.get(key, None)
+
+    def set_context_tag(self, key: str, value: str) -> None:
+        if not key:
+            logger.error('set_context_tag: key must be provided')
+            return
+
+        tags = self.context_tags.get()
+
+        if value is None:
+            tags.pop(key, None)
+            self.context_tags.set(tags)
+            return
+
+        if len(tags) > Span.MAX_RUN_TAGS:
+            logger.error('set_context_tag: too many tags (>{0})'.format(Span.MAX_RUN_TAGS))
+            return
+
+        tags[key] = value
+        self.context_tags.set(tags)
+
+    def get_context_tag(self, key: str) -> Optional[str]:
+        return self.context_tags.get().get(key, None)
+
+    def trace(
+            self, 
+            operation: str,
+            tags: Optional[Dict[str, str]] = None) -> 'Span':
+        return Span(operation=operation, tags=tags)
+
+    def trace_function(
+            self, 
+            func=None, 
+            *,
+            operation: Optional[str] = None,
+            tags: Optional[Dict[str, str]] = None):
+        if func is None:
+            return functools.partial(self.trace_function, operation=operation, tags=tags)
+
+        if operation is None:
+            operation_or_name = func.__name__
+        else:
+            operation_or_name = operation
+
+        if asyncio.iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def tf_async_wrapper(*args, **kwargs):
+                async with self.trace(operation=operation_or_name, tags=tags):
+                    return await func(*args, **kwargs)
+            return tf_async_wrapper
+        else:
+            @functools.wraps(func)
+            def tf_wrapper(*args, **kwargs):
+                with self.trace(operation=operation_or_name, tags=tags):
+                    return func(*args, **kwargs)
+            return tf_wrapper
+
+    def current_span(self) -> Optional['Span']:
+        return get_current_span()
+
+    def score(
+            self, 
+            name: str, 
+            tags: Optional[Dict[str, str]] = None,
+            score: Optional[Union[int, float]] = None, 
+            unit: Optional[str] = None,
+            severity: Optional[int] = None,
+            comment: Optional[str] = None) -> None:
+        now = int(time.time())
+
+        if not name:
+            logger.error('score: name is required')
+            return
+
+        model = client.Score(
+            score_id=uuid_sha1(size=12),
+            tags=[],
+            name=name,
+            create_ts=now)
+
+        model.tags.append(client.Tag(
+            key='deployment',
+            value=self.deployment))
+
+        if tags:
+            for tag_key, tag_value in tags.items():
+                model.tags.append(client.Tag(
+                    key=sanitize_str(tag_key, max_len=50),
+                    value=sanitize_str(tag_value, max_len=250)))
+
+        if score is not None:
+            model.score = score
+
+        if unit is not None:
+            model.unit = unit
+
+        if severity and severity >= 1 and severity <= 5:
+            model.severity = severity
+
+        if comment:
+            model.comment = comment
+
+        self.uploader().upload_score(model)
+        self.tick(block=False, now=now)
 
     def upload(self, block=False):
         if block:

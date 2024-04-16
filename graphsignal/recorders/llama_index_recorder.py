@@ -23,6 +23,7 @@ class LlamaIndexRecorder(BaseRecorder):
         if hasattr(llama_index, '__version__') and llama_index.__version__:
             version = llama_index.__version__
             self._library_version = version
+            parsed_version = parse_semver(version)
 
         def is_v1():
             return (
@@ -30,7 +31,7 @@ class LlamaIndexRecorder(BaseRecorder):
             )
 
         def is_v2():
-            return self._library_version and compare_semver(self._library_version, (0, 10, 10)) >= 0
+            return self._library_version and compare_semver(parsed_version, (0, 10, 10)) >= 0
 
         if is_v2():
             # the handler should be added manually for now

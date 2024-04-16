@@ -12,7 +12,7 @@ from graphsignal.spans import Span
 logger = logging.getLogger('graphsignal')
 
 
-class GraphsignalAsyncTest(unittest.IsolatedAsyncioTestCase):
+class TracerAsyncTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))

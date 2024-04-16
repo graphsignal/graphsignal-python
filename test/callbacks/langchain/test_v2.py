@@ -77,13 +77,18 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
         agent_executor.invoke({"input": "What is 2 raised to .123243 power?"})
 
-        #print(mocked_upload_span.call_args_list)
+        def find_span(op_name):
+            for call in mocked_upload_span.call_args_list:
+                check_op_name = find_tag(call[0][0], 'operation')
+                if check_op_name == op_name:
+                    return call[0][0]
 
-        t1 = mocked_upload_span.call_args_list[0][0][0]
+        executor_span = find_span('langchain.agents.agent.AgentExecutor')
+        self.assertEqual(find_tag(executor_span, 'ct1'), 'v1')
+        self.assertEqual(find_tag(executor_span, 'library'), 'langchain')
 
-        self.assertEqual(find_tag(t1, 'ct1'), 'v1')
-        self.assertEqual(find_tag(t1, 'library'), 'langchain')
-        self.assertEqual(find_tag(t1, 'operation'), 'test.callbacks.langchain.test_v2.DummyLLM')
+        llm_span = find_span('test.callbacks.langchain.test_v2.DummyLLM')
+        self.assertEqual(find_tag(llm_span, 'model_type'), 'chat')
 
     @patch.object(Uploader, 'upload_span')
     async def test_chain_async(self, mocked_upload_span):
@@ -96,14 +101,18 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
         await agent_executor.ainvoke({"input": "What is 2 raised to .123243 power?"})
 
-        #print(mocked_upload_span.call_args_list)
+        def find_span(op_name):
+            for call in mocked_upload_span.call_args_list:
+                check_op_name = find_tag(call[0][0], 'operation')
+                if check_op_name == op_name:
+                    return call[0][0]
 
-        t1 = mocked_upload_span.call_args_list[0][0][0]
+        executor_span = find_span('langchain.agents.agent.AgentExecutor')
+        self.assertEqual(find_tag(executor_span, 'ct1'), 'v1')
+        self.assertEqual(find_tag(executor_span, 'library'), 'langchain')
 
-        self.assertEqual(find_tag(t1, 'ct1'), 'v1')
-        self.assertEqual(find_tag(t1, 'library'), 'langchain')
-        self.assertEqual(find_tag(t1, 'operation'), 'test.callbacks.langchain.test_v2.DummyLLM')
-
+        llm_span = find_span('test.callbacks.langchain.test_v2.DummyLLM')
+        self.assertEqual(find_tag(llm_span, 'model_type'), 'chat')
 
     @patch.object(Uploader, 'upload_span')
     async def test_chain_async_with_decorator(self, mocked_upload_span):
@@ -121,17 +130,20 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
 
         await run_chain()
 
-        t2 = mocked_upload_span.call_args_list[0][0][0]
-        t1 = mocked_upload_span.call_args_list[1][0][0]
-        t0 = mocked_upload_span.call_args_list[2][0][0]
+        def find_span(op_name):
+            for call in mocked_upload_span.call_args_list:
+                check_op_name = find_tag(call[0][0], 'operation')
+                if check_op_name == op_name:
+                    return call[0][0]
 
-        self.assertEqual(find_tag(t0, 'operation'), 'run_chain')
+        run_chain_span = find_span('run_chain')
+        self.assertIsNotNone(run_chain_span)
 
-        self.assertEqual(find_tag(t1, 'operation'), 'langchain.chains.llm.LLMChain')
-        self.assertEqual(t1.parent_span_id, t0.span_id)
-        self.assertEqual(t1.root_span_id, t0.span_id)
+        llm_chain_span = find_span('langchain.chains.llm.LLMChain')
+        self.assertEqual(llm_chain_span.parent_span_id, run_chain_span.span_id)
+        self.assertEqual(llm_chain_span.root_span_id, run_chain_span.span_id)
 
-        self.assertEqual(find_tag(t2, 'library'), 'langchain')
-        self.assertEqual(find_tag(t2, 'operation'), 'test.callbacks.langchain.test_v2.DummyLLM')
-        self.assertEqual(t2.parent_span_id, t1.span_id)
-        self.assertEqual(t2.root_span_id, t0.span_id)
+        llm_span = find_span('test.callbacks.langchain.test_v2.DummyLLM')
+        self.assertEqual(find_tag(llm_span, 'library'), 'langchain')
+        self.assertEqual(llm_span.parent_span_id, llm_chain_span.span_id)
+        self.assertEqual(llm_span.root_span_id, run_chain_span.span_id)

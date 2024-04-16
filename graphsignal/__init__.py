@@ -8,7 +8,7 @@ import time
 
 from graphsignal.version import __version__
 from graphsignal.tracer import Tracer
-from graphsignal.spans import Span, get_current_span, _uuid_sha1, _sanitize_str
+from graphsignal.spans import Span
 from graphsignal import client
 
 logger = logging.getLogger('graphsignal')
@@ -91,54 +91,22 @@ def configure(
 
 def set_tag(key: str, value: str) -> None:
     _check_configured()
-
-    if not key:
-        logger.error('set_tag: key must be provided')
-        return
-
-    if value is None:
-        _tracer.tags.pop(key, None)
-        return
-
-    if len(_tracer.tags) > Span.MAX_RUN_TAGS:
-        logger.error('set_tag: too many tags (>{0})'.format(Span.MAX_RUN_TAGS))
-        return
-
-    _tracer.tags[key] = value
+    _tracer.set_tag(key, value)
 
 
 def get_tag(key: str) -> Optional[str]:
     _check_configured()
-
-    return _tracer.tags.get(key, None)
+    return _tracer.get_tag(key)
 
 
 def set_context_tag(key: str, value: str) -> None:
     _check_configured()
-
-    if not key:
-        logger.error('set_context_tag: key must be provided')
-        return
-
-    tags = _tracer.context_tags.get()
-
-    if value is None:
-        tags.pop(key, None)
-        _tracer.context_tags.set(tags)
-        return
-
-    if len(tags) > Span.MAX_RUN_TAGS:
-        logger.error('set_context_tag: too many tags (>{0})'.format(Span.MAX_RUN_TAGS))
-        return
-
-    tags[key] = value
-    _tracer.context_tags.set(tags)
+    _tracer.set_context_tag(key, value)
 
 
 def get_context_tag(key: str) -> Optional[str]:
     _check_configured()
-
-    return _tracer.context_tags.get().get(key, None)
+    return _tracer.get_context_tag(key)
 
 
 def trace(
@@ -146,7 +114,7 @@ def trace(
         tags: Optional[Dict[str, str]] = None) -> 'Span':
     _check_configured()
 
-    return Span(operation=operation, tags=tags)
+    return _tracer.trace(operation=operation, tags=tags)
 
 
 def start_trace(
@@ -160,75 +128,30 @@ def trace_function(
         *,
         operation: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None):
-    if func is None:
-        return functools.partial(trace_function, operation=operation, tags=tags)
-
-    if operation is None:
-        operation_or_name = func.__name__
-    else:
-        operation_or_name = operation
-
-    if asyncio.iscoroutinefunction(func):
-        @functools.wraps(func)
-        async def tf_async_wrapper(*args, **kwargs):
-            async with trace(operation=operation_or_name, tags=tags):
-                return await func(*args, **kwargs)
-        return tf_async_wrapper
-    else:
-        @functools.wraps(func)
-        def tf_wrapper(*args, **kwargs):
-            with trace(operation=operation_or_name, tags=tags):
-                return func(*args, **kwargs)
-        return tf_wrapper
+    return _tracer.trace_function(func, operation=operation, tags=tags)
 
 
 def current_span() -> Optional['Span']:
     _check_configured()
 
-    return get_current_span()
+    return _tracer.current_span()
 
 
 def score(
         name: str, 
         tags: Optional[Dict[str, str]] = None,
         score: Optional[Union[int, float]] = None, 
+        unit: Optional[str] = None,
         severity: Optional[int] = None,
         comment: Optional[str] = None) -> None:
     _check_configured()
-
-    now = int(time.time())
-
-    if not name:
-        logger.error('score: name is required')
-        return
-
-    model = client.Score(
-        score_id=_uuid_sha1(size=12),
-        tags=[],
-        name=name,
-        create_ts=now)
-
-    model.tags.append(client.Tag(
-        key='deployment',
-        value=_tracer.deployment))
-
-    if tags:
-        for tag_key, tag_value in tags.items():
-            model.tags.append(client.Tag(
-                key=_sanitize_str(tag_key, max_len=50),
-                value=_sanitize_str(tag_value, max_len=250)))
-
-    if score is not None:
-        model.score = score
-
-    if severity and severity >= 1 and severity <= 5:
-        model.severity = severity
-
-    if comment:
-        model.comment = comment
-
-    _tracer.uploader().upload_score(model)
-    _tracer.tick(now)
+    return _tracer.score(
+        name=name, 
+        tags=tags, 
+        score=score, 
+        unit=unit, 
+        severity=severity, 
+        comment=comment)
 
 
 def upload(block=False) -> None:
