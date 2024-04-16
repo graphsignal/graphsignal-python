@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: poetry install
 
+      - name: Update dependencies
+        run: poetry update
+
       - name: Run unit tests
         run: poetry run test
 
