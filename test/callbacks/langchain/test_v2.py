@@ -66,7 +66,8 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
 
 
     @patch.object(Uploader, 'upload_span')
-    async def test_chain(self, mocked_upload_span):
+    @patch('graphsignal.callbacks.langchain.v2.uuid_sha1', return_value='s1')
+    async def test_chain(self, mocked_uuid_sha1, mocked_upload_span):
         graphsignal.set_context_tag('ct1', 'v1')
 
         llm = DummyLLM()
@@ -86,12 +87,15 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         executor_span = find_span('langchain.agents.agent.AgentExecutor')
         self.assertEqual(find_tag(executor_span, 'ct1'), 'v1')
         self.assertEqual(find_tag(executor_span, 'library'), 'langchain')
+        self.assertEqual(find_tag(executor_span, 'session_id'), 's1')
 
         llm_span = find_span('test.callbacks.langchain.test_v2.DummyLLM')
         self.assertEqual(find_tag(llm_span, 'model_type'), 'chat')
+        self.assertEqual(find_tag(llm_span, 'session_id'), 's1')
 
     @patch.object(Uploader, 'upload_span')
-    async def test_chain_async(self, mocked_upload_span):
+    @patch('graphsignal.callbacks.langchain.v2.uuid_sha1', return_value='s1')
+    async def test_chain_async(self, mocked_uuid_sha1, mocked_upload_span):
         graphsignal.set_context_tag('ct1', 'v1')
 
         llm = DummyLLM()
@@ -110,12 +114,15 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         executor_span = find_span('langchain.agents.agent.AgentExecutor')
         self.assertEqual(find_tag(executor_span, 'ct1'), 'v1')
         self.assertEqual(find_tag(executor_span, 'library'), 'langchain')
+        self.assertEqual(find_tag(executor_span, 'session_id'), 's1')
 
         llm_span = find_span('test.callbacks.langchain.test_v2.DummyLLM')
         self.assertEqual(find_tag(llm_span, 'model_type'), 'chat')
+        self.assertEqual(find_tag(llm_span, 'session_id'), 's1')
 
     @patch.object(Uploader, 'upload_span')
-    async def test_chain_async_with_decorator(self, mocked_upload_span):
+    @patch('graphsignal.callbacks.langchain.v2.uuid_sha1', return_value='s1')
+    async def test_chain_async_with_decorator(self, mocked_uuid_sha1, mocked_upload_span):
         prompt = PromptTemplate(
             input_variables=["product"],
             template="What is a good name for a company that makes {product}?",
@@ -126,6 +133,7 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
 
         @graphsignal.trace_function
         async def run_chain():
+            graphsignal.set_context_tag('session_id', 's2')
             await chain.ainvoke("colorful socks")
 
         await run_chain()
@@ -140,10 +148,8 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(run_chain_span)
 
         llm_chain_span = find_span('langchain.chains.llm.LLMChain')
-        self.assertEqual(llm_chain_span.parent_span_id, run_chain_span.span_id)
-        self.assertEqual(llm_chain_span.root_span_id, run_chain_span.span_id)
+        self.assertEqual(find_tag(llm_chain_span, 'session_id'), 's2')
 
         llm_span = find_span('test.callbacks.langchain.test_v2.DummyLLM')
         self.assertEqual(find_tag(llm_span, 'library'), 'langchain')
-        self.assertEqual(llm_span.parent_span_id, llm_chain_span.span_id)
-        self.assertEqual(llm_span.root_span_id, run_chain_span.span_id)
+        self.assertEqual(find_tag(llm_span, 'session_id'), 's2')

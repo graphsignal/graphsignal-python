@@ -10,7 +10,7 @@ from uuid import UUID
 
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
-from graphsignal.spans import get_current_span, push_current_span, pop_current_span
+from graphsignal.utils import uuid_sha1
 
 logger = logging.getLogger('graphsignal')
 
@@ -19,54 +19,23 @@ MAX_TRACES = 10000
 
 class GraphsignalCallbackHandler(BaseCallbackHandler):
     def __init__(self, **kwargs: Any) -> None:
-        self._passed_tags = kwargs.pop('tags', None)
+        self._passed_tags = kwargs.pop('tags', None) or {}
         super().__init__(**kwargs)
         self._context_tags = graphsignal._tracer.context_tags.get().copy()
-        self._parent_span = get_current_span()
 
         # is thread-safe, because run_id is unique per thread
         self._span_map = {}
-        self._chain_id_map = {}
 
-    def _propagate_context(self, parent_run_id, run_id):
+        # create session_id, if not passed
+        if 'session_id' not in self._passed_tags and 'session_id' not in self._context_tags:
+            self._passed_tags['session_id'] = uuid_sha1(size=12)
+
+    def _start_trace(self, parent_run_id, run_id, operation):
         # propagate context tags just in case contextvars are not propagated
         if self._context_tags:
             for key, value in self._context_tags.items():
                 graphsignal.set_context_tag(key, value)
 
-        # propagate chain_id
-        chain_id = None
-        if not parent_run_id or parent_run_id not in self._chain_id_map:
-            # this is the root run, save chain_id
-            if run_id:
-                chain_id = run_id
-                self._chain_id_map[run_id] = chain_id
-        else:
-            # parent already has a chain_id
-            chain_id = self._chain_id_map[parent_run_id]
-            self._chain_id_map[run_id] = self._chain_id_map[parent_run_id]
-
-        # set as context tag for other non langchain spans to pick up
-        graphsignal.set_context_tag('chain_id', chain_id)
-
-        # propagate parent span
-        parent_span = self._span_map.get(parent_run_id, None)
-        if parent_span and get_current_span() != parent_span:
-            push_current_span(parent_span)
-        if get_current_span() == None and self._parent_span:
-            push_current_span(self._parent_span)
-
-    def _clear_context(self, run_id):
-        self._chain_id_map.pop(run_id, None)
-
-        current_span = get_current_span()
-        if current_span != None:
-            pop_current_span(current_span)
-
-    def _get_chain_id(self, run_id):
-        return self._chain_id_map.get(run_id, None)
-
-    def _start_trace(self, parent_run_id, run_id, operation):
         if run_id in self._span_map or len(self._span_map) > MAX_TRACES:
             return None
 
@@ -74,10 +43,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
         self._span_map[run_id] = span
 
         span.set_tag('library', 'langchain')
-
-        chain_id = self._get_chain_id(run_id)
-        if chain_id:
-            span.set_tag('chain_id', chain_id)
 
         return span
 
@@ -100,8 +65,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             metadata: Optional[Dict[str, Any]] = None,
             **kwargs: Any) -> None:
         try:
-            self._propagate_context(parent_run_id, run_id)
-
             operation = _get_operation_name(
                 serialized=serialized, 
                 default_name='langchain.llms.' + serialized.get('name', 'LLM'))
@@ -128,8 +91,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             metadata: Optional[Dict[str, Any]] = None,
             **kwargs: Any) -> Any:
         try:
-            self._propagate_context(parent_run_id, run_id)
-
             operation = _get_operation_name(
                 serialized=serialized, 
                 default_name='langchain.llms.' + serialized.get('name', 'LLM'))
@@ -190,8 +151,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                 if len(output['choices']) > 0:
                     span.set_payload('output', output)
             self._stop_trace(run_id)
-
-            self._clear_context(run_id)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
 
@@ -208,8 +167,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                 if isinstance(error, Exception):
                     span.add_exception(error)
             self._stop_trace(run_id)
-
-            self._clear_context(run_id)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
 
@@ -224,8 +181,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             metadata: Optional[Dict[str, Any]] = None,
             **kwargs: Any) -> None:
         try:
-            self._propagate_context(parent_run_id, run_id)
-
             operation = _get_operation_name(
                 serialized=serialized, 
                 default_name= 'langchain.agents.agent.' + serialized.get('name', 'AgentExecutor'))
@@ -250,8 +205,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                     span.set_payload('outputs', outputs)
 
             self._stop_trace(run_id)
-
-            self._clear_context(run_id)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
 
@@ -268,8 +221,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                 if isinstance(error, Exception):
                     span.add_exception(error)
             self._stop_trace(run_id)
-
-            self._clear_context(run_id)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
 
@@ -285,8 +236,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             inputs: Optional[Dict[str, Any]] = None,
             **kwargs: Any) -> None:
         try:
-            self._propagate_context(parent_run_id, run_id)
-
             operation = _get_operation_name(
                 serialized=serialized, 
                 default_name= 'langchain.agents.tools.' + serialized.get('name', 'Tool'))
@@ -311,8 +260,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                 if output:
                     span.set_payload('output', output)
             self._stop_trace(run_id)
-
-            self._clear_context(run_id)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
 
@@ -330,8 +277,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                 if isinstance(error, Exception):
                     span.add_exception(error)
             self._stop_trace(run_id)
-
-            self._clear_context(run_id)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
 
@@ -376,8 +321,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             metadata: Optional[Dict[str, Any]] = None,
             **kwargs: Any) -> None:
         try:
-            self._propagate_context(parent_run_id, run_id)
-
             operation = _get_operation_name(
                 serialized=serialized, 
                 default_name= 'langchain.retrievers.' + serialized.get('name', 'Retriever'))
@@ -402,8 +345,6 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                 if documents:
                     span.set_payload('documents', documents)
             self._stop_trace(run_id)
-
-            self._clear_context(run_id)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
 
@@ -421,11 +362,8 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
                 if isinstance(error, Exception):
                     span.add_exception(error)
             self._stop_trace(run_id)
-
-            self._clear_context(run_id)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
-
 
 
 def _get_operation_name(serialized, default_name):
