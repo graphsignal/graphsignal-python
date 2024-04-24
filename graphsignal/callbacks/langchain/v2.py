@@ -32,6 +32,9 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
 
     def _start_trace(self, parent_run_id, run_id, operation):
         # propagate context tags just in case contextvars are not propagated
+        if self._passed_tags:
+            for key, value in self._passed_tags.items():
+                graphsignal.set_context_tag(key, value)
         if self._context_tags:
             for key, value in self._context_tags.items():
                 graphsignal.set_context_tag(key, value)
