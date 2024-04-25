@@ -191,6 +191,8 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             if span:
                 if inputs:
                     span.set_payload('inputs', inputs)
+                if metadata:
+                    span.set_payload('metadata', metadata)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
 
@@ -246,6 +248,8 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             if span:
                 if input_str:
                     span.set_payload('input', input_str)
+                if metadata:
+                    span.set_payload('metadata', metadata)
         except Exception:
             logger.error('Error in LangChain callback handler', exc_info=True)
 
@@ -291,7 +295,12 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             parent_run_id: Optional[UUID] = None,            
             tags: Optional[List[str]] = None,
             **kwargs: Any) -> None:
-        pass
+        try:
+            span = self._current_span(run_id)
+            if span:
+                span.set_payload('action', dict(tool=action.tool, tool_input=action.tool_input))
+        except Exception:
+            logger.error('Error in LangChain callback handler', exc_info=True)
 
     def on_agent_finish(
             self,

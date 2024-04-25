@@ -5,6 +5,7 @@ import sys
 import os
 import json
 import time
+import asyncio
 from unittest.mock import patch, Mock
 import pprint
 
@@ -27,6 +28,11 @@ class Dummy:
 
     def test_gen(self):
         for i in range(2):
+            yield 'item' + str(i)
+
+    async def test_gen_async(self):
+        for i in range(2):
+            await asyncio.sleep(0.001)
             yield 'item' + str(i)
 
 
@@ -142,6 +148,27 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
             pass
 
         self.assertTrue(yield_func_called)
+
+    async def test_patch_method_async_generator(self):
+        obj = Dummy()
+
+        yield_func_called = False
+        yield_func_stop_called = False
+        def yield_func(stopped, item, context):
+            nonlocal yield_func_called, yield_func_stop_called
+            if not stopped:
+                yield_func_called = True
+                self.assertTrue(item in ('item0', 'item1'))
+            else:
+                yield_func_stop_called = True
+
+        self.assertTrue(patch_method(obj, 'test_gen_async', yield_func=yield_func))
+
+        async for item in obj.test_gen_async():
+            pass
+
+        self.assertTrue(yield_func_called)
+        self.assertTrue(yield_func_stop_called)
 
     async def test_read_args(self):
         def test(*args, **kwargs):

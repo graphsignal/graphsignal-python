@@ -55,6 +55,99 @@ def uninstrument_method(obj, func_name):
         logger.debug('Cannot uninstrument %s.', func_name)
 
 
+class ObjectProxy:
+    def __init__(self, obj):
+        self._obj = obj
+
+    def __getattr__(self, attr):
+        return getattr(self._obj, attr)
+
+    def __repr__(self):
+        return repr(self._obj)
+
+
+class GeneratorWrapper(ObjectProxy):
+    def __init__(self, gen, yield_func, context=None):
+        super().__init__(gen)
+        self._gen = gen
+        self._yield_func = yield_func
+        self._context = context
+
+    def __enter__(self):
+        if hasattr(self._gen, '__enter__'):
+            self._gen.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if hasattr(self._gen, '__exit__'):
+            self._gen.__exit__(exc_type, exc_val, exc_tb)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            item = self._gen.__next__()
+            try:
+                self._yield_func(False, item, self._context)
+            except:
+                logger.debug('Exception in yield_func', exc_info=True)
+            return item
+        except StopIteration:
+            try:
+                self._yield_func(True, None, self._context)
+            except:
+                logger.debug('Exception in yield_func', exc_info=True)
+            raise
+        except Exception as e:
+            try:
+                self._yield_func(True, None, self._context)
+            except:
+                logger.debug('Exception in yield_func', exc_info=True)
+            raise
+
+
+class AsyncGeneratorWrapper(ObjectProxy):
+    def __init__(self, async_gen, yield_func, context=None):
+        super().__init__(async_gen)
+        self._async_gen = async_gen
+        self._yield_func = yield_func
+        self._context = context
+
+    async def __aenter__(self):
+        if hasattr(self._async_gen, '__aenter__'):
+            await self._async_gen.__aenter__()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if hasattr(self._async_gen, '__aexit__'):
+            await self._async_gen.__aexit__(exc_type, exc_val, exc_tb)
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            item = await self._async_gen.__anext__()
+            try:
+                self._yield_func(False, item, self._context)
+            except:
+                logger.debug('Exception in yield_func', exc_info=True)
+            return item
+        except StopAsyncIteration:
+            try:
+                self._yield_func(True, None, self._context)
+            except:
+                logger.debug('Exception in yield_func', exc_info=True)
+            raise
+        except Exception as e:
+            try:
+                self._yield_func(True, None, self._context)
+            except:
+                logger.debug('Exception in yield_func', exc_info=True)
+            raise
+
+
 def patch_method(obj, func_name, before_func=None, after_func=None, yield_func=None):
     if not hasattr(obj, func_name):
         return False
@@ -100,8 +193,10 @@ def patch_method(obj, func_name, before_func=None, after_func=None, yield_func=N
 
             if yield_func:
                 try:
-                    if is_async_generator(ret):
-                        ret = async_generator_wrapper(ret, yield_func, context)
+                    if is_generator(ret):
+                        ret = GeneratorWrapper(ret, yield_func, context)
+                    elif is_async_generator(ret):
+                        ret = AsyncGeneratorWrapper(ret, yield_func, context)
                 except:
                     logger.debug('Exception in yield_func', exc_info=True)
 
@@ -145,7 +240,9 @@ def patch_method(obj, func_name, before_func=None, after_func=None, yield_func=N
             if yield_func:
                 try:
                     if is_generator(ret):
-                        ret = generator_wrapper(ret, yield_func, context)
+                        ret = GeneratorWrapper(ret, yield_func, context)
+                    elif is_async_generator(ret):
+                        ret = AsyncGeneratorWrapper(ret, yield_func, context)
                 except:
                     logger.debug('Exception in yield_func', exc_info=True)
 
