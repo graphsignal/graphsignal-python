@@ -28,6 +28,7 @@ from openai.types.chat.chat_completion_message import FunctionCall
 from openai.types.create_embedding_response import Usage
 
 os.environ['OPENAI_API_KEY'] = 'sk-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk'
+os.environ['LANGCHAIN_API_KEY'] = 'kkk'
 
 class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
@@ -410,6 +411,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(output_json, [{
                 'choices': [{'delta': {'content': '',
                                         'function_call': None,
+                                        'refusal': None,
                                         'role': 'assistant',
                                         'tool_calls': None},
                             'finish_reason': 'stop',
@@ -419,9 +421,12 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
                 'id': 'chatcmpl-8OQctcUZdbOT1KO8x2IKGUQE7G33b',
                 'model': 'gpt-4-0613',
                 'object': 'chat.completion.chunk',
-                'system_fingerprint': None},
+                'service_tier': None,
+                'system_fingerprint': None,
+                'usage': None},
                 {'choices': [{'delta': {'content': 'We',
                                         'function_call': None,
+                                        'refusal': None,
                                         'role': None,
                                         'tool_calls': None},
                             'finish_reason': 'stop',
@@ -431,7 +436,9 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
                 'id': 'chatcmpl-8OQctcUZdbOT1KO8x2IKGUQE7G33b',
                 'model': 'gpt-4-0613',
                 'object': 'chat.completion.chunk',
-                'system_fingerprint': None}])
+                'service_tier': None,
+                'system_fingerprint': None,
+                'usage': None}])
 
     @patch.object(Uploader, 'upload_span')
     async def test_embedding_create(self, mocked_upload_span):

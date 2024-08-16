@@ -27,8 +27,10 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
         self._span_map = {}
 
         # create session_id, if not passed
+        self._generated_session_id = False
         if 'session_id' not in self._passed_tags and 'session_id' not in self._context_tags:
             self._passed_tags['session_id'] = uuid_sha1(size=12)
+            self._generated_session_id = True
 
     def _start_trace(self, parent_run_id, run_id, operation):
         # propagate context tags just in case contextvars are not propagated
@@ -58,7 +60,7 @@ class GraphsignalCallbackHandler(BaseCallbackHandler):
             span.stop()
 
     def on_llm_start(
-            self, 
+            self,
             serialized: Dict[str, Any], 
             prompts: List[str], 
             *,
@@ -618,7 +620,8 @@ class GraphsignalAsyncCallbackHandler(GraphsignalCallbackHandler):
             self,
             finish: AgentFinish,
             **kwargs: Any) -> None:
-        pass
+        if self._generated_session_id:
+            graphsignal.set_context_tag('session_id', None)
 
     async def on_text(
             self,

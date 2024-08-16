@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "graphsignal"
-version = "0.15.5"
+version = "0.15.6"
 description = "Graphsignal Tracer for Python"
 authors = ["Graphsignal, Inc. <devops@graphsignal.com>"]
 license = "Apache-2.0"
@@ -37,8 +37,9 @@ langchain = "*"
 langchainhub = "*"
 numexpr = "*"
 llama_index = "*"
-llama-index-llms-langchain = "*"
 nltk = "*"
+langchain-community = "*"
+llama-index-llms-langchain = "*"
 
 [tool.poetry.scripts]
 update-client = "tools.update_client:main"

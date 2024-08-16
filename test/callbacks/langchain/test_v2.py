@@ -68,6 +68,8 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
     @patch.object(Uploader, 'upload_span')
     @patch('graphsignal.callbacks.langchain.v2.uuid_sha1', return_value='s1')
     async def test_chain(self, mocked_uuid_sha1, mocked_upload_span):
+        os.environ["LANGCHAIN_TRACING_V2"] = "false"
+
         graphsignal.set_context_tag('ct1', 'v1')
 
         llm = DummyLLM()
@@ -96,6 +98,8 @@ class GraphsignalCallbackHandlerTest(unittest.IsolatedAsyncioTestCase):
     @patch.object(Uploader, 'upload_span')
     @patch('graphsignal.callbacks.langchain.v2.uuid_sha1', return_value='s1')
     async def test_chain_async(self, mocked_uuid_sha1, mocked_upload_span):
+        os.environ["LANGCHAIN_TRACING_V2"] = "false"
+
         graphsignal.set_context_tag('ct1', 'v1')
 
         llm = DummyLLM()

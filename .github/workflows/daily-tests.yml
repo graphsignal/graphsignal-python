@@ -32,5 +32,4 @@ jobs:
         run: poetry update
 
       - name: Run unit tests
-        continue-on-error: true
         run: poetry run test
