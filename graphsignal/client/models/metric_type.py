@@ -28,6 +28,7 @@ class MetricType(str, Enum):
     """
     GAUGE = 'gauge'
     COUNTER = 'counter'
+    RATE = 'rate'
     HISTOGRAM = 'histogram'
 
     @classmethod

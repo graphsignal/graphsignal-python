@@ -58,14 +58,14 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
             nonlocal trace_func_called
             trace_func_called = True
 
-        instrument_method(obj, 'test', 'ep1', trace_func=trace_func)
+        instrument_method(obj, 'test', 'op1', trace_func=trace_func)
 
         obj.test(1, 2, c=3)
 
         model = mocked_upload_span.call_args[0][0]
 
         self.assertTrue(trace_func_called)
-        self.assertEqual(model.tags[1].value, 'ep1')
+        self.assertEqual(find_tag(model, 'operation'), 'op1')
 
     @patch.object(Uploader, 'upload_span')
     async def test_instrument_method_generator(self, mocked_upload_span):
@@ -76,7 +76,7 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
             nonlocal trace_func_called
             trace_func_called = True
 
-        instrument_method(obj, 'test_gen', 'ep1', trace_func=trace_func)
+        instrument_method(obj, 'test_gen', 'op1', trace_func=trace_func)
 
         for item in obj.test_gen():
             pass
@@ -84,9 +84,8 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
         model = mocked_upload_span.call_args[0][0]
 
         self.assertTrue(trace_func_called)
-        self.assertEqual(model.tags[1].value, 'ep1')
+        self.assertEqual(find_tag(model, 'operation'), 'op1')
         self.assertTrue(model.latency_ns > 0)
-        self.assertTrue(model.ttft_ns > 0)
 
     async def test_patch_method(self):
         obj = Dummy()
@@ -194,3 +193,10 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(compare_semver((1, 2, 3), (1, 2, 3)), 0)
 
         self.assertEqual(compare_semver((1, 2, 3), (1, 2, 2)), 1)
+
+
+def find_tag(model, key):
+    for tag in model.tags:
+        if tag.key == key:
+            return tag.value
+    return None

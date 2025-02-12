@@ -99,14 +99,24 @@ def get_tag(key: str) -> Optional[str]:
     return _tracer.get_tag(key)
 
 
-def set_context_tag(key: str, value: str) -> None:
+def remove_tag(key: str):
     _check_configured()
-    _tracer.set_context_tag(key, value)
+    return _tracer.remove_tag(key)
+
+
+def set_context_tag(key: str, value: str, append_uuid=None) -> None:
+    _check_configured()
+    _tracer.set_context_tag(key, value, append_uuid=append_uuid)
 
 
 def get_context_tag(key: str) -> Optional[str]:
     _check_configured()
     return _tracer.get_context_tag(key)
+
+
+def remove_context_tag(key: str):
+    _check_configured()
+    return _tracer.remove_context_tag(key)
 
 
 def trace(
@@ -117,24 +127,12 @@ def trace(
     return _tracer.trace(operation=operation, tags=tags)
 
 
-def start_trace(
-        operation: str,
-        tags: Optional[Dict[str, str]] = None) -> 'Span':
-    trace(operation, tags)
-
-
 def trace_function(
         func=None, 
         *,
         operation: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None):
     return _tracer.trace_function(func, operation=operation, tags=tags)
-
-
-def current_span() -> Optional['Span']:
-    _check_configured()
-
-    return _tracer.current_span()
 
 
 def score(
@@ -177,10 +175,14 @@ __all__ = [
     'configure',
     'upload',
     'shutdown',
-    'start_trace',
     'trace',
     'function_trace',
     'Span',
     'score',
+    'set_tag',
+    'get_tag',
+    'set_context_tag',
+    'get_context_tag',
+    'remove_context_tag',
     'callbacks'
 ]

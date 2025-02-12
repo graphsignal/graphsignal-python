@@ -1,6 +1,7 @@
 from typing import Dict, Any, Union, Optional
 import logging
 import sys
+import os
 import time
 import importlib
 import socket
@@ -9,11 +10,12 @@ import importlib.abc
 import threading
 import functools
 import asyncio
+from pathlib import Path
 
 from graphsignal.uploader import Uploader
 from graphsignal.metrics import MetricStore
 from graphsignal.logs import LogStore
-from graphsignal.spans import Span, get_current_span
+from graphsignal.spans import Span
 from graphsignal import client
 from graphsignal.utils import uuid_sha1, sanitize_str
 
@@ -27,11 +29,7 @@ class GraphsignalTracerLogHandler(logging.Handler):
 
     def emit(self, record):
         try:
-            log_tags = {'deployment': self._tracer.deployment}
-            if self._tracer.hostname:
-                log_tags['hostname'] = self._tracer.hostname
-            if self._tracer.tags is not None:
-                log_tags.update(self._tracer.tags)
+            log_tags = self._tracer.tags.copy()
 
             exception = None
             if record.exc_info and isinstance(record.exc_info, tuple):
@@ -51,8 +49,7 @@ RECORDER_SPECS = {
         ('graphsignal.recorders.process_recorder', 'ProcessRecorder'),
         ('graphsignal.recorders.nvml_recorder', 'NVMLRecorder')],
     'openai': [('graphsignal.recorders.openai_recorder', 'OpenAIRecorder')],
-    'langchain': [('graphsignal.recorders.langchain_recorder', 'LangChainRecorder')],
-    'llama_index': [('graphsignal.recorders.llama_index_recorder', 'LlamaIndexRecorder')]
+    'langchain': [('graphsignal.recorders.langchain_recorder', 'LangChainRecorder')]
 }
 
 class SourceLoaderWrapper(importlib.abc.SourceLoader):
@@ -124,6 +121,11 @@ class Tracer:
             logger.setLevel(logging.DEBUG)
         else:
             logger.setLevel(logging.WARNING)
+        
+        if not api_key:
+            raise ValueError('api_key is required')
+        if not deployment:
+            raise ValueError('deployment is required')
 
         self.api_key = api_key
         if api_url:
@@ -131,18 +133,17 @@ class Tracer:
         else:
             self.api_url = 'https://api.graphsignal.com'
         self.deployment = deployment
-        self.tags = tags
-        self.context_tags = None
+        self.tags = dict(deployment=self.deployment)
+        if tags:
+            self.tags.update(tags)
+        self.context_tags = contextvars.ContextVar('graphsignal_context_tags', default={})
+
         self.auto_instrument = auto_instrument
         self.record_payloads = record_payloads
         self.upload_on_shutdown = upload_on_shutdown
         self.debug_mode = debug_mode
-        self.hostname = None
-        try:
-            self.hostname = socket.gethostname()
-        except BaseException:
-            logger.debug('Error reading hostname', exc_info=True)
 
+        self._metric_update_thread = None
         self._tracer_log_handler = None
         self._uploader = None
         self._metric_store = None
@@ -166,13 +167,6 @@ class Tracer:
         self._tracer_log_handler = GraphsignalTracerLogHandler(self)
         logger.addHandler(self._tracer_log_handler)
 
-        # initialize tags variable
-        if not self.tags:
-            self.tags = {}
-
-        # initialize context tags variable
-        self.context_tags = contextvars.ContextVar('graphsignal_context_tags', default={})
-
         # initialize module wrappers
         self._module_finder = SupportedModuleFinder(self)
         sys.meta_path.insert(0, self._module_finder)
@@ -183,6 +177,10 @@ class Tracer:
                 self.initialize_recorders_for_module(module_name)
 
     def shutdown(self):
+        if self._metric_update_thread:
+            self._metric_update_thread.join()
+            self._metric_update_thread = None
+
         if self.upload_on_shutdown:
             if self._metric_store.has_unexported():
                 metrics = self._metric_store.export()
@@ -296,9 +294,10 @@ class Tracer:
             if last_exc:
                 raise last_exc
 
-        threading.Thread(target=on_metric_update).start()
+        self._metric_update_thread = threading.Thread(target=on_metric_update)
+        self._metric_update_thread.start()
 
-    def set_tag(self, key: str, value: str) -> None:
+    def set_tag(self, key: str, value: str, append_uuid: Optional[bool] = False) -> None:
         if not key:
             logger.error('set_tag: key must be provided')
             return
@@ -311,12 +310,21 @@ class Tracer:
             logger.error('set_tag: too many tags (>{0})'.format(Span.MAX_RUN_TAGS))
             return
 
+        if append_uuid:
+            if not value:
+                value = uuid_sha1(size=12)
+            else:
+                value = '{0}-{1}'.format(value, uuid_sha1(size=12))
+
         self.tags[key] = value
 
     def get_tag(self, key: str) -> Optional[str]:
         return self.tags.get(key, None)
 
-    def set_context_tag(self, key: str, value: str) -> None:
+    def remove_tag(self, key: str) -> None:
+        self.tags.pop(key, None)
+
+    def set_context_tag(self, key: str, value: str, append_uuid: Optional[bool] = False) -> None:
         if not key:
             logger.error('set_context_tag: key must be provided')
             return
@@ -332,7 +340,18 @@ class Tracer:
             logger.error('set_context_tag: too many tags (>{0})'.format(Span.MAX_RUN_TAGS))
             return
 
+        if append_uuid:
+            if not value:
+                value = uuid_sha1(size=12)
+            else:
+                value = '{0}-{1}'.format(value, uuid_sha1(size=12))
+
         tags[key] = value
+        self.context_tags.set(tags)
+
+    def remove_context_tag(self, key: str) -> None:
+        tags = self.context_tags.get()
+        tags.pop(key, None)
         self.context_tags.set(tags)
 
     def get_context_tag(self, key: str) -> Optional[str]:
@@ -371,9 +390,6 @@ class Tracer:
                     return func(*args, **kwargs)
             return tf_wrapper
 
-    def current_span(self) -> Optional['Span']:
-        return get_current_span()
-
     def score(
             self, 
             name: str, 
@@ -388,24 +404,28 @@ class Tracer:
             logger.error('score: name is required')
             return
 
+        if not name:
+            logger.error('score: score is required')
+            return
+
         model = client.Score(
             score_id=uuid_sha1(size=12),
             tags=[],
             name=name,
+            score=score,
             create_ts=now)
 
-        model.tags.append(client.Tag(
-            key='deployment',
-            value=self.deployment))
-
-        if tags:
-            for tag_key, tag_value in tags.items():
-                model.tags.append(client.Tag(
-                    key=sanitize_str(tag_key, max_len=50),
-                    value=sanitize_str(tag_value, max_len=250)))
-
-        if score is not None:
-            model.score = score
+        score_tags = {}
+        if self.tags is not None:
+            score_tags.update(self.tags)
+        if self.context_tags:
+            score_tags.update(self.context_tags.get().copy())
+        if tags is not None:
+            score_tags.update(tags)
+        for tag_key, tag_value in score_tags.items():
+            model.tags.append(client.Tag(
+                key=sanitize_str(tag_key, max_len=50),
+                value=sanitize_str(tag_value, max_len=250)))
 
         if unit is not None:
             model.unit = unit

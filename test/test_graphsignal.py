@@ -101,12 +101,16 @@ class GraphsignalTest(unittest.TestCase):
 
         self.assertTrue(model.score_id is not None)
         self.assertEqual(model.name, 's1')
-        self.assertEqual(model.tags[0].key, 'deployment')
-        self.assertEqual(model.tags[0].value, 'd1')
-        self.assertEqual(model.tags[1].key, 't1')
-        self.assertEqual(model.tags[1].value, 'v1')
+        self.assertEqual(find_tag(model, 'deployment'), 'd1')
+        self.assertEqual(find_tag(model, 't1'), 'v1')
         self.assertEqual(model.score, 0.5)
         self.assertEqual(model.unit, 'u1')
         self.assertEqual(model.severity, 2)
         self.assertEqual(model.comment, 'c1')
         self.assertTrue(model.create_ts > 0)
+
+def find_tag(model, key):
+    for tag in model.tags:
+        if tag.key == key:
+            return tag.value
+    return None

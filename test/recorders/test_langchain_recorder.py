@@ -59,8 +59,6 @@ class LangChainRecorderTest(unittest.IsolatedAsyncioTestCase):
         recorder.on_span_stop(model, context)
         recorder.on_span_read(model, context)
 
-        self.assertEqual(model.config[0].key, 'langchain.library.version')
-
     @patch.object(Uploader, 'upload_span')
     async def test_chain(self, mocked_upload_span):
         llm = DummyLLM()

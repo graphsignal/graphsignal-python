@@ -3,56 +3,14 @@ import logging
 import sys
 import time
 import traceback
-import contextvars
 import json
 import base64
 
 import graphsignal
-from graphsignal import version
 from graphsignal import client
 from graphsignal.utils import uuid_sha1, sanitize_str
 
 logger = logging.getLogger('graphsignal')
-
-
-span_stack_var = contextvars.ContextVar('span_stack_var', default=[])
-
-
-def clear_span_stack():
-    span_stack_var.set([])
-
-
-def push_current_span(span):
-    span_stack_var.set(span_stack_var.get() + [span])
-
-
-def pop_current_span(span):
-    span_stack = span_stack_var.get()
-    if len(span_stack) > 0 and span_stack[-1] == span:
-        span_stack_var.set(span_stack[:-1])
-        return span_stack[-1]
-    return None
-
-
-def get_root_span():
-    span_stack = span_stack_var.get()
-    if len(span_stack) > 0:
-        return span_stack[0]
-    return None
-
-
-def get_parent_span():
-    span_stack = span_stack_var.get()
-    if len(span_stack) > 1:
-        return span_stack[-2]
-    return None
-
-
-def get_current_span():
-    span_stack = span_stack_var.get()
-    if len(span_stack) > 0:
-        return span_stack[-1]
-    return None
 
 
 def _tracer():
@@ -63,14 +21,12 @@ class Payload:
     __slots__ = [
         'name',
         'content',
-        'usage',
         'record_payload'
     ]
 
     def __init__(self, name, content, usage=None, record_payload=True):
         self.name = name
         self.content = content
-        self.usage = usage
         self.record_payload = record_payload
 
 
@@ -95,8 +51,10 @@ class Span:
     __slots__ = [
         '_operation',
         '_tags',
-        '_root_span',
-        '_parent_span',
+        '_context_tags',
+        '_span_id',
+        '_root_span_id',
+        '_parent_span_id',
         '_is_root',
         '_context',
         '_model',
@@ -105,14 +63,13 @@ class Span:
         '_start_counter',
         '_stop_counter',
         '_first_token_counter',
+        '_output_tokens',
         '_exc_infos',
         '_payloads',
         '_usage'
     ]
 
-    def __init__(self, operation, tags=None):
-        push_current_span(self)
-
+    def __init__(self, operation, tags=None, root_span_id=None, parent_span_id=None):
         self._is_started = False
 
         if not operation:
@@ -127,17 +84,19 @@ class Span:
                 return
 
         self._operation = sanitize_str(operation)
+        self._tags = dict(operation=self._operation)
         if tags is not None:
-            self._tags = dict(tags)
-        else:
-            self._tags = None
+            self._tags.update(tags)
+        self._context_tags = None
         self._is_stopped = False
-        self._root_span = None
-        self._parent_span = None
+        self._span_id = None
+        self._root_span_id = root_span_id
+        self._parent_span_id = parent_span_id
         self._is_root = False
         self._start_counter = None
         self._stop_counter = None
         self._first_token_counter = None
+        self._output_tokens = None
         self._context = False
         self._model = None
         self._exc_infos = None
@@ -181,25 +140,22 @@ class Span:
         if _tracer().debug_mode:
             logger.debug(f'Starting span {self._operation}')
 
-        self._parent_span = get_parent_span()
-        self._is_root = not self._parent_span
-        self._root_span = self._parent_span.root_span() if self._parent_span else self
+        self._span_id = uuid_sha1(size=12)
+        if self._root_span_id is None:
+            self._root_span_id = self._span_id
+            self._is_root = True
+
+        self._context_tags = _tracer().context_tags.get().copy()
 
         self._model = client.Span(
-            span_id=uuid_sha1(size=12),
+            span_id=self._span_id,
             start_us=0,
             end_us=0,
             tags=[],
             exceptions=[],
             usage=[],
-            payloads=[],
-            config=[]
+            payloads=[]
         )
-
-        self._model.config.append(client.ConfigEntry(
-            key='graphsignal.library.version',
-            value=version.__version__
-        ))
 
         self._context = {}
 
@@ -245,6 +201,12 @@ class Span:
 
         span_tags = self._span_tags()
 
+        # emit read event
+        try:
+            _tracer().emit_span_read(self._model, self._context)
+        except Exception as exc:
+            logger.error('Error in span read event handlers', exc_info=True)
+
         # update RED metrics
         _tracer().metric_store().update_histogram(
             scope='performance', name='latency', tags=span_tags, value=latency_ns, update_ts=now, is_time=True)
@@ -259,28 +221,16 @@ class Span:
                     _tracer().metric_store().inc_counter(
                         scope='performance', name='exception_count', tags=span_tags, value=1, update_ts=now)
                     self.set_tag('exception', exc_info[0].__name__)
+        if latency_ns > 0 and self._output_tokens and self._output_tokens > 0:
+            _tracer().metric_store().update_rate(
+                scope='performance', name='output_tps', tags=span_tags, count=self._output_tokens, interval=latency_ns/1e9, update_ts=now)
 
-        # update payload usage metrics
-        if self._payloads is not None:
-            for payload in self._payloads.values():
-                usage_tags = span_tags.copy()
-                usage_tags['payload'] = payload.name
-                if payload.usage:
-                    for name, value in payload.usage.items():
-                        _tracer().metric_store().inc_counter(
-                            scope='usage', name=name, tags=usage_tags, value=value, update_ts=now)
-
+        # update usage metrics
         if self._usage is not None:
             for usage in self._usage.values():
                 usage_tags = span_tags.copy()
                 _tracer().metric_store().inc_counter(
                     scope='usage', name=usage.name, tags=usage_tags, value=usage.value, update_ts=now)
-
-        # emit read event
-        try:
-            _tracer().emit_span_read(self._model, self._context)
-        except Exception as exc:
-            logger.error('Error in span read event handlers', exc_info=True)
 
         # update recorder metrics
         if _tracer().check_metric_read_interval(now):
@@ -294,14 +244,16 @@ class Span:
         # copy data to span model
         self._model.start_us = start_us
         self._model.end_us = end_us
-        if self._parent_span and self._parent_span._model:
-            self._model.parent_span_id = self._parent_span._model.span_id
-        if self._root_span and self._root_span._model:
-            self._model.root_span_id = self._root_span._model.span_id
+        if self._root_span_id:
+            self._model.root_span_id = self._root_span_id
+        if self._parent_span_id:
+            self._model.parent_span_id = self._parent_span_id
 
         self._model.latency_ns = latency_ns
         if ttft_ns:
             self._model.ttft_ns = ttft_ns
+        if self._output_tokens:
+            self._model.output_tokens = self._output_tokens
 
         # copy tags
         for key, value in span_tags.items():
@@ -335,15 +287,6 @@ class Span:
                     self._model.exceptions.append(exception_model)
 
         # copy usage counters
-        if self._payloads is not None:
-            for payload in self._payloads.values():
-                if payload.usage:
-                    for name, value in payload.usage.items():
-                        self._model.usage.append(client.UsageCounter(
-                            payload_name=payload.name,
-                            name=name,
-                            value=value
-                        ))
         if self._usage is not None:
             for usage in self._usage.values():
                 self._model.usage.append(client.UsageCounter(
@@ -381,6 +324,15 @@ class Span:
         if not self._first_token_counter:
             self._first_token_counter = time.perf_counter_ns()
 
+    def set_output_tokens(self, tokens: int) -> None:
+        self._output_tokens = tokens
+
+    def inc_output_tokens(self, tokens: int) -> None:
+        if self._output_tokens is None:
+            self._output_tokens = 1
+        else:
+            self._output_tokens += tokens
+
     def stop(self) -> None:
         try:
             self._stop()
@@ -388,14 +340,7 @@ class Span:
             logger.error('Error stopping span', exc_info=True)
         finally:
             self._is_stopped = True
-            pop_current_span(self)
-
-    def root_span(self) -> Optional['Span']:
-        return self._root_span
-
-    def parent_span(self) -> Optional['Span']:
-        return self._parent_span
-
+    
     def set_tag(self, key: str, value: str) -> None:
         if not key:
             logger.error('set_tag: key must be provided')
@@ -440,17 +385,12 @@ class Span:
             self, 
             name: str, 
             content: Any, 
-            usage: Optional[Dict[str, Union[int, float]]] = None, 
             record_payload: Optional[bool] = True) -> None:
         if self._payloads is None:
             self._payloads = {}
 
         if not name or not isinstance(name, str):
             logger.error('set_payload: name must be string')
-            return
-
-        if usage and not isinstance(usage, dict):
-            logger.error('set_payload: usage must be dict')
             return
 
         if len(self._payloads) > Span.MAX_PAYLOADS:
@@ -460,24 +400,18 @@ class Span:
         self._payloads[name] = Payload(
             name=name,
             content=content,
-            usage=usage,
             record_payload=record_payload)
 
     def append_payload(
             self, 
             name: str, 
             content: Any, 
-            usage: Optional[Dict[str, float]] = None, 
             record_payload: Optional[bool] = True) -> None:
         if self._payloads is None:
             self._payloads = {}
 
         if not name or not isinstance(name, str):
             logger.error('append_payload: name must be string')
-            return
-
-        if usage and not isinstance(usage, dict):
-            logger.error('append_payload: usage must be dict')
             return
 
         if len(self._payloads) > Span.MAX_PAYLOADS:
@@ -487,19 +421,10 @@ class Span:
         if name in self._payloads:
             payload = self._payloads[name]
             payload.content += content
-            if usage:
-                if payload.usage is None:
-                    payload.usage = {}
-                for name, value in usage.items():
-                    if name in payload.usage:
-                        payload.usage[name] += value
-                    else:
-                        payload.usage[name] = value
         else:
             self._payloads[name] = Payload(
                 name=name,
                 content=content,
-                usage=usage,
                 record_payload=record_payload)
 
     def set_usage(self, name: str, value: int) -> None:
@@ -520,10 +445,16 @@ class Span:
 
         self._usage[name] = Usage(name=name, value=value)
 
+    def inc_usage(self, name: str, value: int) -> None:
+        if self._usage is None or name not in self._usage:
+            self.set_usage(name, value)
+        else:
+            self._usage[name].value += value
+
     def score(
             self,
             name: str, 
-            score: Optional[Union[int, float]] = None, 
+            score: Union[int, float], 
             unit: Optional[str] = None,
             severity: Optional[int] = None,
             comment: Optional[str] = None) -> None:
@@ -533,11 +464,16 @@ class Span:
             logger.error('Span.score: name is required')
             return
 
+        if not name:
+            logger.error('Span.score: score is required')
+            return
+
         score_obj = client.Score(
             score_id=uuid_sha1(size=12),
             tags=[],
             span_id=self._model.span_id,
             name=name,
+            score=score,
             create_ts=now
         )
 
@@ -546,9 +482,6 @@ class Span:
                 key=sanitize_str(tag_key, max_len=50),
                 value=sanitize_str(tag_value, max_len=250)
             ))
-
-        if score is not None:
-            score_obj.score = score
 
         if unit is not None:
             score_obj.unit = unit
@@ -562,18 +495,22 @@ class Span:
         _tracer().uploader().upload_score(score_obj)
         _tracer().tick(now)
 
+    def trace(
+            self, 
+            operation: str,
+            tags: Optional[Dict[str, str]] = None) -> 'Span':
+        return Span(
+            operation=operation, 
+            tags=tags,
+            root_span_id=self._root_span_id,
+            parent_span_id=self._span_id)
 
     def _span_tags(self, extra_tags=None):
-        span_tags = {
-            'deployment': _tracer().deployment, 
-            'operation': self._operation}
-        if _tracer().hostname:
-            span_tags['hostname'] = _tracer().hostname
+        span_tags = {}
         if _tracer().tags is not None:
             span_tags.update(_tracer().tags)
-        context_tags = _tracer().context_tags.get()
-        if len(context_tags) > 0:
-            span_tags.update(context_tags)
+        if self._context_tags:
+            span_tags.update(self._context_tags)
         if self._tags is not None:
             span_tags.update(self._tags)
         if extra_tags is not None:

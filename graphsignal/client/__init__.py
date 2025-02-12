@@ -31,7 +31,6 @@ from graphsignal.client.exceptions import ApiAttributeError
 from graphsignal.client.exceptions import ApiException
 
 # import models into sdk package
-from graphsignal.client.models.config_entry import ConfigEntry
 from graphsignal.client.models.exception import Exception
 from graphsignal.client.models.http_validation_error import HTTPValidationError
 from graphsignal.client.models.histogram import Histogram
@@ -39,6 +38,7 @@ from graphsignal.client.models.log_entry import LogEntry
 from graphsignal.client.models.metric import Metric
 from graphsignal.client.models.metric_type import MetricType
 from graphsignal.client.models.payload import Payload
+from graphsignal.client.models.rate import Rate
 from graphsignal.client.models.score import Score
 from graphsignal.client.models.score_query_result import ScoreQueryResult
 from graphsignal.client.models.span import Span

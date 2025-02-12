@@ -17,9 +17,9 @@ def find_payload(model, name):
             return payload
     return None
 
-def find_usage(model, payload_name, usage_name):
+def find_usage(model, usage_name):
     for usage_counter in model.usage:
-        if (not payload_name or usage_counter.payload_name == payload_name) and usage_counter.name == usage_name:
+        if usage_counter.name == usage_name:
             return usage_counter.value
     return None
 

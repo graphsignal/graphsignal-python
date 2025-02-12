@@ -73,19 +73,19 @@ class Uploader:
     
                     spans = [signal for signal in outgoing if isinstance(signal, client.Span)]
                     if len(spans) > 0:
-                        logger.debug(api_instance.upload_spans(spans))
+                        api_instance.upload_spans(spans)
 
                     scores = [signal for signal in outgoing if isinstance(signal, client.Score)]
                     if len(scores) > 0:
-                        logger.debug(api_instance.upload_scores(scores))
+                        api_instance.upload_scores(scores)
 
                     metrics = [signal for signal in outgoing if isinstance(signal, client.Metric)]
                     if len(metrics) > 0:
-                        logger.debug(api_instance.upload_metrics(metrics))
+                        api_instance.upload_metrics(metrics)
 
                     log_entries = [signal for signal in outgoing if isinstance(signal, client.LogEntry)]
                     if len(log_entries) > 0:
-                        logger.debug(api_instance.upload_logs(log_entries))
+                        api_instance.upload_logs(log_entries)
 
                 logger.debug('Upload took %.3f sec', time.time() - upload_start)
             except Exception:

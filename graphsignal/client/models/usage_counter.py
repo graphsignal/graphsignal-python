@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
-from typing import Any, ClassVar, Dict, List, Optional, Union
+from typing import Any, ClassVar, Dict, List, Union
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -26,10 +26,9 @@ class UsageCounter(BaseModel):
     """
     UsageCounter
     """ # noqa: E501
-    payload_name: Optional[StrictStr] = Field(default=None, description="The name of the associated payload, if applicable.")
     name: StrictStr = Field(description="The name of the usage counter.")
     value: Union[StrictFloat, StrictInt] = Field(description="The numerical value representing the usage.")
-    __properties: ClassVar[List[str]] = ["payload_name", "name", "value"]
+    __properties: ClassVar[List[str]] = ["name", "value"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -82,7 +81,6 @@ class UsageCounter(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "payload_name": obj.get("payload_name"),
             "name": obj.get("name"),
             "value": obj.get("value")
         })

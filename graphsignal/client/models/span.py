@@ -19,7 +19,6 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from graphsignal.client.models.config_entry import ConfigEntry
 from graphsignal.client.models.exception import Exception
 from graphsignal.client.models.payload import Payload
 from graphsignal.client.models.tag import Tag
@@ -38,12 +37,12 @@ class Span(BaseModel):
     end_us: StrictInt = Field(description="End time of the span in microseconds.")
     latency_ns: Optional[StrictInt] = Field(default=None, description="Latency in nanoseconds, if applicable.")
     ttft_ns: Optional[StrictInt] = Field(default=None, description="Time to first byte in nanoseconds, if applicable.")
+    output_tokens: Optional[StrictInt] = Field(default=None, description="Number of output tokens, if applicable.")
     tags: Optional[List[Tag]] = Field(default=None, description="List of tags associated with the span.")
     exceptions: Optional[List[Exception]] = Field(default=None, description="List of exceptions occurred during the span.")
     payloads: Optional[List[Payload]] = Field(default=None, description="List of payloads related to the span.")
     usage: Optional[List[UsageCounter]] = Field(default=None, description="Usage metrics associated with the span.")
-    config: Optional[List[ConfigEntry]] = Field(default=None, description="Configuration entries relevant to the span.")
-    __properties: ClassVar[List[str]] = ["span_id", "root_span_id", "parent_span_id", "start_us", "end_us", "latency_ns", "ttft_ns", "tags", "exceptions", "payloads", "usage", "config"]
+    __properties: ClassVar[List[str]] = ["span_id", "root_span_id", "parent_span_id", "start_us", "end_us", "latency_ns", "ttft_ns", "output_tokens", "tags", "exceptions", "payloads", "usage"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -112,13 +111,6 @@ class Span(BaseModel):
                 if _item:
                     _items.append(_item.to_dict())
             _dict['usage'] = _items
-        # override the default output from pydantic by calling `to_dict()` of each item in config (list)
-        _items = []
-        if self.config:
-            for _item in self.config:
-                if _item:
-                    _items.append(_item.to_dict())
-            _dict['config'] = _items
         return _dict
 
     @classmethod
@@ -138,11 +130,11 @@ class Span(BaseModel):
             "end_us": obj.get("end_us"),
             "latency_ns": obj.get("latency_ns"),
             "ttft_ns": obj.get("ttft_ns"),
+            "output_tokens": obj.get("output_tokens"),
             "tags": [Tag.from_dict(_item) for _item in obj["tags"]] if obj.get("tags") is not None else None,
             "exceptions": [Exception.from_dict(_item) for _item in obj["exceptions"]] if obj.get("exceptions") is not None else None,
             "payloads": [Payload.from_dict(_item) for _item in obj["payloads"]] if obj.get("payloads") is not None else None,
-            "usage": [UsageCounter.from_dict(_item) for _item in obj["usage"]] if obj.get("usage") is not None else None,
-            "config": [ConfigEntry.from_dict(_item) for _item in obj["config"]] if obj.get("config") is not None else None
+            "usage": [UsageCounter.from_dict(_item) for _item in obj["usage"]] if obj.get("usage") is not None else None
         })
         return _obj
 

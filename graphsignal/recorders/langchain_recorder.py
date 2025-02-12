@@ -11,7 +11,6 @@ logger = logging.getLogger('graphsignal')
 
 class LangChainRecorder(BaseRecorder):
     def __init__(self):
-        self._library_version = None
         self._v1_handler = None
 
     def setup(self):
@@ -21,9 +20,8 @@ class LangChainRecorder(BaseRecorder):
         version = ''
         if hasattr(langchain, '__version__') and langchain.__version__:
             version = langchain.__version__
-            self._library_version = version
 
-        def is_v2():
+        def is_v1_callback():
             try:
                 from langchain.callbacks.manager import CallbackManager
                 from langchain.callbacks.manager import AsyncCallbackManager
@@ -31,13 +29,9 @@ class LangChainRecorder(BaseRecorder):
                 return False
             return True
 
-        def is_v1():
-            return hasattr(langchain.callbacks, 'get_callback_manager')
-
-
-        if is_v2():
+        if is_v1_callback():
             # langchain >= 0.0.154
-            from graphsignal.callbacks.langchain.v2 import GraphsignalCallbackHandler
+            from graphsignal.callbacks.langchain.v1 import GraphsignalCallbackHandler
             def after_configure(args, kwargs, ret, exc, context):
                 if isinstance(ret, langchain.callbacks.manager.CallbackManager):
                     if not any(isinstance(handler, GraphsignalCallbackHandler) for handler in ret.handlers):
@@ -47,7 +41,7 @@ class LangChainRecorder(BaseRecorder):
             if not patch_method(langchain.callbacks.manager.CallbackManager, 'configure', after_func=after_configure):
                 logger.error(f'Cannot instrument LangChain {version}')
 
-            from graphsignal.callbacks.langchain.v2 import GraphsignalAsyncCallbackHandler
+            from graphsignal.callbacks.langchain.v1 import GraphsignalAsyncCallbackHandler
             def after_async_configure(args, kwargs, ret, exc, context):
                 if isinstance(ret, langchain.callbacks.manager.AsyncCallbackManager):
                     if not any(isinstance(handler, GraphsignalAsyncCallbackHandler) for handler in ret.handlers):
@@ -57,12 +51,6 @@ class LangChainRecorder(BaseRecorder):
             if not patch_method(langchain.callbacks.manager.AsyncCallbackManager, 'configure', after_func=after_async_configure):
                 logger.error(f'Cannot instrument LangChain {version}')
 
-        elif is_v1():
-            # compatibility with langchain <= 0.0.153
-            from graphsignal.callbacks.langchain.v1 import GraphsignalCallbackHandler
-            self._v1_handler = GraphsignalCallbackHandler()
-            langchain.callbacks.get_callback_manager().add_handler(self._v1_handler)
-
         else:
             logger.error(f'Cannot auto-instrument LangChain {version}')
 
@@ -70,9 +58,3 @@ class LangChainRecorder(BaseRecorder):
         if self._v1_handler:
             langchain.callbacks.get_callback_manager().remove_handler(self._v1_handler)
             self._v1_handler = None
-
-    def on_span_read(self, model, context):
-        if self._library_version:
-            model.config.append(client.ConfigEntry(
-                key='langchain.library.version',
-                value=self._library_version))

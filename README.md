@@ -1,19 +1,18 @@
-# Graphsignal: Observability for AI Stack
+# Graphsignal: LLM Performance Analytics
 
 [![License](http://img.shields.io/github/license/graphsignal/graphsignal-python)](https://github.com/graphsignal/graphsignal-python/blob/main/LICENSE)
 [![Version](https://img.shields.io/github/v/tag/graphsignal/graphsignal-python?label=version)](https://github.com/graphsignal/graphsignal-python)
 
 
-Graphsignal is an observability platform for AI agents and LLM-powered applications. It helps developers ensure AI applications run as expected and users have the best experience. With Graphsignal, developers can:
+Graphsignal is an observability platform for AI applications. It helps developers ensure AI applications run efficiently and provide the best user experience. With Graphsignal, developers can:
 
-* Trace generations, runs, and sessions with full AI context.
-* Score any user interactions and application execution.
-* See latency breakdowns and distributions.
-* Analyze model API costs for deployments, models, or users.
-* Get notified about errors and anomalies.
-* Monitor API, compute, and GPU utilization.
+* Measure and optimize LLM performance for APIs and hosted models.
+* Analyze model API costs for deployments, models, or any custom tags.
+* View and search LLM generations with full context.
+* Detect errors and monitor APIs, compute, and GPU utilization.
 
-[![Dashboards](https://graphsignal.com/external/screencast-dashboards.gif)](https://graphsignal.com/)
+
+[![Dashboards](https://graphsignal.com/external/screenshot-dashboard.png)](https://graphsignal.com/)
 
 Learn more at [graphsignal.com](https://graphsignal.com).
 
@@ -56,11 +55,10 @@ Graphsignal **auto-instruments** and traces libraries and frameworks, such as [O
 
 Refer to the guides below for detailed information on:
 
-* [Session Tracking](https://graphsignal.com/docs/guides/session-tracking/)
-* [User Tracking](https://graphsignal.com/docs/guides/user-tracking/)
 * [Manual Tracing](https://graphsignal.com/docs/guides/manual-tracing/)
-* [Scores and Feedback](https://graphsignal.com/docs/guides/scores-and-feedback/)
+* [Session Tracking](https://graphsignal.com/docs/guides/session-tracking/)
 * [Cost and Usage Monitoring](https://graphsignal.com/docs/guides/cost-and-usage-monitoring/)
+* [Scores and Feedback](https://graphsignal.com/docs/guides/scores-and-feedback/)
 
 See [API reference](https://graphsignal.com/docs/reference/python-api/) for full documentation.
 
@@ -69,7 +67,7 @@ Some integration examples are available in [examples](https://github.com/graphsi
 
 ## Analyze
 
-[Log in](https://app.graphsignal.com/) to Graphsignal to monitor and analyze your application and monitor for issues.
+[Log in](https://app.graphsignal.com/) to Graphsignal to monitor and analyze your application.
 
 
 ## Overhead

@@ -42,7 +42,6 @@ def instrument_method(obj, func_name, op_name=None, op_name_func=None, trace_fun
         if stopped:
             span.stop()
         else:
-            span.first_token()
             if data_func:
                 data_func(span, item)
 

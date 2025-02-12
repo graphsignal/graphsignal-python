@@ -1,4 +1,8 @@
 import unittest
+import sys
 
 def main():
-    unittest.main(module=None, argv=['unittest', 'discover'], verbosity=2)
+    test_args = []
+    if len(sys.argv) > 1:
+        test_args = ['-p', sys.argv[1]]
+    unittest.main(module=None, argv=['unittest', 'discover'] + test_args, verbosity=2)

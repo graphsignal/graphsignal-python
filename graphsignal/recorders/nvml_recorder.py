@@ -97,10 +97,10 @@ class NVMLRecorder(BaseRecorder):
 
         for idx, device_usage in enumerate(device_usages):
             store = graphsignal._tracer.metric_store()
-            metric_tags = {'deployment': graphsignal._tracer.deployment}
-            if graphsignal._tracer.hostname:
-                metric_tags['hostname'] = graphsignal._tracer.hostname
-            metric_tags['device'] = idx
+            metric_tags = graphsignal._tracer.tags.copy()
+            if device_usage.device_name:
+                metric_tags['device_name'] = device_usage.device_name
+            metric_tags['device_idx'] = idx
 
             if device_usage.gpu_utilization_percent > 0:
                 store.set_gauge(

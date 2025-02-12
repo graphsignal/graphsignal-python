@@ -21,6 +21,7 @@ logger = logging.getLogger('graphsignal')
 
 from openai import OpenAI, AsyncOpenAI
 from openai.types import Completion, CompletionChoice, CompletionUsage, CreateEmbeddingResponse, Embedding
+from openai.types.completion_usage import PromptTokensDetails, CompletionTokensDetails
 from openai.types.chat import ChatCompletion, ChatCompletionMessage, ChatCompletionChunk
 from openai.types.chat.chat_completion import Choice
 from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice, ChoiceDelta
@@ -51,14 +52,11 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         model = client.Span(
             span_id='s1',
             start_us=0,
-            end_us=0,
-            config=[]
+            end_us=0
         )
         context = {}
         recorder.on_span_start(model, context)
         recorder.on_span_stop(model, context)
-        recorder.on_span_read(model, context)
-        self.assertEqual(model.config[0].key, 'openai.library.version')
 
     @patch.object(Uploader, 'upload_span')
     async def test_client(self, mocked_upload_span):
@@ -67,14 +65,11 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         model = client.Span(
             span_id='s1',
             start_us=0,
-            end_us=0,
-            config=[]
+            end_us=0
         )
         context = {}
         recorder.on_span_start(model, context)
         recorder.on_span_stop(model, context)
-        recorder.on_span_read(model, context)
-        self.assertEqual(model.config[0].key, 'openai.library.version')
 
     @patch.object(Uploader, 'upload_span')
     async def test_chat_completion_create(self, mocked_upload_span):
@@ -97,17 +92,28 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
                             role='assistant', 
                             function_call=None, 
                             tool_calls=None))], 
-                            created=1700647647, 
-                            model='gpt-3.5-turbo-0613', 
-                            object='chat.completion', 
-                            system_fingerprint=None, 
-                            usage=CompletionUsage(
-                                completion_tokens=8, 
-                                prompt_tokens=19, 
-                                total_tokens=27))
+                        created=1700647647, 
+                        model='gpt-3.5-turbo-0613', 
+                        object='chat.completion', 
+                        system_fingerprint=None, 
+                        usage=CompletionUsage(
+                            prompt_tokens=14,
+                            prompt_tokens_details=PromptTokensDetails(
+                                cached_tokens=10,
+                                audio_tokens=7
+                            ),
+                            completion_tokens=37,
+                            completion_tokens_details=CompletionTokensDetails(
+                                accepted_prediction_tokens=5,
+                                audio_tokens=None,
+                                reasoning_tokens=2,
+                                rejected_prediction_tokens=6
+                            ),
+                            total_tokens=51))
 
             response = client.chat.completions.create(
                 model="gpt-3.5-turbo", 
+                reasoning_effort="low",
                 messages=[
                     {'role': 'system', 'content': 'test prompt 1'}, 
                     {'role': 'system', 'content': 'test prompt 2'}],
@@ -125,19 +131,32 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
             model = mocked_upload_span.call_args[0][0]
 
+            self.assertTrue(model.latency_ns > 0)
+            self.assertEqual(model.output_tokens, 37)
+
             self.assertEqual(find_tag(model, 'model_type'), 'chat')
-            self.assertEqual(find_tag(model, 'library'), 'openai')
+            self.assertEqual(find_tag(model, 'reasoning_effort'), 'low')
+            self.assertEqual(find_tag(model, 'api_provider'), 'openai')
+            self.assertEqual(find_tag(model, 'library'), 'openai-python-1.61.1')
             self.assertEqual(find_tag(model, 'operation'), 'openai.chat.completions.create')
             self.assertEqual(find_tag(model, 'endpoint'), 'https://api.openai.com/v1/chat/completions')
             self.assertEqual(find_tag(model, 'model'), 'gpt-3.5-turbo')
+            self.assertEqual(find_tag(model, 'effective_model'), 'gpt-3.5-turbo-0613')
             self.assertEqual(find_tag(model, 'k1'), 'v1')
             self.assertEqual(find_tag(model, 'user_id'), 'u1')
 
-            self.assertEqual(find_usage(model, 'input', 'token_count'), 19)
-            self.assertEqual(find_usage(model, 'output', 'token_count'), 8)
+            self.assertEqual(find_usage(model, 'total_tokens'), 51)
+            self.assertEqual(find_usage(model, 'prompt_tokens'), 14)
+            self.assertEqual(find_usage(model, 'completion_tokens'), 37)
+            self.assertEqual(find_usage(model, 'cached_prompt_tokens'), 10)
+            self.assertEqual(find_usage(model, 'uncached_prompt_tokens'), 4)
+            self.assertEqual(find_usage(model, 'reasoning_tokens'), 2)
+            self.assertEqual(find_usage(model, 'accepted_prediction_tokens'), 5)
+            self.assertEqual(find_usage(model, 'rejected_prediction_tokens'), 6)
+            self.assertEqual(find_usage(model, 'prompt_audio_tokens'), 7)
 
-            self.assertIsNotNone(find_payload(model, 'input'))
-            self.assertIsNotNone(find_payload(model, 'output'))
+            self.assertIsNotNone(find_payload(model, 'request'))
+            self.assertIsNotNone(find_payload(model, 'response'))
 
 
     @patch.object(Uploader, 'upload_span')
@@ -169,10 +188,11 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
                                 usage=CompletionUsage(
                                     completion_tokens=18, 
                                     prompt_tokens=78, 
-                                    total_tokens=96))
+                                    total_tokens=96,
+                                    ))
 
             response = client.chat.completions.create(
-                model="gpt-3.5-turbo-0613", 
+                model="gpt-3.5-turbo", 
                 messages=[{'role': 'system', 'content': 'What\'s the weather like in Boston?'}],
                 functions=[
                     {
@@ -204,17 +224,21 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
             model = mocked_upload_span.call_args[0][0]
 
+            self.assertTrue(model.latency_ns > 0)
+            self.assertEqual(model.output_tokens, 18)
+
             self.assertEqual(find_tag(model, 'model_type'), 'chat')
             self.assertEqual(find_tag(model, 'operation'), 'openai.chat.completions.create')
             self.assertEqual(find_tag(model, 'api_provider'), 'openai')
             self.assertEqual(find_tag(model, 'endpoint'), 'https://api.openai.com/v1/chat/completions')
-            self.assertEqual(find_tag(model, 'model'), 'gpt-3.5-turbo-0613')
+            self.assertEqual(find_tag(model, 'model'), 'gpt-3.5-turbo')
+            self.assertEqual(find_tag(model, 'effective_model'), 'gpt-3.5-turbo-0613')
 
-            self.assertEqual(find_usage(model, 'input', 'token_count'), 78)
-            self.assertEqual(find_usage(model, 'output', 'token_count'), 18)
+            self.assertEqual(find_usage(model, 'prompt_tokens'), 78)
+            self.assertEqual(find_usage(model, 'completion_tokens'), 18)
 
-            self.assertIsNotNone(find_payload(model, 'input'))
-            self.assertIsNotNone(find_payload(model, 'output'))
+            self.assertIsNotNone(find_payload(model, 'request'))
+            self.assertIsNotNone(find_payload(model, 'response'))
 
 
     @patch.object(Uploader, 'upload_span')
@@ -255,7 +279,21 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
                             index=0)], 
                         created=1700744885, 
                         model='gpt-4-0613', 
-                        object='chat.completion.chunk')
+                        object='chat.completion.chunk',
+                        usage=CompletionUsage(
+                            prompt_tokens=14,
+                            prompt_tokens_details=PromptTokensDetails(
+                                cached_tokens=10,
+                                audio_tokens=7,
+                            ),
+                            completion_tokens=37,
+                            completion_tokens_details=CompletionTokensDetails(
+                                accepted_prediction_tokens=5,
+                                audio_tokens=None,
+                                reasoning_tokens=2,
+                                rejected_prediction_tokens=6
+                            ),
+                            total_tokens=51))
             ]
             def test_ret_gen():
                 for item in test_ret:
@@ -294,11 +332,15 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
             model = mocked_upload_span.call_args[0][0]
 
-            self.assertEqual(find_usage(model, 'input', 'token_count'), 40)
-            self.assertEqual(find_usage(model, 'output', 'token_count'), 2)
+            self.assertTrue(model.latency_ns > 0)
+            self.assertTrue(model.ttft_ns > 0)
+            self.assertEqual(model.output_tokens, 37)
 
-            self.assertIsNotNone(find_payload(model, 'input'))
-            self.assertIsNotNone(find_payload(model, 'output'))
+            self.assertEqual(find_usage(model, 'prompt_tokens'), 14)
+            self.assertEqual(find_usage(model, 'completion_tokens'), 37)
+
+            self.assertIsNotNone(find_payload(model, 'request'))
+            self.assertIsNotNone(find_payload(model, 'response'))
 
 
     @patch.object(Uploader, 'upload_span')
@@ -376,15 +418,18 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
             model = mocked_upload_span.call_args[0][0]
 
+            self.assertTrue(model.latency_ns > 0)
+            self.assertTrue(model.ttft_ns > 0)
+            self.assertEqual(model.output_tokens, 2)
 
             self.assertEqual(find_tag(model, 'model_type'), 'chat')
             self.assertEqual(find_tag(model, 'model'), 'gpt-4')
             self.assertEqual(find_tag(model, 'endpoint'), 'https://api.openai.com/v1/chat/completions')
 
-            self.assertEqual(find_usage(model, 'input', 'token_count'), 40)
-            self.assertEqual(find_usage(model, 'output', 'token_count'), 2)
+            self.assertEqual(find_usage(model, 'prompt_tokens'), 40)
+            self.assertEqual(find_usage(model, 'completion_tokens'), 2)
 
-            input_json = json.loads(base64.b64decode(find_payload(model, 'input').content_base64))
+            input_json = json.loads(base64.b64decode(find_payload(model, 'request').content_base64))
             #pp = pprint.PrettyPrinter()
             #pp.pprint(input_json)
 
@@ -404,7 +449,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
                 'temperature': 0.1,
                 'top_p': 1})
 
-            output_json = json.loads(base64.b64decode(find_payload(model, 'output').content_base64))
+            output_json = json.loads(base64.b64decode(find_payload(model, 'response').content_base64))
             #pp = pprint.PrettyPrinter()
             #pp.pprint(output_json)
 
@@ -471,11 +516,12 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(find_tag(model, 'operation'), 'openai.embeddings.create')
             self.assertEqual(find_tag(model, 'endpoint'), 'https://api.openai.com/v1/embeddings')
-            self.assertEqual(find_tag(model, 'model'), 'text-embedding-ada-002-v2')
+            self.assertEqual(find_tag(model, 'model'), 'text-embedding-ada-002')
+            self.assertEqual(find_tag(model, 'effective_model'), 'text-embedding-ada-002-v2')
 
-            self.assertEqual(find_usage(model, 'input', 'token_count'), 8.0)
+            self.assertEqual(find_usage(model, 'prompt_tokens'), 8.0)
 
-            input_json = json.loads(base64.b64decode(find_payload(model, 'input').content_base64))
+            input_json = json.loads(base64.b64decode(find_payload(model, 'request').content_base64))
 
             #pp = pprint.PrettyPrinter()
             #pp.pprint(input_json)

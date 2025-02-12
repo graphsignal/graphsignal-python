@@ -80,7 +80,6 @@ class OpenAIRecorder(BaseRecorder):
             logger.debug('OpenAI tracing is only supported for >= 1.0.0.')
             return
 
-
     def shutdown(self):
         pass
 
@@ -107,7 +106,7 @@ class OpenAIRecorder(BaseRecorder):
         return None
 
     def set_common_tags(self, span, endpoint, params):
-        span.set_tag('library', 'openai')
+        span.set_tag('library', f'openai-python-{str(self._library_version)}')
         if 'openai.com' in str(self._base_url):
             span.set_tag('api_provider', 'openai')
         if 'azure.com' in str(self._base_url):
@@ -136,6 +135,47 @@ class OpenAIRecorder(BaseRecorder):
             if not graphsignal.get_tag('user_id') and not graphsignal.get_context_tag('user_id') and not span.get_tag('user_id'):
                 span.set_tag('user_id', params['user'])
 
+    def read_usage(self, span, usage):
+        if not usage:
+            return
+
+        def set_usage(span, obj, key, new_key=None):
+            if not isinstance(obj, dict):
+                return 0
+
+            if key in obj:
+                value = obj[key]
+                if isinstance(value, int):
+                    if new_key:
+                        span.set_usage(new_key, value)
+                    else:
+                        span.set_usage(key, value)
+                    return value
+            return None
+
+        set_usage(span, usage, 'total_tokens')
+        prompt_tokens = set_usage(span, usage, 'prompt_tokens')
+        cached_prompt_tokens = None
+        set_usage(span, usage, 'completion_tokens')
+        if 'completion_tokens' in usage:
+            span.set_output_tokens(usage['completion_tokens'])
+        if 'prompt_tokens_details' in usage:
+            prompt_tokens_details = usage['prompt_tokens_details']
+            set_usage(span, prompt_tokens_details, 'audio_tokens', 'prompt_audio_tokens')
+            cached_prompt_tokens = set_usage(span, prompt_tokens_details, 'cached_tokens', 'cached_prompt_tokens')
+        if 'completion_tokens_details' in usage:
+            completion_tokens_details = usage['completion_tokens_details']
+            set_usage(span, completion_tokens_details, 'audio_tokens', 'completion_audio_tokens')
+            set_usage(span, completion_tokens_details, 'reasoning_tokens')
+            set_usage(span, completion_tokens_details, 'accepted_prediction_tokens')
+            set_usage(span, completion_tokens_details, 'rejected_prediction_tokens')
+
+        if prompt_tokens:
+            if cached_prompt_tokens and cached_prompt_tokens > 0:
+                span.set_usage('uncached_prompt_tokens', prompt_tokens - cached_prompt_tokens)
+            else:
+                span.set_usage('uncached_prompt_tokens', prompt_tokens)
+
     def trace_chat_completion(self, span, args, kwargs, ret, exc):
         params = kwargs
 
@@ -144,9 +184,8 @@ class OpenAIRecorder(BaseRecorder):
         if 'model' in params:
             span.set_tag('model', params['model'])
 
-        input_usage = {
-            'token_count': 0
-        }
+        if 'reasoning_effort' in params:
+            span.set_tag('reasoning_effort', params['reasoning_effort'])
 
         if 'stream' in params and params['stream']:
             if 'messages' in params:
@@ -154,57 +193,54 @@ class OpenAIRecorder(BaseRecorder):
                     # Based on token counting example
                     # https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
                     model = params['model']
+                    total_prompt_tokens = 0
                     for message in params['messages']:
                         if 'content' in message:
                             prompt_tokens = self.count_tokens(model, message['content'])
                             if prompt_tokens:
-                                input_usage['token_count'] += prompt_tokens
-                                input_usage['token_count'] += self._extra_content_tokens.get(model, 0)
+                                total_prompt_tokens += prompt_tokens
+                                total_prompt_tokens += self._extra_content_tokens.get(model, 0)
                         if 'role' in message:
                             prompt_tokens = self.count_tokens(model, message['role'])
                             if prompt_tokens:
-                                input_usage['token_count'] += prompt_tokens
+                                total_prompt_tokens += prompt_tokens
                         if 'name' in message:
                             prompt_tokens = self.count_tokens(model, message['name'])
                             if prompt_tokens:
-                                input_usage['token_count'] += prompt_tokens
-                                input_usage['token_count'] += self._extra_name_tokens.get(model, 0)
-                    if input_usage['token_count'] > 0:
-                        input_usage['token_count'] += self._extra_reply_tokens.get(model, 0)
+                                total_prompt_tokens += prompt_tokens
+                                total_prompt_tokens += self._extra_name_tokens.get(model, 0)
+                    if total_prompt_tokens > 0:
+                        total_prompt_tokens += self._extra_reply_tokens.get(model, 0)
+                    span.set_usage('prompt_tokens', total_prompt_tokens)
+                    span.set_usage('uncached_prompt_tokens', total_prompt_tokens)
 
-            span.set_payload('input', params, usage=input_usage)
+            span.set_payload('request', params)
         else:
-            if ret and 'model' in ret:
-                span.set_tag('model', ret['model'])
-
             ret = ret.model_dump()
 
-            input_usage = {}
-            output_usage = {
-                'token_count': 0
-            }
+            if ret and 'model' in ret:
+                span.set_tag('effective_model', ret['model'])
+
             if ret and 'usage' in ret and not exc:
-                if 'prompt_tokens' in ret['usage']:
-                    input_usage['token_count'] = ret['usage']['prompt_tokens']
-                if 'completion_tokens' in ret['usage']:
-                    output_usage['token_count'] = ret['usage']['completion_tokens']
+                self.read_usage(span, ret['usage'])
 
-            span.set_payload('input', params, usage=input_usage)
-
+            span.set_payload('request', params)
             if ret:
-                span.set_payload('output', ret, usage=output_usage)
+                span.set_payload('response', ret)
 
     def trace_chat_completion_data(self, span, item):
         item = item.model_dump()
 
-        output_usage = {
-            'token_count': 0
-        }
+        span.first_token()
         if item and 'choices' in item:
             for _ in item['choices']:
-                output_usage['token_count'] += 1
+                span.inc_usage('completion_tokens', 1)
+                span.inc_output_tokens(1)
 
-            span.append_payload('output', [item], usage=output_usage)
+            span.append_payload('response', [item])
+
+        if item and 'usage' in item:
+            self.read_usage(span, item['usage'])
 
     def trace_embedding(self, span, args, kwargs, ret, exc):
         params = kwargs
@@ -213,18 +249,19 @@ class OpenAIRecorder(BaseRecorder):
         if 'model' in params:
             span.set_tag('model', params['model'])
 
-        input_usage = {}
-
         ret = ret.model_dump()
 
         if ret and 'model' in ret:
-            span.set_tag('model', ret['model'])
+            span.set_tag('effective_model', ret['model'])
 
         if ret and 'usage' in ret:
-            if 'prompt_tokens' in ret['usage']:
-                input_usage['token_count'] = ret['usage']['prompt_tokens']
+            usage = ret['usage']
+            if 'total_tokens' in usage:
+                span.set_usage('total_tokens', usage['total_tokens'])
+            if 'prompt_tokens' in usage:
+                span.set_usage('prompt_tokens', usage['prompt_tokens'])
 
-        span.set_payload('input', params, usage=input_usage)
+        span.set_payload('request', params)
 
     def trace_image_generation(self, span, args, kwargs, ret, exc):
         params = kwargs
@@ -250,7 +287,7 @@ class OpenAIRecorder(BaseRecorder):
     def trace_image_endpoint(self, span, args, kwargs, ret, exc):
         params = kwargs
 
-        span.set_payload('input', params, params)
+        span.set_payload('request', params, params)
 
         if ret and 'data' in ret:
             image_data = []
@@ -259,7 +296,7 @@ class OpenAIRecorder(BaseRecorder):
                     image_data.append(image['url'])
                 elif 'b64_json' in image:
                     image_data.append(image['b64_json'])
-            span.set_payload('output', image_data)
+            span.set_payload('response', image_data)
 
     def trace_audio_transcription(self, span, args, kwargs, ret, exc):
         params = kwargs
@@ -268,12 +305,12 @@ class OpenAIRecorder(BaseRecorder):
         if 'model' in params:
             span.set_tag('model', params['model'])
 
-        span.set_payload('input', params)
+        span.set_payload('request', params)
 
         ret = ret.model_dump()
 
         if ret and 'text' in ret:
-            span.set_payload('output', ret['text'])
+            span.set_payload('response', ret['text'])
 
     def trace_audio_translation(self, span, args, kwargs, ret, exc):
         params = kwargs
@@ -284,12 +321,12 @@ class OpenAIRecorder(BaseRecorder):
 
         input_data = {}
 
-        span.set_payload('input', params)
+        span.set_payload('request', params)
 
         ret = ret.model_dump()
 
         if ret and 'text' in ret:
-            span.set_payload('input', ret['text'])
+            span.set_payload('request', ret['text'])
 
     def trace_moderation(self, span, args, kwargs, ret, exc):
         params = kwargs
@@ -298,10 +335,4 @@ class OpenAIRecorder(BaseRecorder):
         if 'model' in params:
             span.set_tag('model', params['model'])
 
-        span.set_payload('input', params)
-
-    def on_span_read(self, model, context):
-        if self._library_version:
-            model.config.append(client.ConfigEntry(
-                key='openai.library.version',
-                value=self._library_version))
+        span.set_payload('request', params)

@@ -32,9 +32,9 @@ class Score(BaseModel):
     tags: Optional[List[Tag]] = Field(default=None, description="Tags associated with the score.")
     name: StrictStr = Field(description="The name of the score.")
     comment: Optional[StrictStr] = Field(default=None, description="Optional comment or description for the score.")
-    score: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="The numerical value of the score.")
-    unit: Optional[StrictStr] = Field(default=None, description="The units of score value")
-    severity: Optional[StrictInt] = Field(default=None, description="Optional severity level of the score.")
+    score: Union[StrictFloat, StrictInt] = Field(description="The numerical value of the score.")
+    unit: Optional[StrictStr] = Field(default=None, description="The units of score value.")
+    severity: Optional[StrictInt] = Field(default=None, description="Severity of the score, 1-5 (info, low, medium, high, critical).")
     create_ts: StrictInt = Field(description="Unix timestamp (seconds) when the score was created.")
     __properties: ClassVar[List[str]] = ["score_id", "span_id", "tags", "name", "comment", "score", "unit", "severity", "create_ts"]
 

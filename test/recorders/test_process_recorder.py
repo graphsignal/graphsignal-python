@@ -43,7 +43,7 @@ class ProcessRecorderTest(unittest.TestCase):
         recorder.on_metric_update()
 
         store = graphsignal._tracer.metric_store()
-        metric_tags =  {'deployment': 'd1', 'hostname': socket.gethostname()}
+        metric_tags =  graphsignal._tracer.tags.copy()
         key = store.metric_key('system', 'process_cpu_usage', metric_tags)
         self.assertTrue(store._metrics[key].gauge > 0)
         key = store.metric_key('system', 'process_memory', metric_tags)

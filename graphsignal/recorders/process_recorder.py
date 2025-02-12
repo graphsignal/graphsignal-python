@@ -15,6 +15,7 @@ except ImportError:
 from graphsignal import client
 from graphsignal.recorders.base_recorder import BaseRecorder
 import graphsignal
+from graphsignal import version
 
 logger = logging.getLogger('graphsignal')
 
@@ -80,7 +81,16 @@ class ProcessRecorder(BaseRecorder):
         self._last_snapshot = None
 
     def setup(self):
-        self.take_snapshot()
+        process_usage, node_usage = self.take_snapshot()
+        if platform.system() and platform.release():
+            graphsignal._tracer.set_tag('platform', f'{platform.system()}-{platform.release()}')
+        if sys.version_info and len(sys.version_info) >= 3:
+            graphsignal._tracer.set_tag('runtime', f'Python-{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')
+        if node_usage.hostname:
+            graphsignal._tracer.set_tag('hostname', node_usage.hostname)
+        if process_usage.pid:
+            graphsignal._tracer.set_tag('process_id', str(process_usage.pid))
+        graphsignal._tracer.set_tag('tracer', f'graphsignal-python-{version.__version__}')
 
     def on_metric_update(self):
         now = int(time.time())
@@ -88,9 +98,7 @@ class ProcessRecorder(BaseRecorder):
         process_usage, node_usage = self.take_snapshot()
 
         store = graphsignal._tracer.metric_store()
-        metric_tags = {'deployment': graphsignal._tracer.deployment}
-        if graphsignal._tracer.hostname:
-            metric_tags['hostname'] = graphsignal._tracer.hostname
+        metric_tags = graphsignal._tracer.tags.copy()
 
         if process_usage.cpu_usage_percent > 0:
             store.set_gauge(
@@ -109,26 +117,6 @@ class ProcessRecorder(BaseRecorder):
                 scope='system', name='node_memory_used', tags=metric_tags, 
                 value=node_usage.mem_used, update_ts=now, is_size=True)
 
-    def on_span_read(self, model, context):
-        if self._last_snapshot:
-            process_usage, node_usage = self._last_snapshot
-            if node_usage.os_name:
-                model.config.append(client.ConfigEntry(
-                    key='os.name',
-                    value=node_usage.os_name))
-            if node_usage.os_version:
-                model.config.append(client.ConfigEntry(
-                    key='os.version',
-                    value=node_usage.os_version))
-            if process_usage.runtime:
-                model.config.append(client.ConfigEntry(
-                    key='runtime.name',
-                    value=process_usage.runtime))
-            if process_usage.runtime_version:
-                model.config.append(client.ConfigEntry(
-                    key='runtime.version',
-                    value=str(process_usage.runtime_version)))
-
     def take_snapshot(self):
         if not OS_WIN:
             rusage_self = resource.getrusage(resource.RUSAGE_SELF)
@@ -138,12 +126,37 @@ class ProcessRecorder(BaseRecorder):
             vm_size = _read_vm_size()
 
         now = time.time()
-        pid = os.getpid()
-
         node_usage = NodeUsage()
         process_usage = ProcessUsage()
 
+        pid = os.getpid()
         process_usage.pid = pid
+
+        try:
+            node_usage.hostname = socket.gethostname()
+            if node_usage.hostname:
+                node_usage.ip_address = socket.gethostbyname(node_usage.hostname)
+        except BaseException:
+            logger.debug('Error reading hostname', exc_info=True)
+
+        try:
+            node_usage.platform = sys.platform
+            node_usage.machine = platform.machine()
+            if not OS_WIN:
+                node_usage.os_name = os.uname().sysname
+                node_usage.os_version = os.uname().release
+        except BaseException:
+            logger.error('Error reading node information', exc_info=True)
+
+        try:
+            process_usage.runtime = 'Python'
+            process_usage.runtime_version = SemVer()
+            process_usage.runtime_version.major = sys.version_info.major
+            process_usage.runtime_version.minor = sys.version_info.minor
+            process_usage.runtime_version.patch = sys.version_info.micro
+            process_usage.runtime_impl = platform.python_implementation()
+        except BaseException:
+            logger.error('Error reading process information', exc_info=True)
 
         if not OS_WIN:
             cpu_time_us = _rusage_cpu_time(rusage_self)
@@ -184,32 +197,6 @@ class ProcessRecorder(BaseRecorder):
                 mem_free = _read_mem_free()
                 if mem_free is not None:
                     node_usage.mem_used = mem_total - mem_free
-
-        try:
-            node_usage.hostname = socket.gethostname()
-            if node_usage.hostname:
-                node_usage.ip_address = socket.gethostbyname(node_usage.hostname)
-        except BaseException:
-            logger.debug('Error reading hostname', exc_info=True)
-
-        try:
-            node_usage.platform = sys.platform
-            node_usage.machine = platform.machine()
-            if not OS_WIN:
-                node_usage.os_name = os.uname().sysname
-                node_usage.os_version = os.uname().release
-        except BaseException:
-            logger.error('Error reading node information', exc_info=True)
-
-        try:
-            process_usage.runtime = 'Python'
-            process_usage.runtime_version = SemVer()
-            process_usage.runtime_version.major = sys.version_info.major
-            process_usage.runtime_version.minor = sys.version_info.minor
-            process_usage.runtime_version.patch = sys.version_info.micro
-            process_usage.runtime_impl = platform.python_implementation()
-        except BaseException:
-            logger.error('Error reading process information', exc_info=True)
 
         self._last_snapshot = (process_usage, node_usage)
         return self._last_snapshot

@@ -5,7 +5,7 @@ import time
 from unittest.mock import patch, Mock
 
 import graphsignal
-from graphsignal.spans import Span, get_current_span, encode_payload
+from graphsignal.spans import Span, encode_payload
 from graphsignal.recorders.process_recorder import ProcessRecorder
 from graphsignal.uploader import Uploader
 
@@ -43,15 +43,14 @@ class SpansTest(unittest.TestCase):
                 operation='op1',
                 tags={'k4': 4.0})
             span.set_tag('k5', 'v5')
-            span.set_payload('input', [[1, 2],[3, 4]], usage=dict(c1=1, c2=2))
+            span.set_payload('input', [[1, 2],[3, 4]])
             span.set_usage('c3', 3)
             time.sleep(0.01)
-            self.assertEqual(get_current_span(), span)
             span.first_token()
+            span.set_output_tokens(10)
             span.score(name='test-score', score=0.5, unit='u1', severity=3, comment='c1')
             time.sleep(0.01)
             span.stop()
-            self.assertIsNone(get_current_span())
 
         span = mocked_upload_span.call_args[0][0]
 
@@ -59,90 +58,70 @@ class SpansTest(unittest.TestCase):
         self.assertTrue(span.end_us > 0)
         self.assertTrue(span.latency_ns > 0)
         self.assertTrue(span.ttft_ns > 0)
+        self.assertEqual(span.output_tokens, 10)
         self.assertEqual(span.root_span_id, span.span_id)
-        self.assertEqual(span.tags[0].key, 'deployment')
-        self.assertEqual(span.tags[0].value, 'd1')
-        self.assertEqual(span.tags[1].key, 'operation')
-        self.assertEqual(span.tags[1].value, 'op1')
-        self.assertEqual(span.tags[2].key, 'hostname')
-        self.assertIsNotNone(span.tags[2].value)
-        self.assertEqual(span.tags[3].key, 'k1')
-        self.assertEqual(span.tags[3].value, 'v1')
-        self.assertEqual(span.tags[4].key, 'k2')
-        self.assertEqual(span.tags[4].value, 'v2')
-        self.assertEqual(span.tags[5].key, 'k3')
-        self.assertEqual(span.tags[5].value, 'v3')
-        self.assertEqual(span.tags[6].key, 'k4')
-        self.assertEqual(span.tags[6].value, '4.0')
-        self.assertEqual(span.tags[7].key, 'k5')
-        self.assertEqual(span.tags[7].value, 'v5')
-        self.assertEqual(span.usage[0].payload_name, 'input')
-        self.assertEqual(span.usage[0].name, 'c1')
-        self.assertEqual(span.usage[0].value, 1)
-        self.assertEqual(span.usage[1].payload_name, 'input')
-        self.assertEqual(span.usage[1].name, 'c2')
-        self.assertEqual(span.usage[1].value, 2)
-        self.assertEqual(span.usage[2].payload_name, None)
-        self.assertEqual(span.usage[2].name, 'c3')
-        self.assertEqual(span.usage[2].value, 3)
-        self.assertEqual(span.payloads[0].name, 'input')
-        self.assertEqual(span.payloads[0].content_type, 'application/json')
-        self.assertEqual(span.payloads[0].content_base64, 'W1sxLCAyXSwgWzMsIDRdXQ==')
-        self.assertEqual(span.config[0].key, 'graphsignal.library.version')
+        self.assertEqual(find_tag(span, 'deployment'), 'd1')
+        self.assertEqual(find_tag(span, 'operation'), 'op1')
+        self.assertIsNotNone(find_tag(span, 'platform'))
+        self.assertIsNotNone(find_tag(span, 'runtime'))
+        self.assertIsNotNone(find_tag(span, 'hostname'))
+        self.assertIsNotNone(find_tag(span, 'process_id'))
+        self.assertEqual(find_tag(span, 'k1'), 'v1')
+        self.assertEqual(find_tag(span, 'k2'), 'v2')
+        self.assertEqual(find_tag(span, 'k3'), 'v3')
+        self.assertEqual(find_tag(span, 'k4'), '4.0')
+        self.assertEqual(find_tag(span, 'k5'), 'v5')
+        self.assertEqual(find_usage(span, 'c3'), 3)
+        self.assertEqual(find_payload(span, 'input').content_type, 'application/json')
+        self.assertEqual(find_payload(span, 'input').content_base64, 'W1sxLCAyXSwgWzMsIDRdXQ==')
 
         store = graphsignal._tracer.metric_store()
-        metric_tags =  {'deployment': 'd1', 'operation': 'op1', 'hostname': 'h1', 'k1': 'v1', 'k2': 'v2', 'k3': 'v3', 'k4': 4.0, 'k5': 'v5'}
+        metric_tags =  graphsignal._tracer.tags.copy()
+        metric_tags['operation'] = 'op1'
+        metric_tags['k3'] = 'v3'  
+        metric_tags['k4'] = 4.0
+        metric_tags['k5'] = 'v5'
         key = store.metric_key('performance', 'latency', metric_tags)
         self.assertTrue(len(store._metrics[key].histogram) > 0)
         key = store.metric_key('performance', 'first_token', metric_tags)
         self.assertTrue(len(store._metrics[key].histogram) > 0)
         key = store.metric_key('performance', 'call_count', metric_tags)
         self.assertEqual(store._metrics[key].counter, 10)
+        key = store.metric_key('performance', 'output_tps', metric_tags)
+        self.assertEqual(store._metrics[key].count, 100)
+        self.assertTrue(store._metrics[key].interval > 0)
 
         usage_tags = metric_tags.copy()
         key = store.metric_key('usage', 'c3', usage_tags)
         self.assertEqual(store._metrics[key].counter, 30)
-
-        usage_tags['payload'] = 'input'
-        key = store.metric_key('usage', 'c1', usage_tags)
-        self.assertEqual(store._metrics[key].counter, 10)
-        key = store.metric_key('usage', 'c2', usage_tags)
-        self.assertEqual(store._metrics[key].counter, 20)
 
         score = mocked_upload_score.call_args[0][0]
 
         self.assertTrue(score.score_id is not None and score.score_id != '')
         self.assertEqual(score.span_id, span.span_id)
         self.assertEqual(score.name, 'test-score')
-        self.assertEqual(score.tags[0].key, 'deployment')
-        self.assertEqual(score.tags[0].value, 'd1')
-        self.assertEqual(score.tags[1].key, 'operation')
-        self.assertEqual(score.tags[1].value, 'op1')
-        self.assertEqual(score.tags[2].key, 'hostname')
-        self.assertIsNotNone(score.tags[2].value)
-        self.assertEqual(score.tags[3].key, 'k1')
-        self.assertEqual(score.tags[3].value, 'v1')
-        self.assertEqual(score.tags[4].key, 'k2')
-        self.assertEqual(score.tags[4].value, 'v2')
-        self.assertEqual(score.tags[5].key, 'k3')
-        self.assertEqual(score.tags[5].value, 'v3')
-        self.assertEqual(score.tags[6].key, 'k4')
-        self.assertEqual(score.tags[6].value, '4.0')
-        self.assertEqual(score.tags[7].key, 'k5')
-        self.assertEqual(score.tags[7].value, 'v5')
+        self.assertEqual(find_tag(score, 'deployment'), 'd1')
+        self.assertEqual(find_tag(score, 'operation'), 'op1')
+        self.assertIsNotNone(find_tag(score, 'platform'))
+        self.assertIsNotNone(find_tag(score, 'runtime'))
+        self.assertIsNotNone(find_tag(score, 'hostname'))
+        self.assertIsNotNone(find_tag(score, 'process_id'))
+        self.assertEqual(find_tag(score, 'k1'), 'v1')
+        self.assertEqual(find_tag(score, 'k2'), 'v2')
+        self.assertEqual(find_tag(score, 'k3'), 'v3')
+        self.assertEqual(find_tag(score, 'k4'), '4.0')
+        self.assertEqual(find_tag(score, 'k5'), 'v5')        
         self.assertEqual(score.score, 0.5)
         self.assertEqual(score.unit, 'u1')
         self.assertEqual(score.severity, 3)
         self.assertEqual(score.comment, 'c1')
         self.assertTrue(score.create_ts > 0)
 
-
-
     @patch.object(ProcessRecorder, 'on_span_start')
     @patch.object(Uploader, 'upload_span')
     def test_start_stop_nested(self, mocked_upload_span, mocked_process_on_span_start):
-        with Span(operation='op1'):
-            with Span(operation='op2'):
+        with Span(operation='op1') as span:
+            with span.trace(operation='op2'):
                 pass
 
         t1 = mocked_upload_span.call_args_list[1][0][0]
@@ -218,7 +197,8 @@ class SpansTest(unittest.TestCase):
         self.assertNotEqual(span.exceptions[0].stack_trace, '')
 
         store = graphsignal._tracer.metric_store()
-        metric_tags =  {'deployment': 'd1', 'operation': 'op1', 'hostname': 'h1', 'k1': 'v1'}
+        metric_tags = graphsignal._tracer.tags.copy()
+        metric_tags['operation'] = 'op1'
         key = store.metric_key('performance', 'exception_count', metric_tags)
         self.assertEqual(store._metrics[key].counter, 2)
 
@@ -241,7 +221,8 @@ class SpansTest(unittest.TestCase):
         self.assertNotEqual(span.exceptions[0].stack_trace, '')
 
         store = graphsignal._tracer.metric_store()
-        metric_tags =  {'deployment': 'd1', 'operation': 'op1', 'hostname': 'h1', 'k1': 'v1'}
+        metric_tags = graphsignal._tracer.tags.copy()
+        metric_tags['operation'] = 'op1'
         key = store.metric_key('performance', 'exception_count', metric_tags)
         self.assertEqual(store._metrics[key].counter, 1)
 
@@ -264,7 +245,8 @@ class SpansTest(unittest.TestCase):
         self.assertNotEqual(span.exceptions[0].stack_trace, '')
 
         store = graphsignal._tracer.metric_store()
-        metric_tags =  {'deployment': 'd1', 'operation': 'op1', 'hostname': 'h1', 'k1': 'v1'}
+        metric_tags = graphsignal._tracer.tags.copy()
+        metric_tags['operation'] = 'op1'
         key = store.metric_key('performance', 'exception_count', metric_tags)
         self.assertEqual(store._metrics[key].counter, 1)
 
@@ -281,11 +263,11 @@ class SpansTest(unittest.TestCase):
 
     @patch.object(Uploader, 'upload_span')
     def test_subspans(self, mocked_upload_span):
-        with Span(operation='op1'):
-            with Span(operation='op2'):
-                with Span(operation='op3'):
+        with Span(operation='op1') as span1:
+            with span1.trace(operation='op2') as span2:
+                with span2.trace(operation='op3'):
                     pass
-            with Span(operation='ep4'):
+            with span1.trace(operation='ep4'):
                 pass
 
         t3 = mocked_upload_span.call_args_list[0][0][0]
@@ -331,6 +313,27 @@ class SpansTest(unittest.TestCase):
         content_type, content_bytes = encode_payload(['text\n', 2.0, float('nan')])
         self.assertEqual(content_type, 'application/json')
         self.assertEqual(content_bytes, b'["text\\n", 2.0, NaN]')
+
+
+def find_tag(model, key):
+    for tag in model.tags:
+        if tag.key == key:
+            return tag.value
+    return None
+
+
+def find_usage(model, name):
+    for counter in model.usage:
+        if counter.name == name:
+            return counter.value
+    return None
+
+
+def find_payload(model, name):
+    for payload in model.payloads:
+        if payload.name == name:
+            return payload
+    return None
 
 
 def find_log_entry(store, text):
