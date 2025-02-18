@@ -72,9 +72,9 @@ class HTTPValidationError(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of each item in detail (list)
         _items = []
         if self.detail:
-            for _item in self.detail:
-                if _item:
-                    _items.append(_item.to_dict())
+            for _item_detail in self.detail:
+                if _item_detail:
+                    _items.append(_item_detail.to_dict())
             _dict['detail'] = _items
         return _dict
 

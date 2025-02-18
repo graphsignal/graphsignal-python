@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from graphsignal.client.models.exception import Exception
 from graphsignal.client.models.payload import Payload
+from graphsignal.client.models.profile import Profile
 from graphsignal.client.models.tag import Tag
 from graphsignal.client.models.usage_counter import UsageCounter
 from typing import Optional, Set
@@ -40,9 +41,10 @@ class Span(BaseModel):
     output_tokens: Optional[StrictInt] = Field(default=None, description="Number of output tokens, if applicable.")
     tags: Optional[List[Tag]] = Field(default=None, description="List of tags associated with the span.")
     exceptions: Optional[List[Exception]] = Field(default=None, description="List of exceptions occurred during the span.")
-    payloads: Optional[List[Payload]] = Field(default=None, description="List of payloads related to the span.")
     usage: Optional[List[UsageCounter]] = Field(default=None, description="Usage metrics associated with the span.")
-    __properties: ClassVar[List[str]] = ["span_id", "root_span_id", "parent_span_id", "start_us", "end_us", "latency_ns", "ttft_ns", "output_tokens", "tags", "exceptions", "payloads", "usage"]
+    payloads: Optional[List[Payload]] = Field(default=None, description="List of payloads related to the span.")
+    profiles: Optional[List[Profile]] = Field(default=None, description="List of profiles related to the span.")
+    __properties: ClassVar[List[str]] = ["span_id", "root_span_id", "parent_span_id", "start_us", "end_us", "latency_ns", "ttft_ns", "output_tokens", "tags", "exceptions", "usage", "payloads", "profiles"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -86,31 +88,38 @@ class Span(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of each item in tags (list)
         _items = []
         if self.tags:
-            for _item in self.tags:
-                if _item:
-                    _items.append(_item.to_dict())
+            for _item_tags in self.tags:
+                if _item_tags:
+                    _items.append(_item_tags.to_dict())
             _dict['tags'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in exceptions (list)
         _items = []
         if self.exceptions:
-            for _item in self.exceptions:
-                if _item:
-                    _items.append(_item.to_dict())
+            for _item_exceptions in self.exceptions:
+                if _item_exceptions:
+                    _items.append(_item_exceptions.to_dict())
             _dict['exceptions'] = _items
-        # override the default output from pydantic by calling `to_dict()` of each item in payloads (list)
-        _items = []
-        if self.payloads:
-            for _item in self.payloads:
-                if _item:
-                    _items.append(_item.to_dict())
-            _dict['payloads'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in usage (list)
         _items = []
         if self.usage:
-            for _item in self.usage:
-                if _item:
-                    _items.append(_item.to_dict())
+            for _item_usage in self.usage:
+                if _item_usage:
+                    _items.append(_item_usage.to_dict())
             _dict['usage'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in payloads (list)
+        _items = []
+        if self.payloads:
+            for _item_payloads in self.payloads:
+                if _item_payloads:
+                    _items.append(_item_payloads.to_dict())
+            _dict['payloads'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in profiles (list)
+        _items = []
+        if self.profiles:
+            for _item_profiles in self.profiles:
+                if _item_profiles:
+                    _items.append(_item_profiles.to_dict())
+            _dict['profiles'] = _items
         return _dict
 
     @classmethod
@@ -133,8 +142,9 @@ class Span(BaseModel):
             "output_tokens": obj.get("output_tokens"),
             "tags": [Tag.from_dict(_item) for _item in obj["tags"]] if obj.get("tags") is not None else None,
             "exceptions": [Exception.from_dict(_item) for _item in obj["exceptions"]] if obj.get("exceptions") is not None else None,
+            "usage": [UsageCounter.from_dict(_item) for _item in obj["usage"]] if obj.get("usage") is not None else None,
             "payloads": [Payload.from_dict(_item) for _item in obj["payloads"]] if obj.get("payloads") is not None else None,
-            "usage": [UsageCounter.from_dict(_item) for _item in obj["usage"]] if obj.get("usage") is not None else None
+            "profiles": [Profile.from_dict(_item) for _item in obj["profiles"]] if obj.get("profiles") is not None else None
         })
         return _obj
 

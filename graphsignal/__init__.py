@@ -59,6 +59,7 @@ def configure(
         tags: Optional[Dict[str, str]] = None,
         auto_instrument: Optional[bool] = True,
         record_payloads: Optional[bool] = True,
+        profiling_rate: Optional[float] = 0.1,
         upload_on_shutdown: Optional[bool] = True,
         debug_mode: Optional[bool] = False) -> None:
     global _tracer
@@ -80,6 +81,7 @@ def configure(
         tags=tags,
         auto_instrument=auto_instrument,
         record_payloads=record_payloads,
+        profiling_rate=profiling_rate,
         upload_on_shutdown=upload_on_shutdown,
         debug_mode=debug_mode)
     _tracer.setup()
@@ -121,18 +123,20 @@ def remove_context_tag(key: str):
 
 def trace(
         operation: str,
-        tags: Optional[Dict[str, str]] = None) -> 'Span':
+        tags: Optional[Dict[str, str]] = None,
+        with_profile: Optional[bool] = False) -> 'Span':
     _check_configured()
 
-    return _tracer.trace(operation=operation, tags=tags)
+    return _tracer.trace(operation=operation, tags=tags, with_profile=with_profile)
 
 
 def trace_function(
         func=None, 
         *,
         operation: Optional[str] = None,
-        tags: Optional[Dict[str, str]] = None):
-    return _tracer.trace_function(func, operation=operation, tags=tags)
+        tags: Optional[Dict[str, str]] = None,
+        with_profile: Optional[bool] = False) -> Any:
+    return _tracer.trace_function(func, operation=operation, tags=tags, with_profile=with_profile)
 
 
 def score(

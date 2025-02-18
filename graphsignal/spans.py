@@ -12,23 +12,8 @@ from graphsignal.utils import uuid_sha1, sanitize_str
 
 logger = logging.getLogger('graphsignal')
 
-
 def _tracer():
     return graphsignal._tracer
-
-
-class Payload:
-    __slots__ = [
-        'name',
-        'content',
-        'record_payload'
-    ]
-
-    def __init__(self, name, content, usage=None, record_payload=True):
-        self.name = name
-        self.content = content
-        self.record_payload = record_payload
-
 
 class Usage:
     __slots__ = [
@@ -40,23 +25,44 @@ class Usage:
         self.name = name
         self.value = value
 
+class Payload:
+    __slots__ = [
+        'name',
+        'content']
+
+    def __init__(self, name, content):
+        self.name = name
+        self.content = content
+
+class Profile:
+    __slots__ = [
+        'name',
+        'format',
+        'content']
+
+    def __init__(self, name, format, content):
+        self.name = name
+        self.format = format
+        self.content = content
 
 class Span:
-    MAX_RUN_TAGS = 10
-    MAX_SPAN_TAGS = 10
+    MAX_SPAN_TAGS = 25
+    MAX_USAGES_COUNTERS = 25
     MAX_PAYLOADS = 10
     MAX_PAYLOAD_BYTES = 256 * 1024
-    MAX_USAGES_COUNTERS = 10
+    MAX_PROFILES = 10
+    MAX_PROFILE_SIZE = 256 * 1024
 
     __slots__ = [
         '_operation',
         '_tags',
+        '_with_profile',
         '_context_tags',
         '_span_id',
         '_root_span_id',
         '_parent_span_id',
         '_is_root',
-        '_context',
+        '_recorder_context',
         '_model',
         '_is_started',
         '_is_stopped',
@@ -65,11 +71,12 @@ class Span:
         '_first_token_counter',
         '_output_tokens',
         '_exc_infos',
+        '_usage',
         '_payloads',
-        '_usage'
+        '_profiles'
     ]
 
-    def __init__(self, operation, tags=None, root_span_id=None, parent_span_id=None):
+    def __init__(self, operation, tags=None, with_profile=False, root_span_id=None, parent_span_id=None):
         self._is_started = False
 
         if not operation:
@@ -87,6 +94,7 @@ class Span:
         self._tags = dict(operation=self._operation)
         if tags is not None:
             self._tags.update(tags)
+        self._with_profile = with_profile
         self._context_tags = None
         self._is_stopped = False
         self._span_id = None
@@ -97,11 +105,12 @@ class Span:
         self._stop_counter = None
         self._first_token_counter = None
         self._output_tokens = None
-        self._context = False
+        self._recorder_context = False
         self._model = None
         self._exc_infos = None
-        self._payloads = None
         self._usage = None
+        self._payloads = None
+        self._profiles = None
 
         try:
             self._start()
@@ -154,14 +163,15 @@ class Span:
             tags=[],
             exceptions=[],
             usage=[],
-            payloads=[]
+            payloads=[],
+            profiles=[]
         )
 
-        self._context = {}
+        self._recorder_context = {}
 
         # emit start event
         try:
-            _tracer().emit_span_start(self._model, self._context)
+            _tracer().emit_span_start(self, self._recorder_context)
         except Exception as exc:
             logger.error('Error in span start event handlers', exc_info=True)
 
@@ -195,17 +205,17 @@ class Span:
 
         # emit stop event
         try:
-            _tracer().emit_span_stop(self._model, self._context)
+            _tracer().emit_span_stop(self, self._recorder_context)
         except Exception as exc:
             logger.error('Error in span stop event handlers', exc_info=True)
 
-        span_tags = self._span_tags()
-
         # emit read event
         try:
-            _tracer().emit_span_read(self._model, self._context)
+            _tracer().emit_span_read(self, self._recorder_context)
         except Exception as exc:
             logger.error('Error in span read event handlers', exc_info=True)
+
+        span_tags = self._span_tags()
 
         # update RED metrics
         _tracer().metric_store().update_histogram(
@@ -294,10 +304,10 @@ class Span:
                     value=usage.value
                 ))
 
-        # copy payload
+        # copy payloads
         if self._payloads is not None:
             for payload in self._payloads.values():
-                if _tracer().record_payloads and payload.record_payload:
+                if _tracer().record_payloads:
                     try:
                         content_type, content_bytes = encode_payload(payload.content)
                         if len(content_bytes) <= Span.MAX_PAYLOAD_BYTES:
@@ -308,6 +318,16 @@ class Span:
                             ))
                     except Exception as exc:
                         logger.debug('Error encoding {0} payload for operation {1}'.format(payload.name, self._operation))
+
+        # copy profiles
+        if self._profiles is not None:
+            for profile in self._profiles.values():
+                if len(profile.content) <= Span.MAX_PROFILE_SIZE:
+                    self._model.profiles.append(client.Profile(
+                        name=profile.name,
+                        format=profile.format,
+                        content=profile.content
+                    ))
 
         # queue span model for upload
         _tracer().uploader().upload_span(self._model)
@@ -381,52 +401,6 @@ class Span:
         elif exc_info == True:
             self._exc_infos.append(sys.exc_info())
 
-    def set_payload(
-            self, 
-            name: str, 
-            content: Any, 
-            record_payload: Optional[bool] = True) -> None:
-        if self._payloads is None:
-            self._payloads = {}
-
-        if not name or not isinstance(name, str):
-            logger.error('set_payload: name must be string')
-            return
-
-        if len(self._payloads) > Span.MAX_PAYLOADS:
-            logger.error('set_payload: too many payloads (>{0})'.format(Span.MAX_PAYLOADS))
-            return
-
-        self._payloads[name] = Payload(
-            name=name,
-            content=content,
-            record_payload=record_payload)
-
-    def append_payload(
-            self, 
-            name: str, 
-            content: Any, 
-            record_payload: Optional[bool] = True) -> None:
-        if self._payloads is None:
-            self._payloads = {}
-
-        if not name or not isinstance(name, str):
-            logger.error('append_payload: name must be string')
-            return
-
-        if len(self._payloads) > Span.MAX_PAYLOADS:
-            logger.error('append_payload: too many payloads (>{0})'.format(Span.MAX_PAYLOADS))
-            return
-
-        if name in self._payloads:
-            payload = self._payloads[name]
-            payload.content += content
-        else:
-            self._payloads[name] = Payload(
-                name=name,
-                content=content,
-                record_payload=record_payload)
-
     def set_usage(self, name: str, value: int) -> None:
         if self._usage is None:
             self._usage = {}
@@ -450,6 +424,69 @@ class Span:
             self.set_usage(name, value)
         else:
             self._usage[name].value += value
+
+    def set_payload(
+            self, 
+            name: str, 
+            content: Any) -> None:
+        if self._payloads is None:
+            self._payloads = {}
+
+        if not name or not isinstance(name, str):
+            logger.error('set_payload: name must be string')
+            return
+
+        if len(self._payloads) > Span.MAX_PAYLOADS:
+            logger.error('set_payload: too many payloads (>{0})'.format(Span.MAX_PAYLOADS))
+            return
+
+        self._payloads[name] = Payload(
+            name=name,
+            content=content)
+
+    def append_payload(
+            self, 
+            name: str, 
+            content: Any) -> None:
+        if self._payloads is None:
+            self._payloads = {}
+
+        if not name or not isinstance(name, str):
+            logger.error('append_payload: name must be string')
+            return
+
+        if len(self._payloads) > Span.MAX_PAYLOADS:
+            logger.error('append_payload: too many payloads (>{0})'.format(Span.MAX_PAYLOADS))
+            return
+
+        if name in self._payloads:
+            payload = self._payloads[name]
+            payload.content += content
+        else:
+            self._payloads[name] = Payload(
+                name=name,
+                content=content)
+
+    def set_profile(
+            self, 
+            name: str, 
+            format: str,
+            content: str) -> None:
+        if self._profiles is None:
+            self._profiles = {}
+
+        if not name or not isinstance(name, str):
+            logger.error('set_profile: name must be string')
+            return
+
+        if len(self._profiles) > Span.MAX_PROFILES:
+            logger.error('set_profile: too many profiles (>{0})'.format(Span.MAX_PROFILES))
+            return
+
+        self._profiles[name] = Profile(
+            name=name,
+            format=format,
+            content=content)
 
     def score(
             self,

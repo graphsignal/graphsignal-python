@@ -22,13 +22,14 @@ from typing import Any, ClassVar, Dict, List
 from typing import Optional, Set
 from typing_extensions import Self
 
-class ConfigEntry(BaseModel):
+class Profile(BaseModel):
     """
-    ConfigEntry
+    Profile
     """ # noqa: E501
-    key: StrictStr = Field(description="The key or name of the configuration entry.")
-    value: StrictStr = Field(description="The value of the configuration entry.")
-    __properties: ClassVar[List[str]] = ["key", "value"]
+    name: StrictStr = Field(description="The name of the profile.")
+    format: StrictStr = Field(description="The format of the profile, e.g. chrome-trace.")
+    content: StrictStr = Field(description="The content of the profile.")
+    __properties: ClassVar[List[str]] = ["name", "format", "content"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -48,7 +49,7 @@ class ConfigEntry(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Optional[Self]:
-        """Create an instance of ConfigEntry from a JSON string"""
+        """Create an instance of Profile from a JSON string"""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(self) -> Dict[str, Any]:
@@ -73,7 +74,7 @@ class ConfigEntry(BaseModel):
 
     @classmethod
     def from_dict(cls, obj: Optional[Dict[str, Any]]) -> Optional[Self]:
-        """Create an instance of ConfigEntry from a dict"""
+        """Create an instance of Profile from a dict"""
         if obj is None:
             return None
 
@@ -81,8 +82,9 @@ class ConfigEntry(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "key": obj.get("key"),
-            "value": obj.get("value")
+            "name": obj.get("name"),
+            "format": obj.get("format"),
+            "content": obj.get("content")
         })
         return _obj
 

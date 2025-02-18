@@ -49,7 +49,8 @@ RECORDER_SPECS = {
         ('graphsignal.recorders.process_recorder', 'ProcessRecorder'),
         ('graphsignal.recorders.nvml_recorder', 'NVMLRecorder')],
     'openai': [('graphsignal.recorders.openai_recorder', 'OpenAIRecorder')],
-    'langchain': [('graphsignal.recorders.langchain_recorder', 'LangChainRecorder')]
+    'langchain': [('graphsignal.recorders.langchain_recorder', 'LangChainRecorder')],
+    'torch': [('graphsignal.recorders.pytorch_recorder', 'PyTorchRecorder')]
 }
 
 class SourceLoaderWrapper(importlib.abc.SourceLoader):
@@ -106,6 +107,7 @@ class Tracer:
     METRIC_READ_INTERVAL_SEC = 10
     METRIC_UPLOAD_INTERVAL_SEC = 20
     LOG_UPLOAD_INTERVAL_SEC = 20
+    MAX_PROCESS_TAGS = 25
 
     def __init__(
             self, 
@@ -114,7 +116,8 @@ class Tracer:
             deployment=None, 
             tags=None, 
             auto_instrument=True, 
-            record_payloads=False, 
+            record_payloads=True, 
+            profiling_rate=0.1,
             upload_on_shutdown=True, 
             debug_mode=False):
         if debug_mode:
@@ -140,6 +143,7 @@ class Tracer:
 
         self.auto_instrument = auto_instrument
         self.record_payloads = record_payloads
+        self.profiling_rate = profiling_rate if profiling_rate is not None else 0
         self.upload_on_shutdown = upload_on_shutdown
         self.debug_mode = debug_mode
 
@@ -253,31 +257,31 @@ class Tracer:
     def log_store(self):
         return self._log_store
 
-    def emit_span_start(self, model, context):
+    def emit_span_start(self, span, context):
         last_exc = None
         for recorder in self.recorders():
             try:
-                recorder.on_span_start(model, context)
+                recorder.on_span_start(span, context)
             except Exception as exc:
                 last_exc = exc
         if last_exc:
             raise last_exc
 
-    def emit_span_stop(self, model, context):
+    def emit_span_stop(self, span, context):
         last_exc = None
         for recorder in self.recorders():
             try:
-                recorder.on_span_stop(model, context)
+                recorder.on_span_stop(span, context)
             except Exception as exc:
                 last_exc = exc
         if last_exc:
             raise last_exc
 
-    def emit_span_read(self, model, context):
+    def emit_span_read(self, span, context):
         last_exc = None
         for recorder in self.recorders():
             try:
-                recorder.on_span_read(model, context)
+                recorder.on_span_read(span, context)
             except Exception as exc:
                 last_exc = exc
         if last_exc:
@@ -306,8 +310,8 @@ class Tracer:
             self.tags.pop(key, None)
             return
 
-        if len(self.tags) > Span.MAX_RUN_TAGS:
-            logger.error('set_tag: too many tags (>{0})'.format(Span.MAX_RUN_TAGS))
+        if len(self.tags) > Tracer.MAX_PROCESS_TAGS:
+            logger.error('set_tag: too many tags (>{0})'.format(Tracer.MAX_PROCESS_TAGS))
             return
 
         if append_uuid:
@@ -336,8 +340,8 @@ class Tracer:
             self.context_tags.set(tags)
             return
 
-        if len(tags) > Span.MAX_RUN_TAGS:
-            logger.error('set_context_tag: too many tags (>{0})'.format(Span.MAX_RUN_TAGS))
+        if len(tags) > Tracer.MAX_PROCESS_TAGS:
+            logger.error('set_context_tag: too many tags (>{0})'.format(Tracer.MAX_PROCESS_TAGS))
             return
 
         if append_uuid:
@@ -360,17 +364,19 @@ class Tracer:
     def trace(
             self, 
             operation: str,
-            tags: Optional[Dict[str, str]] = None) -> 'Span':
-        return Span(operation=operation, tags=tags)
+            tags: Optional[Dict[str, str]] = None,
+            with_profile: Optional[bool] = False) -> 'Span':
+        return Span(operation=operation, tags=tags, with_profile=with_profile)
 
     def trace_function(
             self, 
             func=None, 
             *,
             operation: Optional[str] = None,
-            tags: Optional[Dict[str, str]] = None):
+            tags: Optional[Dict[str, str]] = None,
+            with_profile: Optional[bool] = False):
         if func is None:
-            return functools.partial(self.trace_function, operation=operation, tags=tags)
+            return functools.partial(self.trace_function, operation=operation, tags=tags, with_profile=with_profile)
 
         if operation is None:
             operation_or_name = func.__name__
@@ -380,13 +386,13 @@ class Tracer:
         if asyncio.iscoroutinefunction(func):
             @functools.wraps(func)
             async def tf_async_wrapper(*args, **kwargs):
-                async with self.trace(operation=operation_or_name, tags=tags):
+                async with self.trace(operation=operation_or_name, tags=tags, with_profile=with_profile):
                     return await func(*args, **kwargs)
             return tf_async_wrapper
         else:
             @functools.wraps(func)
             def tf_wrapper(*args, **kwargs):
-                with self.trace(operation=operation_or_name, tags=tags):
+                with self.trace(operation=operation_or_name, tags=tags, with_profile=with_profile):
                     return func(*args, **kwargs)
             return tf_wrapper
 

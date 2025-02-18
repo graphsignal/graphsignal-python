@@ -120,7 +120,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     request_data = None
     response_data = None
     response_code = 200
-    response_type = 'application/octet-stream'
+    response_type = 'application/json'
 
     def do_GET(self):
         if self.delay:

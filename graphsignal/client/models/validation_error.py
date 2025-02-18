@@ -74,9 +74,9 @@ class ValidationError(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of each item in loc (list)
         _items = []
         if self.loc:
-            for _item in self.loc:
-                if _item:
-                    _items.append(_item.to_dict())
+            for _item_loc in self.loc:
+                if _item_loc:
+                    _items.append(_item_loc.to_dict())
             _dict['loc'] = _items
         return _dict
 

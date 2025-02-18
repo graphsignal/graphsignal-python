@@ -43,8 +43,9 @@ class SpansTest(unittest.TestCase):
                 operation='op1',
                 tags={'k4': 4.0})
             span.set_tag('k5', 'v5')
-            span.set_payload('input', [[1, 2],[3, 4]])
             span.set_usage('c3', 3)
+            span.set_payload('input', [[1, 2],[3, 4]])
+            span.set_profile('prof1', 'fmt1', 'content1')
             time.sleep(0.01)
             span.first_token()
             span.set_output_tokens(10)
@@ -74,6 +75,9 @@ class SpansTest(unittest.TestCase):
         self.assertEqual(find_usage(span, 'c3'), 3)
         self.assertEqual(find_payload(span, 'input').content_type, 'application/json')
         self.assertEqual(find_payload(span, 'input').content_base64, 'W1sxLCAyXSwgWzMsIDRdXQ==')
+        self.assertEqual(find_profile(span, 'prof1').format, 'fmt1')
+        self.assertEqual(find_profile(span, 'prof1').content, 'content1')
+
 
         store = graphsignal._tracer.metric_store()
         metric_tags =  graphsignal._tracer.tags.copy()
@@ -335,6 +339,11 @@ def find_payload(model, name):
             return payload
     return None
 
+def find_profile(model, name):
+    for profile in model.profiles:
+        if profile.name == name:
+            return profile
+    return None
 
 def find_log_entry(store, text):
     for entry in store._logs:
