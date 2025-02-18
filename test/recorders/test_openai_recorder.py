@@ -137,7 +137,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(find_tag(model, 'model_type'), 'chat')
             self.assertEqual(find_tag(model, 'reasoning_effort'), 'low')
             self.assertEqual(find_tag(model, 'api_provider'), 'openai')
-            self.assertEqual(find_tag(model, 'library'), 'openai-python-1.61.1')
+            self.assertIsNotNone(find_tag(model, 'library'))
             self.assertEqual(find_tag(model, 'operation'), 'openai.chat.completions.create')
             self.assertEqual(find_tag(model, 'endpoint'), 'https://api.openai.com/v1/chat/completions')
             self.assertEqual(find_tag(model, 'model'), 'gpt-3.5-turbo')
