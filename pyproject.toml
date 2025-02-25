@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "graphsignal"
-version = "0.16.1"
+version = "0.16.2"
 description = "Graphsignal Tracer for Python"
 authors = ["Graphsignal, Inc. <devops@graphsignal.com>"]
 license = "Apache-2.0"

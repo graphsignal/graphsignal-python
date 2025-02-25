@@ -1,15 +1,11 @@
-from typing import Dict, Any, Union, Optional
+from typing import Dict, Any, Union, Optional, Type
 import os
 import logging
 import atexit
-import functools
-import asyncio
-import time
 
 from graphsignal.version import __version__
 from graphsignal.tracer import Tracer
 from graphsignal.spans import Span
-from graphsignal import client
 
 logger = logging.getLogger('graphsignal')
 
@@ -23,66 +19,85 @@ def _check_configured():
             'Tracer not configured, call graphsignal.configure() first')
 
 
-def _check_and_set_arg(
-        name, value, is_str=False, is_int=False, is_bool=False, is_kv=False, required=False, max_len=None):
-    env_name = 'GRAPHSIGNAL_{0}'.format(name.upper())
+def _parse_env_param(name: str, value: Any, expected_type: Type) -> Any:
+    if value is None:
+        return None
 
-    if not value and env_name in os.environ:
-        value = os.environ[env_name]
-        if value:
-            if is_str:
-                if max_len and len(value) > max_len:
-                    raise ValueError('configure: invalid format, expected string with max length {0}: {1}'.format(max_len, name))
-            if is_int:
-                try:
-                    value = int(value)
-                except:
-                    raise ValueError('configure: invalid format, expected integer: {0}'.format(name))
-            elif is_bool:
-                value = bool(value)
-            elif is_kv:
-                try:
-                    value = dict([el.strip(' ') for el in kv.split('=')] for kv in value.split(','))
-                except:
-                    raise ValueError('configure: invalid format, expected comma-separated key-value list (k1=v1,k2=v2): {0}'.format(name))
+    try:
+        if expected_type == bool:
+            return value if isinstance(value, bool) else str(value).lower() in ("true", "1", "yes")
+        elif expected_type == int:
+            return int(value)
+        elif expected_type == float:
+            return float(value)
+        elif expected_type == str:
+            return str(value)
+    except (ValueError, TypeError):
+        pass
 
-    if not value and required:
-        raise ValueError('configure: missing argument: {0}'.format(name))
+    raise ValueError(f"Invalid type for {name}: expected {expected_type.__name__}, got {type(value).__name__}")
 
-    return value
+
+def _read_config_param(name: str, expected_type: Type, provided_value: Optional[Any] = None, required: bool = False) -> Any:
+    # Check if the value was provided as an argument
+    if provided_value is not None:
+        return provided_value
+
+    # Check if the value was provided as an environment variable
+    env_value = os.getenv(f'GRAPHSIGNAL_{name.upper()}')
+    if env_value is None:
+        if required:
+            raise ValueError(f"Missing required argument: {name}")
+        return None
+
+    # Parse the environment variable
+    return _parse_env_param(name, env_value, expected_type)
+
+
+def _read_config_tags(provided_value: Optional[dict] = None, prefix: str = "GRAPHSIGNAL_TAG_") -> Dict[str, str]:
+    # Check if the value was provided as an argument
+    if provided_value is not None:
+        return provided_value
+
+    # Check if the value was provided as an environment variable
+    return {key[len(prefix):].lower(): value for key, value in os.environ.items() if key.startswith(prefix)}
 
 
 def configure(
-        api_key: Optional[str] = None,
-        api_url: Optional[str] = None,
-        deployment: Optional[str] = None,
-        tags: Optional[Dict[str, str]] = None,
-        auto_instrument: Optional[bool] = True,
-        record_payloads: Optional[bool] = True,
-        profiling_rate: Optional[float] = 0.1,
-        upload_on_shutdown: Optional[bool] = True,
-        debug_mode: Optional[bool] = False) -> None:
+    api_key: Optional[str] = None,
+    api_url: Optional[str] = None,
+    deployment: Optional[str] = None,
+    tags: Optional[Dict[str, str]] = None,
+    auto_instrument: Optional[bool] = True,
+    record_payloads: Optional[bool] = True,
+    profiling_rate: Optional[float] = 0.1,
+    debug_mode: Optional[bool] = False
+) -> None:
     global _tracer
 
     if _tracer:
-        logger.warning('Tracer already configured')
+        logger.warning("Tracer already configured")
         return
 
-    debug_mode = _check_and_set_arg('debug_mode', debug_mode, is_bool=True)
-    api_key = _check_and_set_arg('api_key', api_key, is_str=True, required=True)
-    api_url = _check_and_set_arg('api_url', api_url, is_str=True, required=False)
-    deployment = _check_and_set_arg('deployment', deployment, is_str=True, required=True)
-    tags = _check_and_set_arg('tags', tags, is_kv=True, required=False)
+    api_key = _read_config_param("api_key", str, api_key, required=True)
+    api_url = _read_config_param("api_url", str, api_url)
+    tags = _read_config_tags(tags)
+    auto_instrument = _read_config_param("auto_instrument", bool, auto_instrument)
+    record_payloads = _read_config_param("record_payloads", bool, record_payloads)
+    profiling_rate = _read_config_param("profiling_rate", float, profiling_rate)
+    debug_mode = _read_config_param("debug_mode", bool, debug_mode)
+
+    # left for compatibility
+    if deployment and isinstance(deployment, str):
+        tags['deployment'] = deployment
 
     _tracer = Tracer(
         api_key=api_key,
         api_url=api_url,
-        deployment=deployment,
         tags=tags,
         auto_instrument=auto_instrument,
         record_payloads=record_payloads,
         profiling_rate=profiling_rate,
-        upload_on_shutdown=upload_on_shutdown,
         debug_mode=debug_mode)
     _tracer.setup()
 

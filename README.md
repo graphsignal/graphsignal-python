@@ -8,7 +8,7 @@ Graphsignal is an AI optimization platform, enabling developers to achieve faste
 
 * Identify and optimize the most significant contributors to latency.
 * Analyze model API costs for deployments, models, sessions, or any custom tags.
-* Ensure optimal model configuration and inference performance for hosted models.
+* Ensure optimal inference performance and model configuration for hosted models.
 * Track errors and monitor APIs, compute, and GPU utilization.
 
 
@@ -33,8 +33,12 @@ Configure Graphsignal tracer by specifying your API key directly or via `GRAPHSI
 ```python
 import graphsignal
 
-graphsignal.configure(api_key='my-api-key', deployment='my-app')
+graphsignal.configure(api_key='my-api-key')
+# or pass the API key in GRAPHSIGNAL_API_KEY environment variable
 ```
+
+See [`configure()`](https://graphsignal.com/docs/reference/python-api/#graphsignalconfigure) API docs for all configuration parameters.
+
 
 To get an API key, sign up for a free account at [graphsignal.com](https://graphsignal.com). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.com/settings/api-keys) page.
 

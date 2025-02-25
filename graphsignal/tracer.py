@@ -113,12 +113,10 @@ class Tracer:
             self, 
             api_key=None, 
             api_url=None, 
-            deployment=None, 
             tags=None, 
             auto_instrument=True, 
             record_payloads=True, 
             profiling_rate=0.1,
-            upload_on_shutdown=True, 
             debug_mode=False):
         if debug_mode:
             logger.setLevel(logging.DEBUG)
@@ -127,24 +125,19 @@ class Tracer:
         
         if not api_key:
             raise ValueError('api_key is required')
-        if not deployment:
-            raise ValueError('deployment is required')
 
         self.api_key = api_key
         if api_url:
             self.api_url = api_url
         else:
             self.api_url = 'https://api.graphsignal.com'
-        self.deployment = deployment
-        self.tags = dict(deployment=self.deployment)
-        if tags:
-            self.tags.update(tags)
+        self.tags = {}
+        self.tags.update(tags)
         self.context_tags = contextvars.ContextVar('graphsignal_context_tags', default={})
 
         self.auto_instrument = auto_instrument
         self.record_payloads = record_payloads
         self.profiling_rate = profiling_rate if profiling_rate is not None else 0
-        self.upload_on_shutdown = upload_on_shutdown
         self.debug_mode = debug_mode
 
         self._metric_update_thread = None
@@ -159,6 +152,8 @@ class Tracer:
         self.last_metric_read_ts = 0
         self.last_metric_upload_ts = int(self._process_start_ms / 1e3)
         self.last_log_upload_ts = int(self._process_start_ms / 1e3)
+
+        self.export_on_shutdown = True
 
     def setup(self):
         self._uploader = Uploader()
@@ -185,7 +180,7 @@ class Tracer:
             self._metric_update_thread.join()
             self._metric_update_thread = None
 
-        if self.upload_on_shutdown:
+        if self.export_on_shutdown:
             if self._metric_store.has_unexported():
                 metrics = self._metric_store.export()
                 for metric in metrics:

@@ -15,9 +15,8 @@ class TracerTest(unittest.TestCase):
     def setUp(self):
         graphsignal.configure(
             api_key='k1',
-            deployment='d1',
-            upload_on_shutdown=False,
             debug_mode=True)
+        graphsignal._tracer.export_on_shutdown = False
 
     def tearDown(self):
         graphsignal.shutdown()
@@ -28,7 +27,6 @@ class TracerTest(unittest.TestCase):
         graphsignal.shutdown()
         graphsignal.configure(
             api_key='k1',
-            deployment='d1',
             debug_mode=True)
         graphsignal._tracer.metric_store().set_gauge(scope='s1', name='n1', tags={}, value=1, update_ts=1)
         graphsignal.shutdown()

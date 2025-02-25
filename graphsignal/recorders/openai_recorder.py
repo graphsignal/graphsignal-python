@@ -183,9 +183,10 @@ class OpenAIRecorder(BaseRecorder):
         self.set_common_tags(span, 'chat/completions', params)
         if 'model' in params:
             span.set_tag('model', params['model'])
-
         if 'reasoning_effort' in params:
             span.set_tag('reasoning_effort', params['reasoning_effort'])
+        if 'max_completion_tokens' in params:
+            span.set_tag('max_completion_tokens', params['max_completion_tokens'])
 
         if 'stream' in params and params['stream']:
             if 'messages' in params:

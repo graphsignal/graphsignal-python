@@ -17,45 +17,46 @@ class GraphsignalTest(unittest.TestCase):
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
-            deployment='d1',
-            upload_on_shutdown=False,
             debug_mode=True)
+        graphsignal._tracer.export_on_shutdown = False
+
 
     def tearDown(self):
         graphsignal.shutdown()
 
-    def test_check_and_set_arg_test(self):
-        arg1 = graphsignal._check_and_set_arg('arg1', 'val1', is_str=True, required=True)
+    def test_read_config_test(self):
+        arg1 = graphsignal._read_config_param('arg1', str, 'val1', required=True)
         self.assertEqual(arg1, 'val1')
 
-        arg2 = graphsignal._check_and_set_arg('arg2', 1, is_int=True, required=True)
+        arg2 = graphsignal._read_config_param('arg2', int, 1, required=True)
         self.assertEqual(arg2, 1)
 
-        arg3 = graphsignal._check_and_set_arg('arg3', None, is_int=True, required=False)
+        arg3 = graphsignal._read_config_param('arg3', int, None, required=False)
         self.assertEqual(arg3, None)
 
         os.environ['GRAPHSIGNAL_ARG4'] = '2'
-        arg4 = graphsignal._check_and_set_arg('arg4', None, is_int=True, required=False)
+        arg4 = graphsignal._read_config_param('arg4', int, None, required=False)
         self.assertEqual(arg4, 2)
 
         with self.assertRaises(ValueError):
-            arg5 = graphsignal._check_and_set_arg('arg5', None, is_str=True, required=True)
+            arg5 = graphsignal._read_config_param('arg5', str, None, required=True)
 
         os.environ['GRAPHSIGNAL_ARG6'] = '10'
-        arg6 = graphsignal._check_and_set_arg('arg6', None, is_int=True, required=True)
+        arg6 = graphsignal._read_config_param('arg6', int, None, required=True)
         self.assertEqual(arg6, 10)
 
         os.environ['GRAPHSIGNAL_ARG7'] = 'str'
         with self.assertRaises(ValueError):
-            arg7 = graphsignal._check_and_set_arg('arg7', None, is_int=True, required=True)
+            arg7 = graphsignal._read_config_param('arg7', int, None, required=True)
 
-        os.environ['GRAPHSIGNAL_ARG8'] = 'a=1, b = c '
-        arg8 = graphsignal._check_and_set_arg('arg8', None, is_kv=True, required=True)
-        self.assertEqual(arg8, {'a': '1', 'b': 'c'})
+        env_tags = graphsignal._read_config_tags({'arg8': 'v1', 'arg9': '2.0'})
+        self.assertEqual(env_tags, {'arg8': 'v1', 'arg9': '2.0'})
 
-        os.environ['GRAPHSIGNAL_ARG9'] = 'a'
-        with self.assertRaises(ValueError):
-            arg9 = graphsignal._check_and_set_arg('arg9', None, is_kv=True, required=False)
+        os.environ['GRAPHSIGNAL_TAG_ARG10'] = 'v1'
+        os.environ['GRAPHSIGNAL_TAG_ARG11'] = '2.0'
+        env_tags = graphsignal._read_config_tags(None)
+        self.assertEqual(env_tags, {'arg10': 'v1', 'arg11': '2.0'})
+
 
     def test_configure(self):
         self.assertEqual(graphsignal._tracer.api_key, 'k1')
@@ -101,7 +102,6 @@ class GraphsignalTest(unittest.TestCase):
 
         self.assertTrue(model.score_id is not None)
         self.assertEqual(model.name, 's1')
-        self.assertEqual(find_tag(model, 'deployment'), 'd1')
         self.assertEqual(find_tag(model, 't1'), 'v1')
         self.assertEqual(model.score, 0.5)
         self.assertEqual(model.unit, 'u1')

@@ -21,10 +21,9 @@ class KinetoRecorderTest(unittest.TestCase):
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
-            deployment='d1',
-            upload_on_shutdown=False,
             profiling_rate=1,
             debug_mode=True)
+        graphsignal._tracer.export_on_shutdown = False
 
     def tearDown(self):
         graphsignal.shutdown()
