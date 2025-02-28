@@ -1,16 +1,20 @@
 import logging
-import torch
+import os
 import random
 import json
+import time
+import torch
 
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
+from graphsignal.recorders.profiler_utils import create_log_dir, remove_log_dir
 
 logger = logging.getLogger('graphsignal')
 
 class PyTorchRecorder(BaseRecorder):
     def __init__(self):
         self._torch_prof = None
+        self._log_dir = None
 
     def setup(self):
         pass
@@ -87,16 +91,42 @@ class PyTorchRecorder(BaseRecorder):
                             count = 1,
                             duration_ns = _ns(kernel.duration)
                         )
-
+            
             device_profile = kernel_index.values()
             if len(device_profile) > 0:
                 span.set_profile('device-profile', 'event-averages', json.dumps(device_profile))
                 span.set_tag('profile_type', 'device') # override cpu value
 
+            chrome_trace = self._export_chrome_trace()
+            if chrome_trace:
+                span.set_profile('event-timeline', 'chrome-trace', chrome_trace)
+
             if len(cpu_profile) > 0 or len(device_profile) > 0:
                 span.set_tag('profiler', f'pytorch-{torch.__version__}')
         finally:
             self._torch_prof = None
+
+    def _export_chrome_trace(self):
+        try:
+            read_start_time = time.time()
+
+            self._log_dir = create_log_dir()
+
+            trace_path = os.path.join(self._log_dir, 'trace.json')
+            self._torch_prof.export_chrome_trace(trace_path)
+
+            trace_file_size = os.path.getsize(trace_path)
+            logger.debug('Chrome trace size: %s', trace_file_size)
+            if trace_file_size > 50 * 1e6:
+                raise Exception('Trace file too big: {0}'.format(trace_file_size))
+
+            with open(trace_path, "r") as f:
+                return str(f.read())
+        finally:
+            remove_log_dir(self._log_dir)
+            logger.debug('Chrome trace export time: %s', time.time() - read_start_time)
+
+        return None
 
 def _ns(val):
     return int(max(val, 0) * 1e3)

@@ -38,20 +38,22 @@ def _parse_env_param(name: str, value: Any, expected_type: Type) -> Any:
     raise ValueError(f"Invalid type for {name}: expected {expected_type.__name__}, got {type(value).__name__}")
 
 
-def _read_config_param(name: str, expected_type: Type, provided_value: Optional[Any] = None, required: bool = False) -> Any:
+def _read_config_param(name: str, expected_type: Type, provided_value: Optional[Any] = None, default_value: Optional[Any] = None, required: bool = False) -> Any:
     # Check if the value was provided as an argument
     if provided_value is not None:
         return provided_value
 
     # Check if the value was provided as an environment variable
     env_value = os.getenv(f'GRAPHSIGNAL_{name.upper()}')
-    if env_value is None:
-        if required:
-            raise ValueError(f"Missing required argument: {name}")
-        return None
+    if env_value is not None:
+        parsed_env_value = _parse_env_param(name, env_value, expected_type)
+        if parsed_env_value is not None:
+            return parsed_env_value
 
-    # Parse the environment variable
-    return _parse_env_param(name, env_value, expected_type)
+    if required:
+        raise ValueError(f"Missing required argument: {name}")
+
+    return default_value
 
 
 def _read_config_tags(provided_value: Optional[dict] = None, prefix: str = "GRAPHSIGNAL_TAG_") -> Dict[str, str]:
@@ -68,10 +70,10 @@ def configure(
     api_url: Optional[str] = None,
     deployment: Optional[str] = None,
     tags: Optional[Dict[str, str]] = None,
-    auto_instrument: Optional[bool] = True,
-    record_payloads: Optional[bool] = True,
-    profiling_rate: Optional[float] = 0.1,
-    debug_mode: Optional[bool] = False
+    auto_instrument: Optional[bool] = None,
+    record_payloads: Optional[bool] = None,
+    profiling_rate: Optional[float] = None,
+    debug_mode: Optional[bool] = None
 ) -> None:
     global _tracer
 
@@ -82,10 +84,10 @@ def configure(
     api_key = _read_config_param("api_key", str, api_key, required=True)
     api_url = _read_config_param("api_url", str, api_url)
     tags = _read_config_tags(tags)
-    auto_instrument = _read_config_param("auto_instrument", bool, auto_instrument)
-    record_payloads = _read_config_param("record_payloads", bool, record_payloads)
-    profiling_rate = _read_config_param("profiling_rate", float, profiling_rate)
-    debug_mode = _read_config_param("debug_mode", bool, debug_mode)
+    auto_instrument = _read_config_param("auto_instrument", bool, auto_instrument, default_value=True)
+    record_payloads = _read_config_param("record_payloads", bool, record_payloads, default_value=True)
+    profiling_rate = _read_config_param("profiling_rate", float, profiling_rate, default_value=0.1)
+    debug_mode = _read_config_param("debug_mode", bool, debug_mode, default_value=False)
 
     # left for compatibility
     if deployment and isinstance(deployment, str):

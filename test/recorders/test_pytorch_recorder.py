@@ -84,3 +84,10 @@ class KinetoRecorderTest(unittest.TestCase):
             self.assertEqual(device_profile.name, 'device-profile')
             self.assertEqual(device_profile.format, 'event-averages')
             # todo: check kernel events
+
+        event_timeline = span._profiles['event-timeline']
+        json.loads(event_timeline.content)
+        self.assertEqual(event_timeline.name, 'event-timeline')
+        self.assertEqual(event_timeline.format, 'chrome-trace')
+        self.assertTrue('aten::addmm' in event_timeline.content)
+        
