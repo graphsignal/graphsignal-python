@@ -138,6 +138,21 @@ def remove_context_tag(key: str):
     return _tracer.remove_context_tag(key)
 
 
+def set_param(name: str, value: Any) -> None:
+    _check_configured()
+    _tracer.set_param(name, value)
+
+
+def get_param(name: str) -> Optional[Any]:
+    _check_configured()
+    return _tracer.get_param(name)
+
+
+def remove_param(name: str):
+    _check_configured()
+    return _tracer.remove_param(name)
+
+
 def trace(
         operation: str,
         tags: Optional[Dict[str, str]] = None,

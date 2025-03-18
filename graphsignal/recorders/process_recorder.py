@@ -83,9 +83,9 @@ class ProcessRecorder(BaseRecorder):
     def setup(self):
         process_usage, node_usage = self.take_snapshot()
         if platform.system() and platform.release():
-            graphsignal._tracer.set_tag('platform', f'{platform.system()}-{platform.release()}')
+            graphsignal._tracer.set_param('platform', f'{platform.system()}-{platform.release()}')
         if sys.version_info and len(sys.version_info) >= 3:
-            graphsignal._tracer.set_tag('runtime', f'Python-{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')
+            graphsignal._tracer.set_param('python_version', f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')
         if node_usage.hostname:
             graphsignal._tracer.set_tag('hostname', node_usage.hostname)
         if process_usage.pid:

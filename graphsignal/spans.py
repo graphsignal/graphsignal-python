@@ -47,6 +47,7 @@ class Profile:
 
 class Span:
     MAX_SPAN_TAGS = 25
+    MAX_PARAMS = 100
     MAX_USAGES_COUNTERS = 25
     MAX_PAYLOADS = 10
     MAX_PAYLOAD_BYTES = 256 * 1024
@@ -71,6 +72,7 @@ class Span:
         '_first_token_counter',
         '_output_tokens',
         '_exc_infos',
+        '_params',
         '_usage',
         '_payloads',
         '_profiles'
@@ -109,6 +111,7 @@ class Span:
         self._model = None
         self._exc_infos = None
         self._usage = None
+        self._params = None
         self._payloads = None
         self._profiles = None
 
@@ -162,6 +165,7 @@ class Span:
             end_us=0,
             tags=[],
             exceptions=[],
+            params=[],
             usage=[],
             payloads=[],
             profiles=[]
@@ -215,7 +219,7 @@ class Span:
         except Exception as exc:
             logger.error('Error in span read event handlers', exc_info=True)
 
-        span_tags = self._span_tags()
+        span_tags = self._merged_span_tags()
 
         # update RED metrics
         _tracer().metric_store().update_histogram(
@@ -295,6 +299,14 @@ class Span:
                     if stack_trace:
                         exception_model.stack_trace = stack_trace
                     self._model.exceptions.append(exception_model)
+
+        # copy params
+        if self._params is not None:
+            for key, value in self._merged_params().items():
+                self._model.params.append(client.Param(
+                    name=sanitize_str(key, max_len=50),
+                    value=sanitize_str(value, max_len=250)
+                ))
 
         # copy usage counters
         if self._usage is not None:
@@ -401,6 +413,24 @@ class Span:
         elif exc_info == True:
             self._exc_infos.append(sys.exc_info())
 
+    def set_param(self, name: str, value: str) -> None:
+        if self._params is None:
+            self._params = {}
+
+        if not name:
+            logger.error('set_param: name must be provided')
+            return
+
+        if not value:
+            logger.error('set_param: value must be provided')
+            return
+
+        if len(self._params) > Span.MAX_PARAMS:
+            logger.error('set_param: too many params (>{0})'.format(Span.MAX_PARAMS))
+            return
+
+        self._params[name] = value
+
     def set_usage(self, name: str, value: int) -> None:
         if self._usage is None:
             self._usage = {}
@@ -450,7 +480,7 @@ class Span:
             content: Any) -> None:
         if self._payloads is None:
             self._payloads = {}
-
+ 
         if not name or not isinstance(name, str):
             logger.error('append_payload: name must be string')
             return
@@ -514,7 +544,7 @@ class Span:
             create_ts=now
         )
 
-        for tag_key, tag_value in self._span_tags().items():
+        for tag_key, tag_value in self._merged_span_tags().items():
             score_obj.tags.append(client.Tag(
                 key=sanitize_str(tag_key, max_len=50),
                 value=sanitize_str(tag_value, max_len=250)
@@ -542,7 +572,7 @@ class Span:
             root_span_id=self._root_span_id,
             parent_span_id=self._span_id)
 
-    def _span_tags(self, extra_tags=None):
+    def _merged_span_tags(self, extra_tags=None):
         span_tags = {}
         if _tracer().tags is not None:
             span_tags.update(_tracer().tags)
@@ -553,6 +583,14 @@ class Span:
         if extra_tags is not None:
             span_tags.update(extra_tags)
         return span_tags
+
+    def _merged_params(self):
+        params = {}
+        if _tracer().params is not None:
+            params.update(_tracer().params)
+        if self._params is not None:
+            params.update(self._params)
+        return params
 
     def repr(self):
         return 'Span({0})'.format(self._operation)

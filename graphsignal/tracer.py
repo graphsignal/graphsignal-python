@@ -135,6 +135,8 @@ class Tracer:
         self.tags.update(tags)
         self.context_tags = contextvars.ContextVar('graphsignal_context_tags', default={})
 
+        self.params = {}
+
         self.auto_instrument = auto_instrument
         self.record_payloads = record_payloads
         self.profiling_rate = profiling_rate if profiling_rate is not None else 0
@@ -355,6 +357,23 @@ class Tracer:
 
     def get_context_tag(self, key: str) -> Optional[str]:
         return self.context_tags.get().get(key, None)
+
+    def set_param(self, name: str, value: Any) -> None:
+        if not name:
+            logger.error('set_param: name must be provided')
+            return
+
+        if value is None:
+            self.params.pop(name, None)
+            return
+
+        self.params[name] = value
+
+    def get_param(self, name: str) -> Optional[Any]:
+        return self.params.get(name, None)
+
+    def remove_param(self, name: str) -> None:
+        self.params.pop(name, None)
 
     def trace(
             self, 

@@ -106,7 +106,7 @@ class OpenAIRecorder(BaseRecorder):
         return None
 
     def set_common_tags(self, span, endpoint, params):
-        span.set_tag('library', f'openai-python-{str(self._library_version)}')
+        span.set_param('openai_version', self._library_version)
         if 'openai.com' in str(self._base_url):
             span.set_tag('api_provider', 'openai')
         if 'azure.com' in str(self._base_url):
@@ -183,10 +183,11 @@ class OpenAIRecorder(BaseRecorder):
         self.set_common_tags(span, 'chat/completions', params)
         if 'model' in params:
             span.set_tag('model', params['model'])
+            span.set_param('model', params['model'])
         if 'reasoning_effort' in params:
-            span.set_tag('reasoning_effort', params['reasoning_effort'])
+            span.set_param('reasoning_effort', params['reasoning_effort'])
         if 'max_completion_tokens' in params:
-            span.set_tag('max_completion_tokens', params['max_completion_tokens'])
+            span.set_param('max_completion_tokens', params['max_completion_tokens'])
 
         if 'stream' in params and params['stream']:
             if 'messages' in params:
@@ -249,6 +250,7 @@ class OpenAIRecorder(BaseRecorder):
         self.set_common_tags(span, 'embeddings', params)
         if 'model' in params:
             span.set_tag('model', params['model'])
+            span.set_param('model', params['model'])
 
         ret = ret.model_dump()
 
@@ -305,6 +307,7 @@ class OpenAIRecorder(BaseRecorder):
         self.set_common_tags(span, 'audio/transcriptions', params)
         if 'model' in params:
             span.set_tag('model', params['model'])
+            span.set_param('model', params['model'])
 
         span.set_payload('request', params)
 
@@ -319,6 +322,7 @@ class OpenAIRecorder(BaseRecorder):
         self.set_common_tags(span, 'audio/translations', params)
         if 'model' in params:
             span.set_tag('model', params['model'])
+            span.set_param('model', params['model'])
 
         input_data = {}
 
@@ -335,5 +339,6 @@ class OpenAIRecorder(BaseRecorder):
         self.set_common_tags(span, 'moderations', params)
         if 'model' in params:
             span.set_tag('model', params['model'])
+            span.set_param('model', params['model'])
 
         span.set_payload('request', params)

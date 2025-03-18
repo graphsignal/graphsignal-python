@@ -37,11 +37,16 @@ class SpansTest(unittest.TestCase):
         graphsignal.set_context_tag('k3', 'v3')
         graphsignal.set_context_tag('k4', 'v4')
 
+        graphsignal.set_param('p1', 'v1')
+        graphsignal.set_param('p2', 'v2')
+
         for i in range(10):
             span = Span(
                 operation='op1',
                 tags={'k4': 4.0})
             span.set_tag('k5', 'v5')
+            span.set_param('p2', 'v22')
+            span.set_param('p3', 'v3')
             span.set_usage('c3', 3)
             span.set_payload('input', [[1, 2],[3, 4]])
             span.set_profile('prof1', 'fmt1', 'content1')
@@ -62,10 +67,13 @@ class SpansTest(unittest.TestCase):
         self.assertEqual(span.root_span_id, span.span_id)
         self.assertEqual(find_tag(span, 'deployment'), 'd1')
         self.assertEqual(find_tag(span, 'operation'), 'op1')
-        self.assertIsNotNone(find_tag(span, 'platform'))
-        self.assertIsNotNone(find_tag(span, 'runtime'))
         self.assertIsNotNone(find_tag(span, 'hostname'))
         self.assertIsNotNone(find_tag(span, 'process_id'))
+        self.assertIsNotNone(find_param(span, 'platform'))
+        self.assertIsNotNone(find_param(span, 'python_version'))
+        self.assertEqual(find_param(span, 'p1'), 'v1')
+        self.assertEqual(find_param(span, 'p2'), 'v22')
+        self.assertEqual(find_param(span, 'p3'), 'v3')
         self.assertEqual(find_tag(span, 'k1'), 'v1')
         self.assertEqual(find_tag(span, 'k2'), 'v2')
         self.assertEqual(find_tag(span, 'k3'), 'v3')
@@ -105,8 +113,6 @@ class SpansTest(unittest.TestCase):
         self.assertEqual(score.name, 'test-score')
         self.assertEqual(find_tag(score, 'deployment'), 'd1')
         self.assertEqual(find_tag(score, 'operation'), 'op1')
-        self.assertIsNotNone(find_tag(score, 'platform'))
-        self.assertIsNotNone(find_tag(score, 'runtime'))
         self.assertIsNotNone(find_tag(score, 'hostname'))
         self.assertIsNotNone(find_tag(score, 'process_id'))
         self.assertEqual(find_tag(score, 'k1'), 'v1')
@@ -324,6 +330,11 @@ def find_tag(model, key):
             return tag.value
     return None
 
+def find_param(model, name):
+    for param in model.params:
+        if param.name == name:
+            return param.value
+    return None
 
 def find_usage(model, name):
     for counter in model.usage:

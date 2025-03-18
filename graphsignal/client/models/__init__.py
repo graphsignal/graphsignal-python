@@ -20,6 +20,7 @@ from graphsignal.client.models.histogram import Histogram
 from graphsignal.client.models.log_entry import LogEntry
 from graphsignal.client.models.metric import Metric
 from graphsignal.client.models.metric_type import MetricType
+from graphsignal.client.models.param import Param
 from graphsignal.client.models.payload import Payload
 from graphsignal.client.models.profile import Profile
 from graphsignal.client.models.rate import Rate

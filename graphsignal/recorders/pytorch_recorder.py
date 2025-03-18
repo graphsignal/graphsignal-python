@@ -50,6 +50,8 @@ class PyTorchRecorder(BaseRecorder):
     def on_span_read(self, span, context):
         if not self._torch_prof:
             return
+        
+        span.set_param('pytorch_version', torch.__version__)
 
         try:
             cpu_profile = []

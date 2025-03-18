@@ -14,7 +14,7 @@ import graphsignal
 from graphsignal import client
 from graphsignal.uploader import Uploader
 from graphsignal.recorders.openai_recorder import OpenAIRecorder
-from test.model_utils import find_tag, find_usage, find_payload
+from test.model_utils import find_tag, find_param, find_usage, find_payload
 
 logger = logging.getLogger('graphsignal')
 
@@ -134,15 +134,16 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(model.output_tokens, 37)
 
             self.assertEqual(find_tag(model, 'model_type'), 'chat')
-            self.assertEqual(find_tag(model, 'reasoning_effort'), 'low')
             self.assertEqual(find_tag(model, 'api_provider'), 'openai')
-            self.assertIsNotNone(find_tag(model, 'library'))
             self.assertEqual(find_tag(model, 'operation'), 'openai.chat.completions.create')
             self.assertEqual(find_tag(model, 'endpoint'), 'https://api.openai.com/v1/chat/completions')
             self.assertEqual(find_tag(model, 'model'), 'gpt-3.5-turbo')
             self.assertEqual(find_tag(model, 'effective_model'), 'gpt-3.5-turbo-0613')
             self.assertEqual(find_tag(model, 'k1'), 'v1')
             self.assertEqual(find_tag(model, 'user_id'), 'u1')
+
+            self.assertIsNotNone(find_param(model, 'openai_version'))
+            self.assertEqual(find_param(model, 'reasoning_effort'), 'low')
 
             self.assertEqual(find_usage(model, 'total_tokens'), 51)
             self.assertEqual(find_usage(model, 'prompt_tokens'), 14)

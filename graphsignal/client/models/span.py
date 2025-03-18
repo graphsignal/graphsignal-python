@@ -20,6 +20,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from graphsignal.client.models.exception import Exception
+from graphsignal.client.models.param import Param
 from graphsignal.client.models.payload import Payload
 from graphsignal.client.models.profile import Profile
 from graphsignal.client.models.tag import Tag
@@ -41,10 +42,11 @@ class Span(BaseModel):
     output_tokens: Optional[StrictInt] = Field(default=None, description="Number of output tokens, if applicable.")
     tags: Optional[List[Tag]] = Field(default=None, description="List of tags associated with the span.")
     exceptions: Optional[List[Exception]] = Field(default=None, description="List of exceptions occurred during the span.")
+    params: Optional[List[Param]] = Field(default=None, description="List of parameters associated with the span.")
     usage: Optional[List[UsageCounter]] = Field(default=None, description="Usage metrics associated with the span.")
     payloads: Optional[List[Payload]] = Field(default=None, description="List of payloads related to the span.")
     profiles: Optional[List[Profile]] = Field(default=None, description="List of profiles related to the span.")
-    __properties: ClassVar[List[str]] = ["span_id", "root_span_id", "parent_span_id", "start_us", "end_us", "latency_ns", "ttft_ns", "output_tokens", "tags", "exceptions", "usage", "payloads", "profiles"]
+    __properties: ClassVar[List[str]] = ["span_id", "root_span_id", "parent_span_id", "start_us", "end_us", "latency_ns", "ttft_ns", "output_tokens", "tags", "exceptions", "params", "usage", "payloads", "profiles"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -99,6 +101,13 @@ class Span(BaseModel):
                 if _item_exceptions:
                     _items.append(_item_exceptions.to_dict())
             _dict['exceptions'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in params (list)
+        _items = []
+        if self.params:
+            for _item_params in self.params:
+                if _item_params:
+                    _items.append(_item_params.to_dict())
+            _dict['params'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in usage (list)
         _items = []
         if self.usage:
@@ -142,6 +151,7 @@ class Span(BaseModel):
             "output_tokens": obj.get("output_tokens"),
             "tags": [Tag.from_dict(_item) for _item in obj["tags"]] if obj.get("tags") is not None else None,
             "exceptions": [Exception.from_dict(_item) for _item in obj["exceptions"]] if obj.get("exceptions") is not None else None,
+            "params": [Param.from_dict(_item) for _item in obj["params"]] if obj.get("params") is not None else None,
             "usage": [UsageCounter.from_dict(_item) for _item in obj["usage"]] if obj.get("usage") is not None else None,
             "payloads": [Payload.from_dict(_item) for _item in obj["payloads"]] if obj.get("payloads") is not None else None,
             "profiles": [Profile.from_dict(_item) for _item in obj["profiles"]] if obj.get("profiles") is not None else None

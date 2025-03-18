@@ -10,6 +10,11 @@ def find_tag(model, key):
             return tag.value
     return None
 
+def find_param(model, name):
+    for param in model.params:
+        if param.name == name:
+            return param.value
+    return None
 
 def find_payload(model, name):
     for payload in model.payloads:
