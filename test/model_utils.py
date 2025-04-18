@@ -22,9 +22,21 @@ def find_payload(model, name):
             return payload
     return None
 
-def find_usage(model, usage_name):
-    for usage_counter in model.usage:
-        if usage_counter.name == usage_name:
-            return usage_counter.value
+def find_counter(model, counter_name):
+    for counter in model.counters:
+        if counter.name == counter_name:
+            return counter.value
     return None
 
+def find_profile(model, name):
+    for profile in model.profiles:
+        if profile.name == name:
+            return profile
+    return None
+
+def find_log_entry(store, text):
+    for entry in store._logs:
+        if entry.message and text in entry.message:
+            return entry
+        if entry.exception and text in entry.exception:
+            return entry

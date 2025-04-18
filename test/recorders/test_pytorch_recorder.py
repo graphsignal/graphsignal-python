@@ -15,7 +15,7 @@ from graphsignal.recorders.pytorch_recorder import PyTorchRecorder
 logger = logging.getLogger('graphsignal')
 
 
-class KinetoRecorderTest(unittest.TestCase):
+class PytorchRecorderTest(unittest.TestCase):
     def setUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -54,7 +54,7 @@ class KinetoRecorderTest(unittest.TestCase):
             self.assertEqual(span.get_tag('profile_type'), 'device')
         else:
             self.assertEqual(span.get_tag('profile_type'), 'cpu')
-        self.assertEqual(span.get_tag('profiler'), f'pytorch-{torch.__version__}')
+        self.assertEqual(span.get_param('profiler'), f'pytorch-{torch.__version__}')
         
         cpu_profile = span._profiles['cpu-profile']
         cpu_events = json.loads(cpu_profile.content)

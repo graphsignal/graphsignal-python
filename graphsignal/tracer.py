@@ -49,7 +49,6 @@ RECORDER_SPECS = {
         ('graphsignal.recorders.process_recorder', 'ProcessRecorder'),
         ('graphsignal.recorders.nvml_recorder', 'NVMLRecorder')],
     'openai': [('graphsignal.recorders.openai_recorder', 'OpenAIRecorder')],
-    'langchain': [('graphsignal.recorders.langchain_recorder', 'LangChainRecorder')],
     'torch': [('graphsignal.recorders.pytorch_recorder', 'PyTorchRecorder')]
 }
 

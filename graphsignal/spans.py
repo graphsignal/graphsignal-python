@@ -15,7 +15,7 @@ logger = logging.getLogger('graphsignal')
 def _tracer():
     return graphsignal._tracer
 
-class Usage:
+class Counter:
     __slots__ = [
         'name',
         'value'
@@ -45,6 +45,19 @@ class Profile:
         self.format = format
         self.content = content
 
+class CounterMetric:
+    __slots__ = [
+        'scope',
+        'name',
+        'value',
+        'unit']
+
+    def __init__(self, scope, name, value, unit=None):
+        self.scope = scope
+        self.name = name
+        self.value = value
+        self.unit = unit
+
 class Span:
     MAX_SPAN_TAGS = 25
     MAX_PARAMS = 100
@@ -62,23 +75,26 @@ class Span:
         '_span_id',
         '_root_span_id',
         '_parent_span_id',
+        '_linked_span_ids',
         '_is_root',
         '_recorder_context',
         '_model',
         '_is_started',
         '_is_stopped',
+        '_start_us',
         '_start_counter',
         '_stop_counter',
         '_first_token_counter',
         '_output_tokens',
         '_exc_infos',
         '_params',
-        '_usage',
+        '_counters',
         '_payloads',
-        '_profiles'
+        '_profiles',
+        '_metrics'
     ]
 
-    def __init__(self, operation, tags=None, with_profile=False, root_span_id=None, parent_span_id=None):
+    def __init__(self, operation, tags=None, with_profile=False, root_span_id=None, parent_span_id=None, linked_span_ids=None):
         self._is_started = False
 
         if not operation:
@@ -102,7 +118,9 @@ class Span:
         self._span_id = None
         self._root_span_id = root_span_id
         self._parent_span_id = parent_span_id
+        self._linked_span_ids = linked_span_ids
         self._is_root = False
+        self._start_us = None
         self._start_counter = None
         self._stop_counter = None
         self._first_token_counter = None
@@ -110,10 +128,11 @@ class Span:
         self._recorder_context = False
         self._model = None
         self._exc_infos = None
-        self._usage = None
+        self._counters = None
         self._params = None
         self._payloads = None
         self._profiles = None
+        self._metrics = None
 
         try:
             self._start()
@@ -166,7 +185,7 @@ class Span:
             tags=[],
             exceptions=[],
             params=[],
-            usage=[],
+            counters=[],
             payloads=[],
             profiles=[]
         )
@@ -179,6 +198,7 @@ class Span:
         except Exception as exc:
             logger.error('Error in span start event handlers', exc_info=True)
 
+        self._start_us = int(time.time() * 1e6)
         self._start_counter = time.perf_counter_ns()
         self._is_started = True
 
@@ -198,14 +218,10 @@ class Span:
         if self._stop_counter is None:
             self._measure()
         latency_ns = self._stop_counter - self._start_counter
-        ttft_ns = None
-        if self._first_token_counter:
-            ttft_ns = self._first_token_counter - self._start_counter
+        end_us = int(self._start_us + latency_ns / 1e3)
+        now = int(end_us / 1e6)
 
-        now = time.time()
-        end_us = int(now * 1e6)
-        start_us = int(end_us - latency_ns / 1e3)
-        now = int(now)
+        self.set_counter('latency_ns', latency_ns)        
 
         # emit stop event
         try:
@@ -222,29 +238,41 @@ class Span:
         span_tags = self._merged_span_tags()
 
         # update RED metrics
-        _tracer().metric_store().update_histogram(
-            scope='performance', name='latency', tags=span_tags, value=latency_ns, update_ts=now, is_time=True)
-        if ttft_ns:
-            _tracer().metric_store().update_histogram(
-                scope='performance', name='first_token', tags=span_tags, value=ttft_ns, update_ts=now, is_time=True)
+        first_token_ns = self.get_counter('first_token_ns')
+        output_tokens = self.get_counter('output_tokens')
+
         _tracer().metric_store().inc_counter(
             scope='performance', name='call_count', tags=span_tags, value=1, update_ts=now)
+
         if self._exc_infos and len(self._exc_infos) > 0:
             for exc_info in self._exc_infos:
                 if exc_info[0] is not None:
                     _tracer().metric_store().inc_counter(
                         scope='performance', name='exception_count', tags=span_tags, value=1, update_ts=now)
                     self.set_tag('exception', exc_info[0].__name__)
-        if latency_ns > 0 and self._output_tokens and self._output_tokens > 0:
-            _tracer().metric_store().update_rate(
-                scope='performance', name='output_tps', tags=span_tags, count=self._output_tokens, interval=latency_ns/1e9, update_ts=now)
 
-        # update usage metrics
-        if self._usage is not None:
-            for usage in self._usage.values():
-                usage_tags = span_tags.copy()
+        if latency_ns is not None:
+            _tracer().metric_store().update_histogram(
+                scope='performance', name='latency', tags=span_tags, value=latency_ns, update_ts=now, is_time=True)
+
+        if first_token_ns is not None:
+            _tracer().metric_store().update_histogram(
+                scope='performance', name='first_token', tags=span_tags, value=first_token_ns, update_ts=now, is_time=True)
+
+        if latency_ns is not None and latency_ns > 0 and output_tokens is not None and output_tokens > 0:
+            _tracer().metric_store().update_rate(
+                scope='performance', 
+                name='output_tps', 
+                tags=span_tags, 
+                count=output_tokens, 
+                interval=latency_ns/1e9, 
+                update_ts=now)
+
+        # update metrics
+        if self._metrics is not None:
+            for metric in self._metrics.values():
                 _tracer().metric_store().inc_counter(
-                    scope='usage', name=usage.name, tags=usage_tags, value=usage.value, update_ts=now)
+                    scope=metric.scope, name=metric.name, tags=span_tags, value=metric.value, update_ts=now)
 
         # update recorder metrics
         if _tracer().check_metric_read_interval(now):
@@ -256,18 +284,14 @@ class Span:
 
         # fill and upload span
         # copy data to span model
-        self._model.start_us = start_us
+        self._model.start_us = self._start_us
         self._model.end_us = end_us
         if self._root_span_id:
             self._model.root_span_id = self._root_span_id
         if self._parent_span_id:
             self._model.parent_span_id = self._parent_span_id
-
-        self._model.latency_ns = latency_ns
-        if ttft_ns:
-            self._model.ttft_ns = ttft_ns
-        if self._output_tokens:
-            self._model.output_tokens = self._output_tokens
+        if self._linked_span_ids:
+            self._model.linked_span_ids = self._linked_span_ids
 
         # copy tags
         for key, value in span_tags.items():
@@ -308,12 +332,12 @@ class Span:
                     value=sanitize_str(value, max_len=250)
                 ))
 
-        # copy usage counters
-        if self._usage is not None:
-            for usage in self._usage.values():
-                self._model.usage.append(client.UsageCounter(
-                    name=usage.name,
-                    value=usage.value
+        # copy counters
+        if self._counters is not None:
+            for counter in self._counters.values():
+                self._model.counters.append(client.Counter(
+                    name=counter.name,
+                    value=counter.value
                 ))
 
         # copy payloads
@@ -352,19 +376,6 @@ class Span:
         if not self._is_stopped:
             self._measure()
 
-    def first_token(self) -> None:
-        if not self._first_token_counter:
-            self._first_token_counter = time.perf_counter_ns()
-
-    def set_output_tokens(self, tokens: int) -> None:
-        self._output_tokens = tokens
-
-    def inc_output_tokens(self, tokens: int) -> None:
-        if self._output_tokens is None:
-            self._output_tokens = 1
-        else:
-            self._output_tokens += tokens
-
     def stop(self) -> None:
         try:
             self._stop()
@@ -391,7 +402,7 @@ class Span:
 
         self._tags[key] = value
 
-    def get_tag(self, key):
+    def get_tag(self, key) -> Optional[str]:
         if self._tags is None:
             return None
         return self._tags.get(key)
@@ -431,29 +442,46 @@ class Span:
 
         self._params[name] = value
 
-    def set_usage(self, name: str, value: int) -> None:
-        if self._usage is None:
-            self._usage = {}
+    def get_param(self, name: str) -> Optional[str]:
+        if self._params is None:
+            return None
+        return self._params.get(name)
+
+    def set_counter(self, name: str, value: int) -> None:
+        if self._counters is None:
+            self._counters = {}
 
         if name and not isinstance(name, str):
-            logger.error('set_usage: name must be string')
+            logger.error('set_counter: name must be string')
             return
 
         if value and not isinstance(value, (int, float)):
-            logger.error('set_usage: value must be number')
+            logger.error('set_counter: value must be number')
             return
 
-        if len(self._usage) > Span.MAX_USAGES_COUNTERS:
-            logger.error('set_usage: too many usage counters (>{0})'.format(Span.MAX_USAGES_COUNTERS))
+        if len(self._counters) > Span.MAX_USAGES_COUNTERS:
+            logger.error('set_counter: too many counters (>{0})'.format(Span.MAX_USAGES_COUNTERS))
             return
 
-        self._usage[name] = Usage(name=name, value=value)
+        self._counters[name] = Counter(name=name, value=value)
 
-    def inc_usage(self, name: str, value: int) -> None:
-        if self._usage is None or name not in self._usage:
-            self.set_usage(name, value)
+    def inc_counter(self, name: str, value: Union[int, float]) -> None:
+        if self._counters is None or name not in self._counters:
+            self.set_counter(name, value)
         else:
-            self._usage[name].value += value
+            self._counters[name].value += value
+
+    def set_perf_counter(self, name: str) -> None:
+        if not self._is_stopped:
+            self.set_counter(name, time.perf_counter_ns() - self._start_counter)
+
+    def get_counter(self, name: str) -> Optional[Union[int, float]]:
+        if self._counters is None:
+            return None
+        counter = self._counters.get(name)
+        if counter:
+            return counter.value
+        return None
 
     def set_payload(
             self, 
@@ -570,7 +598,39 @@ class Span:
             operation=operation, 
             tags=tags,
             root_span_id=self._root_span_id,
-            parent_span_id=self._span_id)
+            parent_span_id=self._span_id,
+            linked_span_ids=self._linked_span_ids)
+
+    def inc_counter_metric(
+            self,
+            scope: str,
+            name: str,
+            value: Union[int, float],
+            unit=None) -> None:
+        if not scope:
+            logger.error('inc_counter_metric: scope is required')
+            return
+        if not name:
+            logger.error('inc_counter_metric: name is required')
+            return
+        if value is None and not isinstance(value, (str, float)):
+            logger.error('inc_counter_metric: value is required')
+            return
+        
+        if self._metrics is None:
+            self._metrics = {}
+
+        key = '{0}-{1}'.format(scope, name)
+        if key in self._metrics:
+            metric = self._metrics[key]
+            metric.value += value
+        else:
+            metric = CounterMetric(
+                scope=scope,
+                name=name,
+                value=value,
+                unit=unit)
+            self._metrics[key] = metric
 
     def _merged_span_tags(self, extra_tags=None):
         span_tags = {}

@@ -90,7 +90,7 @@ class ProcessRecorder(BaseRecorder):
             graphsignal._tracer.set_tag('hostname', node_usage.hostname)
         if process_usage.pid:
             graphsignal._tracer.set_tag('process_id', str(process_usage.pid))
-        graphsignal._tracer.set_tag('tracer', f'graphsignal-python-{version.__version__}')
+        graphsignal._tracer.set_param('tracer', f'graphsignal-python-{version.__version__}')
 
     def on_metric_update(self):
         now = int(time.time())

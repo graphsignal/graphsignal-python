@@ -219,6 +219,5 @@ __all__ = [
     'get_tag',
     'set_context_tag',
     'get_context_tag',
-    'remove_context_tag',
-    'callbacks'
+    'remove_context_tag'
 ]

@@ -8,6 +8,7 @@ import graphsignal
 from graphsignal.spans import Span, encode_payload
 from graphsignal.recorders.process_recorder import ProcessRecorder
 from graphsignal.uploader import Uploader
+from test.model_utils import find_tag, find_param, find_counter, find_payload, find_profile, find_log_entry
 
 
 logger = logging.getLogger('graphsignal')
@@ -47,12 +48,13 @@ class SpansTest(unittest.TestCase):
             span.set_tag('k5', 'v5')
             span.set_param('p2', 'v22')
             span.set_param('p3', 'v3')
-            span.set_usage('c3', 3)
+            span.set_counter('c3', 3)
+            span.inc_counter_metric('usage', 'c3', 3)
             span.set_payload('input', [[1, 2],[3, 4]])
             span.set_profile('prof1', 'fmt1', 'content1')
             time.sleep(0.01)
-            span.first_token()
-            span.set_output_tokens(10)
+            span.set_perf_counter('first_token_ns')
+            span.set_counter('output_tokens', 10)
             span.score(name='test-score', score=0.5, unit='u1', severity=3, comment='c1')
             time.sleep(0.01)
             span.stop()
@@ -61,9 +63,6 @@ class SpansTest(unittest.TestCase):
 
         self.assertTrue(span.start_us > 0)
         self.assertTrue(span.end_us > 0)
-        self.assertTrue(span.latency_ns > 0)
-        self.assertTrue(span.ttft_ns > 0)
-        self.assertEqual(span.output_tokens, 10)
         self.assertEqual(span.root_span_id, span.span_id)
         self.assertEqual(find_tag(span, 'deployment'), 'd1')
         self.assertEqual(find_tag(span, 'operation'), 'op1')
@@ -79,7 +78,10 @@ class SpansTest(unittest.TestCase):
         self.assertEqual(find_tag(span, 'k3'), 'v3')
         self.assertEqual(find_tag(span, 'k4'), '4.0')
         self.assertEqual(find_tag(span, 'k5'), 'v5')
-        self.assertEqual(find_usage(span, 'c3'), 3)
+        self.assertTrue(find_counter(span, 'latency_ns') > 0)
+        self.assertTrue(find_counter(span, 'first_token_ns') > 0)
+        self.assertEqual(find_counter(span, 'output_tokens'), 10)
+        self.assertEqual(find_counter(span, 'c3'), 3)
         self.assertEqual(find_payload(span, 'input').content_type, 'application/json')
         self.assertEqual(find_payload(span, 'input').content_base64, 'W1sxLCAyXSwgWzMsIDRdXQ==')
         self.assertEqual(find_profile(span, 'prof1').format, 'fmt1')
@@ -102,8 +104,7 @@ class SpansTest(unittest.TestCase):
         self.assertEqual(store._metrics[key].count, 100)
         self.assertTrue(store._metrics[key].interval > 0)
 
-        usage_tags = metric_tags.copy()
-        key = store.metric_key('usage', 'c3', usage_tags)
+        key = store.metric_key('usage', 'c3', metric_tags)
         self.assertEqual(store._metrics[key].counter, 30)
 
         score = mocked_upload_score.call_args[0][0]
@@ -322,42 +323,3 @@ class SpansTest(unittest.TestCase):
         content_type, content_bytes = encode_payload(['text\n', 2.0, float('nan')])
         self.assertEqual(content_type, 'application/json')
         self.assertEqual(content_bytes, b'["text\\n", 2.0, NaN]')
-
-
-def find_tag(model, key):
-    for tag in model.tags:
-        if tag.key == key:
-            return tag.value
-    return None
-
-def find_param(model, name):
-    for param in model.params:
-        if param.name == name:
-            return param.value
-    return None
-
-def find_usage(model, name):
-    for counter in model.usage:
-        if counter.name == name:
-            return counter.value
-    return None
-
-
-def find_payload(model, name):
-    for payload in model.payloads:
-        if payload.name == name:
-            return payload
-    return None
-
-def find_profile(model, name):
-    for profile in model.profiles:
-        if profile.name == name:
-            return profile
-    return None
-
-def find_log_entry(store, text):
-    for entry in store._logs:
-        if entry.message and text in entry.message:
-            return entry
-        if entry.exception and text in entry.exception:
-            return entry

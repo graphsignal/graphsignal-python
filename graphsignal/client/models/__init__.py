@@ -14,6 +14,7 @@
 
 
 # import models into model package
+from graphsignal.client.models.counter import Counter
 from graphsignal.client.models.exception import Exception
 from graphsignal.client.models.http_validation_error import HTTPValidationError
 from graphsignal.client.models.histogram import Histogram
@@ -29,6 +30,5 @@ from graphsignal.client.models.score_query_result import ScoreQueryResult
 from graphsignal.client.models.span import Span
 from graphsignal.client.models.span_query_result import SpanQueryResult
 from graphsignal.client.models.tag import Tag
-from graphsignal.client.models.usage_counter import UsageCounter
 from graphsignal.client.models.validation_error import ValidationError
 from graphsignal.client.models.validation_error_loc_inner import ValidationErrorLocInner

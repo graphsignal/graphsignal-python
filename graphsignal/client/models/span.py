@@ -19,12 +19,12 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from graphsignal.client.models.counter import Counter
 from graphsignal.client.models.exception import Exception
 from graphsignal.client.models.param import Param
 from graphsignal.client.models.payload import Payload
 from graphsignal.client.models.profile import Profile
 from graphsignal.client.models.tag import Tag
-from graphsignal.client.models.usage_counter import UsageCounter
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -35,18 +35,16 @@ class Span(BaseModel):
     span_id: StrictStr = Field(description="Unique identifier for the span.")
     root_span_id: Optional[StrictStr] = Field(default=None, description="Identifier of the root span, if this is a child span.")
     parent_span_id: Optional[StrictStr] = Field(default=None, description="Identifier of the parent span, if this is a nested span.")
+    linked_span_ids: Optional[List[StrictStr]] = Field(default=None, description="List of linked span identifiers.")
     start_us: StrictInt = Field(description="Start time of the span in microseconds.")
     end_us: StrictInt = Field(description="End time of the span in microseconds.")
-    latency_ns: Optional[StrictInt] = Field(default=None, description="Latency in nanoseconds, if applicable.")
-    ttft_ns: Optional[StrictInt] = Field(default=None, description="Time to first byte in nanoseconds, if applicable.")
-    output_tokens: Optional[StrictInt] = Field(default=None, description="Number of output tokens, if applicable.")
     tags: Optional[List[Tag]] = Field(default=None, description="List of tags associated with the span.")
     exceptions: Optional[List[Exception]] = Field(default=None, description="List of exceptions occurred during the span.")
     params: Optional[List[Param]] = Field(default=None, description="List of parameters associated with the span.")
-    usage: Optional[List[UsageCounter]] = Field(default=None, description="Usage metrics associated with the span.")
+    counters: Optional[List[Counter]] = Field(default=None, description="Counters associated with the span.")
     payloads: Optional[List[Payload]] = Field(default=None, description="List of payloads related to the span.")
     profiles: Optional[List[Profile]] = Field(default=None, description="List of profiles related to the span.")
-    __properties: ClassVar[List[str]] = ["span_id", "root_span_id", "parent_span_id", "start_us", "end_us", "latency_ns", "ttft_ns", "output_tokens", "tags", "exceptions", "params", "usage", "payloads", "profiles"]
+    __properties: ClassVar[List[str]] = ["span_id", "root_span_id", "parent_span_id", "linked_span_ids", "start_us", "end_us", "tags", "exceptions", "params", "counters", "payloads", "profiles"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -108,13 +106,13 @@ class Span(BaseModel):
                 if _item_params:
                     _items.append(_item_params.to_dict())
             _dict['params'] = _items
-        # override the default output from pydantic by calling `to_dict()` of each item in usage (list)
+        # override the default output from pydantic by calling `to_dict()` of each item in counters (list)
         _items = []
-        if self.usage:
-            for _item_usage in self.usage:
-                if _item_usage:
-                    _items.append(_item_usage.to_dict())
-            _dict['usage'] = _items
+        if self.counters:
+            for _item_counters in self.counters:
+                if _item_counters:
+                    _items.append(_item_counters.to_dict())
+            _dict['counters'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in payloads (list)
         _items = []
         if self.payloads:
@@ -144,15 +142,13 @@ class Span(BaseModel):
             "span_id": obj.get("span_id"),
             "root_span_id": obj.get("root_span_id"),
             "parent_span_id": obj.get("parent_span_id"),
+            "linked_span_ids": obj.get("linked_span_ids"),
             "start_us": obj.get("start_us"),
             "end_us": obj.get("end_us"),
-            "latency_ns": obj.get("latency_ns"),
-            "ttft_ns": obj.get("ttft_ns"),
-            "output_tokens": obj.get("output_tokens"),
             "tags": [Tag.from_dict(_item) for _item in obj["tags"]] if obj.get("tags") is not None else None,
             "exceptions": [Exception.from_dict(_item) for _item in obj["exceptions"]] if obj.get("exceptions") is not None else None,
             "params": [Param.from_dict(_item) for _item in obj["params"]] if obj.get("params") is not None else None,
-            "usage": [UsageCounter.from_dict(_item) for _item in obj["usage"]] if obj.get("usage") is not None else None,
+            "counters": [Counter.from_dict(_item) for _item in obj["counters"]] if obj.get("counters") is not None else None,
             "payloads": [Payload.from_dict(_item) for _item in obj["payloads"]] if obj.get("payloads") is not None else None,
             "profiles": [Profile.from_dict(_item) for _item in obj["profiles"]] if obj.get("profiles") is not None else None
         })

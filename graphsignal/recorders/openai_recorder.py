@@ -147,9 +147,11 @@ class OpenAIRecorder(BaseRecorder):
                 value = obj[key]
                 if isinstance(value, int):
                     if new_key:
-                        span.set_usage(new_key, value)
+                        span.set_counter(new_key, value)
+                        span.inc_counter_metric('usage', new_key, value)
                     else:
-                        span.set_usage(key, value)
+                        span.set_counter(key, value)
+                        span.inc_counter_metric('usage', key, value)
                     return value
             return None
 
@@ -158,7 +160,7 @@ class OpenAIRecorder(BaseRecorder):
         cached_prompt_tokens = None
         set_usage(span, usage, 'completion_tokens')
         if 'completion_tokens' in usage:
-            span.set_output_tokens(usage['completion_tokens'])
+            span.set_counter('output_tokens', usage['completion_tokens'])
         if 'prompt_tokens_details' in usage:
             prompt_tokens_details = usage['prompt_tokens_details']
             set_usage(span, prompt_tokens_details, 'audio_tokens', 'prompt_audio_tokens')
@@ -172,9 +174,12 @@ class OpenAIRecorder(BaseRecorder):
 
         if prompt_tokens:
             if cached_prompt_tokens and cached_prompt_tokens > 0:
-                span.set_usage('uncached_prompt_tokens', prompt_tokens - cached_prompt_tokens)
+                uncached_prompt_tokens = prompt_tokens - cached_prompt_tokens
+                span.set_counter('uncached_prompt_tokens', uncached_prompt_tokens)
+                span.inc_counter_metric('usage', 'uncached_prompt_tokens', uncached_prompt_tokens)
             else:
-                span.set_usage('uncached_prompt_tokens', prompt_tokens)
+                span.set_counter('uncached_prompt_tokens', prompt_tokens)
+                span.inc_counter_metric('usage', 'uncached_prompt_tokens', prompt_tokens)
 
     def trace_chat_completion(self, span, args, kwargs, ret, exc):
         params = kwargs
@@ -213,8 +218,10 @@ class OpenAIRecorder(BaseRecorder):
                                 total_prompt_tokens += self._extra_name_tokens.get(model, 0)
                     if total_prompt_tokens > 0:
                         total_prompt_tokens += self._extra_reply_tokens.get(model, 0)
-                    span.set_usage('prompt_tokens', total_prompt_tokens)
-                    span.set_usage('uncached_prompt_tokens', total_prompt_tokens)
+                    span.set_counter('prompt_tokens', total_prompt_tokens)
+                    span.set_counter('uncached_prompt_tokens', total_prompt_tokens)
+                    span.inc_counter_metric('usage', 'prompt_tokens', total_prompt_tokens)
+                    span.inc_counter_metric('usage', 'uncached_prompt_tokens', total_prompt_tokens)
 
             span.set_payload('request', params)
         else:
@@ -233,11 +240,12 @@ class OpenAIRecorder(BaseRecorder):
     def trace_chat_completion_data(self, span, item):
         item = item.model_dump()
 
-        span.first_token()
+        span.set_perf_counter('first_token_ns')
         if item and 'choices' in item:
             for _ in item['choices']:
-                span.inc_usage('completion_tokens', 1)
-                span.inc_output_tokens(1)
+                span.inc_counter('completion_tokens', 1)
+                span.inc_counter_metric('usage', 'completion_tokens', 1)
+                span.inc_counter('output_tokens', 1)
 
             span.append_payload('response', [item])
 
@@ -260,9 +268,12 @@ class OpenAIRecorder(BaseRecorder):
         if ret and 'usage' in ret:
             usage = ret['usage']
             if 'total_tokens' in usage:
-                span.set_usage('total_tokens', usage['total_tokens'])
+                span.set_counter('total_tokens', usage['total_tokens'])
+                span.inc_counter_metric('usage', 'total_tokens', usage['total_tokens'])
             if 'prompt_tokens' in usage:
-                span.set_usage('prompt_tokens', usage['prompt_tokens'])
+                span.set_counter('prompt_tokens', usage['prompt_tokens'])
+                span.inc_counter_metric('usage', 'prompt_tokens', usage['prompt_tokens'])
+
 
         span.set_payload('request', params)
 

@@ -104,7 +104,7 @@ class PyTorchRecorder(BaseRecorder):
                 span.set_profile('event-timeline', 'chrome-trace', chrome_trace)
 
             if len(cpu_profile) > 0 or len(device_profile) > 0:
-                span.set_tag('profiler', f'pytorch-{torch.__version__}')
+                span.set_param('profiler', f'pytorch-{torch.__version__}')
         finally:
             self._torch_prof = None
 

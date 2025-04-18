@@ -12,6 +12,7 @@ import pprint
 import graphsignal
 from graphsignal.recorders.instrumentation import patch_method, instrument_method, read_args, parse_semver, compare_semver
 from graphsignal.uploader import Uploader
+from test.model_utils import find_tag, find_counter
 
 logger = logging.getLogger('graphsignal')
 
@@ -84,7 +85,7 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(trace_func_called)
         self.assertEqual(find_tag(model, 'operation'), 'op1')
-        self.assertTrue(model.latency_ns > 0)
+        self.assertTrue(find_counter(model, 'latency_ns') > 0)
 
     async def test_patch_method(self):
         obj = Dummy()
@@ -192,10 +193,3 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(compare_semver((1, 2, 3), (1, 2, 3)), 0)
 
         self.assertEqual(compare_semver((1, 2, 3), (1, 2, 2)), 1)
-
-
-def find_tag(model, key):
-    for tag in model.tags:
-        if tag.key == key:
-            return tag.value
-    return None

@@ -22,12 +22,12 @@ from typing import Any, ClassVar, Dict, List, Union
 from typing import Optional, Set
 from typing_extensions import Self
 
-class UsageCounter(BaseModel):
+class Counter(BaseModel):
     """
-    UsageCounter
+    Counter
     """ # noqa: E501
-    name: StrictStr = Field(description="The name of the usage counter.")
-    value: Union[StrictFloat, StrictInt] = Field(description="The numerical value representing the usage.")
+    name: StrictStr = Field(description="The name of the counter.")
+    value: Union[StrictFloat, StrictInt] = Field(description="The numerical value representing the counter.")
     __properties: ClassVar[List[str]] = ["name", "value"]
 
     model_config = ConfigDict(
@@ -48,7 +48,7 @@ class UsageCounter(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Optional[Self]:
-        """Create an instance of UsageCounter from a JSON string"""
+        """Create an instance of Counter from a JSON string"""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(self) -> Dict[str, Any]:
@@ -73,7 +73,7 @@ class UsageCounter(BaseModel):
 
     @classmethod
     def from_dict(cls, obj: Optional[Dict[str, Any]]) -> Optional[Self]:
-        """Create an instance of UsageCounter from a dict"""
+        """Create an instance of Counter from a dict"""
         if obj is None:
             return None
 
