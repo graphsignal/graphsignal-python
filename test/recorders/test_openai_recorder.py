@@ -14,7 +14,7 @@ import graphsignal
 from graphsignal import client
 from graphsignal.uploader import Uploader
 from graphsignal.recorders.openai_recorder import OpenAIRecorder
-from test.model_utils import find_tag, find_param, find_counter, find_payload
+from test.model_utils import find_tag, find_param, find_counter
 
 logger = logging.getLogger('graphsignal')
 
@@ -154,9 +154,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(find_counter(model, 'rejected_prediction_tokens'), 6)
             self.assertEqual(find_counter(model, 'prompt_audio_tokens'), 7)
 
-            self.assertIsNotNone(find_payload(model, 'request'))
-            self.assertIsNotNone(find_payload(model, 'response'))
-
 
     @patch.object(Uploader, 'upload_span')
     async def test_chat_completion_create_function(self, mocked_upload_span):
@@ -234,10 +231,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(find_counter(model, 'output_tokens'), 18)
             self.assertEqual(find_counter(model, 'prompt_tokens'), 78)
             self.assertEqual(find_counter(model, 'completion_tokens'), 18)
-
-            self.assertIsNotNone(find_payload(model, 'request'))
-            self.assertIsNotNone(find_payload(model, 'response'))
-
 
     @patch.object(Uploader, 'upload_span')
     async def test_chat_completion_create_stream(self, mocked_upload_span):
@@ -336,10 +329,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(find_counter(model, 'prompt_tokens'), 14)
             self.assertEqual(find_counter(model, 'completion_tokens'), 37)
 
-            self.assertIsNotNone(find_payload(model, 'request'))
-            self.assertIsNotNone(find_payload(model, 'response'))
-
-
     @patch.object(Uploader, 'upload_span')
     async def test_chat_completion_create_stream_async(self, mocked_upload_span):
         recorder = OpenAIRecorder()
@@ -425,62 +414,6 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(find_counter(model, 'prompt_tokens'), 40)
             self.assertEqual(find_counter(model, 'completion_tokens'), 2)
 
-            input_json = json.loads(base64.b64decode(find_payload(model, 'request').content_base64))
-            #pp = pprint.PrettyPrinter()
-            #pp.pprint(input_json)
-
-            self.assertEqual(input_json, 
-                {'frequency_penalty': 0,
-                'max_tokens': 1024,
-                'messages': [{'content': 'You are a helpful.', 'role': 'system'},
-                            {'content': 'New synergies will help drive top-line growth.',
-                            'name': 'example_user',
-                            'role': 'system'},
-                            {'content': 'This late pivot means.',
-                            'name': 'example',
-                            'role': 'user'}],
-                'model': 'gpt-4',
-                'presence_penalty': 0,
-                'stream': True,
-                'temperature': 0.1,
-                'top_p': 1})
-
-            output_json = json.loads(base64.b64decode(find_payload(model, 'response').content_base64))
-            #pp = pprint.PrettyPrinter()
-            #pp.pprint(output_json)
-
-            self.assertEqual(output_json, [{
-                'choices': [{'delta': {'content': '',
-                                        'function_call': None,
-                                        'refusal': None,
-                                        'role': 'assistant',
-                                        'tool_calls': None},
-                            'finish_reason': 'stop',
-                            'index': 0,
-                            'logprobs': None}],
-                'created': 1700832915,
-                'id': 'chatcmpl-8OQctcUZdbOT1KO8x2IKGUQE7G33b',
-                'model': 'gpt-4-0613',
-                'object': 'chat.completion.chunk',
-                'service_tier': None,
-                'system_fingerprint': None,
-                'usage': None},
-                {'choices': [{'delta': {'content': 'We',
-                                        'function_call': None,
-                                        'refusal': None,
-                                        'role': None,
-                                        'tool_calls': None},
-                            'finish_reason': 'stop',
-                            'index': 0,
-                            'logprobs': None}],
-                'created': 1700832915,
-                'id': 'chatcmpl-8OQctcUZdbOT1KO8x2IKGUQE7G33b',
-                'model': 'gpt-4-0613',
-                'object': 'chat.completion.chunk',
-                'service_tier': None,
-                'system_fingerprint': None,
-                'usage': None}])
-
     @patch.object(Uploader, 'upload_span')
     async def test_embedding_create(self, mocked_upload_span):
         recorder = OpenAIRecorder()
@@ -516,10 +449,3 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(find_tag(model, 'effective_model'), 'text-embedding-ada-002-v2')
 
             self.assertEqual(find_counter(model, 'prompt_tokens'), 8.0)
-
-            input_json = json.loads(base64.b64decode(find_payload(model, 'request').content_base64))
-
-            #pp = pprint.PrettyPrinter()
-            #pp.pprint(input_json)
-
-            self.assertEqual(input_json, {'input': ['test text 1', 'test text 2'], 'model': 'text-embedding-ada-002'})

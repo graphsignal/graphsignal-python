@@ -222,8 +222,6 @@ class OpenAIRecorder(BaseRecorder):
                     span.set_counter('uncached_prompt_tokens', total_prompt_tokens)
                     span.inc_counter_metric('usage', 'prompt_tokens', total_prompt_tokens)
                     span.inc_counter_metric('usage', 'uncached_prompt_tokens', total_prompt_tokens)
-
-            span.set_payload('request', params)
         else:
             ret = ret.model_dump()
 
@@ -232,10 +230,6 @@ class OpenAIRecorder(BaseRecorder):
 
             if ret and 'usage' in ret and not exc:
                 self.read_usage(span, ret['usage'])
-
-            span.set_payload('request', params)
-            if ret:
-                span.set_payload('response', ret)
 
     def trace_chat_completion_data(self, span, item):
         item = item.model_dump()
@@ -246,8 +240,6 @@ class OpenAIRecorder(BaseRecorder):
                 span.inc_counter('completion_tokens', 1)
                 span.inc_counter_metric('usage', 'completion_tokens', 1)
                 span.inc_counter('output_tokens', 1)
-
-            span.append_payload('response', [item])
 
         if item and 'usage' in item:
             self.read_usage(span, item['usage'])
@@ -274,9 +266,6 @@ class OpenAIRecorder(BaseRecorder):
                 span.set_counter('prompt_tokens', usage['prompt_tokens'])
                 span.inc_counter_metric('usage', 'prompt_tokens', usage['prompt_tokens'])
 
-
-        span.set_payload('request', params)
-
     def trace_image_generation(self, span, args, kwargs, ret, exc):
         params = kwargs
 
@@ -301,8 +290,6 @@ class OpenAIRecorder(BaseRecorder):
     def trace_image_endpoint(self, span, args, kwargs, ret, exc):
         params = kwargs
 
-        span.set_payload('request', params, params)
-
         if ret and 'data' in ret:
             image_data = []
             for image in ret['data']:
@@ -310,7 +297,6 @@ class OpenAIRecorder(BaseRecorder):
                     image_data.append(image['url'])
                 elif 'b64_json' in image:
                     image_data.append(image['b64_json'])
-            span.set_payload('response', image_data)
 
     def trace_audio_transcription(self, span, args, kwargs, ret, exc):
         params = kwargs
@@ -320,13 +306,6 @@ class OpenAIRecorder(BaseRecorder):
             span.set_tag('model', params['model'])
             span.set_param('model', params['model'])
 
-        span.set_payload('request', params)
-
-        ret = ret.model_dump()
-
-        if ret and 'text' in ret:
-            span.set_payload('response', ret['text'])
-
     def trace_audio_translation(self, span, args, kwargs, ret, exc):
         params = kwargs
 
@@ -335,15 +314,6 @@ class OpenAIRecorder(BaseRecorder):
             span.set_tag('model', params['model'])
             span.set_param('model', params['model'])
 
-        input_data = {}
-
-        span.set_payload('request', params)
-
-        ret = ret.model_dump()
-
-        if ret and 'text' in ret:
-            span.set_payload('request', ret['text'])
-
     def trace_moderation(self, span, args, kwargs, ret, exc):
         params = kwargs
 
@@ -351,5 +321,3 @@ class OpenAIRecorder(BaseRecorder):
         if 'model' in params:
             span.set_tag('model', params['model'])
             span.set_param('model', params['model'])
-
-        span.set_payload('request', params)

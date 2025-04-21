@@ -16,12 +16,6 @@ def find_param(model, name):
             return param.value
     return None
 
-def find_payload(model, name):
-    for payload in model.payloads:
-        if payload.name == name:
-            return payload
-    return None
-
 def find_counter(model, counter_name):
     for counter in model.counters:
         if counter.name == counter_name:

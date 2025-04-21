@@ -452,7 +452,6 @@ class DefaultApi:
     def query_spans(
         self,
         tags: Annotated[Optional[StrictStr], Field(description="Filter spans by tags. Provide tags as a semicolon-separated list of key-value pairs (e.g., 'key1:value1;key2:value2').")] = None,
-        text: Annotated[Optional[StrictStr], Field(description="Filter spans by text. Provide text to search for in span payloads.")] = None,
         start_time: Annotated[Optional[datetime], Field(description="Start time for filtering spans, in ISO format.")] = None,
         end_time: Annotated[Optional[datetime], Field(description="End time for filtering spans, in ISO format.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Limit the number of returned spans. Default is 100. Max is 1000.")] = None,
@@ -476,8 +475,6 @@ class DefaultApi:
 
         :param tags: Filter spans by tags. Provide tags as a semicolon-separated list of key-value pairs (e.g., 'key1:value1;key2:value2').
         :type tags: str
-        :param text: Filter spans by text. Provide text to search for in span payloads.
-        :type text: str
         :param start_time: Start time for filtering spans, in ISO format.
         :type start_time: datetime
         :param end_time: End time for filtering spans, in ISO format.
@@ -510,7 +507,6 @@ class DefaultApi:
 
         _param = self._query_spans_serialize(
             tags=tags,
-            text=text,
             start_time=start_time,
             end_time=end_time,
             limit=limit,
@@ -540,7 +536,6 @@ class DefaultApi:
     def query_spans_with_http_info(
         self,
         tags: Annotated[Optional[StrictStr], Field(description="Filter spans by tags. Provide tags as a semicolon-separated list of key-value pairs (e.g., 'key1:value1;key2:value2').")] = None,
-        text: Annotated[Optional[StrictStr], Field(description="Filter spans by text. Provide text to search for in span payloads.")] = None,
         start_time: Annotated[Optional[datetime], Field(description="Start time for filtering spans, in ISO format.")] = None,
         end_time: Annotated[Optional[datetime], Field(description="End time for filtering spans, in ISO format.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Limit the number of returned spans. Default is 100. Max is 1000.")] = None,
@@ -564,8 +559,6 @@ class DefaultApi:
 
         :param tags: Filter spans by tags. Provide tags as a semicolon-separated list of key-value pairs (e.g., 'key1:value1;key2:value2').
         :type tags: str
-        :param text: Filter spans by text. Provide text to search for in span payloads.
-        :type text: str
         :param start_time: Start time for filtering spans, in ISO format.
         :type start_time: datetime
         :param end_time: End time for filtering spans, in ISO format.
@@ -598,7 +591,6 @@ class DefaultApi:
 
         _param = self._query_spans_serialize(
             tags=tags,
-            text=text,
             start_time=start_time,
             end_time=end_time,
             limit=limit,
@@ -628,7 +620,6 @@ class DefaultApi:
     def query_spans_without_preload_content(
         self,
         tags: Annotated[Optional[StrictStr], Field(description="Filter spans by tags. Provide tags as a semicolon-separated list of key-value pairs (e.g., 'key1:value1;key2:value2').")] = None,
-        text: Annotated[Optional[StrictStr], Field(description="Filter spans by text. Provide text to search for in span payloads.")] = None,
         start_time: Annotated[Optional[datetime], Field(description="Start time for filtering spans, in ISO format.")] = None,
         end_time: Annotated[Optional[datetime], Field(description="End time for filtering spans, in ISO format.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Limit the number of returned spans. Default is 100. Max is 1000.")] = None,
@@ -652,8 +643,6 @@ class DefaultApi:
 
         :param tags: Filter spans by tags. Provide tags as a semicolon-separated list of key-value pairs (e.g., 'key1:value1;key2:value2').
         :type tags: str
-        :param text: Filter spans by text. Provide text to search for in span payloads.
-        :type text: str
         :param start_time: Start time for filtering spans, in ISO format.
         :type start_time: datetime
         :param end_time: End time for filtering spans, in ISO format.
@@ -686,7 +675,6 @@ class DefaultApi:
 
         _param = self._query_spans_serialize(
             tags=tags,
-            text=text,
             start_time=start_time,
             end_time=end_time,
             limit=limit,
@@ -711,7 +699,6 @@ class DefaultApi:
     def _query_spans_serialize(
         self,
         tags,
-        text,
         start_time,
         end_time,
         limit,
@@ -741,10 +728,6 @@ class DefaultApi:
         if tags is not None:
             
             _query_params.append(('tags', tags))
-            
-        if text is not None:
-            
-            _query_params.append(('text', text))
             
         if start_time is not None:
             if isinstance(start_time, datetime):

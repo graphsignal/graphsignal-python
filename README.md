@@ -84,7 +84,7 @@ Graphsignal tracer is highly lightweight. The overhead per trace is measured to 
 
 The Graphsignal tracer only establishes outbound connections to `api.graphsignal.com` to send data; inbound connections or commands are not possible.
 
-Payloads, such as prompts and completions, are recorded by default in case of automatic tracing. To disable, set `record_payloads=False` in `graphsignal.configure`.
+Content and sensitive information, such as prompts and completions, are not recorded.
 
 
 ## Troubleshooting

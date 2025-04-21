@@ -25,15 +25,6 @@ class Counter:
         self.name = name
         self.value = value
 
-class Payload:
-    __slots__ = [
-        'name',
-        'content']
-
-    def __init__(self, name, content):
-        self.name = name
-        self.content = content
-
 class Profile:
     __slots__ = [
         'name',
@@ -89,7 +80,6 @@ class Span:
         '_exc_infos',
         '_params',
         '_counters',
-        '_payloads',
         '_profiles',
         '_metrics'
     ]
@@ -130,7 +120,6 @@ class Span:
         self._exc_infos = None
         self._counters = None
         self._params = None
-        self._payloads = None
         self._profiles = None
         self._metrics = None
 
@@ -186,7 +175,6 @@ class Span:
             exceptions=[],
             params=[],
             counters=[],
-            payloads=[],
             profiles=[]
         )
 
@@ -340,21 +328,6 @@ class Span:
                     value=counter.value
                 ))
 
-        # copy payloads
-        if self._payloads is not None:
-            for payload in self._payloads.values():
-                if _tracer().record_payloads:
-                    try:
-                        content_type, content_bytes = encode_payload(payload.content)
-                        if len(content_bytes) <= Span.MAX_PAYLOAD_BYTES:
-                            self._model.payloads.append(client.Payload(
-                                name=payload.name,
-                                content_type=content_type,
-                                content_base64=base64.b64encode(content_bytes).decode('utf-8')
-                            ))
-                    except Exception as exc:
-                        logger.debug('Error encoding {0} payload for operation {1}'.format(payload.name, self._operation))
-
         # copy profiles
         if self._profiles is not None:
             for profile in self._profiles.values():
@@ -482,48 +455,6 @@ class Span:
         if counter:
             return counter.value
         return None
-
-    def set_payload(
-            self, 
-            name: str, 
-            content: Any) -> None:
-        if self._payloads is None:
-            self._payloads = {}
-
-        if not name or not isinstance(name, str):
-            logger.error('set_payload: name must be string')
-            return
-
-        if len(self._payloads) > Span.MAX_PAYLOADS:
-            logger.error('set_payload: too many payloads (>{0})'.format(Span.MAX_PAYLOADS))
-            return
-
-        self._payloads[name] = Payload(
-            name=name,
-            content=content)
-
-    def append_payload(
-            self, 
-            name: str, 
-            content: Any) -> None:
-        if self._payloads is None:
-            self._payloads = {}
- 
-        if not name or not isinstance(name, str):
-            logger.error('append_payload: name must be string')
-            return
-
-        if len(self._payloads) > Span.MAX_PAYLOADS:
-            logger.error('append_payload: too many payloads (>{0})'.format(Span.MAX_PAYLOADS))
-            return
-
-        if name in self._payloads:
-            payload = self._payloads[name]
-            payload.content += content
-        else:
-            self._payloads[name] = Payload(
-                name=name,
-                content=content)
 
     def set_profile(
             self, 
@@ -654,23 +585,3 @@ class Span:
 
     def repr(self):
         return 'Span({0})'.format(self._operation)
-
-
-def encode_payload(content):
-    content_dict = _obj_to_dict(content)
-    return ('application/json', json.dumps(content_dict).encode('utf-8'))
-
-
-def _obj_to_dict(obj, level=0):
-    if level >= 50:
-        return
-    if isinstance(obj, (int, float, str, bool, type(None))):
-        return obj
-    elif isinstance(obj, dict):
-        return {k: _obj_to_dict(v, level=level+1) for k, v in obj.items()}
-    elif isinstance(obj, (list, set, tuple)):
-        return [_obj_to_dict(e, level=level+1) for e in obj]
-    elif hasattr(obj, '__dict__'):
-        return _obj_to_dict(vars(obj), level=level+1)
-    else:
-        return str(obj)

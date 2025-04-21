@@ -5,10 +5,10 @@ import time
 from unittest.mock import patch, Mock
 
 import graphsignal
-from graphsignal.spans import Span, encode_payload
+from graphsignal.spans import Span
 from graphsignal.recorders.process_recorder import ProcessRecorder
 from graphsignal.uploader import Uploader
-from test.model_utils import find_tag, find_param, find_counter, find_payload, find_profile, find_log_entry
+from test.model_utils import find_tag, find_param, find_counter, find_profile, find_log_entry
 
 
 logger = logging.getLogger('graphsignal')
@@ -21,7 +21,6 @@ class SpansTest(unittest.TestCase):
         graphsignal.configure(
             api_key='k1',
             tags={'deployment': 'd1', 'k1': 'v1'},
-            record_payloads=True,
             debug_mode=True)
         graphsignal._tracer.hostname = 'h1'
         graphsignal._tracer.export_on_shutdown = False
@@ -50,7 +49,6 @@ class SpansTest(unittest.TestCase):
             span.set_param('p3', 'v3')
             span.set_counter('c3', 3)
             span.inc_counter_metric('usage', 'c3', 3)
-            span.set_payload('input', [[1, 2],[3, 4]])
             span.set_profile('prof1', 'fmt1', 'content1')
             time.sleep(0.01)
             span.set_perf_counter('first_token_ns')
@@ -82,8 +80,6 @@ class SpansTest(unittest.TestCase):
         self.assertTrue(find_counter(span, 'first_token_ns') > 0)
         self.assertEqual(find_counter(span, 'output_tokens'), 10)
         self.assertEqual(find_counter(span, 'c3'), 3)
-        self.assertEqual(find_payload(span, 'input').content_type, 'application/json')
-        self.assertEqual(find_payload(span, 'input').content_base64, 'W1sxLCAyXSwgWzMsIDRdXQ==')
         self.assertEqual(find_profile(span, 'prof1').format, 'fmt1')
         self.assertEqual(find_profile(span, 'prof1').content, 'content1')
 
@@ -261,17 +257,6 @@ class SpansTest(unittest.TestCase):
         self.assertEqual(store._metrics[key].counter, 1)
 
     @patch.object(Uploader, 'upload_span')
-    def test_set_payload(self, mocked_upload_span):
-        with Span(operation='op1') as span:
-            span.set_payload('d1', None)
-
-        span = mocked_upload_span.call_args[0][0]
-
-        self.assertTrue(span.start_us > 0)
-        self.assertTrue(span.end_us > 0)
-        self.assertEqual(span.root_span_id, span.span_id)
-
-    @patch.object(Uploader, 'upload_span')
     def test_subspans(self, mocked_upload_span):
         with Span(operation='op1') as span1:
             with span1.trace(operation='op2') as span2:
@@ -311,15 +296,9 @@ class SpansTest(unittest.TestCase):
         for _ in range(calls):
             with Span(operation='op1') as span:
                 span.set_tag('k1', 'v1')
-                span.set_payload('test', 'test string data')
         took_ns = time.perf_counter_ns() - start_ns
 
         #stats = pstats.Stats(profiler).sort_stats('time')
         #stats.print_stats()
 
         self.assertTrue(took_ns / calls < 200 * 1e3) # less than 200 microseconds per trace
-
-    def test_encode_payload(self):
-        content_type, content_bytes = encode_payload(['text\n', 2.0, float('nan')])
-        self.assertEqual(content_type, 'application/json')
-        self.assertEqual(content_bytes, b'["text\\n", 2.0, NaN]')
