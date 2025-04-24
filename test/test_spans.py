@@ -5,7 +5,7 @@ import time
 from unittest.mock import patch, Mock
 
 import graphsignal
-from graphsignal.spans import Span
+from graphsignal.spans import Span, SpanContext
 from graphsignal.recorders.process_recorder import ProcessRecorder
 from graphsignal.uploader import Uploader
 from test.model_utils import find_tag, find_param, find_counter, find_profile, find_log_entry
@@ -61,7 +61,6 @@ class SpansTest(unittest.TestCase):
 
         self.assertTrue(span.start_us > 0)
         self.assertTrue(span.end_us > 0)
-        self.assertEqual(span.root_span_id, span.span_id)
         self.assertEqual(find_tag(span, 'deployment'), 'd1')
         self.assertEqual(find_tag(span, 'operation'), 'op1')
         self.assertIsNotNone(find_tag(span, 'hostname'))
@@ -116,7 +115,7 @@ class SpansTest(unittest.TestCase):
         self.assertEqual(find_tag(score, 'k2'), 'v2')
         self.assertEqual(find_tag(score, 'k3'), 'v3')
         self.assertEqual(find_tag(score, 'k4'), '4.0')
-        self.assertEqual(find_tag(score, 'k5'), 'v5')        
+        self.assertEqual(find_tag(score, 'k5'), 'v5')     
         self.assertEqual(score.score, 0.5)
         self.assertEqual(score.unit, 'u1')
         self.assertEqual(score.severity, 3)
@@ -125,22 +124,24 @@ class SpansTest(unittest.TestCase):
 
     @patch.object(ProcessRecorder, 'on_span_start')
     @patch.object(Uploader, 'upload_span')
-    def test_start_stop_nested(self, mocked_upload_span, mocked_process_on_span_start):
-        with Span(operation='op1') as span:
-            with span.trace(operation='op2'):
-                pass
+    def test_start_stop_contextvars(self, mocked_upload_span, mocked_process_on_span_start):
+        with Span(operation='op1') as span1:
+            ctx1 = span1.get_span_context()
+            SpanContext.push_contextvars(ctx1)
+
+            ctx1_copy = SpanContext.pop_contextvars()
+            with Span(operation='op2', parent_context=ctx1_copy) as span2:
+                ctx2 = span2.get_span_context()
+                self.assertEqual(ctx1.trace_id, ctx2.trace_id)
 
         t1 = mocked_upload_span.call_args_list[1][0][0]
         t2 = mocked_upload_span.call_args_list[0][0][0]
 
-        self.assertTrue(t1.start_us > 0)
-        self.assertTrue(t1.end_us > 0)
-        self.assertEqual(t1.root_span_id, t1.span_id)
-        self.assertEqual(t2.parent_span_id, t1.span_id)
-        self.assertEqual(t2.root_span_id, t1.span_id)
+        self.assertIsNotNone(t1.trace_id)
+        self.assertEqual(t1.parent_span_id, None)
 
-        self.assertTrue(t2.start_us > 0)
-        self.assertTrue(t2.end_us > 0)
+        self.assertEqual(t2.trace_id, t1.trace_id)
+        self.assertEqual(t2.parent_span_id, t1.span_id)
 
 
     @patch.object(ProcessRecorder, 'on_span_start')
@@ -157,7 +158,6 @@ class SpansTest(unittest.TestCase):
 
         self.assertTrue(span.start_us > 0)
         self.assertTrue(span.end_us > 0)
-        self.assertEqual(span.root_span_id, span.span_id)
         self.assertEqual(find_log_entry(store, 'ex1').tags['deployment'], 'd1')
         self.assertIsNotNone(find_log_entry(store, 'ex1').message)
         self.assertIsNotNone(find_log_entry(store, 'ex1').exception)
@@ -197,7 +197,6 @@ class SpansTest(unittest.TestCase):
         self.assertTrue(span.span_id != '')
         self.assertTrue(span.start_us > 0)
         self.assertTrue(span.end_us > 0)
-        self.assertEqual(span.root_span_id, span.span_id)
         self.assertEqual(span.exceptions[0].exc_type, 'Exception')
         self.assertEqual(span.exceptions[0].message, 'ex1')
         self.assertNotEqual(span.exceptions[0].stack_trace, '')
@@ -221,7 +220,6 @@ class SpansTest(unittest.TestCase):
 
         self.assertTrue(span.start_us > 0)
         self.assertTrue(span.end_us > 0)
-        self.assertEqual(span.root_span_id, span.span_id)
         self.assertEqual(span.exceptions[0].exc_type, 'Exception')
         self.assertEqual(span.exceptions[0].message, 'ex2')
         self.assertNotEqual(span.exceptions[0].stack_trace, '')
@@ -245,7 +243,6 @@ class SpansTest(unittest.TestCase):
 
         self.assertTrue(span.start_us > 0)
         self.assertTrue(span.end_us > 0)
-        self.assertEqual(span.root_span_id, span.span_id)
         self.assertEqual(span.exceptions[0].exc_type, 'Exception')
         self.assertEqual(span.exceptions[0].message, 'ex2')
         self.assertNotEqual(span.exceptions[0].stack_trace, '')
@@ -270,17 +267,17 @@ class SpansTest(unittest.TestCase):
         t4 = mocked_upload_span.call_args_list[2][0][0]
         t1 = mocked_upload_span.call_args_list[3][0][0]
 
+        self.assertIsNotNone(t1.trace_id)
         self.assertEqual(t1.parent_span_id, None)
-        self.assertEqual(t1.root_span_id, t1.span_id)
 
+        self.assertEqual(t2.trace_id, t1.trace_id)
         self.assertEqual(t2.parent_span_id, t1.span_id)
-        self.assertEqual(t2.root_span_id, t1.span_id)
 
+        self.assertEqual(t4.trace_id, t1.trace_id)
         self.assertEqual(t3.parent_span_id, t2.span_id)
-        self.assertEqual(t3.root_span_id, t1.span_id)
 
+        self.assertEqual(t4.trace_id, t1.trace_id)
         self.assertEqual(t4.parent_span_id, t1.span_id)
-        self.assertEqual(t4.root_span_id, t1.span_id)
 
     @unittest.skip('for now')
     @patch.object(Uploader, 'upload_span')

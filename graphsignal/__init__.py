@@ -5,7 +5,7 @@ import atexit
 
 from graphsignal.version import __version__
 from graphsignal.tracer import Tracer
-from graphsignal.spans import Span
+from graphsignal.spans import Span, SpanContext
 
 logger = logging.getLogger('graphsignal')
 
@@ -210,6 +210,7 @@ __all__ = [
     'shutdown',
     'trace',
     'function_trace',
+    'SpanContext',
     'Span',
     'score',
     'set_tag',

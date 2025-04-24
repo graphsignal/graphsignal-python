@@ -1,6 +1,5 @@
 import logging
 import os
-import random
 import json
 import time
 import torch
@@ -26,7 +25,7 @@ class PyTorchRecorder(BaseRecorder):
             # profiler active, skip
             # only one profiler is allowed per process, so we don't need global locks
             return
-        if random.random() > graphsignal._tracer.profiling_rate:
+        if not span.profiled():
             return
 
         if not self._torch_prof:

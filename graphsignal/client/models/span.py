@@ -32,7 +32,7 @@ class Span(BaseModel):
     Span
     """ # noqa: E501
     span_id: StrictStr = Field(description="Unique identifier for the span.")
-    root_span_id: Optional[StrictStr] = Field(default=None, description="Identifier of the root span, if this is a child span.")
+    trace_id: Optional[StrictStr] = Field(default=None, description="Identifier of the trace.")
     parent_span_id: Optional[StrictStr] = Field(default=None, description="Identifier of the parent span, if this is a nested span.")
     linked_span_ids: Optional[List[StrictStr]] = Field(default=None, description="List of linked span identifiers.")
     start_us: StrictInt = Field(description="Start time of the span in microseconds.")
@@ -42,7 +42,7 @@ class Span(BaseModel):
     params: Optional[List[Param]] = Field(default=None, description="List of parameters associated with the span.")
     counters: Optional[List[Counter]] = Field(default=None, description="Counters associated with the span.")
     profiles: Optional[List[Profile]] = Field(default=None, description="List of profiles related to the span.")
-    __properties: ClassVar[List[str]] = ["span_id", "root_span_id", "parent_span_id", "linked_span_ids", "start_us", "end_us", "tags", "exceptions", "params", "counters", "profiles"]
+    __properties: ClassVar[List[str]] = ["span_id", "trace_id", "parent_span_id", "linked_span_ids", "start_us", "end_us", "tags", "exceptions", "params", "counters", "profiles"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -131,7 +131,7 @@ class Span(BaseModel):
 
         _obj = cls.model_validate({
             "span_id": obj.get("span_id"),
-            "root_span_id": obj.get("root_span_id"),
+            "trace_id": obj.get("trace_id"),
             "parent_span_id": obj.get("parent_span_id"),
             "linked_span_ids": obj.get("linked_span_ids"),
             "start_us": obj.get("start_us"),

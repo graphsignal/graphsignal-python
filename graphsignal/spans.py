@@ -3,14 +3,22 @@ import logging
 import sys
 import time
 import traceback
-import json
-import base64
+import random
+import contextvars
 
 import graphsignal
 from graphsignal import client
 from graphsignal.utils import uuid_sha1, sanitize_str
 
 logger = logging.getLogger('graphsignal')
+
+RANDOM_CACHE = [random.random() for _ in range(10000)]
+idx = 0
+
+def fast_random():
+    global idx
+    idx = (idx + 1) % len(RANDOM_CACHE)
+    return RANDOM_CACHE[idx]
 
 def _tracer():
     return graphsignal._tracer
@@ -49,6 +57,64 @@ class CounterMetric:
         self.value = value
         self.unit = unit
 
+trace_context_var = contextvars.ContextVar('gsig_trace_ctx', default=[])
+
+class SpanContext:
+    __slots__ = [
+        'trace_id',
+        'span_id',
+        'sampled',
+        'profiled'
+    ]
+
+    def __init__(self, trace_id=None, span_id=None, sampled=None, profiled=None):
+        self.trace_id = trace_id
+        self.span_id = span_id
+        self.sampled = sampled
+        self.profiled = profiled
+
+    @staticmethod
+    def push_contextvars(ctx):
+        trace_context_var.set(trace_context_var.get() + [SpanContext.dumps(ctx)])
+
+    @staticmethod
+    def pop_contextvars():
+        trace_context = trace_context_var.get()
+        if len(trace_context) > 0:
+            ctx = SpanContext.loads(trace_context[-1])
+            trace_context_var.set(trace_context[:-1])
+            return ctx
+
+    @staticmethod
+    def loads(value):
+        if value is None:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f'SpanContext.loads: invalid context value: {value}')
+            return None
+        parts = value.split('-')
+        if len(parts) != 4:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f'SpanContext.loads: invalid context value: {value}')
+            return None
+        ctx = SpanContext()
+        ctx.trace_id = parts[0]
+        ctx.span_id = parts[1]
+        ctx.sampled = parts[2] == '1'
+        ctx.profiled = parts[3] == '1'
+        return ctx
+
+    @staticmethod
+    def dumps(ctx):
+        if ctx is None or ctx.trace_id is None or ctx.span_id is None or ctx.sampled is None or ctx.profiled is None:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug('SpanContext.dumps: invalid context')
+            return None
+        return '{0}-{1}-{2}-{3}'.format(
+            ctx.trace_id, 
+            ctx.span_id, 
+            '1' if ctx.sampled else '0', 
+            '1' if ctx.profiled else '0')
+
 class Span:
     MAX_SPAN_TAGS = 25
     MAX_PARAMS = 100
@@ -64,10 +130,12 @@ class Span:
         '_with_profile',
         '_context_tags',
         '_span_id',
-        '_root_span_id',
+        '_trace_id',
         '_parent_span_id',
         '_linked_span_ids',
         '_is_root',
+        '_sampled',
+        '_profiled',
         '_recorder_context',
         '_model',
         '_is_started',
@@ -84,7 +152,7 @@ class Span:
         '_metrics'
     ]
 
-    def __init__(self, operation, tags=None, with_profile=False, root_span_id=None, parent_span_id=None, linked_span_ids=None):
+    def __init__(self, operation, tags=None, with_profile=False, parent_context=None):
         self._is_started = False
 
         if not operation:
@@ -106,9 +174,16 @@ class Span:
         self._context_tags = None
         self._is_stopped = False
         self._span_id = None
-        self._root_span_id = root_span_id
-        self._parent_span_id = parent_span_id
-        self._linked_span_ids = linked_span_ids
+        self._trace_id = None
+        self._parent_span_id = None
+        self._sampled = None
+        self._profiled = None
+        if parent_context:
+            self._trace_id = parent_context.trace_id
+            self._parent_span_id = parent_context.span_id
+            self._sampled = parent_context.sampled
+            self._profiled = parent_context.profiled
+        self._linked_span_ids = None
         self._is_root = False
         self._start_us = None
         self._start_counter = None
@@ -161,9 +236,13 @@ class Span:
             logger.debug(f'Starting span {self._operation}')
 
         self._span_id = uuid_sha1(size=12)
-        if self._root_span_id is None:
-            self._root_span_id = self._span_id
+        if self._trace_id is None:
+            self._trace_id = uuid_sha1(size=12)
             self._is_root = True
+        if self._sampled is None:
+            self._sampled = fast_random() <= graphsignal._tracer.sampling_rate
+        if self._sampled and self._profiled is None:
+            self._profiled = fast_random() <= graphsignal._tracer.profiling_rate
 
         self._context_tags = _tracer().context_tags.get().copy()
 
@@ -270,76 +349,77 @@ class Span:
             except Exception as exc:
                 logger.error('Error in span read event handlers', exc_info=True)
 
-        # fill and upload span
-        # copy data to span model
-        self._model.start_us = self._start_us
-        self._model.end_us = end_us
-        if self._root_span_id:
-            self._model.root_span_id = self._root_span_id
-        if self._parent_span_id:
-            self._model.parent_span_id = self._parent_span_id
-        if self._linked_span_ids:
-            self._model.linked_span_ids = self._linked_span_ids
+        if self._sampled:
+            # fill and upload span
+            # copy data to span model
+            self._model.start_us = self._start_us
+            self._model.end_us = end_us
+            if self._trace_id:
+                self._model.trace_id = self._trace_id
+            if self._parent_span_id:
+                self._model.parent_span_id = self._parent_span_id
+            if self._linked_span_ids:
+                self._model.linked_span_ids = self._linked_span_ids
 
-        # copy tags
-        for key, value in span_tags.items():
-            self._model.tags.append(client.Tag(
-                key=sanitize_str(key, max_len=50),
-                value=sanitize_str(value, max_len=250)
-            ))
-
-        # copy exception
-        if self._exc_infos:
-            for exc_info in self._exc_infos:
-                exc_type = None
-                message = None
-                stack_trace = None
-                if exc_info[0] and hasattr(exc_info[0], '__name__'):
-                    exc_type = str(exc_info[0].__name__)
-                if exc_info[1]:
-                    message = str(exc_info[1])
-                if exc_info[2]:
-                    frames = traceback.format_tb(exc_info[2])
-                    if len(frames) > 0:
-                        stack_trace = ''.join(frames)
-
-                if exc_type and message:
-                    exception_model = client.Exception(
-                        exc_type=exc_type,
-                        message=message,
-                    )
-                    if stack_trace:
-                        exception_model.stack_trace = stack_trace
-                    self._model.exceptions.append(exception_model)
-
-        # copy params
-        if self._params is not None:
-            for key, value in self._merged_params().items():
-                self._model.params.append(client.Param(
-                    name=sanitize_str(key, max_len=50),
+            # copy tags
+            for key, value in span_tags.items():
+                self._model.tags.append(client.Tag(
+                    key=sanitize_str(key, max_len=50),
                     value=sanitize_str(value, max_len=250)
                 ))
 
-        # copy counters
-        if self._counters is not None:
-            for counter in self._counters.values():
-                self._model.counters.append(client.Counter(
-                    name=counter.name,
-                    value=counter.value
-                ))
+            # copy exception
+            if self._exc_infos:
+                for exc_info in self._exc_infos:
+                    exc_type = None
+                    message = None
+                    stack_trace = None
+                    if exc_info[0] and hasattr(exc_info[0], '__name__'):
+                        exc_type = str(exc_info[0].__name__)
+                    if exc_info[1]:
+                        message = str(exc_info[1])
+                    if exc_info[2]:
+                        frames = traceback.format_tb(exc_info[2])
+                        if len(frames) > 0:
+                            stack_trace = ''.join(frames)
 
-        # copy profiles
-        if self._profiles is not None:
-            for profile in self._profiles.values():
-                if len(profile.content) <= Span.MAX_PROFILE_SIZE:
-                    self._model.profiles.append(client.Profile(
-                        name=profile.name,
-                        format=profile.format,
-                        content=profile.content
+                    if exc_type and message:
+                        exception_model = client.Exception(
+                            exc_type=exc_type,
+                            message=message,
+                        )
+                        if stack_trace:
+                            exception_model.stack_trace = stack_trace
+                        self._model.exceptions.append(exception_model)
+
+            # copy params
+            if self._params is not None:
+                for key, value in self._merged_params().items():
+                    self._model.params.append(client.Param(
+                        name=sanitize_str(key, max_len=50),
+                        value=sanitize_str(value, max_len=250)
                     ))
 
-        # queue span model for upload
-        _tracer().uploader().upload_span(self._model)
+            # copy counters
+            if self._counters is not None:
+                for counter in self._counters.values():
+                    self._model.counters.append(client.Counter(
+                        name=counter.name,
+                        value=counter.value
+                    ))
+
+            # copy profiles
+            if self._profiles is not None:
+                for profile in self._profiles.values():
+                    if len(profile.content) <= Span.MAX_PROFILE_SIZE:
+                        self._model.profiles.append(client.Profile(
+                            name=profile.name,
+                            format=profile.format,
+                            content=profile.content
+                        ))
+
+            # queue span model for upload
+            _tracer().uploader().upload_span(self._model)
 
         # trigger upload
         if self._is_root:
@@ -357,6 +437,29 @@ class Span:
         finally:
             self._is_stopped = True
     
+    def get_span_context(self):
+        return SpanContext(
+            trace_id=self._trace_id,
+            span_id=self._span_id,
+            sampled=self._sampled,
+            profiled=self._profiled)
+
+    def add_linked_span(self, span_id: str) -> None:
+        if not span_id:
+            logger.error('add_linked_span: span_id must be provided')
+            return
+
+        if self._linked_span_ids is None:
+            self._linked_span_ids = []
+
+        self._linked_span_ids.append(span_id)
+
+    def sampled(self) -> bool:
+        return self._sampled
+
+    def profiled(self) -> bool:
+        return self._profiled
+
     def set_tag(self, key: str, value: str) -> None:
         if not key:
             logger.error('set_tag: key must be provided')
@@ -497,7 +600,7 @@ class Span:
         score_obj = client.Score(
             score_id=uuid_sha1(size=12),
             tags=[],
-            span_id=self._model.span_id,
+            span_id=self._span_id,
             name=name,
             score=score,
             create_ts=now
@@ -528,10 +631,8 @@ class Span:
         return Span(
             operation=operation, 
             tags=tags,
-            root_span_id=self._root_span_id,
-            parent_span_id=self._span_id,
-            linked_span_ids=self._linked_span_ids)
-
+            parent_context=self.get_span_context())
+ 
     def inc_counter_metric(
             self,
             scope: str,

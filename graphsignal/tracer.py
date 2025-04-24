@@ -114,6 +114,7 @@ class Tracer:
             api_url=None, 
             tags=None, 
             auto_instrument=True, 
+            sampling_rate=1.0,
             profiling_rate=0.1,
             debug_mode=False):
         if debug_mode:
@@ -136,6 +137,7 @@ class Tracer:
         self.params = {}
 
         self.auto_instrument = auto_instrument
+        self.sampling_rate = sampling_rate if sampling_rate is not None else 1.0
         self.profiling_rate = profiling_rate if profiling_rate is not None else 0
         self.debug_mode = debug_mode
 
