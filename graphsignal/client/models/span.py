@@ -32,7 +32,7 @@ class Span(BaseModel):
     Span
     """ # noqa: E501
     span_id: StrictStr = Field(description="Unique identifier for the span.")
-    trace_id: Optional[StrictStr] = Field(default=None, description="Identifier of the trace.")
+    trace_id: StrictStr = Field(description="Identifier of the trace.")
     parent_span_id: Optional[StrictStr] = Field(default=None, description="Identifier of the parent span, if this is a nested span.")
     linked_span_ids: Optional[List[StrictStr]] = Field(default=None, description="List of linked span identifiers.")
     start_us: StrictInt = Field(description="Start time of the span in microseconds.")

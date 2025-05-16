@@ -8,17 +8,9 @@ import contextvars
 
 import graphsignal
 from graphsignal import client
-from graphsignal.utils import uuid_sha1, sanitize_str
+from graphsignal.utils import fast_rand, uuid_sha1, sanitize_str
 
 logger = logging.getLogger('graphsignal')
-
-RANDOM_CACHE = [random.random() for _ in range(10000)]
-idx = 0
-
-def fast_random():
-    global idx
-    idx = (idx + 1) % len(RANDOM_CACHE)
-    return RANDOM_CACHE[idx]
 
 def _tracer():
     return graphsignal._tracer
@@ -63,15 +55,13 @@ class SpanContext:
     __slots__ = [
         'trace_id',
         'span_id',
-        'sampled',
-        'profiled'
+        'sampled'
     ]
 
-    def __init__(self, trace_id=None, span_id=None, sampled=None, profiled=None):
+    def __init__(self, trace_id=None, span_id=None, sampled=None):
         self.trace_id = trace_id
         self.span_id = span_id
         self.sampled = sampled
-        self.profiled = profiled
 
     @staticmethod
     def push_contextvars(ctx):
@@ -92,7 +82,7 @@ class SpanContext:
                 logger.debug(f'SpanContext.loads: invalid context value: {value}')
             return None
         parts = value.split('-')
-        if len(parts) != 4:
+        if len(parts) < 3:
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f'SpanContext.loads: invalid context value: {value}')
             return None
@@ -100,20 +90,18 @@ class SpanContext:
         ctx.trace_id = parts[0]
         ctx.span_id = parts[1]
         ctx.sampled = parts[2] == '1'
-        ctx.profiled = parts[3] == '1'
         return ctx
 
     @staticmethod
     def dumps(ctx):
-        if ctx is None or ctx.trace_id is None or ctx.span_id is None or ctx.sampled is None or ctx.profiled is None:
+        if ctx is None or ctx.trace_id is None or ctx.span_id is None or ctx.sampled is None:
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug('SpanContext.dumps: invalid context')
             return None
-        return '{0}-{1}-{2}-{3}'.format(
+        return '{0}-{1}-{2}'.format(
             ctx.trace_id, 
             ctx.span_id, 
-            '1' if ctx.sampled else '0', 
-            '1' if ctx.profiled else '0')
+            '1' if ctx.sampled else '0')
 
 class Span:
     MAX_SPAN_TAGS = 25
@@ -127,7 +115,7 @@ class Span:
     __slots__ = [
         '_operation',
         '_tags',
-        '_with_profile',
+        '_include_profiles_index',
         '_context_tags',
         '_span_id',
         '_trace_id',
@@ -135,7 +123,6 @@ class Span:
         '_linked_span_ids',
         '_is_root',
         '_sampled',
-        '_profiled',
         '_recorder_context',
         '_model',
         '_is_started',
@@ -152,7 +139,7 @@ class Span:
         '_metrics'
     ]
 
-    def __init__(self, operation, tags=None, with_profile=False, parent_context=None):
+    def __init__(self, operation, tags=None, include_profiles=None, parent_context=None):
         self._is_started = False
 
         if not operation:
@@ -170,19 +157,17 @@ class Span:
         self._tags = dict(operation=self._operation)
         if tags is not None:
             self._tags.update(tags)
-        self._with_profile = with_profile
+        self._include_profiles_index = set(include_profiles) if isinstance(include_profiles, list) else None
         self._context_tags = None
         self._is_stopped = False
         self._span_id = None
         self._trace_id = None
         self._parent_span_id = None
         self._sampled = None
-        self._profiled = None
         if parent_context:
             self._trace_id = parent_context.trace_id
             self._parent_span_id = parent_context.span_id
             self._sampled = parent_context.sampled
-            self._profiled = parent_context.profiled
         self._linked_span_ids = None
         self._is_root = False
         self._start_us = None
@@ -240,14 +225,13 @@ class Span:
             self._trace_id = uuid_sha1(size=12)
             self._is_root = True
         if self._sampled is None:
-            self._sampled = fast_random() <= graphsignal._tracer.sampling_rate
-        if self._sampled and self._profiled is None:
-            self._profiled = fast_random() <= graphsignal._tracer.profiling_rate
+            self._sampled = fast_rand() <= graphsignal._tracer.sampling_rate
 
         self._context_tags = _tracer().context_tags.get().copy()
 
         self._model = client.Span(
             span_id=self._span_id,
+            trace_id=self._trace_id,
             start_us=0,
             end_us=0,
             tags=[],
@@ -354,8 +338,6 @@ class Span:
             # copy data to span model
             self._model.start_us = self._start_us
             self._model.end_us = end_us
-            if self._trace_id:
-                self._model.trace_id = self._trace_id
             if self._parent_span_id:
                 self._model.parent_span_id = self._parent_span_id
             if self._linked_span_ids:
@@ -441,8 +423,7 @@ class Span:
         return SpanContext(
             trace_id=self._trace_id,
             span_id=self._span_id,
-            sampled=self._sampled,
-            profiled=self._profiled)
+            sampled=self._sampled)
 
     def add_linked_span(self, span_id: str) -> None:
         if not span_id:
@@ -457,8 +438,10 @@ class Span:
     def sampled(self) -> bool:
         return self._sampled
 
-    def profiled(self) -> bool:
-        return self._profiled
+    def can_include_profiles(self, profiles) -> bool:
+        if self._include_profiles_index is None:
+            return True
+        return any(prof in self._include_profiles_index for prof in profiles)
 
     def set_tag(self, key: str, value: str) -> None:
         if not key:

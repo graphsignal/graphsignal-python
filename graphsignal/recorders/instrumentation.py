@@ -3,6 +3,7 @@ from functools import wraps
 import asyncio
 import types
 import re
+import time
 
 import graphsignal
 
@@ -11,13 +12,60 @@ logger = logging.getLogger('graphsignal')
 version_regexp = re.compile(r'^(\d+)\.?(\d+)?\.?(\d+)?')
 
 
-def instrument_method(obj, func_name, op_name=None, op_name_func=None, trace_func=None, data_func=None):
+def profile_method(obj, func_name, event_name=None, event_name_func=None, profile_func=None):
+    def before_func(args, kwargs):
+        profiled_event_name = None
+        if event_name:
+            profiled_event_name = event_name
+        elif event_name_func:
+            try:
+                profiled_event_name = event_name_func(args, kwargs)
+            except Exception as e:
+                logger.debug('Error tracing %s', func_name, exc_info=True)
+        else:
+            profiled_event_name = func_name
+
+        return dict(
+            event_name=profiled_event_name,
+            start_ns=time.perf_counter_ns())
+
+    def after_func(args, kwargs, ret, exc, context):
+        start_ns = context['start_ns']
+
+        if not is_generator(ret) and not is_async_generator(ret):
+            duration_ns = time.perf_counter_ns() - start_ns
+
+            try:
+                if not context.get('finished', False):
+                    context['finished'] = True
+                    profile_func(context['event_name'], duration_ns)
+            except Exception as e:
+                logger.debug('Error tracing %s', func_name, exc_info=True)
+
+    def yield_func(stopped, item, context):
+        start_ns = context['start_ns']
+
+        if stopped:
+            duration_ns = time.perf_counter_ns() - start_ns
+
+            try:
+                if not context.get('finished', False):
+                    context['finished'] = True
+                    profile_func(context['event_name'], duration_ns)
+            except Exception as e:
+                logger.debug('Error tracing %s', func_name, exc_info=True)
+
+    if not patch_method(obj, func_name, before_func=before_func, after_func=after_func, yield_func=yield_func):
+        logger.debug('Cannot instrument %s.', func_name)
+
+
+def trace_method(obj, func_name, op_name=None, include_profiles=None, op_name_func=None, trace_func=None, data_func=None):
     def before_func(args, kwargs):
         if op_name is None:
             operation = op_name_func(args, kwargs)
         else:
             operation = op_name
-        return dict(span=graphsignal.trace(operation=operation))
+        return dict(span=graphsignal.trace(operation=operation, include_profiles=include_profiles))
 
     def after_func(args, kwargs, ret, exc, context):
         span = context['span']
@@ -157,16 +205,6 @@ def patch_method(obj, func_name, before_func=None, after_func=None, yield_func=N
         return False
 
     if asyncio.iscoroutinefunction(func) or asyncio.iscoroutinefunction(getattr(func, '__wrapped__', None)):
-        if yield_func:
-            async def async_generator_wrapper(gen, yield_func, context):
-                async for item in gen:
-                    try:
-                        yield_func(False, item, context)
-                    except:
-                        logger.debug('Exception in yield_func', exc_info=True)
-                    yield item
-                yield_func(True, None, context)
-
         @wraps(func)
         async def wrapper(*args, **kwargs):
             context = None
@@ -203,16 +241,6 @@ def patch_method(obj, func_name, before_func=None, after_func=None, yield_func=N
                 raise exc
             return ret
     else:
-        if yield_func:
-            def generator_wrapper(gen, yield_func, context):
-                for item in gen:
-                    try:
-                        yield_func(False, item, context)
-                    except:
-                        logger.debug('Exception in yield_func', exc_info=True)
-                    yield item
-                yield_func(True, None, context)
-
         @wraps(func)
         def wrapper(*args, **kwargs):
             context = None

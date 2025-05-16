@@ -77,7 +77,7 @@ Integration examples are available in [examples](https://github.com/graphsignal/
 
 ## Overhead
 
-Graphsignal tracer is highly lightweight. The overhead per trace is measured to be less than 100 microseconds.
+Graphsignal tracer is highly lightweight. The overhead per trace is measured to be less than 100 microseconds. While profiling can introduce slight overhead, the profiling rate it is limited.
 
 
 ## Security and Privacy

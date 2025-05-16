@@ -33,7 +33,7 @@ class UploaderTest(unittest.TestCase):
 
     @patch.object(client.DefaultApi, 'upload_spans')
     def test_flush(self, mocked_upload_spans):
-        model = client.Span(span_id='1', start_us=0, end_us=0)
+        model = client.Span(span_id='s1', trace_id='t1', start_us=0, end_us=0)
         graphsignal._tracer.uploader().upload_span(model)
         graphsignal._tracer.uploader().flush()
 
@@ -43,7 +43,7 @@ class UploaderTest(unittest.TestCase):
     @patch.object(client.DefaultApi, 'upload_spans')
     def test_flush_in_thread(self, mocked_upload_spans):
         graphsignal._tracer.uploader().FLUSH_DELAY_SEC = 0.01
-        model = client.Span(span_id='1', start_us=0, end_us=0)
+        model = client.Span(span_id='s1', trace_id='t1', start_us=0, end_us=0)
         graphsignal._tracer.uploader().upload_span(model)
         graphsignal._tracer.uploader().flush_in_thread()
         time.sleep(0.1)
@@ -54,7 +54,7 @@ class UploaderTest(unittest.TestCase):
     @patch.object(client.DefaultApi, 'upload_spans')
     def test_flush_in_thread_cancelled(self, mocked_upload_spans):
         graphsignal._tracer.uploader().FLUSH_DELAY_SEC = 5
-        model = client.Span(span_id='1', start_us=0, end_us=0)
+        model = client.Span(span_id='s1', trace_id='t1', start_us=0, end_us=0)
         graphsignal._tracer.uploader().upload_span(model)
         graphsignal._tracer.uploader().flush_in_thread()
         self.assertIsNotNone(graphsignal._tracer.uploader()._flush_timer)
@@ -70,7 +70,7 @@ class UploaderTest(unittest.TestCase):
             raise Exception("Ex1")
         mocked_upload_spans.side_effect = side_effect
 
-        model = client.Span(span_id='1', start_us=0, end_us=0)
+        model = client.Span(span_id='s1', trace_id='t1', start_us=0, end_us=0)
         graphsignal._tracer.uploader().upload_span(model)
         graphsignal._tracer.uploader().upload_span(model)
         graphsignal._tracer.uploader().flush()
@@ -84,7 +84,7 @@ class UploaderTest(unittest.TestCase):
         server.set_response_data(b'{}')
         server.start()
 
-        model = client.Span(span_id='s1', start_us=0, end_us=0)
+        model = client.Span(span_id='s1', trace_id='t1', start_us=0, end_us=0)
         graphsignal._tracer.uploader().upload_span(model)
         graphsignal._tracer.uploader().flush()
 

@@ -10,7 +10,7 @@ from unittest.mock import patch, Mock
 import pprint
 
 import graphsignal
-from graphsignal.recorders.instrumentation import patch_method, instrument_method, read_args, parse_semver, compare_semver
+from graphsignal.recorders.instrumentation import patch_method, trace_method, profile_method, read_args, parse_semver, compare_semver
 from graphsignal.uploader import Uploader
 from test.model_utils import find_tag, find_counter
 
@@ -22,12 +22,14 @@ class Dummy:
         pass
 
     def test(self, a, b, c=None):
+        time.sleep(0.001)
         return a + 1
 
     def test_exc(self):
         raise Exception('exc1')
 
     def test_gen(self):
+        time.sleep(0.001)
         for i in range(2):
             yield 'item' + str(i)
 
@@ -49,8 +51,55 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         graphsignal.shutdown()
 
+    async def test_profile_method(self):
+        obj = Dummy()
+
+        def event_name_func(args, kwargs):
+            return 'event2'
+
+        measured_duration_ns = 0
+        def profile_func(event_name, duration_ns):
+            self.assertEqual(event_name, 'event2')
+            self.assertTrue(duration_ns > 0)
+            nonlocal measured_duration_ns
+            measured_duration_ns += duration_ns
+
+        profile_method(
+            obj=obj, 
+            func_name='test', 
+            event_name_func=event_name_func, 
+            profile_func=profile_func)
+
+        obj.test(1, 2, c=3)
+        obj.test(1, 2, c=3)
+        obj.test(1, 2, c=3)
+
+        self.assertTrue(measured_duration_ns > 0)
+
+    async def test_profile_method_generator(self):
+        obj = Dummy()
+
+        measured_duration_ns = 0
+        def profile_func(event_name, duration_ns):
+            self.assertEqual(event_name, 'event1')
+            self.assertTrue(duration_ns > 0)
+            nonlocal measured_duration_ns
+            measured_duration_ns += duration_ns
+
+        profile_method(
+            obj=obj, 
+            func_name='test_gen', 
+            event_name='event1', 
+            profile_func=profile_func)
+
+        for item in obj.test_gen():
+            pass
+
+        self.assertTrue(measured_duration_ns > 0)
+
+
     @patch.object(Uploader, 'upload_span')
-    async def test_instrument_method(self, mocked_upload_span):
+    async def test_trace_method(self, mocked_upload_span):
         obj = Dummy()
 
         trace_func_called = False
@@ -58,7 +107,7 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
             nonlocal trace_func_called
             trace_func_called = True
 
-        instrument_method(obj, 'test', 'op1', trace_func=trace_func)
+        trace_method(obj, 'test', 'op1', trace_func=trace_func)
 
         obj.test(1, 2, c=3)
 
@@ -68,7 +117,7 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_tag(model, 'operation'), 'op1')
 
     @patch.object(Uploader, 'upload_span')
-    async def test_instrument_method_generator(self, mocked_upload_span):
+    async def test_trace_method_generator(self, mocked_upload_span):
         obj = Dummy()
 
         trace_func_called = None
@@ -76,7 +125,12 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
             nonlocal trace_func_called
             trace_func_called = True
 
-        instrument_method(obj, 'test_gen', 'op1', trace_func=trace_func)
+        data_func_called = False
+        def data_func(span, item):
+            nonlocal data_func_called
+            data_func_called = True
+
+        trace_method(obj, 'test_gen', 'op1', trace_func=trace_func, data_func=data_func)
 
         for item in obj.test_gen():
             pass
@@ -84,6 +138,7 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
         model = mocked_upload_span.call_args[0][0]
 
         self.assertTrue(trace_func_called)
+        self.assertTrue(data_func_called)
         self.assertEqual(find_tag(model, 'operation'), 'op1')
         self.assertTrue(find_counter(model, 'latency_ns') > 0)
 

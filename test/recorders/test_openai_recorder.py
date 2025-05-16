@@ -50,6 +50,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         recorder.setup()
         model = client.Span(
             span_id='s1',
+            trace_id='t1',
             start_us=0,
             end_us=0
         )
@@ -63,6 +64,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
         recorder.setup()
         model = client.Span(
             span_id='s1',
+            trace_id='t1',
             start_us=0,
             end_us=0
         )
@@ -137,7 +139,7 @@ class OpenAIRecorderTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(find_tag(model, 'model'), 'gpt-3.5-turbo')
             self.assertEqual(find_tag(model, 'effective_model'), 'gpt-3.5-turbo-0613')
             self.assertEqual(find_tag(model, 'k1'), 'v1')
-            self.assertEqual(find_tag(model, 'user_id'), 'u1')
+            self.assertEqual(find_tag(model, 'openai_user'), 'u1')
 
             self.assertIsNotNone(find_param(model, 'openai_version'))
             self.assertEqual(find_param(model, 'reasoning_effort'), 'low')

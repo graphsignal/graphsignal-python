@@ -6,7 +6,7 @@ import openai
 
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
-from graphsignal.recorders.instrumentation import instrument_method, patch_method, parse_semver, compare_semver
+from graphsignal.recorders.instrumentation import trace_method, patch_method, parse_semver, compare_semver
 from graphsignal import client
 
 logger = logging.getLogger('graphsignal')
@@ -63,14 +63,14 @@ class OpenAIRecorder(BaseRecorder):
                 client = args[0]
                 self._base_url = client.base_url
 
-                instrument_method(client.chat.completions, 'create', 'openai.chat.completions.create', trace_func=self.trace_chat_completion, data_func=self.trace_chat_completion_data)
-                instrument_method(client.embeddings, 'create', 'openai.embeddings.create', trace_func=self.trace_embedding)
-                instrument_method(client.images, 'create', 'openai.images.create', trace_func=self.trace_image_generation)
-                instrument_method(client.images, 'create_variation', 'openai.images.create_variation', trace_func=self.trace_image_variation)
-                instrument_method(client.images, 'edit', 'openai.images.edit', trace_func=self.trace_image_edit)
-                instrument_method(client.audio.transcriptions, 'create', 'openai.audio.transcriptions.create', trace_func=self.trace_audio_transcription)
-                instrument_method(client.audio.translations, 'create', 'openai.audio.translations.create', trace_func=self.trace_audio_translation)
-                instrument_method(client.moderations, 'create', 'openai.moderations.create', trace_func=self.trace_moderation)
+                trace_method(client.chat.completions, 'create', 'openai.chat.completions.create', trace_func=self.trace_chat_completion, data_func=self.trace_chat_completion_data)
+                trace_method(client.embeddings, 'create', 'openai.embeddings.create', trace_func=self.trace_embedding)
+                trace_method(client.images, 'create', 'openai.images.create', trace_func=self.trace_image_generation)
+                trace_method(client.images, 'create_variation', 'openai.images.create_variation', trace_func=self.trace_image_variation)
+                trace_method(client.images, 'edit', 'openai.images.edit', trace_func=self.trace_image_edit)
+                trace_method(client.audio.transcriptions, 'create', 'openai.audio.transcriptions.create', trace_func=self.trace_audio_transcription)
+                trace_method(client.audio.translations, 'create', 'openai.audio.translations.create', trace_func=self.trace_audio_translation)
+                trace_method(client.moderations, 'create', 'openai.moderations.create', trace_func=self.trace_moderation)
 
             patch_method(openai.OpenAI, '__init__', after_func=after_init)
             patch_method(openai.AsyncOpenAI, '__init__', after_func=after_init)
@@ -132,8 +132,7 @@ class OpenAIRecorder(BaseRecorder):
 
         # user tag
         if 'user' in params:
-            if not graphsignal.get_tag('user_id') and not graphsignal.get_context_tag('user_id') and not span.get_tag('user_id'):
-                span.set_tag('user_id', params['user'])
+            span.set_tag('openai_user', params['user'])
 
     def read_usage(self, span, usage):
         if not usage:

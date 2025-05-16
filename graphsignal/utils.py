@@ -1,5 +1,15 @@
 import uuid
 import hashlib
+import random
+
+
+RANDOM_CACHE = [random.random() for _ in range(10000)]
+idx = 0
+
+def fast_rand():
+    global idx
+    idx = (idx + 1) % len(RANDOM_CACHE)
+    return RANDOM_CACHE[idx]
 
 
 def sanitize_str(val, max_len=250):

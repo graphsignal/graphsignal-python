@@ -51,3 +51,39 @@ class TracerTest(unittest.TestCase):
 
         tracer.set_context_tag('k2', None)
         self.assertEqual(tracer.get_context_tag('k2'), None)
+
+    def test_set_profiling_mode_success(self):
+        tracer = graphsignal._tracer
+        tracer.profiling_rate = 1
+        result = tracer.set_profiling_mode()
+        self.assertTrue(result)
+        result = tracer.set_profiling_mode()
+        self.assertFalse(result)
+
+    def test_set_profiling_mode_fail(self):
+        tracer = graphsignal._tracer
+        tracer.profiling_rate = 0.0
+        result = tracer.set_profiling_mode()
+        self.assertFalse(result)
+
+    def test_set_profiling_mode_already_set_not_expired(self):
+        tracer = graphsignal._tracer
+        tracer.profiling_rate = 1.0
+        tracer._profiling_mode = time.time()
+        result = tracer.set_profiling_mode()
+        self.assertFalse(result)
+
+    def test_set_profiling_mode_expired(self):
+        tracer = graphsignal._tracer
+        tracer.profiling_rate = 1.0
+        tracer._profiling_mode = time.time() - (tracer.PROFILING_MODE_TIMEOUT_SEC + 1)
+        result = tracer.set_profiling_mode()
+        self.assertTrue(result)
+
+    def test_unset_profiling_mode(self):
+        tracer = graphsignal._tracer
+        tracer.profiling_rate = 1.0
+        tracer.set_profiling_mode()
+        self.assertTrue(tracer.is_profiling_mode())
+        tracer.unset_profiling_mode()
+        self.assertFalse(tracer.is_profiling_mode())

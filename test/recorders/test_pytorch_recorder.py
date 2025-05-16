@@ -9,6 +9,7 @@ import pprint
 import torch
 
 import graphsignal
+from graphsignal import Tracer
 from graphsignal import spans
 from graphsignal.recorders.pytorch_recorder import PyTorchRecorder
 
@@ -28,7 +29,10 @@ class PytorchRecorderTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
-    def test_record(self):
+    @patch.object(Tracer, 'emit_span_start')
+    @patch.object(Tracer, 'emit_span_stop')
+    @patch.object(Tracer, 'emit_span_read')
+    def test_record(self, mock_emit_span_start, mock_emit_span_stop, mock_emit_span_read):
         recorder = PyTorchRecorder()
         recorder.setup()
 
@@ -38,7 +42,7 @@ class PytorchRecorderTest(unittest.TestCase):
             x = x.to('cuda:0')
             model = model.to('cuda:0')
 
-        span = spans.Span('op1', with_profile=True)
+        span = spans.Span('op1')
         context = {}
         recorder.on_span_start(span, context)
 
@@ -50,16 +54,12 @@ class PytorchRecorderTest(unittest.TestCase):
         #pp = pprint.PrettyPrinter()
         #pp.pprint(span._profiles['operations'].content)
 
-        if torch.cuda.is_available():
-            self.assertEqual(span.get_tag('profile_type'), 'device')
-        else:
-            self.assertEqual(span.get_tag('profile_type'), 'cpu')
         self.assertEqual(span.get_param('profiler'), f'pytorch-{torch.__version__}')
         
-        cpu_profile = span._profiles['cpu-profile']
-        cpu_events = json.loads(cpu_profile.content)
-        self.assertEqual(cpu_profile.name, 'cpu-profile')
-        self.assertEqual(cpu_profile.format, 'event-averages')
+        prof = span._profiles['pytorch-cpu-profile']
+        cpu_events = json.loads(prof.content)
+        self.assertEqual(prof.name, 'pytorch-cpu-profile')
+        self.assertEqual(prof.format, 'event-averages')
 
         test_event = None
         for event in cpu_events:
@@ -79,15 +79,15 @@ class PytorchRecorderTest(unittest.TestCase):
             self.assertTrue(test_event['self_cpu_time_ns'] >= 1)
 
         if torch.cuda.is_available():
-            device_profile = span._profiles['device-profile']
-            device_events = json.loads(device_profile.content)
-            self.assertEqual(device_profile.name, 'device-profile')
-            self.assertEqual(device_profile.format, 'event-averages')
+            prof = span._profiles['pytorch-kernel-profile']
+            device_events = json.loads(prof.content)
+            self.assertEqual(prof.name, 'pytorch-kernel-profile')
+            self.assertEqual(prof.format, 'event-averages')
             # todo: check kernel events
 
-        event_timeline = span._profiles['event-timeline']
-        json.loads(event_timeline.content)
-        self.assertEqual(event_timeline.name, 'event-timeline')
-        self.assertEqual(event_timeline.format, 'chrome-trace')
-        self.assertTrue('aten::addmm' in event_timeline.content)
+        prof = span._profiles['pytorch-timeline']
+        json.loads(prof.content)
+        self.assertEqual(prof.name, 'pytorch-timeline')
+        self.assertEqual(prof.format, 'chrome-trace')
+        self.assertTrue('aten::addmm' in prof.content)
         

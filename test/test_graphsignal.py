@@ -20,43 +20,8 @@ class GraphsignalTest(unittest.TestCase):
             debug_mode=True)
         graphsignal._tracer.export_on_shutdown = False
 
-
     def tearDown(self):
         graphsignal.shutdown()
-
-    def test_read_config_test(self):
-        arg1 = graphsignal._read_config_param('arg1', str, 'val1', required=True)
-        self.assertEqual(arg1, 'val1')
-
-        arg2 = graphsignal._read_config_param('arg2', int, 1, required=True)
-        self.assertEqual(arg2, 1)
-
-        arg3 = graphsignal._read_config_param('arg3', int, None, required=False)
-        self.assertEqual(arg3, None)
-
-        os.environ['GRAPHSIGNAL_ARG4'] = '2'
-        arg4 = graphsignal._read_config_param('arg4', int, None, required=False)
-        self.assertEqual(arg4, 2)
-
-        with self.assertRaises(ValueError):
-            arg5 = graphsignal._read_config_param('arg5', str, None, required=True)
-
-        os.environ['GRAPHSIGNAL_ARG6'] = '10'
-        arg6 = graphsignal._read_config_param('arg6', int, None, required=True)
-        self.assertEqual(arg6, 10)
-
-        os.environ['GRAPHSIGNAL_ARG7'] = 'str'
-        with self.assertRaises(ValueError):
-            arg7 = graphsignal._read_config_param('arg7', int, None, required=True)
-
-        env_tags = graphsignal._read_config_tags({'arg8': 'v1', 'arg9': '2.0'})
-        self.assertEqual(env_tags, {'arg8': 'v1', 'arg9': '2.0'})
-
-        os.environ['GRAPHSIGNAL_TAG_ARG10'] = 'v1'
-        os.environ['GRAPHSIGNAL_TAG_ARG11'] = '2.0'
-        env_tags = graphsignal._read_config_tags(None)
-        self.assertEqual(env_tags, {'arg10': 'v1', 'arg11': '2.0'})
-
 
     def test_configure(self):
         self.assertEqual(graphsignal._tracer.api_key, 'k1')

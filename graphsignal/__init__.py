@@ -4,6 +4,7 @@ import logging
 import atexit
 
 from graphsignal.version import __version__
+from graphsignal.env_vars import read_config_param, read_config_tags
 from graphsignal.tracer import Tracer
 from graphsignal.spans import Span, SpanContext
 
@@ -18,53 +19,6 @@ def _check_configured():
         raise ValueError(
             'Tracer not configured, call graphsignal.configure() first')
 
-
-def _parse_env_param(name: str, value: Any, expected_type: Type) -> Any:
-    if value is None:
-        return None
-
-    try:
-        if expected_type == bool:
-            return value if isinstance(value, bool) else str(value).lower() in ("true", "1", "yes")
-        elif expected_type == int:
-            return int(value)
-        elif expected_type == float:
-            return float(value)
-        elif expected_type == str:
-            return str(value)
-    except (ValueError, TypeError):
-        pass
-
-    raise ValueError(f"Invalid type for {name}: expected {expected_type.__name__}, got {type(value).__name__}")
-
-
-def _read_config_param(name: str, expected_type: Type, provided_value: Optional[Any] = None, default_value: Optional[Any] = None, required: bool = False) -> Any:
-    # Check if the value was provided as an argument
-    if provided_value is not None:
-        return provided_value
-
-    # Check if the value was provided as an environment variable
-    env_value = os.getenv(f'GRAPHSIGNAL_{name.upper()}')
-    if env_value is not None:
-        parsed_env_value = _parse_env_param(name, env_value, expected_type)
-        if parsed_env_value is not None:
-            return parsed_env_value
-
-    if required:
-        raise ValueError(f"Missing required argument: {name}")
-
-    return default_value
-
-
-def _read_config_tags(provided_value: Optional[dict] = None, prefix: str = "GRAPHSIGNAL_TAG_") -> Dict[str, str]:
-    # Check if the value was provided as an argument
-    if provided_value is not None:
-        return provided_value
-
-    # Check if the value was provided as an environment variable
-    return {key[len(prefix):].lower(): value for key, value in os.environ.items() if key.startswith(prefix)}
-
-
 def configure(
     api_key: Optional[str] = None,
     api_url: Optional[str] = None,
@@ -72,6 +26,7 @@ def configure(
     tags: Optional[Dict[str, str]] = None,
     auto_instrument: Optional[bool] = None,
     profiling_rate: Optional[float] = None,
+    include_profiles: Optional[list] = None,
     debug_mode: Optional[bool] = None
 ) -> None:
     global _tracer
@@ -80,12 +35,13 @@ def configure(
         logger.warning("Tracer already configured")
         return
 
-    api_key = _read_config_param("api_key", str, api_key, required=True)
-    api_url = _read_config_param("api_url", str, api_url)
-    tags = _read_config_tags(tags)
-    auto_instrument = _read_config_param("auto_instrument", bool, auto_instrument, default_value=True)
-    profiling_rate = _read_config_param("profiling_rate", float, profiling_rate, default_value=0.1)
-    debug_mode = _read_config_param("debug_mode", bool, debug_mode, default_value=False)
+    api_key = read_config_param("api_key", str, api_key, required=True)
+    api_url = read_config_param("api_url", str, api_url)
+    tags = read_config_tags(tags)
+    auto_instrument = read_config_param("auto_instrument", bool, auto_instrument, default_value=True)
+    profiling_rate = read_config_param("profiling_rate", float, profiling_rate, default_value=0.1)
+    include_profiles = read_config_param("include_profiles", list, include_profiles)
+    debug_mode = read_config_param("debug_mode", bool, debug_mode, default_value=False)
 
     # left for compatibility
     if deployment and isinstance(deployment, str):
@@ -97,6 +53,7 @@ def configure(
         tags=tags,
         auto_instrument=auto_instrument,
         profiling_rate=profiling_rate,
+        include_profiles=include_profiles,
         debug_mode=debug_mode)
     _tracer.setup()
 
@@ -153,10 +110,10 @@ def remove_param(name: str):
 def trace(
         operation: str,
         tags: Optional[Dict[str, str]] = None,
-        with_profile: Optional[bool] = False) -> 'Span':
+        include_profiles: Optional[list] = None) -> 'Span':
     _check_configured()
 
-    return _tracer.trace(operation=operation, tags=tags, with_profile=with_profile)
+    return _tracer.trace(operation=operation, tags=tags, include_profiles=include_profiles)
 
 
 def trace_function(
@@ -164,8 +121,8 @@ def trace_function(
         *,
         operation: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
-        with_profile: Optional[bool] = False) -> Any:
-    return _tracer.trace_function(func, operation=operation, tags=tags, with_profile=with_profile)
+        include_profiles: Optional[list] = None) -> Any:
+    return _tracer.trace_function(func, operation=operation, tags=tags, include_profiles=include_profiles)
 
 
 def score(

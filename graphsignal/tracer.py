@@ -17,7 +17,7 @@ from graphsignal.metrics import MetricStore
 from graphsignal.logs import LogStore
 from graphsignal.spans import Span
 from graphsignal import client
-from graphsignal.utils import uuid_sha1, sanitize_str
+from graphsignal.utils import fast_rand, uuid_sha1, sanitize_str
 
 logger = logging.getLogger('graphsignal')
 
@@ -47,9 +47,11 @@ class GraphsignalTracerLogHandler(logging.Handler):
 RECORDER_SPECS = {
     '(default)': [
         ('graphsignal.recorders.process_recorder', 'ProcessRecorder'),
+        ('graphsignal.recorders.python_recorder', 'PythonRecorder'),
         ('graphsignal.recorders.nvml_recorder', 'NVMLRecorder')],
     'openai': [('graphsignal.recorders.openai_recorder', 'OpenAIRecorder')],
-    'torch': [('graphsignal.recorders.pytorch_recorder', 'PyTorchRecorder')]
+    'torch': [('graphsignal.recorders.pytorch_recorder', 'PyTorchRecorder')],
+    'vllm': [('graphsignal.recorders.vllm_recorder', 'VLLMRecorder')]
 }
 
 class SourceLoaderWrapper(importlib.abc.SourceLoader):
@@ -107,6 +109,7 @@ class Tracer:
     METRIC_UPLOAD_INTERVAL_SEC = 20
     LOG_UPLOAD_INTERVAL_SEC = 20
     MAX_PROCESS_TAGS = 25
+    PROFILING_MODE_TIMEOUT_SEC = 60
 
     def __init__(
             self, 
@@ -116,6 +119,7 @@ class Tracer:
             auto_instrument=True, 
             sampling_rate=1.0,
             profiling_rate=0.1,
+            include_profiles=None,
             debug_mode=False):
         if debug_mode:
             logger.setLevel(logging.DEBUG)
@@ -139,6 +143,7 @@ class Tracer:
         self.auto_instrument = auto_instrument
         self.sampling_rate = sampling_rate if sampling_rate is not None else 1.0
         self.profiling_rate = profiling_rate if profiling_rate is not None else 0
+        self.include_profiles = include_profiles
         self.debug_mode = debug_mode
 
         self._metric_update_thread = None
@@ -147,6 +152,9 @@ class Tracer:
         self._metric_store = None
         self._log_store = None
         self._recorders = None
+        self._profiling_mode_lock = threading.Lock()
+        self._profiling_mode = None
+        self._include_profiles_index = set(include_profiles) if isinstance(include_profiles, list) else None
 
         self._process_start_ms = int(time.time() * 1e3)
 
@@ -252,6 +260,32 @@ class Tracer:
 
     def log_store(self):
         return self._log_store
+
+    def set_profiling_mode(self):
+        if fast_rand() > self.profiling_rate:
+            return False
+
+        with self._profiling_mode_lock:
+            if self._profiling_mode and (time.time() - self._profiling_mode) > self.PROFILING_MODE_TIMEOUT_SEC:
+                self._profiling_mode = None
+
+            if self._profiling_mode:
+                return False
+            else:
+                self._profiling_mode = time.time()
+                return True
+
+    def unset_profiling_mode(self):
+        with self._profiling_mode_lock:
+            self._profiling_mode = None
+
+    def is_profiling_mode(self):
+        return self._profiling_mode is not None
+
+    def can_include_profiles(self, profiles) -> bool:
+        if self._include_profiles_index is None:
+            return True
+        return any(prof in self._include_profiles_index for prof in profiles)
 
     def emit_span_start(self, span, context):
         last_exc = None
@@ -378,8 +412,8 @@ class Tracer:
             self, 
             operation: str,
             tags: Optional[Dict[str, str]] = None,
-            with_profile: Optional[bool] = False) -> 'Span':
-        return Span(operation=operation, tags=tags, with_profile=with_profile)
+            include_profiles: Optional[list] = None) -> 'Span':
+        return Span(operation=operation, tags=tags, include_profiles=include_profiles)
 
     def trace_function(
             self, 
@@ -387,9 +421,9 @@ class Tracer:
             *,
             operation: Optional[str] = None,
             tags: Optional[Dict[str, str]] = None,
-            with_profile: Optional[bool] = False):
+            include_profiles: Optional[list] = None):
         if func is None:
-            return functools.partial(self.trace_function, operation=operation, tags=tags, with_profile=with_profile)
+            return functools.partial(self.trace_function, operation=operation, tags=tags, include_profiles=include_profiles)
 
         if operation is None:
             operation_or_name = func.__name__
@@ -399,13 +433,13 @@ class Tracer:
         if asyncio.iscoroutinefunction(func):
             @functools.wraps(func)
             async def tf_async_wrapper(*args, **kwargs):
-                async with self.trace(operation=operation_or_name, tags=tags, with_profile=with_profile):
+                async with self.trace(operation=operation_or_name, tags=tags, include_profiles=include_profiles):
                     return await func(*args, **kwargs)
             return tf_async_wrapper
         else:
             @functools.wraps(func)
             def tf_wrapper(*args, **kwargs):
-                with self.trace(operation=operation_or_name, tags=tags, with_profile=with_profile):
+                with self.trace(operation=operation_or_name, tags=tags, include_profiles=include_profiles):
                     return func(*args, **kwargs)
             return tf_wrapper
 
