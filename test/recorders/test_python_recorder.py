@@ -5,7 +5,6 @@ import os
 import json
 import time
 from unittest.mock import patch, Mock
-from google.protobuf.json_format import MessageToJson
 import pprint
 import re
 
@@ -49,9 +48,6 @@ class PythonRecorderTest(unittest.TestCase):
         slow_method()
         recorder.on_span_stop(span, context)
         recorder.on_span_read(span, context)
-
-        #pp = pprint.PrettyPrinter()
-        #pp.pprint(MessageToJson(span))        
 
         slow_call = next(call for call in json.loads(span._profiles['python-time-profile'].content) if 'slow_method' in call['func_name'])
         self.assertTrue(slow_call['wall_time_ns'] > 0)
