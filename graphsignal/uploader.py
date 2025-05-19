@@ -29,8 +29,8 @@ class Uploader:
     def upload_span(self, span):
         self.upload_signal(span)
 
-    def upload_score(self, score):
-        self.upload_signal(score)
+    def upload_issue(self, issue):
+        self.upload_signal(issue)
 
     def upload_metric(self, metric):
         self.upload_signal(metric)
@@ -75,9 +75,9 @@ class Uploader:
                     if len(spans) > 0:
                         api_instance.upload_spans(spans)
 
-                    scores = [signal for signal in outgoing if isinstance(signal, client.Score)]
-                    if len(scores) > 0:
-                        api_instance.upload_scores(scores)
+                    issues = [signal for signal in outgoing if isinstance(signal, client.Issue)]
+                    if len(issues) > 0:
+                        api_instance.upload_issues(issues)
 
                     metrics = [signal for signal in outgoing if isinstance(signal, client.Metric)]
                     if len(metrics) > 0:

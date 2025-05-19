@@ -63,7 +63,6 @@ Refer to the guides below for detailed information on:
 * [Inference Profiling](https://graphsignal.com/docs/guides/infefence-profiling/)
 * [Session Tracking](https://graphsignal.com/docs/guides/session-tracking/)
 * [Cost and Usage Monitoring](https://graphsignal.com/docs/guides/cost-and-usage-monitoring/)
-* [Scores and Feedback](https://graphsignal.com/docs/guides/scores-and-feedback/)
 
 See [API reference](https://graphsignal.com/docs/reference/python-api/) for full documentation.
 

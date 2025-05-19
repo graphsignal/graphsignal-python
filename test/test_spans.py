@@ -30,8 +30,7 @@ class SpansTest(unittest.TestCase):
 
     @patch.object(ProcessRecorder, 'on_span_stop')
     @patch.object(Uploader, 'upload_span')
-    @patch.object(Uploader, 'upload_score')
-    def test_start_stop(self, mocked_upload_score, mocked_upload_span, mocked_process_on_span_stop):
+    def test_start_stop(self, mocked_upload_span, mocked_process_on_span_stop):
         graphsignal.set_tag('k2', 'v2')
 
         graphsignal.set_context_tag('k3', 'v3')
@@ -53,7 +52,6 @@ class SpansTest(unittest.TestCase):
             time.sleep(0.01)
             span.set_perf_counter('first_token_ns')
             span.set_counter('output_tokens', 10)
-            span.score(name='test-score', score=0.5, unit='u1', severity=3, comment='c1')
             time.sleep(0.01)
             span.stop()
 
@@ -101,26 +99,6 @@ class SpansTest(unittest.TestCase):
 
         key = store.metric_key('usage', 'c3', metric_tags)
         self.assertEqual(store._metrics[key].counter, 30)
-
-        score = mocked_upload_score.call_args[0][0]
-
-        self.assertTrue(score.score_id is not None and score.score_id != '')
-        self.assertEqual(score.span_id, span.span_id)
-        self.assertEqual(score.name, 'test-score')
-        self.assertEqual(find_tag(score, 'deployment'), 'd1')
-        self.assertEqual(find_tag(score, 'operation'), 'op1')
-        self.assertIsNotNone(find_tag(score, 'hostname'))
-        self.assertIsNotNone(find_tag(score, 'process_id'))
-        self.assertEqual(find_tag(score, 'k1'), 'v1')
-        self.assertEqual(find_tag(score, 'k2'), 'v2')
-        self.assertEqual(find_tag(score, 'k3'), 'v3')
-        self.assertEqual(find_tag(score, 'k4'), '4.0')
-        self.assertEqual(find_tag(score, 'k5'), 'v5')     
-        self.assertEqual(score.score, 0.5)
-        self.assertEqual(score.unit, 'u1')
-        self.assertEqual(score.severity, 3)
-        self.assertEqual(score.comment, 'c1')
-        self.assertTrue(score.create_ts > 0)
 
     @patch.object(ProcessRecorder, 'on_span_start')
     @patch.object(Uploader, 'upload_span')

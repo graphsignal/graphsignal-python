@@ -443,53 +443,51 @@ class Tracer:
                     return func(*args, **kwargs)
             return tf_wrapper
 
-    def score(
-            self, 
+    def report_issue(
+            self,
             name: str, 
             tags: Optional[Dict[str, str]] = None,
-            score: Optional[Union[int, float]] = None, 
-            unit: Optional[str] = None,
             severity: Optional[int] = None,
-            comment: Optional[str] = None) -> None:
+            description: Optional[str] = None,
+            span: Optional[Span] = None) -> None:
         now = int(time.time())
 
         if not name:
-            logger.error('score: name is required')
+            logger.error('issue: name is required')
             return
 
         if not name:
-            logger.error('score: score is required')
+            logger.error('issue: issue is required')
             return
 
-        model = client.Score(
-            score_id=uuid_sha1(size=12),
+        model = client.Issue(
+            issue_id=uuid_sha1(size=12),
             tags=[],
             name=name,
-            score=score,
             create_ts=now)
 
-        score_tags = {}
+        issue_tags = {}
         if self.tags is not None:
-            score_tags.update(self.tags)
+            issue_tags.update(self.tags)
         if self.context_tags:
-            score_tags.update(self.context_tags.get().copy())
+            issue_tags.update(self.context_tags.get().copy())
+        if span:
+            model.span_id = span.span_id
+            issue_tags.update(span.get_tags())
         if tags is not None:
-            score_tags.update(tags)
-        for tag_key, tag_value in score_tags.items():
+            issue_tags.update(tags)
+        for tag_key, tag_value in issue_tags.items():
             model.tags.append(client.Tag(
                 key=sanitize_str(tag_key, max_len=50),
                 value=sanitize_str(tag_value, max_len=250)))
 
-        if unit is not None:
-            model.unit = unit
-
         if severity and severity >= 1 and severity <= 5:
             model.severity = severity
 
-        if comment:
-            model.comment = comment
+        if description:
+            model.description = description
 
-        self.uploader().upload_score(model)
+        self.uploader().upload_issue(model)
         self.tick(block=False, now=now)
 
     def upload(self, block=False):

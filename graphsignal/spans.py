@@ -419,6 +419,14 @@ class Span:
         finally:
             self._is_stopped = True
     
+    @property
+    def span_id(self) -> str:
+        return self._span_id
+
+    @property
+    def trace_id(self) -> str:
+        return self._trace_id
+
     def get_span_context(self):
         return SpanContext(
             trace_id=self._trace_id,
@@ -465,6 +473,11 @@ class Span:
         if self._tags is None:
             return None
         return self._tags.get(key)
+    
+    def get_tags(self) -> Dict[str, str]:
+        if self._tags is None:
+            return {}
+        return self._tags.copy()
 
     def add_exception(self, exc: Optional[Exception] = None, exc_info: Optional[bool] = None) -> None:
         if exc is not None and not isinstance(exc, Exception):
@@ -562,50 +575,6 @@ class Span:
             name=name,
             format=format,
             content=content)
-
-    def score(
-            self,
-            name: str, 
-            score: Union[int, float], 
-            unit: Optional[str] = None,
-            severity: Optional[int] = None,
-            comment: Optional[str] = None) -> None:
-        now = int(time.time())
-
-        if not name:
-            logger.error('Span.score: name is required')
-            return
-
-        if not name:
-            logger.error('Span.score: score is required')
-            return
-
-        score_obj = client.Score(
-            score_id=uuid_sha1(size=12),
-            tags=[],
-            span_id=self._span_id,
-            name=name,
-            score=score,
-            create_ts=now
-        )
-
-        for tag_key, tag_value in self._merged_span_tags().items():
-            score_obj.tags.append(client.Tag(
-                key=sanitize_str(tag_key, max_len=50),
-                value=sanitize_str(tag_value, max_len=250)
-            ))
-
-        if unit is not None:
-            score_obj.unit = unit
-
-        if severity and severity >= 1 and severity <= 5:
-            score_obj.severity = severity
-
-        if comment:
-            score_obj.comment = comment
-        
-        _tracer().uploader().upload_score(score_obj)
-        _tracer().tick(now)
 
     def trace(
             self, 

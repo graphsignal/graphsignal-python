@@ -8,6 +8,8 @@ import pprint
 
 import graphsignal
 from graphsignal.uploader import Uploader
+from graphsignal.spans import Span
+from test.model_utils import find_tag
 
 logger = logging.getLogger('graphsignal')
 
@@ -87,3 +89,28 @@ class TracerTest(unittest.TestCase):
         self.assertTrue(tracer.is_profiling_mode())
         tracer.unset_profiling_mode()
         self.assertFalse(tracer.is_profiling_mode())
+
+    @patch.object(Uploader, 'upload_span')
+    @patch.object(Uploader, 'upload_issue')
+    def test_report_issue(self, mocked_upload_issue, mocked_upload_span):
+        graphsignal.set_tag('k2', 'v2')
+        graphsignal.set_context_tag('k3', 'v3')
+
+        span = Span(operation='op1')
+        span.set_tag('k5', 'v5')
+        graphsignal.report_issue(name='issue1', severity=3, description='c1', span=span)
+
+        issue = mocked_upload_issue.call_args[0][0]
+
+        self.assertTrue(issue.issue_id is not None and issue.issue_id != '')
+        self.assertEqual(issue.span_id, span.span_id)
+        self.assertEqual(issue.name, 'issue1')
+        self.assertEqual(find_tag(issue, 'operation'), 'op1')
+        self.assertIsNotNone(find_tag(issue, 'hostname'))
+        self.assertIsNotNone(find_tag(issue, 'process_id'))
+        self.assertEqual(find_tag(issue, 'k2'), 'v2')
+        self.assertEqual(find_tag(issue, 'k3'), 'v3')
+        self.assertEqual(find_tag(issue, 'k5'), 'v5')
+        self.assertEqual(issue.severity, 3)
+        self.assertEqual(issue.description, 'c1')
+        self.assertTrue(issue.create_ts > 0)

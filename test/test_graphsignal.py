@@ -52,30 +52,3 @@ class GraphsignalTest(unittest.TestCase):
 
         mocked_start.assert_called_once()
         mocked_stop.assert_called_once()
-
-    @patch.object(Uploader, 'upload_score')
-    def test_score(self, mocked_upload_score):
-        graphsignal.score(
-            name='s1', 
-            tags=dict(t1='v1'), 
-            score=0.5, 
-            unit='u1',
-            severity=2, 
-            comment='c1')
-
-        model = mocked_upload_score.call_args[0][0]
-
-        self.assertTrue(model.score_id is not None)
-        self.assertEqual(model.name, 's1')
-        self.assertEqual(find_tag(model, 't1'), 'v1')
-        self.assertEqual(model.score, 0.5)
-        self.assertEqual(model.unit, 'u1')
-        self.assertEqual(model.severity, 2)
-        self.assertEqual(model.comment, 'c1')
-        self.assertTrue(model.create_ts > 0)
-
-def find_tag(model, key):
-    for tag in model.tags:
-        if tag.key == key:
-            return tag.value
-    return None

@@ -125,21 +125,19 @@ def trace_function(
     return _tracer.trace_function(func, operation=operation, tags=tags, include_profiles=include_profiles)
 
 
-def score(
+def report_issue(
         name: str, 
         tags: Optional[Dict[str, str]] = None,
-        score: Optional[Union[int, float]] = None, 
-        unit: Optional[str] = None,
         severity: Optional[int] = None,
-        comment: Optional[str] = None) -> None:
+        description: Optional[str] = None,
+        span: Optional[Span] = None) -> None:
     _check_configured()
-    return _tracer.score(
+    return _tracer.report_issue(
         name=name, 
-        tags=tags, 
-        score=score, 
-        unit=unit, 
+        tags=tags,
         severity=severity, 
-        comment=comment)
+        description=description,
+        span=span)
 
 
 def upload(block=False) -> None:
@@ -169,7 +167,7 @@ __all__ = [
     'function_trace',
     'SpanContext',
     'Span',
-    'score',
+    'issue',
     'set_tag',
     'get_tag',
     'set_context_tag',
