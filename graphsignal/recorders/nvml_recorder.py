@@ -35,6 +35,21 @@ class DeviceUsage:
         self.processes = []
         self.drivers = []
 
+    def __str__(self):
+        processes_str = ', '.join(str(proc) for proc in self.processes)
+        drivers_str = ', '.join(str(driver) for driver in self.drivers)
+
+        return (
+            f'DeviceUsage(device_type={self.device_type}, device_idx={self.device_idx}, '
+            f'device_id={self.device_id}, device_name={self.device_name}, architecture={self.architecture}, '
+            f'compute_capability={self.compute_capability}, mem_total={self.mem_total}, mem_used={self.mem_used}, '
+            f'mem_free={self.mem_free}, mem_reserved={self.mem_reserved}, gpu_utilization_percent={self.gpu_utilization_percent}, '
+            f'mem_access_percent={self.mem_access_percent}, pcie_throughput_tx={self.pcie_throughput_tx}, '
+            f'pcie_throughput_rx={self.pcie_throughput_rx}, nvlink_throughput_data_tx_kibs={self.nvlink_throughput_data_tx_kibs}, '
+            f'nvlink_throughput_data_rx_kibs={self.nvlink_throughput_data_rx_kibs}, gpu_temp_c={self.gpu_temp_c}, '
+            f'power_usage_w={self.power_usage_w}, fan_speed_percent={self.fan_speed_percent}, '
+            f'mxu_utilization_percent={self.mxu_utilization_percent}, processes=[{processes_str}], drivers=[{drivers_str}])'
+        )
 
 class DeviceProcessUsage:
     def __init__(self):
@@ -43,11 +58,19 @@ class DeviceProcessUsage:
         self.compute_instance_id = None
         self.mem_used = None
 
+    def __str__(self):
+        return (
+            f'DeviceProcessUsage(pid={self.pid}, gpu_instance_id={self.gpu_instance_id}, '
+            f'compute_instance_id={self.compute_instance_id}, mem_used={self.mem_used})'
+        )
 
 class DriverInfo:
     def __init__(self):
         self.name = None
         self.version = None
+    
+    def __str__(self):
+        return f'DriverInfo(name={self.name}, version={self.version})'
 
 
 class SemVer:
@@ -89,9 +112,24 @@ class NVMLRecorder(BaseRecorder):
         except BaseException:
             logger.error('Error shutting down NVML', exc_info=True)
 
+    def on_span_read(self, span, context):
+        if self._last_snapshot:
+            device_usages = self._last_snapshot
+            for idx, device_usage in enumerate(device_usages):
+                if device_usage.device_name:
+                    span.set_param(f'device.{device_usage.device_idx}.name', device_usage.device_name)
+                if device_usage.architecture:
+                    span.set_param(f'device.{device_usage.device_idx}.architecture', device_usage.architecture)
+                if device_usage.compute_capability:
+                    span.set_param(f'device.{device_usage.device_idx}.compute_capability', 
+                                   f'{device_usage.compute_capability.major}.{device_usage.compute_capability.minor}')
+
     def on_metric_update(self):
         now = int(time.time())
         device_usages = self.take_snapshot()
+
+        logger.debug('Reading device usage: %s', '\n'.join(str(du) for du in device_usages))
+
         if len(device_usages) == 0:
             return
 

@@ -1,8 +1,5 @@
 import logging
-import os
-import copy
-import importlib
-import openai
+import vllm
 
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
@@ -25,24 +22,50 @@ class VLLMRecorder(BaseRecorder):
         parsed_version = parse_semver(version)
 
         if compare_semver(parsed_version, (0, 8, 0)) >= 0:
-            def trace_generate(span, args, kwargs, ret, exc):
-                llm = args[0]
-
-                # read and set params to span
+            def read_kwarg(store, kwargs, name, default=None):
+                if name in kwargs:
+                    store[name] = str(kwargs[name])
+                elif default is not None:
+                    store[name] = str(default)
 
             def after_llm_init(args, kwargs, ret, exc, context):
-                llm = args[0]
-                trace_method(llm, 'generate', 'LLM.generate', trace_func=trace_generate)
+                llm_obj = args[0]
+                llm_tags = {}
+                llm_params = {}
+
+                model = None
+                if len(args) > 1 and args[1] is not None:
+                    model = args[1]
+                read_kwarg(llm_tags, kwargs, 'model', default=model)
+                read_kwarg(llm_params, kwargs, 'model', default=model)
+                read_kwarg(llm_params, kwargs, 'tokenizer')
+                read_kwarg(llm_params, kwargs, 'tensor_parallel_size')
+                read_kwarg(llm_params, kwargs, 'dtype')
+                read_kwarg(llm_params, kwargs, 'quantization')
+                read_kwarg(llm_params, kwargs, 'gpu_memory_utilization')
+                read_kwarg(llm_params, kwargs, 'swap_space')
+                read_kwarg(llm_params, kwargs, 'cpu_offload_gb')
+                read_kwarg(llm_params, kwargs, 'enforce_eager')
+                read_kwarg(llm_params, kwargs, 'max_seq_len_to_capture')
+                read_kwarg(llm_params, kwargs, 'disable_custom_all_reduce')
+                read_kwarg(llm_params, kwargs, 'disable_async_output_proc')
+
+                def trace_generate(span, args, kwargs, ret, exc):
+                    for param_name, param_value in llm_tags.items():
+                        span.set_tag(param_name, param_value)
+                    for param_name, param_value in llm_params.items():
+                        span.set_param(param_name, param_value)
+                    #sampling_params = kwargs.get('sampling_params', None)
+
+                trace_method(llm_obj, 'generate', 'LLM.generate', trace_func=trace_generate)
 
             patch_method(vllm.LLM, '__init__', after_func=after_llm_init)
 
-
-            def after_llm_engine_init(args, kwargs, ret, exc, context):
+            '''def after_llm_engine_init(args, kwargs, ret, exc, context):
                 llm_engine = args[0]
                 trace_method(llm_engine, 'generate', 'LLMEngine.generate', trace_func=trace_generate)
 
-            patch_method(vllm.llm_engine.LLMEngine, '__init__', after_func=after_llm_engine_init)
-
+            patch_method(vllm.llm_engine.LLMEngine, '__init__', after_func=after_llm_engine_init)'''
 
             '''def after_async_llm_init(args, kwargs, ret, exc, context):
                 llm_engine = args[0]
@@ -53,32 +76,6 @@ class VLLMRecorder(BaseRecorder):
         else:
             logger.debug('VLLM tracing is only supported for >= 0.8.0.')
             return
-
-
-    def on_span_start(self, span, context):
-        if not span.profiled():
-            return
-
-        self._active_profile = EventAverages()
-        self._profiling = True
-
-    def on_span_stop(self, span, context):
-        if not span.profiled():
-            return
-
-        self._profiling = False
-
-    def on_span_read(self, span, context):
-        if not span.profiled():
-            return
-
-        if self._active_profile and not self._active_profile.is_empty():
-            span.set_profile(
-                name='vllm-profile', 
-                format='event-averages', 
-                content=self._active_profile.dumps())
-        
-        self._active_profile = None
 
     def shutdown(self):
         pass

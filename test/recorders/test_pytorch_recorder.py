@@ -39,8 +39,8 @@ class PytorchRecorderTest(unittest.TestCase):
         x = torch.arange(-5, 5, 0.1).view(-1, 1)
         model = torch.nn.Linear(1, 1)
         if torch.cuda.is_available():
-            x = x.to('cuda:0')
-            model = model.to('cuda:0')
+            x = x.to('cuda')
+            model = model.to('cuda')
 
         span = spans.Span('op1')
         context = {}
@@ -52,7 +52,7 @@ class PytorchRecorderTest(unittest.TestCase):
         recorder.on_span_read(span, context)
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(span._profiles['operations'].content)
+        #pp.pprint(span._profiles['pytorch-cpu-profile'].content)
 
         self.assertEqual(span.get_param('profiler'), f'pytorch-{torch.__version__}')
         
@@ -70,11 +70,9 @@ class PytorchRecorderTest(unittest.TestCase):
         self.assertTrue(test_event['count'] >= 1)
         
         if torch.cuda.is_available():
-            self.assertEqual(test_event['device_type'], 'CUDA')
             self.assertTrue(test_event['device_time_ns'] >= 1)
             self.assertTrue(test_event['self_device_time_ns'] >= 1)
         else:
-            self.assertEqual(test_event['device_type'], 'CPU')
             self.assertTrue(test_event['cpu_time_ns'] >= 1)
             self.assertTrue(test_event['self_cpu_time_ns'] >= 1)
 

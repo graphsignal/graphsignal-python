@@ -36,6 +36,9 @@ class PyTorchRecorder(BaseRecorder):
             def _schedule_func(step):
                 return torch.profiler.ProfilerAction.RECORD
             self._torch_prof = torch.profiler.profile(
+                activities=[
+                    torch.profiler.ProfilerActivity.CPU, 
+                    torch.profiler.ProfilerActivity.CUDA],
                 schedule=_schedule_func,
                 record_shapes=False,
                 profile_memory=True,
@@ -105,7 +108,7 @@ class PyTorchRecorder(BaseRecorder):
                             duration_ns = _ns(kernel.duration)
                         )
             
-            device_profile = kernel_index.values()
+            device_profile = list(kernel_index.values())
             if len(device_profile) > 0:
                 span.set_profile(
                     name='pytorch-kernel-profile', 
