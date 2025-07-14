@@ -52,13 +52,14 @@ class PytorchRecorderTest(unittest.TestCase):
         recorder.on_span_read(span, context)
 
         #pp = pprint.PrettyPrinter()
-        #pp.pprint(span._profiles['pytorch-cpu-profile'].content)
+        #pp.pprint(span._profiles['profile.pytorch.cpu'].content)
 
-        self.assertEqual(span.get_param('profiler'), f'pytorch-{torch.__version__}')
+        self.assertEqual(span.get_param('framework.name'), 'pytorch')
+        self.assertEqual(span.get_param('framework.version'), f'{torch.__version__}')
         
-        prof = span._profiles['pytorch-cpu-profile']
+        prof = span._profiles['profile.pytorch.cpu']
         cpu_events = json.loads(prof.content)
-        self.assertEqual(prof.name, 'pytorch-cpu-profile')
+        self.assertEqual(prof.name, 'profile.pytorch.cpu')
         self.assertEqual(prof.format, 'event-averages')
 
         test_event = None
@@ -77,15 +78,15 @@ class PytorchRecorderTest(unittest.TestCase):
             self.assertTrue(test_event['self_cpu_time_ns'] >= 1)
 
         if torch.cuda.is_available():
-            prof = span._profiles['pytorch-kernel-profile']
+            prof = span._profiles['profile.pytorch.kernel']
             device_events = json.loads(prof.content)
-            self.assertEqual(prof.name, 'pytorch-kernel-profile')
+            self.assertEqual(prof.name, 'profile.pytorch.kernel')
             self.assertEqual(prof.format, 'event-averages')
             # todo: check kernel events
 
-        prof = span._profiles['pytorch-timeline']
+        prof = span._profiles['profile.pytorch.trace']
         json.loads(prof.content)
-        self.assertEqual(prof.name, 'pytorch-timeline')
+        self.assertEqual(prof.name, 'profile.pytorch.trace')
         self.assertEqual(prof.format, 'chrome-trace')
         self.assertTrue('aten::addmm' in prof.content)
         

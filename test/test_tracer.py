@@ -30,12 +30,11 @@ class TracerTest(unittest.TestCase):
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._tracer.metric_store().set_gauge(scope='s1', name='n1', tags={}, value=1, update_ts=1)
+        graphsignal._tracer.metric_store().set_gauge(name='n1', tags={}, value=1, update_ts=1)
         graphsignal.shutdown()
 
         model = mocked_upload_metric.call_args[0][0]
 
-        self.assertEqual(model.scope, 's1')
         self.assertEqual(model.name, 'n1')
 
     @patch('graphsignal.tracer.uuid_sha1', return_value='123')
@@ -105,9 +104,9 @@ class TracerTest(unittest.TestCase):
         self.assertTrue(issue.issue_id is not None and issue.issue_id != '')
         self.assertEqual(issue.span_id, span.span_id)
         self.assertEqual(issue.name, 'issue1')
-        self.assertEqual(find_tag(issue, 'operation'), 'op1')
-        self.assertIsNotNone(find_tag(issue, 'hostname'))
-        self.assertIsNotNone(find_tag(issue, 'process_id'))
+        self.assertEqual(find_tag(issue, 'operation.name'), 'op1')
+        self.assertIsNotNone(find_tag(issue, 'host.name'))
+        self.assertIsNotNone(find_tag(issue, 'process.pid'))
         self.assertEqual(find_tag(issue, 'k2'), 'v2')
         self.assertEqual(find_tag(issue, 'k3'), 'v3')
         self.assertEqual(find_tag(issue, 'k5'), 'v5')

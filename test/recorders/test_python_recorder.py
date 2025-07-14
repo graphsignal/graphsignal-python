@@ -49,7 +49,7 @@ class PythonRecorderTest(unittest.TestCase):
         recorder.on_span_stop(span, context)
         recorder.on_span_read(span, context)
 
-        slow_call = next(call for call in json.loads(span._profiles['python-time-profile'].content) if 'slow_method' in call['func_name'])
+        slow_call = next(call for call in json.loads(span._profiles['profile.cpython'].content) if 'slow_method' in call['func_name'])
         self.assertTrue(slow_call['wall_time_ns'] > 0)
         self.assertTrue(slow_call['self_wall_time_ns'] > 0)
 

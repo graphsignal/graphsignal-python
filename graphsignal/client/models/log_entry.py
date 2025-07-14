@@ -27,14 +27,13 @@ class LogEntry(BaseModel):
     """
     LogEntry
     """ # noqa: E501
-    scope: StrictStr = Field(description="The scope or context of the log entry.")
     name: StrictStr = Field(description="The name of the log entry.")
     tags: Optional[List[Tag]] = Field(default=None, description="Tags associated with the log entry.")
     level: Optional[StrictStr] = Field(default=None, description="The log level (e.g., INFO, ERROR).")
     message: StrictStr = Field(description="The log message.")
     exception: Optional[StrictStr] = Field(default=None, description="Optional exception message if the log is associated with an exception.")
     create_ts: StrictInt = Field(description="Unix timestamp (seconds) when the log entry was created.")
-    __properties: ClassVar[List[str]] = ["scope", "name", "tags", "level", "message", "exception", "create_ts"]
+    __properties: ClassVar[List[str]] = ["name", "tags", "level", "message", "exception", "create_ts"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -94,7 +93,6 @@ class LogEntry(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "scope": obj.get("scope"),
             "name": obj.get("name"),
             "tags": [Tag.from_dict(_item) for _item in obj["tags"]] if obj.get("tags") is not None else None,
             "level": obj.get("level"),

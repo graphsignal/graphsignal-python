@@ -47,7 +47,7 @@ class SpansTest(unittest.TestCase):
             span.set_param('p2', 'v22')
             span.set_param('p3', 'v3')
             span.set_counter('c3', 3)
-            span.inc_counter_metric('usage', 'c3', 3)
+            span.inc_counter_metric('c3', 3)
             span.set_profile('prof1', 'fmt1', 'content1')
             time.sleep(0.01)
             span.set_perf_counter('first_token_ns')
@@ -60,11 +60,13 @@ class SpansTest(unittest.TestCase):
         self.assertTrue(span.start_us > 0)
         self.assertTrue(span.end_us > 0)
         self.assertEqual(find_tag(span, 'deployment'), 'd1')
-        self.assertEqual(find_tag(span, 'operation'), 'op1')
-        self.assertIsNotNone(find_tag(span, 'hostname'))
-        self.assertIsNotNone(find_tag(span, 'process_id'))
-        self.assertIsNotNone(find_param(span, 'platform'))
-        self.assertIsNotNone(find_param(span, 'python_version'))
+        self.assertEqual(find_tag(span, 'operation.name'), 'op1')
+        self.assertIsNotNone(find_tag(span, 'host.name'))
+        self.assertIsNotNone(find_tag(span, 'process.pid'))
+        self.assertIsNotNone(find_param(span, 'platform.name'))
+        self.assertIsNotNone(find_param(span, 'platform.version'))
+        self.assertIsNotNone(find_param(span, 'runtime.name'))
+        self.assertIsNotNone(find_param(span, 'runtime.version'))
         self.assertEqual(find_param(span, 'p1'), 'v1')
         self.assertEqual(find_param(span, 'p2'), 'v22')
         self.assertEqual(find_param(span, 'p3'), 'v3')
@@ -73,9 +75,7 @@ class SpansTest(unittest.TestCase):
         self.assertEqual(find_tag(span, 'k3'), 'v3')
         self.assertEqual(find_tag(span, 'k4'), '4.0')
         self.assertEqual(find_tag(span, 'k5'), 'v5')
-        self.assertTrue(find_counter(span, 'latency_ns') > 0)
-        self.assertTrue(find_counter(span, 'first_token_ns') > 0)
-        self.assertEqual(find_counter(span, 'output_tokens'), 10)
+        self.assertTrue(find_counter(span, 'operation.duration') > 0)
         self.assertEqual(find_counter(span, 'c3'), 3)
         self.assertEqual(find_profile(span, 'prof1').format, 'fmt1')
         self.assertEqual(find_profile(span, 'prof1').content, 'content1')
@@ -83,21 +83,14 @@ class SpansTest(unittest.TestCase):
 
         store = graphsignal._tracer.metric_store()
         metric_tags =  graphsignal._tracer.tags.copy()
-        metric_tags['operation'] = 'op1'
+        metric_tags['operation.name'] = 'op1'
         metric_tags['k3'] = 'v3'  
         metric_tags['k4'] = 4.0
         metric_tags['k5'] = 'v5'
-        key = store.metric_key('performance', 'latency', metric_tags)
-        self.assertTrue(len(store._metrics[key].histogram) > 0)
-        key = store.metric_key('performance', 'first_token', metric_tags)
-        self.assertTrue(len(store._metrics[key].histogram) > 0)
-        key = store.metric_key('performance', 'call_count', metric_tags)
+        key = store.metric_key('operation.count', metric_tags)
         self.assertEqual(store._metrics[key].counter, 10)
-        key = store.metric_key('performance', 'output_tps', metric_tags)
-        self.assertEqual(store._metrics[key].count, 100)
-        self.assertTrue(store._metrics[key].interval > 0)
 
-        key = store.metric_key('usage', 'c3', metric_tags)
+        key = store.metric_key('c3', metric_tags)
         self.assertEqual(store._metrics[key].counter, 30)
 
     @patch.object(ProcessRecorder, 'on_span_start')
@@ -181,8 +174,8 @@ class SpansTest(unittest.TestCase):
 
         store = graphsignal._tracer.metric_store()
         metric_tags = graphsignal._tracer.tags.copy()
-        metric_tags['operation'] = 'op1'
-        key = store.metric_key('performance', 'exception_count', metric_tags)
+        metric_tags['operation.name'] = 'op1'
+        key = store.metric_key('operation.error.count', metric_tags)
         self.assertEqual(store._metrics[key].counter, 2)
 
     @patch.object(Uploader, 'upload_span')
@@ -204,8 +197,8 @@ class SpansTest(unittest.TestCase):
 
         store = graphsignal._tracer.metric_store()
         metric_tags = graphsignal._tracer.tags.copy()
-        metric_tags['operation'] = 'op1'
-        key = store.metric_key('performance', 'exception_count', metric_tags)
+        metric_tags['operation.name'] = 'op1'
+        key = store.metric_key('operation.error.count', metric_tags)
         self.assertEqual(store._metrics[key].counter, 1)
 
     @patch.object(Uploader, 'upload_span')
@@ -227,8 +220,8 @@ class SpansTest(unittest.TestCase):
 
         store = graphsignal._tracer.metric_store()
         metric_tags = graphsignal._tracer.tags.copy()
-        metric_tags['operation'] = 'op1'
-        key = store.metric_key('performance', 'exception_count', metric_tags)
+        metric_tags['operation.name'] = 'op1'
+        key = store.metric_key('operation.error.count', metric_tags)
         self.assertEqual(store._metrics[key].counter, 1)
 
     @patch.object(Uploader, 'upload_span')

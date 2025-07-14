@@ -24,7 +24,7 @@ class PyTorchRecorder(BaseRecorder):
 
     def on_span_start(self, span, context):
         if (span.sampled() and 
-            self._can_include_profiles(span, ['pytorch-cpu-profile', 'pytorch-kernel-profile', 'pytorch-timeline']) and 
+            self._can_include_profiles(span, ['profile.pytorch']) and 
             graphsignal._tracer.set_profiling_mode()):
             context['profiled'] = True
 
@@ -53,7 +53,8 @@ class PyTorchRecorder(BaseRecorder):
                 self._torch_prof.stop()
 
     def on_span_read(self, span, context):
-        span.set_param('pytorch_version', torch.__version__)
+        span.set_param('framework.name', 'pytorch')
+        span.set_param('framework.version', f'{torch.__version__}')
 
         if context.get('profiled', False):
             if self._torch_prof:
@@ -61,65 +62,61 @@ class PyTorchRecorder(BaseRecorder):
                     self._convert_to_profile(span)
                 finally:
                     self._torch_prof = None
-            span.set_param('profiler', f'pytorch-{torch.__version__}')
 
     def _convert_to_profile(self, span):
-        if self._can_include_profiles(span, ['pytorch-cpu-profile']):
-            cpu_profile = []
-            for event_avg in self._torch_prof.key_averages():
-                if event_avg.key and event_avg.key.startswith('ProfilerStep'):
-                    continue
-                cpu_profile.append(dict(
-                    op_name = event_avg.key,
-                    device_type = event_avg.device_type.name if event_avg.device_type else None,
-                    count = _uint(event_avg.count),
-                    cpu_time_ns = _ns(event_avg.cpu_time_total),
-                    self_cpu_time_ns = _ns(event_avg.self_cpu_time_total),
-                    device_time_ns = _ns(event_avg.device_time_total),
-                    self_device_time_ns = _ns(event_avg.self_device_time_total),
-                    cpu_memory = _uint(event_avg.cpu_memory_usage),
-                    self_cpu_memory = _uint(event_avg.self_cpu_memory_usage),
-                    device_memory = _uint(event_avg.device_memory_usage),
-                    self_device_memory = _uint(event_avg.self_device_memory_usage),
-                    flops = _uint(event_avg.flops)
-                ))
+        cpu_profile = []
+        for event_avg in self._torch_prof.key_averages():
+            if event_avg.key and event_avg.key.startswith('ProfilerStep'):
+                continue
+            cpu_profile.append(dict(
+                op_name = event_avg.key,
+                device_type = event_avg.device_type.name if event_avg.device_type else None,
+                count = _uint(event_avg.count),
+                cpu_time_ns = _ns(event_avg.cpu_time_total),
+                self_cpu_time_ns = _ns(event_avg.self_cpu_time_total),
+                device_time_ns = _ns(event_avg.device_time_total),
+                self_device_time_ns = _ns(event_avg.self_device_time_total),
+                cpu_memory = _uint(event_avg.cpu_memory_usage),
+                self_cpu_memory = _uint(event_avg.self_cpu_memory_usage),
+                device_memory = _uint(event_avg.device_memory_usage),
+                self_device_memory = _uint(event_avg.self_device_memory_usage),
+                flops = _uint(event_avg.flops)
+            ))
 
-            if len(cpu_profile) > 0:
-                span.set_profile(
-                    name='pytorch-cpu-profile', 
-                    format='event-averages', 
-                    content=json.dumps(cpu_profile))
+        if len(cpu_profile) > 0:
+            span.set_profile(
+                name='profile.pytorch.cpu', 
+                format='event-averages', 
+                content=json.dumps(cpu_profile))
 
-        if self._can_include_profiles(span, ['pytorch-kernel-profile']):
-            kernel_index = {}
-            for event in self._torch_prof.events():
-                for kernel in event.kernels:
-                    key = (event.key, kernel.name, kernel.device)
-                    if key in kernel_index:
-                        kernel_avg = kernel_index[key]
-                        kernel_avg['count'] += 1
-                        kernel_avg['duration_ns'] += _ns(kernel.duration)
-                    else:
-                        kernel_avg = kernel_index[key] = dict(
-                            device_idx = kernel.device,
-                            op_name = event.name,
-                            kernel_name = kernel.name,
-                            count = 1,
-                            duration_ns = _ns(kernel.duration)
-                        )
+        kernel_index = {}
+        for event in self._torch_prof.events():
+            for kernel in event.kernels:
+                key = (event.key, kernel.name, kernel.device)
+                if key in kernel_index:
+                    kernel_avg = kernel_index[key]
+                    kernel_avg['count'] += 1
+                    kernel_avg['duration_ns'] += _ns(kernel.duration)
+                else:
+                    kernel_avg = kernel_index[key] = dict(
+                        device_idx = kernel.device,
+                        op_name = event.name,
+                        kernel_name = kernel.name,
+                        count = 1,
+                        duration_ns = _ns(kernel.duration)
+                    )
             
-            device_profile = list(kernel_index.values())
-            if len(device_profile) > 0:
-                span.set_profile(
-                    name='pytorch-kernel-profile', 
-                    format='event-averages', 
-                    content=json.dumps(device_profile))
+        device_profile = list(kernel_index.values())
+        if len(device_profile) > 0:
+            span.set_profile(
+                name='profile.pytorch.kernel', 
+                format='event-averages', 
+                content=json.dumps(device_profile))
 
-        if self._can_include_profiles(span, ['pytorch-timeline']):
-            if len(cpu_profile) > 0 or len(device_profile) > 0:
-                chrome_trace = self._export_chrome_trace()
-                if chrome_trace:
-                    span.set_profile('pytorch-timeline', 'chrome-trace', chrome_trace)
+        if len(cpu_profile) > 0 or len(device_profile) > 0:
+            chrome_trace = self._export_chrome_trace()
+            if chrome_trace:
+                span.set_profile('profile.pytorch.trace', 'chrome-trace', chrome_trace)
 
     def _export_chrome_trace(self):
         try:

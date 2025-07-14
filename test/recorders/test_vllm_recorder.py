@@ -53,10 +53,10 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         model = mocked_upload_span.call_args[0][0]
 
-        self.assertEqual(find_tag(model, 'model'), 'gpt2')
-        self.assertEqual(find_param(model, 'model'), 'gpt2')
+        self.assertEqual(find_tag(model, 'model.name'), 'gpt2')
+        self.assertEqual(find_param(model, 'vllm.model.name'), 'gpt2')
 
-        self.assertTrue(find_counter(model, 'latency_ns') > 0)
+        self.assertTrue(find_counter(model, 'operation.duration') > 0)
         #self.assertEqual(find_counter(model, 'output_tokens'), 18)
         #self.assertEqual(find_counter(model, 'prompt_tokens'), 78)
         #self.assertEqual(find_counter(model, 'completion_tokens'), 18)

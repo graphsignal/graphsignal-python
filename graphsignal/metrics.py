@@ -12,9 +12,8 @@ logger = logging.getLogger('graphsignal')
 
 
 class BaseMetric:
-    def __init__(self, scope, name, tags, unit=None, is_time=False, is_size=False):
+    def __init__(self, name, tags, unit=None, is_time=False, is_size=False):
         self._update_lock = threading.Lock()
-        self.scope = scope
         self.name = name
         self.tags = tags
         self.unit = unit
@@ -29,7 +28,6 @@ class BaseMetric:
         self.is_updated = False
 
         model = client.Metric(
-            scope=self.scope,
             name=self.name,
             tags=[],
             type=self.type,
@@ -140,46 +138,40 @@ class MetricStore:
         self._has_unexported = False
         self._metrics = {}
 
-    def metric_key(self, scope, name, tags):
-        return (scope, name, frozenset(tags.items()))
+    def metric_key(self, name, tags):
+        return (name, frozenset(tags.items()))
 
-    def set_gauge(self, scope, name, tags, value, update_ts, unit=None, is_time=False, is_size=False):
-        if scope is None:
-            raise ValueError('Gauge scope cannot be None')
+    def set_gauge(self, name, tags, value, update_ts, unit=None, is_time=False, is_size=False):
         if name is None:
             raise ValueError('Gauge name cannot be None')
         if value is None:
             raise ValueError('Gauge value cannot be None')
 
-        key = self.metric_key(scope, name, tags)
+        key = self.metric_key(name, tags)
         with self._update_lock:
             if key not in self._metrics:
-                metric = self._metrics[key] = GaugeMetric(scope, name, tags, unit=unit, is_time=is_time, is_size=is_size)
+                metric = self._metrics[key] = GaugeMetric(name, tags, unit=unit, is_time=is_time, is_size=is_size)
             else:
                 metric = self._metrics[key]
         metric.update(value, update_ts)
         return metric
 
-    def inc_counter(self, scope, name, tags, value, update_ts, unit=None):
-        if scope is None:
-            raise ValueError('Counter scope cannot be None')
+    def inc_counter(self, name, tags, value, update_ts, unit=None):
         if name is None:
             raise ValueError('Counter name cannot be None')
         if value is None:
             raise ValueError('Counter value cannot be None')
         
-        key = self.metric_key(scope, name, tags)
+        key = self.metric_key(name, tags)
         with self._update_lock:
             if key not in self._metrics:
-                metric = self._metrics[key] = CounterMetric(scope, name, tags, unit=unit)
+                metric = self._metrics[key] = CounterMetric(name, tags, unit=unit)
             else:
                 metric = self._metrics[key]
         metric.update(value, update_ts)
         return metric
 
-    def update_rate(self, scope, name, tags, count, interval, update_ts, unit=None):
-        if scope is None:
-            raise ValueError('Rate scope cannot be None')
+    def update_rate(self, name, tags, count, interval, update_ts, unit=None):
         if name is None:
             raise ValueError('Rate name cannot be None')
         if count is None:
@@ -187,27 +179,25 @@ class MetricStore:
         if interval is None:
             raise ValueError('Rate interval cannot be None')
         
-        key = self.metric_key(scope, name, tags)
+        key = self.metric_key(name, tags)
         with self._update_lock:
             if key not in self._metrics:
-                metric = self._metrics[key] = RateMetric(scope, name, tags, unit=unit)
+                metric = self._metrics[key] = RateMetric(name, tags, unit=unit)
             else:
                 metric = self._metrics[key]
         metric.update(count, interval, update_ts)
         return metric
 
-    def update_histogram(self, scope, name, tags, value, update_ts, unit=None, is_time=False, is_size=False):
-        if scope is None:
-            raise ValueError('Histogram scope cannot be None')
+    def update_histogram(self, name, tags, value, update_ts, unit=None, is_time=False, is_size=False):
         if name is None:
             raise ValueError('Histogram name cannot be None')
         if value is None:
             raise ValueError('Histogram value cannot be None')
 
-        key = self.metric_key(scope, name, tags)
+        key = self.metric_key(name, tags)
         with self._update_lock:
             if key not in self._metrics:
-                metric = self._metrics[key] = HistogramMetric(scope, name, tags, unit=unit, is_time=is_time, is_size=is_size)
+                metric = self._metrics[key] = HistogramMetric(name, tags, unit=unit, is_time=is_time, is_size=is_size)
             else:
                 metric = self._metrics[key]
         metric.update(value, update_ts)

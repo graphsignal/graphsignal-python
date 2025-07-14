@@ -21,7 +21,7 @@ class PythonRecorder(BaseRecorder):
 
     def on_span_start(self, span, context):
         if (span.sampled() and 
-            self._can_include_profiles(span, ['python-time-profile']) and 
+            self._can_include_profiles(span, ['profile.cpython']) and 
             graphsignal._tracer.set_profiling_mode()):
 
             context['profiled'] = True
@@ -74,13 +74,10 @@ class PythonRecorder(BaseRecorder):
 
         if len(wt_profile) > 0:
             span.set_profile(
-                name='python-time-profile', 
+                name='profile.cpython',
                 format='event-averages', 
                 content=json.dumps(wt_profile))
 
-        if len(wt_profile) > 0:
-            if sys.version_info:
-                span.set_param('profiler', f'cprofile-{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')
 
     def _has_exclude_func(self, stats, func_key, visited):
         if func_key in visited:

@@ -29,7 +29,6 @@ VM_SIZE_REGEXP = re.compile(r'VmSize:\s+(\d+)\s+kB')
 MEM_TOTAL_REGEXP = re.compile(r'MemTotal:\s+(\d+)\s+kB')
 MEM_FREE_REGEXP = re.compile(r'MemFree:\s+(\d+)\s+kB')
 
-
 class ProcessUsage:
     def __init__(self):
         self.pid = 0
@@ -47,11 +46,12 @@ class ProcessUsage:
         self.runtime_version = None
         self.runtime_impl = None
 
-
 class NodeUsage:
     def __init__(self):
         self.hostname = None
         self.ip_address = None
+        self.pod_uid = None
+        self.container_id = None
         self.node_rank = 0
         self.has_node_rank = False
         self.mem_used = 0
@@ -71,7 +71,6 @@ class SemVer:
     def __str__(self):
         return f'{self.major}.{self.minor}.{self.patch}'
 
-
 class ProcessRecorder(BaseRecorder):
     MIN_CPU_READ_INTERVAL_US = 1 * 1e6
 
@@ -82,15 +81,24 @@ class ProcessRecorder(BaseRecorder):
 
     def setup(self):
         process_usage, node_usage = self.take_snapshot()
+
+        tracer = graphsignal._tracer
         if platform.system() and platform.release():
-            graphsignal._tracer.set_param('platform', f'{platform.system()}-{platform.release()}')
+            tracer.set_param('platform.name', platform.system())
+            tracer.set_param('platform.version', platform.release())
         if sys.version_info and len(sys.version_info) >= 3:
-            graphsignal._tracer.set_param('python_version', f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')
+            tracer.set_param('runtime.name', 'python')
+            tracer.set_param('runtime.version', f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')
         if node_usage.hostname:
-            graphsignal._tracer.set_tag('hostname', node_usage.hostname)
+            tracer.set_tag('host.name', node_usage.hostname)
         if process_usage.pid:
-            graphsignal._tracer.set_tag('process_id', str(process_usage.pid))
-        graphsignal._tracer.set_param('tracer', f'graphsignal-python-{version.__version__}')
+            tracer.set_tag('process.pid', str(process_usage.pid))
+        if node_usage.pod_uid:
+            tracer.set_tag('pod.uid', node_usage.pod_uid)
+        if node_usage.container_id:
+            tracer.set_tag('container.id', node_usage.container_id)
+        tracer.set_param('tracer.name', f'graphsignal-python')
+        tracer.set_param('tracer.version', version.__version__)
 
     def on_metric_update(self):
         now = int(time.time())
@@ -102,19 +110,19 @@ class ProcessRecorder(BaseRecorder):
 
         if process_usage.cpu_usage_percent > 0:
             store.set_gauge(
-                scope='system', name='process_cpu_usage', tags=metric_tags, 
+                name='process.cpu.usage', tags=metric_tags, 
                 value=process_usage.cpu_usage_percent, update_ts=now, unit='%')
         if process_usage.current_rss > 0:
             store.set_gauge(
-                scope='system', name='process_memory', tags=metric_tags, 
+                name='process.memory.usage', tags=metric_tags, 
                 value=process_usage.current_rss, update_ts=now, is_size=True)
         if process_usage.vm_size > 0:
             store.set_gauge(
-                scope='system', name='virtual_memory', tags=metric_tags, 
+                name='process.memory.virtual', tags=metric_tags, 
                 value=process_usage.vm_size, update_ts=now, is_size=True)
         if node_usage.mem_used > 0:
             store.set_gauge(
-                scope='system', name='node_memory_used', tags=metric_tags, 
+                name='host.memory.usage', tags=metric_tags, 
                 value=node_usage.mem_used, update_ts=now, is_size=True)
 
     def take_snapshot(self):
@@ -147,6 +155,17 @@ class ProcessRecorder(BaseRecorder):
                 node_usage.os_version = os.uname().release
         except BaseException:
             logger.error('Error reading node information', exc_info=True)
+
+        pod_uid = os.getenv("POD_UID")
+        if pod_uid:
+            node_usage.pod_uid = pod_uid
+
+        try:
+            container_id = _read_container_id()
+            if container_id:
+                node_usage.container_id = container_id
+        except BaseException:
+            logger.error('Error reading container information', exc_info=True)
 
         try:
             process_usage.runtime = 'Python'
@@ -201,10 +220,8 @@ class ProcessRecorder(BaseRecorder):
         self._last_snapshot = (process_usage, node_usage)
         return self._last_snapshot
 
-
 def _rusage_cpu_time(rusage):
     return int((rusage.ru_utime + rusage.ru_stime) * 1e6)  # microseconds
-
 
 def _read_current_rss():
     pid = os.getpid()
@@ -222,7 +239,6 @@ def _read_current_rss():
 
     return None
 
-
 def _read_vm_size():
     pid = os.getpid()
 
@@ -239,7 +255,6 @@ def _read_vm_size():
 
     return None
 
-
 def _read_mem_total():
     try:
         f = open('/proc/meminfo')
@@ -254,7 +269,6 @@ def _read_mem_total():
 
     return None
 
-
 def _read_mem_free():
     try:
         f = open('/proc/meminfo')
@@ -268,3 +282,15 @@ def _read_mem_free():
         pass
 
     return None
+
+def _read_container_id():
+    container_id = None
+    with open( '/proc/self/mountinfo' ) as file:
+        line = file.readline().strip()    
+        while line:
+            if '/docker/containers/' in line:
+                container_id = line.split('/docker/containers/')[-1]
+                container_id = container_id.split('/')[0]
+                break
+            line = file.readline().strip()  
+    return container_id

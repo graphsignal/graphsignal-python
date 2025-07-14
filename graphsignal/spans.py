@@ -38,13 +38,11 @@ class Profile:
 
 class CounterMetric:
     __slots__ = [
-        'scope',
         'name',
         'value',
         'unit']
 
-    def __init__(self, scope, name, value, unit=None):
-        self.scope = scope
+    def __init__(self, name, value, unit=None):
         self.name = name
         self.value = value
         self.unit = unit
@@ -154,7 +152,7 @@ class Span:
                 return
 
         self._operation = sanitize_str(operation)
-        self._tags = dict(operation=self._operation)
+        self._tags = {'operation.name': self._operation}
         if tags is not None:
             self._tags.update(tags)
         self._include_profiles_index = set(include_profiles) if isinstance(include_profiles, list) else None
@@ -268,11 +266,11 @@ class Span:
 
         if self._stop_counter is None:
             self._measure()
-        latency_ns = self._stop_counter - self._start_counter
-        end_us = int(self._start_us + latency_ns / 1e3)
+        duration_ns = self._stop_counter - self._start_counter
+        end_us = int(self._start_us + duration_ns / 1e3)
         now = int(end_us / 1e6)
 
-        self.set_counter('latency_ns', latency_ns)        
+        self.set_counter('operation.duration', duration_ns)        
 
         # emit stop event
         try:
@@ -289,41 +287,25 @@ class Span:
         span_tags = self._merged_span_tags()
 
         # update RED metrics
-        first_token_ns = self.get_counter('first_token_ns')
-        output_tokens = self.get_counter('output_tokens')
-
         _tracer().metric_store().inc_counter(
-            scope='performance', name='call_count', tags=span_tags, value=1, update_ts=now)
+            name='operation.count', tags=span_tags, value=1, update_ts=now)
 
         if self._exc_infos and len(self._exc_infos) > 0:
             for exc_info in self._exc_infos:
                 if exc_info[0] is not None:
                     _tracer().metric_store().inc_counter(
-                        scope='performance', name='exception_count', tags=span_tags, value=1, update_ts=now)
-                    self.set_tag('exception', exc_info[0].__name__)
+                        name='operation.error.count', tags=span_tags, value=1, update_ts=now)
+                    self.set_tag('exception.name', exc_info[0].__name__)
 
-        if latency_ns is not None:
+        if duration_ns is not None:
             _tracer().metric_store().update_histogram(
-                scope='performance', name='latency', tags=span_tags, value=latency_ns, update_ts=now, is_time=True)
-
-        if first_token_ns is not None:
-            _tracer().metric_store().update_histogram(
-                scope='performance', name='first_token', tags=span_tags, value=first_token_ns, update_ts=now, is_time=True)
-
-        if latency_ns is not None and latency_ns > 0 and output_tokens is not None and output_tokens > 0:
-            _tracer().metric_store().update_rate(
-                scope='performance', 
-                name='output_tps', 
-                tags=span_tags, 
-                count=output_tokens, 
-                interval=latency_ns/1e9, 
-                update_ts=now)
+                name='operation.duration', tags=span_tags, value=duration_ns, update_ts=now, is_time=True)
 
         # update metrics
         if self._metrics is not None:
             for metric in self._metrics.values():
                 _tracer().metric_store().inc_counter(
-                    scope=metric.scope, name=metric.name, tags=span_tags, value=metric.value, update_ts=now)
+                    name=metric.name, tags=span_tags, value=metric.value, update_ts=now)
 
         # update recorder metrics
         if _tracer().check_metric_read_interval(now):
@@ -587,13 +569,9 @@ class Span:
  
     def inc_counter_metric(
             self,
-            scope: str,
             name: str,
             value: Union[int, float],
             unit=None) -> None:
-        if not scope:
-            logger.error('inc_counter_metric: scope is required')
-            return
         if not name:
             logger.error('inc_counter_metric: name is required')
             return
@@ -604,17 +582,15 @@ class Span:
         if self._metrics is None:
             self._metrics = {}
 
-        key = '{0}-{1}'.format(scope, name)
-        if key in self._metrics:
-            metric = self._metrics[key]
+        if name in self._metrics:
+            metric = self._metrics[name]
             metric.value += value
         else:
             metric = CounterMetric(
-                scope=scope,
                 name=name,
                 value=value,
                 unit=unit)
-            self._metrics[key] = metric
+            self._metrics[name] = metric
 
     def _merged_span_tags(self, extra_tags=None):
         span_tags = {}

@@ -13,8 +13,9 @@ logger = logging.getLogger('graphsignal')
 class DeviceUsage:
     def __init__(self):
         self.device_type = None
+        self.device_uuid = None
         self.device_idx = None
-        self.device_id = None
+        self.bus_id = None
         self.device_name = None
         self.architecture = None
         self.compute_capability = None
@@ -40,8 +41,8 @@ class DeviceUsage:
         drivers_str = ', '.join(str(driver) for driver in self.drivers)
 
         return (
-            f'DeviceUsage(device_type={self.device_type}, device_idx={self.device_idx}, '
-            f'device_id={self.device_id}, device_name={self.device_name}, architecture={self.architecture}, '
+            f'DeviceUsage(device_type={self.device_type}, device_uuid={self.device_uuid}, device_idx={self.device_idx}, '
+            f'bus_id={self.bus_id}, device_name={self.device_name}, architecture={self.architecture}, '
             f'compute_capability={self.compute_capability}, mem_total={self.mem_total}, mem_used={self.mem_used}, '
             f'mem_free={self.mem_free}, mem_reserved={self.mem_reserved}, gpu_utilization_percent={self.gpu_utilization_percent}, '
             f'mem_access_percent={self.mem_access_percent}, pcie_throughput_tx={self.pcie_throughput_tx}, '
@@ -100,7 +101,21 @@ class NVMLRecorder(BaseRecorder):
 
         self._setup_us = int(time.time() * 1e6)
 
-        self.take_snapshot()
+        device_usages = self.take_snapshot()
+
+        tracer = graphsignal._tracer
+        for device_usage in device_usages:
+            tracer.set_param(f'device.{device_usage.device_idx}.type', 'gpu')
+            tracer.set_param(f'device.{device_usage.device_idx}.index', device_usage.device_idx)
+            if device_usage.device_uuid:
+                tracer.set_param(f'device.{device_usage.device_idx}.uuid', device_usage.device_uuid)
+            if device_usage.device_name:
+                tracer.set_param(f'device.{device_usage.device_idx}.name', device_usage.device_name)
+            if device_usage.architecture:
+                tracer.set_param(f'device.{device_usage.device_idx}.architecture', device_usage.architecture)
+            if device_usage.compute_capability:
+                tracer.set_param(f'device.{device_usage.device_idx}.compute_capability', 
+                                f'{device_usage.compute_capability.major}.{device_usage.compute_capability.minor}')
 
     def shutdown(self):
         if not self._is_initialized:
@@ -111,18 +126,6 @@ class NVMLRecorder(BaseRecorder):
             self._is_initialized = False
         except BaseException:
             logger.error('Error shutting down NVML', exc_info=True)
-
-    def on_span_read(self, span, context):
-        if self._last_snapshot:
-            device_usages = self._last_snapshot
-            for idx, device_usage in enumerate(device_usages):
-                if device_usage.device_name:
-                    span.set_param(f'device.{device_usage.device_idx}.name', device_usage.device_name)
-                if device_usage.architecture:
-                    span.set_param(f'device.{device_usage.device_idx}.architecture', device_usage.architecture)
-                if device_usage.compute_capability:
-                    span.set_param(f'device.{device_usage.device_idx}.compute_capability', 
-                                   f'{device_usage.compute_capability.major}.{device_usage.compute_capability.minor}')
 
     def on_metric_update(self):
         now = int(time.time())
@@ -136,42 +139,44 @@ class NVMLRecorder(BaseRecorder):
         for idx, device_usage in enumerate(device_usages):
             store = graphsignal._tracer.metric_store()
             metric_tags = graphsignal._tracer.tags.copy()
+            metric_tags['device.type'] = 'gpu'
+            metric_tags['device.index'] = device_usage.device_idx
+            metric_tags['device.uuid'] = device_usage.device_uuid
             if device_usage.device_name:
-                metric_tags['device_name'] = device_usage.device_name
-            metric_tags['device_idx'] = idx
+                metric_tags['device.name'] = device_usage.device_name
 
             if device_usage.gpu_utilization_percent > 0:
                 store.set_gauge(
-                    scope='system', name='gpu_utilization', tags=metric_tags, 
-                    value=device_usage.gpu_utilization_percent, update_ts=now, unit='%')
+                    name='gpu.utilization', tags=metric_tags, 
+                    value=device_usage.gpu_utilization_percent, update_ts=now, unit='percent')
             if device_usage.mxu_utilization_percent > 0:
                 store.set_gauge(
-                    scope='system', name='mxu_utilization', tags=metric_tags, 
-                    value=device_usage.mxu_utilization_percent, update_ts=now, unit='%')
+                    name='gpu.mxu.utilization', tags=metric_tags, 
+                    value=device_usage.mxu_utilization_percent, update_ts=now, unit='percent')
             if device_usage.mem_access_percent > 0:
                 store.set_gauge(
-                    scope='system', name='device_memory_access', tags=metric_tags, 
-                    value=device_usage.mem_access_percent, update_ts=now, unit='%')
+                    name='gpu.memory.access', tags=metric_tags, 
+                    value=device_usage.mem_access_percent, update_ts=now, unit='percent')
             if device_usage.mem_used > 0:
                 store.set_gauge(
-                    scope='system', name='device_memory_used', tags=metric_tags, 
+                    name='gpu.memory.usage', tags=metric_tags, 
                     value=device_usage.mem_used, update_ts=now, is_size=True)
             if device_usage.nvlink_throughput_data_tx_kibs > 0:
                 store.set_gauge(
-                    scope='system', name='nvlink_throughput_data_tx_kibs', tags=metric_tags, 
-                    value=device_usage.nvlink_throughput_data_tx_kibs, update_ts=now, unit='KiB/s')
+                    name='gpu.nvlink.throughput.tx', tags=metric_tags, 
+                    value=device_usage.nvlink_throughput_data_tx_kibs, update_ts=now, unit='kibibytes_per_second')
             if device_usage.nvlink_throughput_data_rx_kibs > 0:
                 store.set_gauge(
-                    scope='system', name='nvlink_throughput_data_rx_kibs', tags=metric_tags, 
-                    value=device_usage.nvlink_throughput_data_rx_kibs, update_ts=now, unit='KiB/s')
+                    name='gpu.nvlink.throughput.rx', tags=metric_tags, 
+                    value=device_usage.nvlink_throughput_data_rx_kibs, update_ts=now, unit='kibibytes_per_second')
             if device_usage.gpu_temp_c > 0:
                 store.set_gauge(
-                    scope='system', name='gpu_temp_c', tags=metric_tags, 
-                    value=device_usage.gpu_temp_c, update_ts=now, unit='°C')
+                    name='gpu.temperature', tags=metric_tags, 
+                    value=device_usage.gpu_temp_c, update_ts=now, unit='celsius')
             if device_usage.power_usage_w > 0:
                 store.set_gauge(
-                    scope='system', name='power_usage_w', tags=metric_tags, 
-                    value=device_usage.power_usage_w, update_ts=now, unit='W')
+                    name='gpu.power.usage', tags=metric_tags, 
+                    value=device_usage.power_usage_w, update_ts=now, unit='watts')
 
     def take_snapshot(self):
         if not self._is_initialized:
@@ -206,8 +211,13 @@ class NVMLRecorder(BaseRecorder):
             device_usage.device_idx = idx
 
             try:
+                device_usage.device_uuid = nvmlDeviceGetUUID(handle)
+            except NVMLError as err:
+                _log_nvml_error(err)
+
+            try:
                 pci_info = nvmlDeviceGetPciInfo(handle)
-                device_usage.device_id = pci_info.busId
+                device_usage.bus_id = pci_info.busId
             except NVMLError as err:
                 _log_nvml_error(err)
 

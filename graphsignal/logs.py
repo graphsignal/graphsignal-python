@@ -12,11 +12,10 @@ logger = logging.getLogger('graphsignal')
 
 
 class LogEntry:
-    __slots__ = ('scope', 'name', 'tags', 'level', 'message', 'exception', 'create_ts')
+    __slots__ = ('name', 'tags', 'level', 'message', 'exception', 'create_ts')
 
-    def __init__(self, scope='user', name=None, tags=None, level='info', message=None, exception=None):
+    def __init__(self, name=None, tags=None, level='info', message=None, exception=None):
         # no logging in this function!
-        self.scope = scope
         self.name = name
         self.tags = tags
         self.level = level
@@ -26,7 +25,6 @@ class LogEntry:
 
     def export(self):
         model = client.LogEntry(
-            scope=self.scope,
             name=self.name,
             tags=[],
             message=self.message,
@@ -45,7 +43,7 @@ class LogEntry:
         return model
     
     def __repr__(self):
-        return f'LogEntry(scope={self.scope}, name={self.name}, tags={self.tags}, level={self.level}, message={self.message}, exception={self.exception}, create_ts={self.create_ts})'
+        return f'LogEntry(name={self.name}, tags={self.tags}, level={self.level}, message={self.message}, exception={self.exception}, create_ts={self.create_ts})'
 
 
 class LogStore:
@@ -61,7 +59,6 @@ class LogStore:
     def log_message(
             self, 
             *,
-            scope='user', 
             name=None, 
             tags=None, 
             level='info', 
@@ -75,7 +72,6 @@ class LogStore:
         if exception and len(exception) > self.STACK_TRACE_SIZE_LIMIT:
             return
         entry = LogEntry(
-            scope=scope, 
             name=name, 
             tags=tags, 
             level=level or 'info', 
@@ -91,8 +87,11 @@ class LogStore:
             level=None, 
             message=None, 
             exception=None):
+        if tags is None:
+            tags = dict(scope='tracer')
+        else:
+            tags['scope'] = 'tracer'
         self.log_message(
-            scope='tracer',
             name=f'python-tracer-{version.__version__}',
             tags=tags,
             level=level,

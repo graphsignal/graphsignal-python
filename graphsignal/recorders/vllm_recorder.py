@@ -22,11 +22,13 @@ class VLLMRecorder(BaseRecorder):
         parsed_version = parse_semver(version)
 
         if compare_semver(parsed_version, (0, 8, 0)) >= 0:
-            def read_kwarg(store, kwargs, name, default=None):
-                if name in kwargs:
-                    store[name] = str(kwargs[name])
+            def read_kwarg(store, kwargs, key, new_key=None, default=None):
+                if new_key is None:
+                    new_key = key
+                if key in kwargs:
+                    store[new_key] = str(kwargs[key])
                 elif default is not None:
-                    store[name] = str(default)
+                    store[new_key] = str(default)
 
             def after_llm_init(args, kwargs, ret, exc, context):
                 llm_obj = args[0]
@@ -36,19 +38,19 @@ class VLLMRecorder(BaseRecorder):
                 model = None
                 if len(args) > 1 and args[1] is not None:
                     model = args[1]
-                read_kwarg(llm_tags, kwargs, 'model', default=model)
-                read_kwarg(llm_params, kwargs, 'model', default=model)
-                read_kwarg(llm_params, kwargs, 'tokenizer')
-                read_kwarg(llm_params, kwargs, 'tensor_parallel_size')
-                read_kwarg(llm_params, kwargs, 'dtype')
-                read_kwarg(llm_params, kwargs, 'quantization')
-                read_kwarg(llm_params, kwargs, 'gpu_memory_utilization')
-                read_kwarg(llm_params, kwargs, 'swap_space')
-                read_kwarg(llm_params, kwargs, 'cpu_offload_gb')
-                read_kwarg(llm_params, kwargs, 'enforce_eager')
-                read_kwarg(llm_params, kwargs, 'max_seq_len_to_capture')
-                read_kwarg(llm_params, kwargs, 'disable_custom_all_reduce')
-                read_kwarg(llm_params, kwargs, 'disable_async_output_proc')
+                read_kwarg(llm_tags, kwargs, 'model', 'model.name', default=model)
+                read_kwarg(llm_params, kwargs, 'model', 'vllm.model.name', default=model)
+                read_kwarg(llm_params, kwargs, 'tokenizer', 'vllm.tokenizer.name')
+                read_kwarg(llm_params, kwargs, 'tensor_parallel_size', 'vllm.tensor_parallel_size')
+                read_kwarg(llm_params, kwargs, 'dtype', 'vllm.dtype')
+                read_kwarg(llm_params, kwargs, 'quantization', 'vllm.quantization')
+                read_kwarg(llm_params, kwargs, 'gpu_memory_utilization', 'vllm.gpu_memory_utilization')
+                read_kwarg(llm_params, kwargs, 'swap_space', 'vllm.swap_space')
+                read_kwarg(llm_params, kwargs, 'cpu_offload_gb', 'vllm.cpu_offload_gb')
+                read_kwarg(llm_params, kwargs, 'enforce_eager', 'vllm.enforce_eager')
+                read_kwarg(llm_params, kwargs, 'max_seq_len_to_capture', 'vllm.max_seq_len_to_capture')
+                read_kwarg(llm_params, kwargs, 'disable_custom_all_reduce', 'vllm.disable_custom_all_reduce')
+                read_kwarg(llm_params, kwargs, 'disable_async_output_proc', 'vllm.disable_async_output_proc')
 
                 def trace_generate(span, args, kwargs, ret, exc):
                     for param_name, param_value in llm_tags.items():
@@ -57,7 +59,7 @@ class VLLMRecorder(BaseRecorder):
                         span.set_param(param_name, param_value)
                     #sampling_params = kwargs.get('sampling_params', None)
 
-                trace_method(llm_obj, 'generate', 'LLM.generate', trace_func=trace_generate)
+                trace_method(llm_obj, 'generate', 'llm.generate', trace_func=trace_generate)
 
             patch_method(vllm.LLM, '__init__', after_func=after_llm_init)
 

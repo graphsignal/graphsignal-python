@@ -41,41 +41,49 @@ class NVMLRecorderTest(unittest.TestCase):
 
         recorder.take_snapshot()
 
-        span = Span('op1')
-        context = {}
-
-        recorder.on_span_read(span, context)
-
         recorder.on_metric_update()
 
+        tracer = graphsignal._tracer
         if torch.cuda.is_available():
-            self.assertTrue(span.get_param('device.0.name') is not None)
-            self.assertTrue(span.get_param('device.0.architecture') is not None)
-            self.assertTrue(span.get_param('device.0.compute_capability') is not None)
+            self.assertTrue(tracer.get_param('device.0.uuid') is not None)
+            self.assertTrue(tracer.get_param('device.0.name') is not None)
+            self.assertTrue(tracer.get_param('device.0.architecture') is not None)
+            self.assertTrue(tracer.get_param('device.0.compute_capability') is not None)
 
         store = graphsignal._tracer.metric_store()
         if len(store._metrics) > 0:
             metric_tags =  graphsignal._tracer.tags.copy()
-            metric_tags.update({'device_idx': 0, 'device_name': span.get_param('device.0.name')})
-            key = store.metric_key('system', 'gpu_utilization', metric_tags)
+            metric_tags.update({'device.index': 0, 'device.name': tracer.get_param('device.0.name')})
+            key = store.metric_key('gpu.utilization', metric_tags)
+            
+            has_gpu_metrics = False
+            for key in store._metrics.keys():
+                if key[0].startswith('gpu.'):
+                    has_gpu_metrics = True
+                    break
+            self.assertTrue(has_gpu_metrics)
+
+            self.assertTrue(store._metrics is not None)
             if key in store._metrics:
                 self.assertTrue(store._metrics[key].gauge > 0)
-            key = store.metric_key('system', 'mxu_utilization', metric_tags)
+            key = store.metric_key('gpu.mxu.utilization', metric_tags)
             if key in store._metrics:
                 self.assertTrue(store._metrics[key].gauge > 0)
-            key = store.metric_key('system', 'device_memory_access', metric_tags)
+            key = store.metric_key('gpu.memory.access', metric_tags)
             if key in store._metrics:
                 self.assertTrue(store._metrics[key].gauge > 0)
-            key = store.metric_key('system', 'device_memory_used', metric_tags)
+            key = store.metric_key('gpu.memory.usage', metric_tags)
             if key in store._metrics:
                 self.assertTrue(store._metrics[key].gauge > 0)
-            key = store.metric_key('system', 'nvlink_throughput_data_tx_kibs', metric_tags)
+            key = store.metric_key('gpu.nvlink.throughput.tx', metric_tags)
             if key in store._metrics:
                 self.assertTrue(store._metrics[key].gauge > 0)
-            key = store.metric_key('system', 'nvlink_throughput_data_rx_kibs', metric_tags)
+            key = store.metric_key('gpu.nvlink.throughput.rx', metric_tags)
             if key in store._metrics:
                 self.assertTrue(store._metrics[key].gauge > 0)
-            key = store.metric_key('system', 'gpu_temp_c', metric_tags)
-            self.assertTrue(store._metrics[key].gauge > 0)
-            key = store.metric_key('system', 'power_usage_w', metric_tags)
-            self.assertTrue(store._metrics[key].gauge > 0)
+            key = store.metric_key('gpu.temperature', metric_tags)
+            if key in store._metrics:
+                self.assertTrue(store._metrics[key].gauge > 0)
+            key = store.metric_key('gpu.power.usage', metric_tags)
+            if key in store._metrics:
+                self.assertTrue(store._metrics[key].gauge > 0)

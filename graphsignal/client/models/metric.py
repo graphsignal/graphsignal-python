@@ -30,7 +30,6 @@ class Metric(BaseModel):
     """
     Metric
     """ # noqa: E501
-    scope: StrictStr = Field(description="The scope or context of the metric.")
     name: StrictStr = Field(description="The name of the metric.")
     tags: Optional[List[Tag]] = Field(default=None, description="Tags associated with the metric.")
     type: MetricType = Field(description="The type of the metric (gauge, counter, rate, histogram).")
@@ -42,7 +41,7 @@ class Metric(BaseModel):
     rate: Optional[Rate] = Field(default=None, description="The value for rate type metrics.")
     histogram: Optional[Histogram] = Field(default=None, description="The histogram data for histogram type metrics.")
     update_ts: StrictInt = Field(description="Unix timestamp (seconds) when the metric was last updated.")
-    __properties: ClassVar[List[str]] = ["scope", "name", "tags", "type", "unit", "is_time", "is_size", "gauge", "counter", "rate", "histogram", "update_ts"]
+    __properties: ClassVar[List[str]] = ["name", "tags", "type", "unit", "is_time", "is_size", "gauge", "counter", "rate", "histogram", "update_ts"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -108,7 +107,6 @@ class Metric(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "scope": obj.get("scope"),
             "name": obj.get("name"),
             "tags": [Tag.from_dict(_item) for _item in obj["tags"]] if obj.get("tags") is not None else None,
             "type": obj.get("type"),

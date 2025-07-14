@@ -24,11 +24,10 @@ class MetricStoreTest(unittest.TestCase):
     @patch('time.time', return_value=1)
     def test_update_and_export(self, mocked_time):
         store = graphsignal._tracer.metric_store()
-        store.set_gauge(scope='s1', name='m1', tags={'t1': '1'}, value=1, update_ts=10, unit='u1', is_time=True, is_size=True)
-        store.set_gauge(scope='s1', name='m1', tags={'t1': '1'}, value=2, update_ts=10, unit='u1', is_time=True, is_size=True)
+        store.set_gauge(name='m1', tags={'t1': '1'}, value=1, update_ts=10, unit='u1', is_time=True, is_size=True)
+        store.set_gauge(name='m1', tags={'t1': '1'}, value=2, update_ts=10, unit='u1', is_time=True, is_size=True)
         models = store.export()
         self.assertEqual(len(models), 1)
-        self.assertEqual(models[0].scope, 's1')
         self.assertEqual(models[0].name, 'm1')
         self.assertEqual(models[0].tags[0].key, 't1')
         self.assertEqual(models[0].tags[0].value, '1')
@@ -40,11 +39,10 @@ class MetricStoreTest(unittest.TestCase):
 
         store.clear()
 
-        store.inc_counter(scope='s1', name='m1', tags={'t1': '1'}, value=1, update_ts=10, unit='u1')
-        store.inc_counter(scope='s1', name='m1', tags={'t1': '1'}, value=2, update_ts=10, unit='u1')
+        store.inc_counter(name='m1', tags={'t1': '1'}, value=1, update_ts=10, unit='u1')
+        store.inc_counter(name='m1', tags={'t1': '1'}, value=2, update_ts=10, unit='u1')
         models = store.export()
         self.assertEqual(len(models), 1)
-        self.assertEqual(models[0].scope, 's1')
         self.assertEqual(models[0].name, 'm1')
         self.assertEqual(models[0].tags[0].key, 't1')
         self.assertEqual(models[0].tags[0].value, '1')
@@ -56,11 +54,10 @@ class MetricStoreTest(unittest.TestCase):
 
         store.clear()
 
-        store.update_rate(scope='s1', name='m1', tags={'t1': '1'}, count=1, interval=10, update_ts=10, unit='u1')
-        store.update_rate(scope='s1', name='m1', tags={'t1': '1'}, count=2, interval=20, update_ts=10, unit='u1')
+        store.update_rate(name='m1', tags={'t1': '1'}, count=1, interval=10, update_ts=10, unit='u1')
+        store.update_rate(name='m1', tags={'t1': '1'}, count=2, interval=20, update_ts=10, unit='u1')
         models = store.export()
         self.assertEqual(len(models), 1)
-        self.assertEqual(models[0].scope, 's1')
         self.assertEqual(models[0].name, 'm1')
         self.assertEqual(models[0].tags[0].key, 't1')
         self.assertEqual(models[0].tags[0].value, '1')
@@ -73,11 +70,10 @@ class MetricStoreTest(unittest.TestCase):
 
         store.clear()
 
-        store.update_histogram(scope='s1', name='m1', tags={'t1': '1'}, value=1, update_ts=10, unit='u1', is_time=True, is_size=True)
-        store.update_histogram(scope='s1', name='m1', tags={'t1': '1'}, value=2, update_ts=10, unit='u1', is_time=True, is_size=True)
+        store.update_histogram(name='m1', tags={'t1': '1'}, value=1, update_ts=10, unit='u1', is_time=True, is_size=True)
+        store.update_histogram(name='m1', tags={'t1': '1'}, value=2, update_ts=10, unit='u1', is_time=True, is_size=True)
         models = store.export()
         self.assertEqual(len(models), 1)
-        self.assertEqual(models[0].scope, 's1')
         self.assertEqual(models[0].name, 'm1')
         self.assertEqual(models[0].tags[0].key, 't1')
         self.assertEqual(models[0].tags[0].value, '1')
@@ -91,5 +87,5 @@ class MetricStoreTest(unittest.TestCase):
     def test_has_unexported(self):
         store = graphsignal._tracer.metric_store()
         self.assertFalse(store.has_unexported())
-        store.set_gauge(scope='s1', name='m1', tags={'t1': '1'}, value=1, update_ts=10, unit='u1', is_time=True, is_size=True)
+        store.set_gauge(name='m1', tags={'t1': '1'}, value=1, update_ts=10, unit='u1', is_time=True, is_size=True)
         self.assertTrue(store.has_unexported())

@@ -22,7 +22,7 @@ Learn more at [graphsignal.com](https://graphsignal.com).
 Install the Graphsignal library.
 
 ```bash
-pip install --upgrade graphsignal
+pip install -U graphsignal
 ```
 
 
@@ -61,8 +61,7 @@ Refer to the guides below for detailed information on:
 
 * [Manual Tracing](https://graphsignal.com/docs/guides/manual-tracing/)
 * [Inference Profiling](https://graphsignal.com/docs/guides/infefence-profiling/)
-* [Session Tracking](https://graphsignal.com/docs/guides/session-tracking/)
-* [Cost and Usage Monitoring](https://graphsignal.com/docs/guides/cost-and-usage-monitoring/)
+* [Using Tags](https://graphsignal.com/docs/guides/using-tags/)
 
 See [API reference](https://graphsignal.com/docs/reference/python-api/) for full documentation.
 
