@@ -104,9 +104,7 @@ class SupportedModuleFinder(importlib.abc.MetaPathFinder):
 
 
 class Tracer:
-    METRIC_READ_INTERVAL_SEC = 10
-    METRIC_UPLOAD_INTERVAL_SEC = 20
-    LOG_UPLOAD_INTERVAL_SEC = 20
+    TICK_INTERVAL_SEC = 10
     MAX_PROCESS_TAGS = 25
     PROFILING_MODE_TIMEOUT_SEC = 60
 
@@ -134,7 +132,8 @@ class Tracer:
         else:
             self.api_url = 'https://api.graphsignal.com'
         self.tags = {}
-        self.tags.update(tags)
+        if tags:
+            self.tags.update(tags)
         self.context_tags = contextvars.ContextVar('graphsignal_context_tags', default={})
 
         self.params = {}
@@ -145,7 +144,10 @@ class Tracer:
         self.include_profiles = include_profiles
         self.debug_mode = debug_mode
 
-        self._metric_update_thread = None
+        self._tick_timer_thread = None
+        self._tick_stop_event = threading.Event()
+        self._tick_lock = threading.Lock()
+        self._tick_run_thread = None
         self._tracer_log_handler = None
         self._uploader = None
         self._metric_store = None
@@ -157,9 +159,7 @@ class Tracer:
 
         self._process_start_ms = int(time.time() * 1e3)
 
-        self.last_metric_read_ts = 0
-        self.last_metric_upload_ts = int(self._process_start_ms / 1e3)
-        self.last_log_upload_ts = int(self._process_start_ms / 1e3)
+        self.last_tick_ts = time.time()
 
         self.export_on_shutdown = True
 
@@ -183,26 +183,37 @@ class Tracer:
             if module_name == '(default)' or module_name in sys.modules:
                 self.initialize_recorders_for_module(module_name)
 
+        # start the tick timer thread
+        self._start_tick_timer()
+
+    def _start_tick_timer(self):
+        def _tick_loop():
+            while not self._tick_stop_event.wait(Tracer.TICK_INTERVAL_SEC):
+                try:
+                    self.tick()
+                except Exception as exc:
+                    logger.error('Error in tick timer: %s', exc, exc_info=True)
+
+        self._tick_timer_thread = threading.Thread(target=_tick_loop, daemon=True)
+        self._tick_timer_thread.start()
+
     def shutdown(self):
-        if self._metric_update_thread:
-            self._metric_update_thread.join()
-            self._metric_update_thread = None
-
         if self.export_on_shutdown:
-            if self._metric_store.has_unexported():
-                metrics = self._metric_store.export()
-                for metric in metrics:
-                    self._uploader.upload_metric(metric)
+            self.tick(block=True, force=True)
 
-            if self._log_store.has_unexported():
-                entries = self._log_store.export()
-                for entry in entries:
-                    self._uploader.upload_log_entry(entry)
+        if self._tick_stop_event:
+            self._tick_stop_event.set()
+
+        if self._tick_timer_thread:
+            self._tick_timer_thread.join()
+            self._tick_timer_thread = None
+
+        if self._tick_run_thread:
+            self._tick_run_thread.join()
+            self._tick_run_thread = None
 
         for recorder in self.recorders():
             recorder.shutdown()
-
-        self.upload(block=True)
 
         self._recorders = None
         self._metric_store = None
@@ -317,18 +328,14 @@ class Tracer:
             raise last_exc
 
     def emit_metric_update(self):
-        def on_metric_update():
-            last_exc = None
-            for recorder in self.recorders():
-                try:
-                    recorder.on_metric_update()
-                except Exception as exc:
-                    last_exc = exc
-            if last_exc:
-                raise last_exc
-
-        self._metric_update_thread = threading.Thread(target=on_metric_update)
-        self._metric_update_thread.start()
+        last_exc = None
+        for recorder in self.recorders():
+            try:
+                recorder.on_metric_update()
+            except Exception as exc:
+                last_exc = exc
+        if last_exc:
+            raise last_exc
 
     def set_tag(self, key: str, value: str, append_uuid: Optional[bool] = False) -> None:
         if not key:
@@ -487,54 +494,43 @@ class Tracer:
             model.description = description
 
         self.uploader().upload_issue(model)
-        self.tick(block=False, now=now)
+        self.tick()
 
-    def upload(self, block=False):
-        if block:
-            self._uploader.flush()
-        else:
-            self._uploader.flush_in_thread()
+    def tick(self, block=False, force=False):
+        now = time.time()
+        if not force and (now - self.last_tick_ts) < Tracer.TICK_INTERVAL_SEC - 1:
+            return
+        
+        if not self._tick_lock.acquire(blocking=False):
+            return
 
-    def check_metric_read_interval(self, now=None):
-        if now is None:
-            now = time.time()
-        return (self.last_metric_read_ts < now - Tracer.METRIC_READ_INTERVAL_SEC)
-    
-    def set_metric_read(self, now=None):
-        self.last_metric_read_ts = now if now else time.time()
+        try:
+            def _run_tick():
+                try:
+                    try:
+                        self.emit_metric_update()
+                    except Exception as exc:
+                        logger.error('Error in metric read event handlers', exc_info=True)
 
-    def check_metric_upload_interval(self, now=None):
-        if now is None:
-            now = time.time()
-        return (self.last_metric_upload_ts < now - Tracer.METRIC_UPLOAD_INTERVAL_SEC)
+                    if self._metric_store.has_unexported():
+                        metrics = self._metric_store.export()
+                        for metric in metrics:
+                            self.uploader().upload_metric(metric)
 
-    def set_metric_upload(self, now=None):
-        self.last_metric_upload_ts = now if now else time.time()
+                    if self._log_store.has_unexported():
+                        entrys = self._log_store.export()
+                        for entry in entrys:
+                            self.uploader().upload_log_entry(entry)
 
-    def check_log_upload_interval(self, now=None):
-        if now is None:
-            now = time.time()
-        return (self.last_log_upload_ts < now - Tracer.LOG_UPLOAD_INTERVAL_SEC)
+                    self._uploader.flush()
+                except Exception as exc:
+                    logger.error('Error in tick execution: %s', exc, exc_info=True)
 
-    def set_log_upload(self, now=None):
-        self.last_log_upload_ts = now if now else time.time()
+            self.last_tick_ts = now
 
-    def tick(self, block=False, now=None):
-        if now is None:
-            now = time.time()
-
-        if self.check_metric_upload_interval(now):
-            if self._metric_store.has_unexported():
-                metrics = self._metric_store.export()
-                for metric in metrics:
-                    self.uploader().upload_metric(metric)
-                self.set_metric_upload(now)
-
-        if self.check_log_upload_interval(now):
-            if self._log_store.has_unexported():
-                entrys = self._log_store.export()
-                for entry in entrys:
-                    self.uploader().upload_log_entry(entry)
-                self.set_log_upload(now)
-
-        self.upload(block=False)
+            self._tick_run_thread = threading.Thread(target=_run_tick, daemon=True)
+            self._tick_run_thread.start()
+            if block:
+                self._tick_run_thread.join()
+        finally:
+            self._tick_lock.release()

@@ -41,30 +41,6 @@ class UploaderTest(unittest.TestCase):
         self.assertEqual(len(graphsignal._tracer.uploader()._buffer), 0)
 
     @patch.object(client.DefaultApi, 'upload_spans')
-    def test_flush_in_thread(self, mocked_upload_spans):
-        graphsignal._tracer.uploader().FLUSH_DELAY_SEC = 0.01
-        model = client.Span(span_id='s1', trace_id='t1', start_us=0, end_us=0)
-        graphsignal._tracer.uploader().upload_span(model)
-        graphsignal._tracer.uploader().flush_in_thread()
-        time.sleep(0.1)
-
-        mocked_upload_spans.assert_called_once()
-        self.assertEqual(len(graphsignal._tracer.uploader()._buffer), 0)
-
-    @patch.object(client.DefaultApi, 'upload_spans')
-    def test_flush_in_thread_cancelled(self, mocked_upload_spans):
-        graphsignal._tracer.uploader().FLUSH_DELAY_SEC = 5
-        model = client.Span(span_id='s1', trace_id='t1', start_us=0, end_us=0)
-        graphsignal._tracer.uploader().upload_span(model)
-        graphsignal._tracer.uploader().flush_in_thread()
-        self.assertIsNotNone(graphsignal._tracer.uploader()._flush_timer)
-        graphsignal._tracer.uploader().flush()
-        self.assertIsNone(graphsignal._tracer.uploader()._flush_timer)
-
-        mocked_upload_spans.assert_called_once()
-        self.assertEqual(len(graphsignal._tracer.uploader()._buffer), 0)
-
-    @patch.object(client.DefaultApi, 'upload_spans')
     def test_flush_fail(self, mocked_upload_spans):
         def side_effect(*args):
             raise Exception("Ex1")

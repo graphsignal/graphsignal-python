@@ -140,10 +140,10 @@ def report_issue(
         span=span)
 
 
-def upload(block=False) -> None:
+def tick(block=False, force=False) -> None:
     _check_configured()
 
-    _tracer.upload(block=block)
+    _tracer.tick(block=block, force=force)
 
 
 def shutdown() -> None:
@@ -161,13 +161,13 @@ def shutdown() -> None:
 __all__ = [
     '__version__',
     'configure',
-    'upload',
+    'tick',
     'shutdown',
     'trace',
-    'function_trace',
+    'trace_function',
     'SpanContext',
     'Span',
-    'issue',
+    'report_issue',
     'set_tag',
     'get_tag',
     'set_context_tag',

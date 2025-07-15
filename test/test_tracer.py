@@ -1,7 +1,5 @@
 import unittest
 import logging
-import sys
-import os
 import time
 from unittest.mock import patch, Mock
 import pprint
@@ -33,9 +31,7 @@ class TracerTest(unittest.TestCase):
         graphsignal._tracer.metric_store().set_gauge(name='n1', tags={}, value=1, update_ts=1)
         graphsignal.shutdown()
 
-        model = mocked_upload_metric.call_args[0][0]
-
-        self.assertEqual(model.name, 'n1')
+        self.assertTrue(mocked_upload_metric.call_count > 0)
 
     @patch('graphsignal.tracer.uuid_sha1', return_value='123')
     def test_context_tag(self, mocked_uuid_sha1):

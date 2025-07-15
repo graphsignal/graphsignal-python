@@ -307,14 +307,6 @@ class Span:
                 _tracer().metric_store().inc_counter(
                     name=metric.name, tags=span_tags, value=metric.value, update_ts=now)
 
-        # update recorder metrics
-        if _tracer().check_metric_read_interval(now):
-            _tracer().set_metric_read(now)
-            try:
-                _tracer().emit_metric_update()
-            except Exception as exc:
-                logger.error('Error in span read event handlers', exc_info=True)
-
         if self._sampled:
             # fill and upload span
             # copy data to span model
@@ -387,7 +379,7 @@ class Span:
 
         # trigger upload
         if self._is_root:
-            _tracer().tick(now)
+            _tracer().tick()
 
     def measure(self) -> None:
         if not self._is_stopped:

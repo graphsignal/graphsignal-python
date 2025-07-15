@@ -17,7 +17,6 @@ class Uploader:
         self._buffer = []
         self._buffer_lock = threading.Lock()
         self._flush_lock = threading.Lock()
-        self._flush_timer = None
 
     def setup(self):
         pass
@@ -44,17 +43,8 @@ class Uploader:
             if len(self._buffer) > self.MAX_BUFFER_SIZE:
                 self._buffer = self._buffer[-self.MAX_BUFFER_SIZE:]
 
-    def flush_in_thread(self):
-        if self._flush_timer is None:
-            self._flush_timer = threading.Timer(self.FLUSH_DELAY_SEC, self.flush)
-            self._flush_timer.start()
-
     def flush(self):
         with self._flush_lock:
-            if self._flush_timer is not None:
-                self._flush_timer.cancel()
-            self._flush_timer = None
-
             with self._buffer_lock:
                 if len(self._buffer) == 0:
                     return
