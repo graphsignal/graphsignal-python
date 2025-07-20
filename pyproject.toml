@@ -28,11 +28,10 @@ urllib3 = ">=1.25.3,<2.1.0"
 python-dateutil = "*"
 pydantic = ">2"
 typing-extensions = ">4.7.1"
+nvidia-ml-py = ">=12"
 
 [tool.poetry.group.dev.dependencies]
 torch = "*"
-openai = "*"
-tiktoken = "*"
 
 [tool.poetry.scripts]
 update-client = "tools.update_client:main"

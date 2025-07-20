@@ -21,6 +21,10 @@ class VLLMRecorder(BaseRecorder):
         self._library_version = version
         parsed_version = parse_semver(version)
 
+        tracer = graphsignal._tracer
+        tracer.set_tag('inference.engine.name', 'vllm')
+        tracer.set_tag('inference.engine.version', version)
+
         if compare_semver(parsed_version, (0, 8, 0)) >= 0:
             def read_kwarg(store, kwargs, key, new_key=None, default=None):
                 if new_key is None:

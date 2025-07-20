@@ -16,7 +16,9 @@ class PyTorchRecorder(BaseRecorder):
         self._log_dir = None
 
     def setup(self):
-        pass
+        tracer = graphsignal._tracer
+        tracer.set_tag('framework.name', 'pytorch')
+        tracer.set_tag('framework.version', torch.__version__)
 
     def _can_include_profiles(self, span, profiles):
         return (graphsignal._tracer.can_include_profiles(profiles) and 
@@ -53,15 +55,127 @@ class PyTorchRecorder(BaseRecorder):
                 self._torch_prof.stop()
 
     def on_span_read(self, span, context):
-        span.set_param('framework.name', 'pytorch')
-        span.set_param('framework.version', f'{torch.__version__}')
-
         if context.get('profiled', False):
             if self._torch_prof:
                 try:
                     self._convert_to_profile(span)
                 finally:
                     self._torch_prof = None
+
+    def on_metric_update(self):
+        """Record PyTorch GPU memory metrics using torch.cuda.memory_stats"""
+        if not torch.cuda.is_available():
+            return
+
+        now = int(time.time())
+        device_count = torch.cuda.device_count()
+        
+        for device_idx in range(device_count):
+            try:
+                # Get device properties
+                device_props = torch.cuda.get_device_properties(device_idx)
+                device_name = device_props.name
+                
+                # Get memory stats for this device
+                memory_stats = torch.cuda.memory_stats(device_idx)
+                
+                # Set up metric tags
+                store = graphsignal._tracer.metric_store()
+                metric_tags = graphsignal._tracer.tags.copy()
+                metric_tags['device.type'] = 'gpu'
+                metric_tags['device.index'] = device_idx
+                metric_tags['device.name'] = device_name
+                metric_tags['framework.name'] = 'pytorch'
+                metric_tags['framework.version'] = torch.__version__
+                
+                # Record memory metrics
+                if 'allocated_bytes.all.current' in memory_stats:
+                    store.set_gauge(
+                        name='pytorch.memory.allocated', tags=metric_tags,
+                        value=memory_stats['allocated_bytes.all.current'], update_ts=now, is_size=True)
+                
+                if 'reserved_bytes.all.current' in memory_stats:
+                    store.set_gauge(
+                        name='pytorch.memory.reserved', tags=metric_tags,
+                        value=memory_stats['reserved_bytes.all.current'], update_ts=now, is_size=True)
+                
+                if 'allocated_bytes.all.peak' in memory_stats:
+                    store.set_gauge(
+                        name='pytorch.memory.allocated.peak', tags=metric_tags,
+                        value=memory_stats['allocated_bytes.all.peak'], update_ts=now, is_size=True)
+                
+                if 'reserved_bytes.all.peak' in memory_stats:
+                    store.set_gauge(
+                        name='pytorch.memory.reserved.peak', tags=metric_tags,
+                        value=memory_stats['reserved_bytes.all.peak'], update_ts=now, is_size=True)
+                
+                # Record allocation/deallocation counts
+                if 'allocated_bytes.all.count' in memory_stats:
+                    store.set_gauge(
+                        name='pytorch.memory.allocations', tags=metric_tags,
+                        value=memory_stats['allocated_bytes.all.count'], update_ts=now)
+                
+                if 'allocated_bytes.all.freed' in memory_stats:
+                    store.set_gauge(
+                        name='pytorch.memory.deallocations', tags=metric_tags,
+                        value=memory_stats['allocated_bytes.all.freed'], update_ts=now)
+                
+                # Record additional memory management metrics
+                if 'num_alloc_retries' in memory_stats:
+                    store.set_gauge(
+                        name='pytorch.memory.alloc_retries', tags=metric_tags,
+                        value=memory_stats['num_alloc_retries'], update_ts=now)
+                
+                if 'num_ooms' in memory_stats:
+                    store.set_gauge(
+                        name='pytorch.memory.ooms', tags=metric_tags,
+                        value=memory_stats['num_ooms'], update_ts=now)
+                
+                if 'num_sync_all_streams' in memory_stats:
+                    store.set_gauge(
+                        name='pytorch.memory.sync_all_streams', tags=metric_tags,
+                        value=memory_stats['num_sync_all_streams'], update_ts=now)
+                
+                if 'num_device_alloc' in memory_stats:
+                    store.set_gauge(
+                        name='pytorch.memory.device_alloc', tags=metric_tags,
+                        value=memory_stats['num_device_alloc'], update_ts=now)
+                
+                if 'num_device_free' in memory_stats:
+                    store.set_gauge(
+                        name='pytorch.memory.device_free', tags=metric_tags,
+                        value=memory_stats['num_device_free'], update_ts=now)
+                
+                # Record fragmentation metrics
+                if 'allocated_bytes.all.peak' in memory_stats and 'reserved_bytes.all.peak' in memory_stats:
+                    if memory_stats['reserved_bytes.all.peak'] > 0:
+                        fragmentation = (memory_stats['reserved_bytes.all.peak'] - memory_stats['allocated_bytes.all.peak']) / memory_stats['reserved_bytes.all.peak']
+                        store.set_gauge(
+                            name='pytorch.memory.fragmentation', tags=metric_tags,
+                            value=fragmentation * 100, update_ts=now, unit='percent')
+                
+                # Record cache metrics
+                if 'allocated_bytes.all.cached' in memory_stats:
+                    store.set_gauge(
+                        name='pytorch.memory.cached', tags=metric_tags,
+                        value=memory_stats['allocated_bytes.all.cached'], update_ts=now, is_size=True)
+                
+                # Record device memory info
+                device_memory = torch.cuda.get_device_properties(device_idx).total_memory
+                if device_memory > 0:
+                    store.set_gauge(
+                        name='pytorch.memory.total', tags=metric_tags,
+                        value=device_memory, update_ts=now, is_size=True)
+                
+                # Calculate memory utilization percentage
+                if device_memory > 0 and 'reserved_bytes.all.current' in memory_stats:
+                    utilization = (memory_stats['reserved_bytes.all.current'] / device_memory) * 100
+                    store.set_gauge(
+                        name='pytorch.memory.utilization', tags=metric_tags,
+                        value=utilization, update_ts=now, unit='percent')
+                
+            except Exception as e:
+                logger.warning(f'Failed to record PyTorch memory metrics for device {device_idx}: {e}')
 
     def _convert_to_profile(self, span):
         cpu_profile = []

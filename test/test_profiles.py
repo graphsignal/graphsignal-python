@@ -20,7 +20,7 @@ class ProfilesTest(unittest.TestCase):
             tags={'deployment': 'd1', 'k1': 'v1'},
             debug_mode=True)
         graphsignal._tracer.hostname = 'h1'
-        graphsignal._tracer.export_on_shutdown = False
+        graphsignal._tracer.auto_export = False
 
     def tearDown(self):
         graphsignal.shutdown()

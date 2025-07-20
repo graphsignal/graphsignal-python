@@ -17,7 +17,7 @@ class EnvVarsTest(unittest.TestCase):
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._tracer.export_on_shutdown = False
+        graphsignal._tracer.auto_export = False
 
 
     def tearDown(self):

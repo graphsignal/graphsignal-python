@@ -26,7 +26,7 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._tracer.export_on_shutdown = False
+        graphsignal._tracer.auto_export = False
 
     async def asyncTearDown(self):
         graphsignal.shutdown()
@@ -53,6 +53,8 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         model = mocked_upload_span.call_args[0][0]
 
+        self.assertEqual(find_tag(model, 'inference.engine.name'), 'vllm')
+        self.assertEqual(find_tag(model, 'inference.engine.version'), vllm.__version__)
         self.assertEqual(find_tag(model, 'model.name'), 'gpt2')
         self.assertEqual(find_param(model, 'vllm.model.name'), 'gpt2')
 

@@ -161,7 +161,7 @@ class Tracer:
 
         self.last_tick_ts = time.time()
 
-        self.export_on_shutdown = True
+        self.auto_export = True
 
     def setup(self):
         self._uploader = Uploader()
@@ -190,7 +190,8 @@ class Tracer:
         def _tick_loop():
             while not self._tick_stop_event.wait(Tracer.TICK_INTERVAL_SEC):
                 try:
-                    self.tick()
+                    if self.auto_export:
+                        self.tick()
                 except Exception as exc:
                     logger.error('Error in tick timer: %s', exc, exc_info=True)
 
@@ -198,7 +199,7 @@ class Tracer:
         self._tick_timer_thread.start()
 
     def shutdown(self):
-        if self.export_on_shutdown:
+        if self.auto_export:
             self.tick(block=True, force=True)
 
         if self._tick_stop_event:

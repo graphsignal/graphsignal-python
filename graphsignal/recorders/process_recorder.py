@@ -84,21 +84,34 @@ class ProcessRecorder(BaseRecorder):
 
         tracer = graphsignal._tracer
         if platform.system() and platform.release():
-            tracer.set_param('platform.name', platform.system())
-            tracer.set_param('platform.version', platform.release())
+            tracer.set_tag('platform.name', platform.system())
+            tracer.set_tag('platform.version', platform.release())
         if sys.version_info and len(sys.version_info) >= 3:
-            tracer.set_param('runtime.name', 'python')
-            tracer.set_param('runtime.version', f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')
+            tracer.set_tag('runtime.name', 'python')
+            tracer.set_tag('runtime.version', f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')
         if node_usage.hostname:
             tracer.set_tag('host.name', node_usage.hostname)
         if process_usage.pid:
             tracer.set_tag('process.pid', str(process_usage.pid))
+        if node_usage.hostname and process_usage.pid:
+            tracer.set_tag('process.address', f'{node_usage.hostname}:{process_usage.pid}')
         if node_usage.pod_uid:
             tracer.set_tag('pod.uid', node_usage.pod_uid)
         if node_usage.container_id:
             tracer.set_tag('container.id', node_usage.container_id)
-        tracer.set_param('tracer.name', f'graphsignal-python')
-        tracer.set_param('tracer.version', version.__version__)
+
+        for env_var in ["RANK", "NCCL_RANK", "SLURM_PROCID", "OMPI_COMM_WORLD_RANK"]:
+            if env_var in os.environ:
+                tracer.set_tag('process.rank', os.environ[env_var])
+                break
+
+        for env_var in ["LOCAL_RANK", "NCCL_LOCAL_RANK", "SLURM_LOCALID", "OMPI_COMM_WORLD_LOCAL_RANK"]:
+            if env_var in os.environ:
+                tracer.set_tag('process.local_rank', os.environ[env_var])
+                break
+
+        tracer.set_tag('tracer.name', f'graphsignal-python')
+        tracer.set_tag('tracer.version', version.__version__)
 
     def on_metric_update(self):
         now = int(time.time())

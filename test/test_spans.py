@@ -23,7 +23,7 @@ class SpansTest(unittest.TestCase):
             tags={'deployment': 'd1', 'k1': 'v1'},
             debug_mode=True)
         graphsignal._tracer.hostname = 'h1'
-        graphsignal._tracer.export_on_shutdown = False
+        graphsignal._tracer.auto_export = False
 
     def tearDown(self):
         graphsignal.shutdown()
@@ -63,10 +63,10 @@ class SpansTest(unittest.TestCase):
         self.assertEqual(find_tag(span, 'operation.name'), 'op1')
         self.assertIsNotNone(find_tag(span, 'host.name'))
         self.assertIsNotNone(find_tag(span, 'process.pid'))
-        self.assertIsNotNone(find_param(span, 'platform.name'))
-        self.assertIsNotNone(find_param(span, 'platform.version'))
-        self.assertIsNotNone(find_param(span, 'runtime.name'))
-        self.assertIsNotNone(find_param(span, 'runtime.version'))
+        self.assertIsNotNone(find_tag(span, 'platform.name'))
+        self.assertIsNotNone(find_tag(span, 'platform.version'))
+        self.assertIsNotNone(find_tag(span, 'runtime.name'))
+        self.assertIsNotNone(find_tag(span, 'runtime.version'))
         self.assertEqual(find_param(span, 'p1'), 'v1')
         self.assertEqual(find_param(span, 'p2'), 'v22')
         self.assertEqual(find_param(span, 'p3'), 'v3')

@@ -19,7 +19,7 @@ class TracerAsyncTest(unittest.IsolatedAsyncioTestCase):
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._tracer.export_on_shutdown = False
+        graphsignal._tracer.auto_export = False
 
     async def asyncTearDown(self):
         graphsignal.shutdown()
