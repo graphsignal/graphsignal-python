@@ -6,10 +6,10 @@
 
 Graphsignal is an inference observability platform that helps developers accelerate and troubleshoot AI systems. With Graphsignal, developers can:
 
-* Identify and optimize the most significant contributors to latency.
-* Ensure optimal inference performance and model configuration for hosted models.
-* Track errors and monitor APIs, compute, and GPU utilization.
-* Analyze model API costs for deployments, models, sessions, or any custom tags.
+* Trace LLM generations, communication, kernel launches, and more.
+* Identify top contributors to inference latency.
+* Monitor inference performance, CPU/GPU utilization, and errors.
+* Track and get alerts on errors and inefficiencies.
 
 
 [![Dashboards](https://graphsignal.com/external/screenshot-dashboard.png)](https://graphsignal.com/)
