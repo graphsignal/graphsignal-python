@@ -23,7 +23,6 @@ class PytorchRecorderTest(unittest.TestCase):
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
-            profiling_rate=1,
             debug_mode=True)
         graphsignal._tracer.auto_export = False
 
@@ -34,6 +33,10 @@ class PytorchRecorderTest(unittest.TestCase):
     @patch.object(Tracer, 'emit_span_stop')
     @patch.object(Tracer, 'emit_span_read')
     def test_record(self, mock_emit_span_start, mock_emit_span_stop, mock_emit_span_read):
+        # First call will be skipped, second call should succeed
+        graphsignal._tracer.set_profiling_mode('profile.pytorch')
+        graphsignal._tracer.unset_profiling_mode()
+
         recorder = PyTorchRecorder()
         recorder.setup()
 

@@ -11,6 +11,7 @@ import pprint
 
 import graphsignal
 from graphsignal.recorders.instrumentation import patch_method, trace_method, profile_method, read_args, parse_semver, compare_semver
+from graphsignal.spans import Span
 from graphsignal.uploader import Uploader
 from test.model_utils import find_tag, find_counter
 
@@ -98,8 +99,9 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(measured_duration_ns > 0)
 
 
+    @patch.object(Span, '_should_record', return_value=True)
     @patch.object(Uploader, 'upload_span')
-    async def test_trace_method(self, mocked_upload_span):
+    async def test_trace_method(self, mocked_upload_span, mocked_should_record):
         obj = Dummy()
 
         trace_func_called = False
@@ -116,8 +118,9 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(trace_func_called)
         self.assertEqual(find_tag(model, 'operation.name'), 'op1')
 
+    @patch.object(Span, '_should_record', return_value=True)
     @patch.object(Uploader, 'upload_span')
-    async def test_trace_method_generator(self, mocked_upload_span):
+    async def test_trace_method_generator(self, mocked_upload_span, mocked_should_record):
         obj = Dummy()
 
         trace_func_called = None

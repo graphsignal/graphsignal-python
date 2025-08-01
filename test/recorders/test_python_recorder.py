@@ -23,7 +23,6 @@ class PythonRecorderTest(unittest.TestCase):
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
-            profiling_rate=1,
             debug_mode=True)
         graphsignal._tracer.auto_export = False
 
@@ -34,6 +33,10 @@ class PythonRecorderTest(unittest.TestCase):
     @patch.object(Tracer, 'emit_span_stop')
     @patch.object(Tracer, 'emit_span_read')
     def test_record(self, mocked_emit_span_read, mocked_emit_span_stop, mocked_emit_span_start):
+        # First call will be skipped, second call should succeed
+        graphsignal._tracer.set_profiling_mode('profile.cpython')
+        graphsignal._tracer.unset_profiling_mode()
+
         recorder = PythonRecorder()
         recorder._exclude_path = 'donotmatchpath'
         recorder.setup()

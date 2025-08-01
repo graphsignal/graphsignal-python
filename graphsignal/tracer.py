@@ -22,6 +22,7 @@ from graphsignal.utils import fast_rand, uuid_sha1, sanitize_str
 logger = logging.getLogger('graphsignal')
 
 
+
 class GraphsignalTracerLogHandler(logging.Handler):
     def __init__(self, tracer):
         super().__init__()
@@ -102,6 +103,34 @@ class SupportedModuleFinder(importlib.abc.MetaPathFinder):
 
         return None
 
+class ProfilingTokenBucket:
+    def __init__(self, sampling_rate_per_minute: float):
+        self.capacity = sampling_rate_per_minute   # max tokens (samples) per minute
+        self.tokens = self.capacity               # start full
+        self.refill_rate_per_sec = self.capacity / 60.0  # tokens per second
+        self.last_refill_time = time.monotonic()
+        self._first_request_skipped = False  # Track if first request has been skipped
+    
+    def _refill(self):
+        now = time.monotonic()
+        elapsed = now - self.last_refill_time
+        if elapsed > 0:
+            # Add tokens based on elapsed time
+            new_tokens = elapsed * self.refill_rate_per_sec
+            self.tokens = min(self.capacity, self.tokens + new_tokens)
+            self.last_refill_time = now
+    
+    def should_profile(self) -> bool:
+        # Skip the first profiling request
+        if not self._first_request_skipped:
+            self._first_request_skipped = True
+            return False
+        
+        self._refill()
+        if self.tokens >= 1:
+            self.tokens -= 1
+            return True
+        return False
 
 class Tracer:
     TICK_INTERVAL_SEC = 10
@@ -114,8 +143,7 @@ class Tracer:
             api_url=None, 
             tags=None, 
             auto_instrument=True, 
-            sampling_rate=1.0,
-            profiling_rate=0.1,
+            profiles_per_min=10,
             include_profiles=None,
             debug_mode=False):
         if debug_mode:
@@ -139,10 +167,11 @@ class Tracer:
         self.params = {}
 
         self.auto_instrument = auto_instrument
-        self.sampling_rate = sampling_rate if sampling_rate is not None else 1.0
-        self.profiling_rate = profiling_rate if profiling_rate is not None else 0
+        self.profiles_per_min = profiles_per_min if profiles_per_min is not None else 10
         self.include_profiles = include_profiles
         self.debug_mode = debug_mode
+
+        self._profiling_token_buckets = {}
 
         self._tick_timer_thread = None
         self._tick_stop_event = threading.Event()
@@ -272,8 +301,11 @@ class Tracer:
     def log_store(self):
         return self._log_store
 
-    def set_profiling_mode(self):
-        if fast_rand() > self.profiling_rate:
+    def set_profiling_mode(self, profile_name):
+        if profile_name not in self._profiling_token_buckets:
+            self._profiling_token_buckets[profile_name] = ProfilingTokenBucket(self.profiles_per_min)
+
+        if not self._profiling_token_buckets[profile_name].should_profile():
             return False
 
         with self._profiling_mode_lock:

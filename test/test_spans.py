@@ -28,9 +28,10 @@ class SpansTest(unittest.TestCase):
     def tearDown(self):
         graphsignal.shutdown()
 
+    @patch.object(Span, '_should_record', return_value=True)
     @patch.object(ProcessRecorder, 'on_span_stop')
     @patch.object(Uploader, 'upload_span')
-    def test_start_stop(self, mocked_upload_span, mocked_process_on_span_stop):
+    def test_start_stop(self, mocked_upload_span, mocked_process_on_span_stop, mocked_should_record):
         graphsignal.set_tag('k2', 'v2')
 
         graphsignal.set_context_tag('k3', 'v3')
@@ -93,9 +94,10 @@ class SpansTest(unittest.TestCase):
         key = store.metric_key('c3', metric_tags)
         self.assertEqual(store._metrics[key].counter, 30)
 
+    @patch.object(Span, '_should_record', return_value=True)
     @patch.object(ProcessRecorder, 'on_span_start')
     @patch.object(Uploader, 'upload_span')
-    def test_start_stop_contextvars(self, mocked_upload_span, mocked_process_on_span_start):
+    def test_start_stop_contextvars(self, mocked_upload_span, mocked_process_on_span_start, mocked_should_record):
         with Span(operation='op1') as span1:
             ctx1 = span1.get_span_context()
             SpanContext.push_contextvars(ctx1)
@@ -115,9 +117,10 @@ class SpansTest(unittest.TestCase):
         self.assertEqual(t2.parent_span_id, t1.span_id)
 
 
+    @patch.object(Span, '_should_record', return_value=True)
     @patch.object(ProcessRecorder, 'on_span_start')
     @patch.object(Uploader, 'upload_span')
-    def test_start_exception(self, mocked_upload_span, mocked_process_on_span_start):
+    def test_start_exception(self, mocked_upload_span, mocked_process_on_span_start, mocked_should_record):
         mocked_process_on_span_start.side_effect = Exception('ex1')
 
         store = graphsignal._tracer.log_store()
@@ -133,9 +136,10 @@ class SpansTest(unittest.TestCase):
         self.assertIsNotNone(find_log_entry(store, 'ex1').message)
         self.assertIsNotNone(find_log_entry(store, 'ex1').exception)
 
+    @patch.object(Span, '_should_record', return_value=True)
     @patch.object(ProcessRecorder, 'on_span_stop')
     @patch.object(Uploader, 'upload_span')
-    def test_stop_exception(self, mocked_upload_span, mocked_process_on_span_stop):
+    def test_stop_exception(self, mocked_upload_span, mocked_process_on_span_stop, mocked_should_record):
         mocked_process_on_span_stop.side_effect = Exception('ex1')
 
         store = graphsignal._tracer.log_store()
@@ -152,8 +156,9 @@ class SpansTest(unittest.TestCase):
         self.assertIsNotNone(find_log_entry(store, 'ex1').message)
         self.assertIsNotNone(find_log_entry(store, 'ex1').exception)
 
+    @patch.object(Span, '_should_record', return_value=True)
     @patch.object(Uploader, 'upload_span')
-    def test_operation_exception(self, mocked_upload_span):
+    def test_operation_exception(self, mocked_upload_span, mocked_should_record):
         for _ in range(2):
             try:
                 with Span(operation='op1'):
@@ -178,8 +183,9 @@ class SpansTest(unittest.TestCase):
         key = store.metric_key('operation.error.count', metric_tags)
         self.assertEqual(store._metrics[key].counter, 2)
 
+    @patch.object(Span, '_should_record', return_value=True)
     @patch.object(Uploader, 'upload_span')
-    def test_add_exception(self, mocked_upload_span):
+    def test_add_exception(self, mocked_upload_span, mocked_should_record):
         span = Span(operation='op1')
         try:
             raise Exception('ex2')
@@ -201,8 +207,9 @@ class SpansTest(unittest.TestCase):
         key = store.metric_key('operation.error.count', metric_tags)
         self.assertEqual(store._metrics[key].counter, 1)
 
+    @patch.object(Span, '_should_record', return_value=True)
     @patch.object(Uploader, 'upload_span')
-    def test_add_exception_true(self, mocked_upload_span):
+    def test_add_exception_true(self, mocked_upload_span, mocked_should_record):
         span = Span(operation='op1')
         try:
             raise Exception('ex2')
@@ -224,8 +231,9 @@ class SpansTest(unittest.TestCase):
         key = store.metric_key('operation.error.count', metric_tags)
         self.assertEqual(store._metrics[key].counter, 1)
 
+    @patch.object(Span, '_should_record', return_value=True)
     @patch.object(Uploader, 'upload_span')
-    def test_subspans(self, mocked_upload_span):
+    def test_subspans(self, mocked_upload_span, mocked_should_record):
         with Span(operation='op1') as span1:
             with span1.trace(operation='op2') as span2:
                 with span2.trace(operation='op3'):

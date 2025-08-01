@@ -25,7 +25,7 @@ def configure(
     deployment: Optional[str] = None,
     tags: Optional[Dict[str, str]] = None,
     auto_instrument: Optional[bool] = None,
-    profiling_rate: Optional[float] = None,
+    profiles_per_min: Optional[int] = None,
     include_profiles: Optional[list] = None,
     debug_mode: Optional[bool] = None
 ) -> None:
@@ -39,7 +39,7 @@ def configure(
     api_url = read_config_param("api_url", str, api_url)
     tags = read_config_tags(tags)
     auto_instrument = read_config_param("auto_instrument", bool, auto_instrument, default_value=True)
-    profiling_rate = read_config_param("profiling_rate", float, profiling_rate, default_value=0.1)
+    profiles_per_min = read_config_param("profiles_per_min", int, profiles_per_min)
     include_profiles = read_config_param("include_profiles", list, include_profiles)
     debug_mode = read_config_param("debug_mode", bool, debug_mode, default_value=False)
 
@@ -52,7 +52,7 @@ def configure(
         api_url=api_url,
         tags=tags,
         auto_instrument=auto_instrument,
-        profiling_rate=profiling_rate,
+        profiles_per_min=profiles_per_min,
         include_profiles=include_profiles,
         debug_mode=debug_mode)
     _tracer.setup()

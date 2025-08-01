@@ -20,9 +20,8 @@ class PythonRecorder(BaseRecorder):
                 span.can_include_profiles(profiles))
 
     def on_span_start(self, span, context):
-        if (span.sampled() and 
-            self._can_include_profiles(span, ['profile.cpython']) and 
-            graphsignal._tracer.set_profiling_mode()):
+        if (self._can_include_profiles(span, ['profile.cpython']) and 
+            graphsignal._tracer.set_profiling_mode('profile.cpython')):
 
             context['profiled'] = True
 

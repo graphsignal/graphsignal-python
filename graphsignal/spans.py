@@ -52,14 +52,12 @@ trace_context_var = contextvars.ContextVar('gsig_trace_ctx', default=[])
 class SpanContext:
     __slots__ = [
         'trace_id',
-        'span_id',
-        'sampled'
+        'span_id'
     ]
 
-    def __init__(self, trace_id=None, span_id=None, sampled=None):
+    def __init__(self, trace_id=None, span_id=None):
         self.trace_id = trace_id
         self.span_id = span_id
-        self.sampled = sampled
 
     @staticmethod
     def push_contextvars(ctx):
@@ -80,26 +78,24 @@ class SpanContext:
                 logger.debug(f'SpanContext.loads: invalid context value: {value}')
             return None
         parts = value.split('-')
-        if len(parts) < 3:
+        if len(parts) < 2:
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f'SpanContext.loads: invalid context value: {value}')
             return None
         ctx = SpanContext()
         ctx.trace_id = parts[0]
         ctx.span_id = parts[1]
-        ctx.sampled = parts[2] == '1'
         return ctx
 
     @staticmethod
     def dumps(ctx):
-        if ctx is None or ctx.trace_id is None or ctx.span_id is None or ctx.sampled is None:
+        if ctx is None or ctx.trace_id is None or ctx.span_id is None:
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug('SpanContext.dumps: invalid context')
             return None
-        return '{0}-{1}-{2}'.format(
+        return '{0}-{1}'.format(
             ctx.trace_id, 
-            ctx.span_id, 
-            '1' if ctx.sampled else '0')
+            ctx.span_id)
 
 class Span:
     MAX_SPAN_TAGS = 25
@@ -120,7 +116,6 @@ class Span:
         '_parent_span_id',
         '_linked_span_ids',
         '_is_root',
-        '_sampled',
         '_recorder_context',
         '_model',
         '_is_started',
@@ -161,11 +156,9 @@ class Span:
         self._span_id = None
         self._trace_id = None
         self._parent_span_id = None
-        self._sampled = None
         if parent_context:
             self._trace_id = parent_context.trace_id
             self._parent_span_id = parent_context.span_id
-            self._sampled = parent_context.sampled
         self._linked_span_ids = None
         self._is_root = False
         self._start_us = None
@@ -209,6 +202,9 @@ class Span:
         self.stop()
         return False
 
+    def _should_record(self) -> bool:
+        return self._profiles is not None and len(self._profiles) > 0
+
     def _start(self):
         if self._is_started:
             return
@@ -222,9 +218,7 @@ class Span:
         if self._trace_id is None:
             self._trace_id = uuid_sha1(size=12)
             self._is_root = True
-        if self._sampled is None:
-            self._sampled = fast_rand() <= graphsignal._tracer.sampling_rate
-
+        
         self._context_tags = _tracer().context_tags.get().copy()
 
         self._model = client.Span(
@@ -307,7 +301,16 @@ class Span:
                 _tracer().metric_store().inc_counter(
                     name=metric.name, tags=span_tags, value=metric.value, update_ts=now)
 
-        if self._sampled:
+        # report issues
+        if self._exc_infos:
+            for exc_info in self._exc_infos:
+                _tracer().report_issue(
+                    name='operation.error',
+                    severity=1,
+                    description=f'{exc_info[0].__name__}: {exc_info[1]}',
+                    span=self)
+
+        if self._should_record():
             # fill and upload span
             # copy data to span model
             self._model.start_us = self._start_us
@@ -404,8 +407,7 @@ class Span:
     def get_span_context(self):
         return SpanContext(
             trace_id=self._trace_id,
-            span_id=self._span_id,
-            sampled=self._sampled)
+            span_id=self._span_id)
 
     def add_linked_span(self, span_id: str) -> None:
         if not span_id:
@@ -416,9 +418,6 @@ class Span:
             self._linked_span_ids = []
 
         self._linked_span_ids.append(span_id)
-
-    def sampled(self) -> bool:
-        return self._sampled
 
     def can_include_profiles(self, profiles) -> bool:
         if self._include_profiles_index is None:
