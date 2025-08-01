@@ -271,3 +271,21 @@ class TracerTest(unittest.TestCase):
         self.assertEqual(issue.severity, 3)
         self.assertEqual(issue.description, 'c1')
         self.assertTrue(issue.create_ts > 0)
+
+    @patch.object(Uploader, 'upload_issue')
+    def test_report_issue_rate_limiting(self, mocked_upload_issue):
+        tracer = graphsignal._tracer
+        
+        tracer._issue_counter = 0
+        tracer._issue_counter_reset_time = time.time()
+        
+        for i in range(tracer.MAX_ISSUES_PER_MINUTE):
+            tracer.report_issue(name=f'issue_{i}')
+        
+        self.assertEqual(mocked_upload_issue.call_count, tracer.MAX_ISSUES_PER_MINUTE)
+        
+        tracer.report_issue(name='rate_limited_issue')
+        
+        self.assertEqual(mocked_upload_issue.call_count, tracer.MAX_ISSUES_PER_MINUTE)
+        
+        self.assertEqual(tracer._issue_counter, tracer.MAX_ISSUES_PER_MINUTE)

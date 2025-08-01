@@ -126,7 +126,10 @@ class ProfilingTokenBucket:
             self._first_request_skipped = True
             return False
         
-        self._refill()
+        # Only refill if we don't have enough tokens
+        if self.tokens < 1:
+            self._refill()
+        
         if self.tokens >= 1:
             self.tokens -= 1
             return True
@@ -136,6 +139,7 @@ class Tracer:
     TICK_INTERVAL_SEC = 10
     MAX_PROCESS_TAGS = 25
     PROFILING_MODE_TIMEOUT_SEC = 60
+    MAX_ISSUES_PER_MINUTE = 25
 
     def __init__(
             self, 
@@ -172,6 +176,9 @@ class Tracer:
         self.debug_mode = debug_mode
 
         self._profiling_token_buckets = {}
+
+        self._issue_counter = 0
+        self._issue_counter_reset_time = time.time()
 
         self._tick_timer_thread = None
         self._tick_stop_event = threading.Event()
@@ -498,6 +505,17 @@ class Tracer:
         if not name:
             logger.error('issue: issue is required')
             return
+
+        current_time = time.time()
+        if current_time - self._issue_counter_reset_time >= 60:
+            self._issue_counter = 0
+            self._issue_counter_reset_time = current_time
+        
+        if self._issue_counter >= self.MAX_ISSUES_PER_MINUTE:
+            logger.warning('Rate limit exceeded: maximum %d issues per minute', self.MAX_ISSUES_PER_MINUTE)
+            return
+        
+        self._issue_counter += 1
 
         model = client.Issue(
             issue_id=uuid_sha1(size=12),
