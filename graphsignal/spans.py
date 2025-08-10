@@ -52,12 +52,14 @@ trace_context_var = contextvars.ContextVar('gsig_trace_ctx', default=[])
 class SpanContext:
     __slots__ = [
         'trace_id',
-        'span_id'
+        'span_id',
+        'sampled'
     ]
 
-    def __init__(self, trace_id=None, span_id=None):
+    def __init__(self, trace_id=None, span_id=None, sampled=False):
         self.trace_id = trace_id
         self.span_id = span_id
+        self.sampled = sampled
 
     @staticmethod
     def push_contextvars(ctx):
@@ -85,17 +87,19 @@ class SpanContext:
         ctx = SpanContext()
         ctx.trace_id = parts[0]
         ctx.span_id = parts[1]
+        ctx.sampled = parts[2] == '1'
         return ctx
 
     @staticmethod
     def dumps(ctx):
-        if ctx is None or ctx.trace_id is None or ctx.span_id is None:
+        if ctx is None or ctx.trace_id is None or ctx.span_id is None or ctx.sampled is None:
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug('SpanContext.dumps: invalid context')
             return None
-        return '{0}-{1}'.format(
+        return '{0}-{1}-{2}'.format(
             ctx.trace_id, 
-            ctx.span_id)
+            ctx.span_id,
+            '1' if ctx.sampled else '0')
 
 class Span:
     MAX_SPAN_TAGS = 25
@@ -116,6 +120,7 @@ class Span:
         '_parent_span_id',
         '_linked_span_ids',
         '_is_root',
+        '_sampled',
         '_recorder_context',
         '_model',
         '_is_started',
@@ -156,9 +161,11 @@ class Span:
         self._span_id = None
         self._trace_id = None
         self._parent_span_id = None
+        self._sampled = False
         if parent_context:
             self._trace_id = parent_context.trace_id
             self._parent_span_id = parent_context.span_id
+            self._sampled = parent_context.sampled
         self._linked_span_ids = None
         self._is_root = False
         self._start_us = None
@@ -301,16 +308,16 @@ class Span:
                 _tracer().metric_store().inc_counter(
                     name=metric.name, tags=span_tags, value=metric.value, update_ts=now)
 
-        # report issues
+        # report errors
         if self._exc_infos:
             for exc_info in self._exc_infos:
-                _tracer().report_issue(
+                _tracer().report_error(
                     name='operation.error',
-                    severity=1,
-                    description=f'{exc_info[0].__name__}: {exc_info[1]}',
-                    span=self)
+                    tags=span_tags,
+                    level='error',
+                    exc_info=exc_info)
 
-        if self._should_record():
+        if self._sampled:
             # fill and upload span
             # copy data to span model
             self._model.start_us = self._start_us
@@ -326,30 +333,6 @@ class Span:
                     key=sanitize_str(key, max_len=50),
                     value=sanitize_str(value, max_len=250)
                 ))
-
-            # copy exception
-            if self._exc_infos:
-                for exc_info in self._exc_infos:
-                    exc_type = None
-                    message = None
-                    stack_trace = None
-                    if exc_info[0] and hasattr(exc_info[0], '__name__'):
-                        exc_type = str(exc_info[0].__name__)
-                    if exc_info[1]:
-                        message = str(exc_info[1])
-                    if exc_info[2]:
-                        frames = traceback.format_tb(exc_info[2])
-                        if len(frames) > 0:
-                            stack_trace = ''.join(frames)
-
-                    if exc_type and message:
-                        exception_model = client.Exception(
-                            exc_type=exc_type,
-                            message=message,
-                        )
-                        if stack_trace:
-                            exception_model.stack_trace = stack_trace
-                        self._model.exceptions.append(exception_model)
 
             # copy params
             if self._params is not None:
@@ -407,7 +390,8 @@ class Span:
     def get_span_context(self):
         return SpanContext(
             trace_id=self._trace_id,
-            span_id=self._span_id)
+            span_id=self._span_id,
+            sampled=self._sampled)
 
     def add_linked_span(self, span_id: str) -> None:
         if not span_id:
@@ -418,6 +402,12 @@ class Span:
             self._linked_span_ids = []
 
         self._linked_span_ids.append(span_id)
+
+    def set_sampled(self, sampled: bool) -> None:
+        self._sampled = sampled
+
+    def is_sampled(self) -> bool:
+        return self._sampled
 
     def can_include_profiles(self, profiles) -> bool:
         if self._include_profiles_index is None:
@@ -566,7 +556,7 @@ class Span:
         if not name:
             logger.error('inc_counter_metric: name is required')
             return
-        if value is None and not isinstance(value, (str, float)):
+        if not value or not isinstance(value, (int, float)):
             logger.error('inc_counter_metric: value is required')
             return
         

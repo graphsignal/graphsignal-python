@@ -28,6 +28,7 @@ class PyTorchRecorder(BaseRecorder):
         if (self._can_include_profiles(span, ['profile.pytorch']) and 
             graphsignal._tracer.set_profiling_mode('profile.pytorch')):
             context['profiled'] = True
+            span.set_sampled(True)
 
             if self._torch_prof:
                 # In case of previous profiling not stopped
@@ -218,18 +219,16 @@ class PyTorchRecorder(BaseRecorder):
                         count = 1,
                         duration_ns = _ns(kernel.duration)
                     )
-            
-        device_profile = list(kernel_index.values())
-        if len(device_profile) > 0:
-            span.set_profile(
-                name='profile.pytorch.kernel', 
-                format='event-averages', 
-                content=json.dumps(device_profile))
 
-        if len(cpu_profile) > 0 or len(device_profile) > 0:
-            chrome_trace = self._export_chrome_trace()
-            if chrome_trace:
-                span.set_profile('profile.pytorch.trace', 'chrome-trace', chrome_trace)
+        device_profile = list(kernel_index.values())
+        span.set_profile(
+            name='profile.pytorch.kernel', 
+            format='event-averages', 
+            content=json.dumps(device_profile))
+
+        chrome_trace = self._export_chrome_trace()
+        if chrome_trace:
+            span.set_profile('profile.pytorch.trace', 'chrome-trace', chrome_trace)
 
     def _export_chrome_trace(self):
         try:

@@ -99,13 +99,13 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(measured_duration_ns > 0)
 
 
-    @patch.object(Span, '_should_record', return_value=True)
     @patch.object(Uploader, 'upload_span')
-    async def test_trace_method(self, mocked_upload_span, mocked_should_record):
+    async def test_trace_method(self, mocked_upload_span):
         obj = Dummy()
 
         trace_func_called = False
         def trace_func(span, args, kwargs, ret, exc):
+            span.set_sampled(True)
             nonlocal trace_func_called
             trace_func_called = True
 
@@ -118,13 +118,13 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(trace_func_called)
         self.assertEqual(find_tag(model, 'operation.name'), 'op1')
 
-    @patch.object(Span, '_should_record', return_value=True)
     @patch.object(Uploader, 'upload_span')
-    async def test_trace_method_generator(self, mocked_upload_span, mocked_should_record):
+    async def test_trace_method_generator(self, mocked_upload_span):
         obj = Dummy()
 
         trace_func_called = None
         def trace_func(span, args, kwargs, ret, exc):
+            span.set_sampled(True)
             nonlocal trace_func_called
             trace_func_called = True
 

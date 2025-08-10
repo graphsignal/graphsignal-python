@@ -3,6 +3,7 @@ import logging
 import sys
 import os
 import time
+import traceback
 import importlib
 import socket
 import contextvars
@@ -139,7 +140,8 @@ class Tracer:
     TICK_INTERVAL_SEC = 10
     MAX_PROCESS_TAGS = 25
     PROFILING_MODE_TIMEOUT_SEC = 60
-    MAX_ISSUES_PER_MINUTE = 25
+    MAX_ERRORS_PER_MINUTE = 25
+    VALID_ERROR_LEVELS = {'debug', 'info', 'warning', 'error', 'critical'}
 
     def __init__(
             self, 
@@ -177,8 +179,8 @@ class Tracer:
 
         self._profiling_token_buckets = {}
 
-        self._issue_counter = 0
-        self._issue_counter_reset_time = time.time()
+        self._error_counter = 0
+        self._error_counter_reset_time = time.time()
 
         self._tick_timer_thread = None
         self._tick_stop_event = threading.Event()
@@ -489,62 +491,73 @@ class Tracer:
                     return func(*args, **kwargs)
             return tf_wrapper
 
-    def report_issue(
+    def report_error(
             self,
             name: str, 
             tags: Optional[Dict[str, str]] = None,
-            severity: Optional[int] = None,
-            description: Optional[str] = None,
-            span: Optional[Span] = None) -> None:
+            level: Optional[str] = None,
+            message: Optional[str] = None,
+            exc_info: Optional[tuple] = None) -> None:
         now = int(time.time())
 
         if not name:
-            logger.error('issue: name is required')
+            logger.error('error: name is required')
             return
 
-        if not name:
-            logger.error('issue: issue is required')
+        if level and level not in self.VALID_ERROR_LEVELS:
+            logger.error('error: invalid level "%s", must be one of: %s', level, ', '.join(sorted(self.VALID_ERROR_LEVELS)))
             return
 
         current_time = time.time()
-        if current_time - self._issue_counter_reset_time >= 60:
-            self._issue_counter = 0
-            self._issue_counter_reset_time = current_time
+        if current_time - self._error_counter_reset_time >= 60:
+            self._error_counter = 0
+            self._error_counter_reset_time = current_time
         
-        if self._issue_counter >= self.MAX_ISSUES_PER_MINUTE:
-            logger.warning('Rate limit exceeded: maximum %d issues per minute', self.MAX_ISSUES_PER_MINUTE)
+        if self._error_counter >= self.MAX_ERRORS_PER_MINUTE:
+            logger.warning('Rate limit exceeded: maximum %d errors per minute', self.MAX_ERRORS_PER_MINUTE)
             return
         
-        self._issue_counter += 1
+        self._error_counter += 1
 
-        model = client.Issue(
-            issue_id=uuid_sha1(size=12),
+        model = client.Error(
+            error_id=uuid_sha1(size=12),
             tags=[],
             name=name,
             create_ts=now)
 
-        issue_tags = {}
+        error_tags = {}
         if self.tags is not None:
-            issue_tags.update(self.tags)
+            error_tags.update(self.tags)
         if self.context_tags:
-            issue_tags.update(self.context_tags.get().copy())
-        if span:
-            model.span_id = span.span_id
-            issue_tags.update(span.get_tags())
+            error_tags.update(self.context_tags.get().copy())
         if tags is not None:
-            issue_tags.update(tags)
-        for tag_key, tag_value in issue_tags.items():
+            error_tags.update(tags)
+        for tag_key, tag_value in error_tags.items():
             model.tags.append(client.Tag(
                 key=sanitize_str(tag_key, max_len=50),
                 value=sanitize_str(tag_value, max_len=250)))
 
-        if severity and severity >= 1 and severity <= 5:
-            model.severity = severity
+        if level:
+            model.level = level
 
-        if description:
-            model.description = description
+        # Set message from exc_info if provided and no message given
+        if exc_info and not message:
+            if exc_info[0] and hasattr(exc_info[0], '__name__'):
+                message = str(exc_info[0].__name__)
+                message += ': '
+            if exc_info[1]:
+                message += str(exc_info[1])
 
-        self.uploader().upload_issue(model)
+        if message:
+            model.message = message
+
+        # Extract stack trace from exc_info if provided
+        if exc_info:
+            frames = traceback.format_tb(exc_info[2])
+            if len(frames) > 0:
+                model.stack_trace = ''.join(frames)
+
+        self.uploader().upload_error(model)
         self.tick()
 
     def tick(self, block=False, force=False):

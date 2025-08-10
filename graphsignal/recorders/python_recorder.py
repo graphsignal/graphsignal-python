@@ -24,6 +24,7 @@ class PythonRecorder(BaseRecorder):
             graphsignal._tracer.set_profiling_mode('profile.cpython')):
 
             context['profiled'] = True
+            span.set_sampled(True)
 
             if self._profiler:
                 # In case of previous profiling not stopped
@@ -71,11 +72,10 @@ class PythonRecorder(BaseRecorder):
                 self_wall_time_ns = _ns(tt),
             ))
 
-        if len(wt_profile) > 0:
-            span.set_profile(
-                name='profile.cpython',
-                format='event-averages', 
-                content=json.dumps(wt_profile))
+        span.set_profile(
+            name='profile.cpython',
+            format='event-averages', 
+            content=json.dumps(wt_profile))
 
 
     def _has_exclude_func(self, stats, func_key, visited):

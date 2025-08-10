@@ -248,44 +248,62 @@ class TracerTest(unittest.TestCase):
         self.assertIsInstance(result, bool)
 
     @patch.object(Uploader, 'upload_span')
-    @patch.object(Uploader, 'upload_issue')
-    def test_report_issue(self, mocked_upload_issue, mocked_upload_span):
+    @patch.object(Uploader, 'upload_error')
+    def test_report_error(self, mocked_upload_error, mocked_upload_span):
         graphsignal.set_tag('k2', 'v2')
         graphsignal.set_context_tag('k3', 'v3')
 
         span = Span(operation='op1')
         span.set_tag('k5', 'v5')
-        graphsignal.report_issue(name='issue1', severity=3, description='c1', span=span)
+        graphsignal.report_error(name='error1', level='warning', message='c1', tags=span.get_tags())
 
-        issue = mocked_upload_issue.call_args[0][0]
+        error = mocked_upload_error.call_args[0][0]
 
-        self.assertTrue(issue.issue_id is not None and issue.issue_id != '')
-        self.assertEqual(issue.span_id, span.span_id)
-        self.assertEqual(issue.name, 'issue1')
-        self.assertEqual(find_tag(issue, 'operation.name'), 'op1')
-        self.assertIsNotNone(find_tag(issue, 'host.name'))
-        self.assertIsNotNone(find_tag(issue, 'process.pid'))
-        self.assertEqual(find_tag(issue, 'k2'), 'v2')
-        self.assertEqual(find_tag(issue, 'k3'), 'v3')
-        self.assertEqual(find_tag(issue, 'k5'), 'v5')
-        self.assertEqual(issue.severity, 3)
-        self.assertEqual(issue.description, 'c1')
-        self.assertTrue(issue.create_ts > 0)
+        self.assertTrue(error.error_id is not None and error.error_id != '')
+        self.assertEqual(error.name, 'error1')
+        self.assertEqual(find_tag(error, 'operation.name'), 'op1')
+        self.assertIsNotNone(find_tag(error, 'host.name'))
+        self.assertIsNotNone(find_tag(error, 'process.pid'))
+        self.assertEqual(find_tag(error, 'k2'), 'v2')
+        self.assertEqual(find_tag(error, 'k3'), 'v3')
+        self.assertEqual(find_tag(error, 'k5'), 'v5')
+        self.assertEqual(error.level, 'warning')
+        self.assertEqual(error.message, 'c1')
+        self.assertTrue(error.create_ts > 0)
 
-    @patch.object(Uploader, 'upload_issue')
-    def test_report_issue_rate_limiting(self, mocked_upload_issue):
+    @patch.object(Uploader, 'upload_error')
+    def test_report_error_rate_limiting(self, mocked_upload_error):
         tracer = graphsignal._tracer
         
-        tracer._issue_counter = 0
-        tracer._issue_counter_reset_time = time.time()
+        tracer._error_counter = 0
+        tracer._error_counter_reset_time = time.time()
         
-        for i in range(tracer.MAX_ISSUES_PER_MINUTE):
-            tracer.report_issue(name=f'issue_{i}')
+        for i in range(tracer.MAX_ERRORS_PER_MINUTE):
+            tracer.report_error(name=f'error_{i}')
         
-        self.assertEqual(mocked_upload_issue.call_count, tracer.MAX_ISSUES_PER_MINUTE)
+        self.assertEqual(mocked_upload_error.call_count, tracer.MAX_ERRORS_PER_MINUTE)
         
-        tracer.report_issue(name='rate_limited_issue')
+        tracer.report_error(name='rate_limited_error')
         
-        self.assertEqual(mocked_upload_issue.call_count, tracer.MAX_ISSUES_PER_MINUTE)
+        self.assertEqual(mocked_upload_error.call_count, tracer.MAX_ERRORS_PER_MINUTE)
         
-        self.assertEqual(tracer._issue_counter, tracer.MAX_ISSUES_PER_MINUTE)
+        self.assertEqual(tracer._error_counter, tracer.MAX_ERRORS_PER_MINUTE)
+
+    @patch.object(Uploader, 'upload_error')
+    def test_report_error_invalid_level(self, mocked_upload_error):
+        tracer = graphsignal._tracer
+        
+        # Test with invalid level
+        tracer.report_error(name='test_error', level='invalid_level')
+        
+        # Should not upload error due to invalid level
+        self.assertEqual(mocked_upload_error.call_count, 0)
+        
+        # Test with valid level
+        tracer.report_error(name='test_error', level='warning')
+        
+        # Should upload error with valid level
+        self.assertEqual(mocked_upload_error.call_count, 1)
+        error = mocked_upload_error.call_args[0][0]
+        self.assertEqual(error.level, 'warning')
+        

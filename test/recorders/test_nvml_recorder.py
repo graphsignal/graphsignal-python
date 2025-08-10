@@ -173,8 +173,8 @@ class NVMLRecorderTest(unittest.TestCase):
         if key in store._metrics:
             self.assertTrue(store._metrics[key].gauge >= 0)
 
-    @patch.object(Uploader, 'upload_issue')
-    def test_record_xid_errors_mocked(self, mocked_upload_issue):
+    @patch.object(Uploader, 'upload_error')
+    def test_record_xid_errors_mocked(self, mocked_upload_error):
         if not has_nvidia_gpu():
             self.skipTest("No NVIDIA GPU available")
             return
@@ -195,7 +195,7 @@ class NVMLRecorderTest(unittest.TestCase):
         if key in store._metrics:
             self.assertEqual(store._metrics[key].counter, 3)
 
-        issue = mocked_upload_issue.call_args[0][0]
+        error = mocked_upload_error.call_args[0][0]
 
-        self.assertEqual(issue.name, 'gpu.errors.xid')
-        self.assertEqual(issue.description, 'XID error 3')
+        self.assertEqual(error.name, 'gpu.errors.xid')
+        self.assertEqual(error.message, 'XID error 3')

@@ -125,19 +125,19 @@ def trace_function(
     return _tracer.trace_function(func, operation=operation, tags=tags, include_profiles=include_profiles)
 
 
-def report_issue(
+def report_error(
         name: str, 
         tags: Optional[Dict[str, str]] = None,
-        severity: Optional[int] = None,
-        description: Optional[str] = None,
-        span: Optional[Span] = None) -> None:
+        level: Optional[str] = None,
+        message: Optional[str] = None,
+        exc_info: Optional[tuple] = None) -> None:
     _check_configured()
-    return _tracer.report_issue(
+    return _tracer.report_error(
         name=name, 
         tags=tags,
-        severity=severity, 
-        description=description,
-        span=span)
+        level=level, 
+        message=message,
+        exc_info=exc_info)
 
 
 def tick(block=False, force=False) -> None:
@@ -167,7 +167,7 @@ __all__ = [
     'trace_function',
     'SpanContext',
     'Span',
-    'report_issue',
+    'report_error',
     'set_tag',
     'get_tag',
     'set_context_tag',
