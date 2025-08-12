@@ -3,8 +3,8 @@ import vllm
 
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
-from graphsignal.recorders.instrumentation import trace_method, profile_method, patch_method, parse_semver, compare_semver
-from graphsignal.profiles import EventAverages
+from graphsignal.recorders.instrumentation import trace_method, patch_method, parse_semver, compare_semver
+from graphsignal.recorders.prometheus_adapter import PrometheusAdapter
 
 logger = logging.getLogger('graphsignal')
 
@@ -12,6 +12,7 @@ class VLLMRecorder(BaseRecorder):
     def __init__(self):
         self._active_profile = None
         self._profiling = False
+        self._otel_processor = None
 
     def setup(self):
         if not graphsignal._tracer.auto_instrument:
@@ -82,6 +83,16 @@ class VLLMRecorder(BaseRecorder):
         else:
             logger.debug('VLLM tracing is only supported for >= 0.8.0.')
             return
+        
+        self._prometheus_adapter = PrometheusAdapter()
+        self._prometheus_adapter.setup(dict(
+           # map here 
+        ))
+
+    def on_metric_update(self):
+        if self._prometheus_adapter:
+            self._prometheus_adapter.collect()
 
     def shutdown(self):
-        pass
+        if self._otel_processor:
+            self._otel_processor.shutdown()

@@ -104,7 +104,7 @@ class SupportedModuleFinder(importlib.abc.MetaPathFinder):
 
         return None
 
-class ProfilingTokenBucket:
+class SamplingTokenBucket:
     def __init__(self, sampling_rate_per_minute: float):
         self.capacity = sampling_rate_per_minute   # max tokens (samples) per minute
         self.tokens = self.capacity               # start full
@@ -121,8 +121,8 @@ class ProfilingTokenBucket:
             self.tokens = min(self.capacity, self.tokens + new_tokens)
             self.last_refill_time = now
     
-    def should_profile(self) -> bool:
-        # Skip the first profiling request
+    def should_sample(self) -> bool:
+        # Skip the first request
         if not self._first_request_skipped:
             self._first_request_skipped = True
             return False
@@ -149,7 +149,7 @@ class Tracer:
             api_url=None, 
             tags=None, 
             auto_instrument=True, 
-            profiles_per_min=10,
+            samples_per_min=10,
             include_profiles=None,
             debug_mode=False):
         if debug_mode:
@@ -173,11 +173,11 @@ class Tracer:
         self.params = {}
 
         self.auto_instrument = auto_instrument
-        self.profiles_per_min = profiles_per_min if profiles_per_min is not None else 10
+        self.samples_per_min = samples_per_min if samples_per_min is not None else 10
         self.include_profiles = include_profiles
         self.debug_mode = debug_mode
 
-        self._profiling_token_buckets = {}
+        self._sampling_token_buckets = {}
 
         self._error_counter = 0
         self._error_counter_reset_time = time.time()
@@ -310,11 +310,13 @@ class Tracer:
     def log_store(self):
         return self._log_store
 
-    def set_profiling_mode(self, profile_name):
-        if profile_name not in self._profiling_token_buckets:
-            self._profiling_token_buckets[profile_name] = ProfilingTokenBucket(self.profiles_per_min)
+    def should_sample(self, sampler_key):
+        if sampler_key not in self._sampling_token_buckets:
+            self._sampling_token_buckets[sampler_key] = SamplingTokenBucket(self.samples_per_min)
+        return self._sampling_token_buckets[sampler_key].should_sample()
 
-        if not self._profiling_token_buckets[profile_name].should_profile():
+    def set_profiling_mode(self, profile_name):
+        if not self.should_sample(profile_name):
             return False
 
         with self._profiling_mode_lock:
@@ -556,6 +558,9 @@ class Tracer:
             frames = traceback.format_tb(exc_info[2])
             if len(frames) > 0:
                 model.stack_trace = ''.join(frames)
+
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug('Uploading error: %s', model)
 
         self.uploader().upload_error(model)
         self.tick()

@@ -218,7 +218,7 @@ class Span:
         if self._is_stopped:
             return
 
-        if _tracer().debug_mode:
+        if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f'Starting span {self._operation}')
 
         self._span_id = uuid_sha1(size=12)
@@ -262,7 +262,7 @@ class Span:
             return
         self._is_stopped = True
 
-        if _tracer().debug_mode:
+        if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f'Stopping span {self._operation}')
 
         if self._stop_counter is None:

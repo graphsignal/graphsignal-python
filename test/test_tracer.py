@@ -7,95 +7,95 @@ import pprint
 import graphsignal
 from graphsignal.uploader import Uploader
 from graphsignal.spans import Span
-from graphsignal.tracer import ProfilingTokenBucket
+from graphsignal.tracer import SamplingTokenBucket
 from test.model_utils import find_tag
 
 logger = logging.getLogger('graphsignal')
 
-class ProfilingTokenBucketTest(unittest.TestCase):
+class SamplingTokenBucketTest(unittest.TestCase):
     def setUp(self):
         pass
 
     def test_initialization(self):
-        bucket = ProfilingTokenBucket(60)
+        bucket = SamplingTokenBucket(60)
         self.assertEqual(bucket.capacity, 60)
         self.assertEqual(bucket.tokens, 60)
         self.assertEqual(bucket.refill_rate_per_sec, 1.0)
 
-    def test_should_profile_initial_call(self):
-        bucket = ProfilingTokenBucket(10)
+    def test_should_sample_initial_call(self):
+        bucket = SamplingTokenBucket(10)
         # First call should be skipped
-        self.assertFalse(bucket.should_profile())
+        self.assertFalse(bucket.should_sample())
         # Second call should be allowed
-        self.assertTrue(bucket.should_profile())
+        self.assertTrue(bucket.should_sample())
 
-    def test_should_profile_consumes_tokens(self):
-        bucket = ProfilingTokenBucket(10)
+    def test_should_sample_consumes_tokens(self):
+        bucket = SamplingTokenBucket(10)
         # First call should be skipped and not consume tokens
-        self.assertFalse(bucket.should_profile())
+        self.assertFalse(bucket.should_sample())
         self.assertEqual(bucket.tokens, 10)  # No tokens consumed
         
         # Second call should be allowed and consume tokens
-        self.assertTrue(bucket.should_profile())
+        self.assertTrue(bucket.should_sample())
         self.assertAlmostEqual(bucket.tokens, 9, delta=0.001)
         
         # Third call should also consume tokens
-        self.assertTrue(bucket.should_profile())
+        self.assertTrue(bucket.should_sample())
         self.assertAlmostEqual(bucket.tokens, 8, delta=0.001)
 
-    def test_should_profile_rate_limiting(self):
-        bucket = ProfilingTokenBucket(1)
+    def test_should_sample_rate_limiting(self):
+        bucket = SamplingTokenBucket(1)
         # First call should be skipped
-        self.assertFalse(bucket.should_profile())
+        self.assertFalse(bucket.should_sample())
         self.assertEqual(bucket.tokens, 1)  # No tokens consumed
         
         # Second call should consume the only token
-        self.assertTrue(bucket.should_profile())
+        self.assertTrue(bucket.should_sample())
         self.assertLess(bucket.tokens, 0.1)
         
         # Third call should be rate limited
-        self.assertFalse(bucket.should_profile())
+        self.assertFalse(bucket.should_sample())
         self.assertLess(bucket.tokens, 0.1)
 
     def test_token_refill(self):
-        bucket = ProfilingTokenBucket(60)
+        bucket = SamplingTokenBucket(60)
         # Skip first request
-        bucket.should_profile()  # This returns False, no tokens consumed
+        bucket.should_sample()  # This returns False, no tokens consumed
         
         # Consume all tokens (60 calls, but first was skipped)
         for _ in range(60):
-            bucket.should_profile()
+            bucket.should_sample()
         self.assertLess(bucket.tokens, 0.1)
         
         bucket.last_refill_time = time.monotonic() - 1.1
-        self.assertTrue(bucket.should_profile())
+        self.assertTrue(bucket.should_sample())
         self.assertGreater(bucket.tokens, 0)
 
     def test_token_bucket_capacity_limit(self):
-        bucket = ProfilingTokenBucket(10)
+        bucket = SamplingTokenBucket(10)
         bucket.last_refill_time = time.monotonic() - 2.0
         self.assertEqual(bucket.tokens, 10)
 
     def test_different_rates(self):
-        bucket30 = ProfilingTokenBucket(30)
+        bucket30 = SamplingTokenBucket(30)
         self.assertEqual(bucket30.refill_rate_per_sec, 0.5)
         
-        bucket120 = ProfilingTokenBucket(120)
+        bucket120 = SamplingTokenBucket(120)
         self.assertEqual(bucket120.refill_rate_per_sec, 2.0)
 
     def test_first_request_skipped(self):
-        bucket = ProfilingTokenBucket(10)
+        bucket = SamplingTokenBucket(10)
         
         # First request should be skipped
-        self.assertFalse(bucket.should_profile())
+        self.assertFalse(bucket.should_sample())
         self.assertEqual(bucket.tokens, 10)  # No tokens consumed
         
         # Second request should be allowed
-        self.assertTrue(bucket.should_profile())
+        self.assertTrue(bucket.should_sample())
         self.assertAlmostEqual(bucket.tokens, 9, delta=0.001)  # One token consumed
         
         # Third request should also be allowed
-        self.assertTrue(bucket.should_profile())
+        self.assertTrue(bucket.should_sample())
         self.assertAlmostEqual(bucket.tokens, 8, delta=0.001)  # Another token consumed
 
 class TracerTest(unittest.TestCase):
@@ -161,10 +161,10 @@ class TracerTest(unittest.TestCase):
         tracer._profiling_mode = None
         
         # Create bucket and consume all tokens
-        bucket = tracer._profiling_token_buckets.get('python.cprofile')
+        bucket = tracer._sampling_token_buckets.get('python.cprofile')
         if bucket is None:
             tracer.set_profiling_mode('python.cprofile')  # This will create the bucket
-            bucket = tracer._profiling_token_buckets['python.cprofile']
+            bucket = tracer._sampling_token_buckets['python.cprofile']
         
         bucket.tokens = 0
         
@@ -195,21 +195,21 @@ class TracerTest(unittest.TestCase):
         tracer.unset_profiling_mode()
         self.assertFalse(tracer.is_profiling_mode())
 
-    def test_profiling_token_buckets_initialization(self):
+    def test_sampling_token_buckets_initialization(self):
         tracer = graphsignal._tracer
-        self.assertIsNotNone(tracer._profiling_token_buckets)
-        self.assertEqual(len(tracer._profiling_token_buckets), 0)  # Initially empty
+        self.assertIsNotNone(tracer._sampling_token_buckets)
+        self.assertEqual(len(tracer._sampling_token_buckets), 0)  # Initially empty
 
     def test_dynamic_token_bucket_creation(self):
         tracer = graphsignal._tracer
         
         # Initially no buckets
-        self.assertEqual(len(tracer._profiling_token_buckets), 0)
+        self.assertEqual(len(tracer._sampling_token_buckets), 0)
         
         # Create bucket dynamically
         result = tracer.set_profiling_mode('python.cprofile')
-        self.assertIn('python.cprofile', tracer._profiling_token_buckets)
-        self.assertEqual(tracer._profiling_token_buckets['python.cprofile'].capacity, tracer.profiles_per_min)
+        self.assertIn('python.cprofile', tracer._sampling_token_buckets)
+        self.assertEqual(tracer._sampling_token_buckets['python.cprofile'].capacity, tracer.samples_per_min)
 
     def test_multiple_profile_types(self):
         tracer = graphsignal._tracer
@@ -218,9 +218,9 @@ class TracerTest(unittest.TestCase):
         tracer.set_profiling_mode('python.cprofile')
         tracer.set_profiling_mode('pytorch.profile')
         
-        self.assertIn('python.cprofile', tracer._profiling_token_buckets)
-        self.assertIn('pytorch.profile', tracer._profiling_token_buckets)
-        self.assertEqual(len(tracer._profiling_token_buckets), 2)
+        self.assertIn('python.cprofile', tracer._sampling_token_buckets)
+        self.assertIn('pytorch.profile', tracer._sampling_token_buckets)
+        self.assertEqual(len(tracer._sampling_token_buckets), 2)
 
     def test_token_buckets_independent_operation(self):
         tracer = graphsignal._tracer
@@ -230,8 +230,8 @@ class TracerTest(unittest.TestCase):
         tracer.set_profiling_mode('python.cprofile')
         tracer.set_profiling_mode('pytorch.profile')
         
-        python_bucket = tracer._profiling_token_buckets['python.cprofile']
-        pytorch_bucket = tracer._profiling_token_buckets['pytorch.profile']
+        python_bucket = tracer._sampling_token_buckets['python.cprofile']
+        pytorch_bucket = tracer._sampling_token_buckets['pytorch.profile']
         
         # Consume tokens from python bucket
         python_bucket.tokens = 0

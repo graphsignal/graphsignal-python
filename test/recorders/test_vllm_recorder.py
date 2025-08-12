@@ -33,7 +33,14 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
 
     @patch.object(Uploader, 'upload_span')
     async def test_llm_generate(self, mocked_upload_span):
+        try:
+            import vllm
+        except ImportError:
+            self.skipTest("vllm is not installed")
+            return
+
         if not torch.cuda.is_available():
+            self.skipTest("No CUDA available")
             return
 
         from vllm import LLM, SamplingParams
@@ -50,6 +57,10 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         )
 
         outputs = llm.generate([f"What is 2 raised to 10 power?"], sampling_params)
+        outputs = llm.generate([f"What is 2 raised to 10 power?"], sampling_params)
+
+        print("Model output:")
+        print(outputs[0].outputs[0].text)
 
         model = mocked_upload_span.call_args[0][0]
 
@@ -63,5 +74,3 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         #self.assertEqual(find_counter(model, 'prompt_tokens'), 78)
         #self.assertEqual(find_counter(model, 'completion_tokens'), 18)
 
-        #print("Model output:")
-        #print(outputs[0].outputs[0].text)

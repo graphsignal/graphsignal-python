@@ -68,40 +68,42 @@ class CounterMetric(BaseMetric):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.type = 'counter'
-        self.counter = 0
+        self.total = 0
 
     def update(self, value, update_ts):
         with self._update_lock:
             self.touch()
-            self.counter += value
+            self.total += value
             self.update_ts = update_ts
 
     def export(self):
         with self._update_lock:
             model = super().export()
-            model.counter = self.counter
-            self.counter = 0
+            model.total = self.total
+            self.total = 0
             return model
 
 
-class RateMetric(BaseMetric):
+class SummaryMetric(BaseMetric):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.type = 'rate'
+        self.type = 'summary'
         self.count = 0
-        self.interval = 0
+        self.sum = 0
+        self.sum2 = 0
 
-    def update(self, count, interval, update_ts):
+    def update(self, count, sum_val, sum2_val, update_ts):
         with self._update_lock:
             self.touch()
             self.count += count
-            self.interval += interval
+            self.sum += sum_val
+            self.sum2 += sum2_val
             self.update_ts = update_ts
 
     def export(self):
         with self._update_lock:
             model = super().export()
-            model.rate = client.Rate(count=self.count, interval=self.interval)
+            model.summary = client.Summary(count=self.count, sum=self.sum, sum2=self.sum2)
             return model
 
 
@@ -171,21 +173,23 @@ class MetricStore:
         metric.update(value, update_ts)
         return metric
 
-    def update_rate(self, name, tags, count, interval, update_ts, unit=None):
+    def update_summary(self, name, tags, count, sum_val, sum2_val, update_ts, unit=None):
         if name is None:
-            raise ValueError('Rate name cannot be None')
+            raise ValueError('Summary name cannot be None')
         if count is None:
-            raise ValueError('Rate count cannot be None')
-        if interval is None:
-            raise ValueError('Rate interval cannot be None')
+            raise ValueError('Summary count cannot be None')
+        if sum_val is None:
+            raise ValueError('Summary sum cannot be None')
+        if sum2_val is None:
+            raise ValueError('Summary sum2 cannot be None')
         
         key = self.metric_key(name, tags)
         with self._update_lock:
             if key not in self._metrics:
-                metric = self._metrics[key] = RateMetric(name, tags, unit=unit)
+                metric = self._metrics[key] = SummaryMetric(name, tags, unit=unit)
             else:
                 metric = self._metrics[key]
-        metric.update(count, interval, update_ts)
+        metric.update(count, sum_val, sum2_val, update_ts)
         return metric
 
     def update_histogram(self, name, tags, value, update_ts, unit=None, is_time=False, is_size=False):

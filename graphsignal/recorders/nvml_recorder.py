@@ -487,7 +487,7 @@ class NVMLRecorder(BaseRecorder):
                     name='gpu.errors.xid', tags=metric_tags, 
                     value=num_xid_errors, update_ts=now)
                 for xid_error_code in device_usage.last_xid_error_codes:
-                    graphsignal._tracer().report_error(
+                    graphsignal._tracer.report_error(
                         name='gpu.errors.xid',
                         tags=metric_tags,
                         level='error',

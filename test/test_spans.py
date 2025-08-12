@@ -88,10 +88,10 @@ class SpansTest(unittest.TestCase):
         metric_tags['k4'] = 4.0
         metric_tags['k5'] = 'v5'
         key = store.metric_key('operation.count', metric_tags)
-        self.assertEqual(store._metrics[key].counter, 10)
+        self.assertEqual(store._metrics[key].total, 10)
 
         key = store.metric_key('c3', metric_tags)
-        self.assertEqual(store._metrics[key].counter, 30)
+        self.assertEqual(store._metrics[key].total, 30)
 
     @patch.object(ProcessRecorder, 'on_span_start')
     @patch.object(Uploader, 'upload_span')
@@ -180,7 +180,7 @@ class SpansTest(unittest.TestCase):
         metric_tags = graphsignal._tracer.tags.copy()
         metric_tags['operation.name'] = 'op1'
         key = store.metric_key('operation.error.count', metric_tags)
-        self.assertEqual(store._metrics[key].counter, 2)
+        self.assertEqual(store._metrics[key].total, 2)
 
     @patch.object(Uploader, 'upload_span')
     def test_subspans(self, mocked_upload_span):

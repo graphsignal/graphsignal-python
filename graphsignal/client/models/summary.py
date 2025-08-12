@@ -18,17 +18,18 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt
-from typing import Any, ClassVar, Dict, List, Union
+from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing import Optional, Set
 from typing_extensions import Self
 
-class Rate(BaseModel):
+class Summary(BaseModel):
     """
-    Rate
+    Summary
     """ # noqa: E501
-    count: Union[StrictFloat, StrictInt] = Field(description="The count value.")
-    interval: Union[StrictFloat, StrictInt] = Field(description="The the interval value.")
-    __properties: ClassVar[List[str]] = ["count", "interval"]
+    count: StrictInt = Field(description="The count value.")
+    sum: Union[StrictFloat, StrictInt] = Field(description="The sum value.")
+    sum2: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="The sum of squares value.")
+    __properties: ClassVar[List[str]] = ["count", "sum", "sum2"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -48,7 +49,7 @@ class Rate(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Optional[Self]:
-        """Create an instance of Rate from a JSON string"""
+        """Create an instance of Summary from a JSON string"""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(self) -> Dict[str, Any]:
@@ -73,7 +74,7 @@ class Rate(BaseModel):
 
     @classmethod
     def from_dict(cls, obj: Optional[Dict[str, Any]]) -> Optional[Self]:
-        """Create an instance of Rate from a dict"""
+        """Create an instance of Summary from a dict"""
         if obj is None:
             return None
 
@@ -82,7 +83,8 @@ class Rate(BaseModel):
 
         _obj = cls.model_validate({
             "count": obj.get("count"),
-            "interval": obj.get("interval")
+            "sum": obj.get("sum"),
+            "sum2": obj.get("sum2")
         })
         return _obj
 

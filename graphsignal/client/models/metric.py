@@ -21,7 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, Stri
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from graphsignal.client.models.histogram import Histogram
 from graphsignal.client.models.metric_type import MetricType
-from graphsignal.client.models.rate import Rate
+from graphsignal.client.models.summary import Summary
 from graphsignal.client.models.tag import Tag
 from typing import Optional, Set
 from typing_extensions import Self
@@ -37,11 +37,11 @@ class Metric(BaseModel):
     is_time: Optional[StrictBool] = Field(default=False, description="Indicates if the metric is in nanoseconds.")
     is_size: Optional[StrictBool] = Field(default=False, description="Indicates if the metric is in bytes.")
     gauge: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="The value for gauge type metrics.")
-    counter: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="The value for counter type metrics.")
-    rate: Optional[Rate] = Field(default=None, description="The value for rate type metrics.")
+    total: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="The value for counter type metrics.")
+    summary: Optional[Summary] = Field(default=None, description="The value for summary type metrics.")
     histogram: Optional[Histogram] = Field(default=None, description="The histogram data for histogram type metrics.")
     update_ts: StrictInt = Field(description="Unix timestamp (seconds) when the metric was last updated.")
-    __properties: ClassVar[List[str]] = ["name", "tags", "type", "unit", "is_time", "is_size", "gauge", "counter", "rate", "histogram", "update_ts"]
+    __properties: ClassVar[List[str]] = ["name", "tags", "type", "unit", "is_time", "is_size", "gauge", "total", "summary", "histogram", "update_ts"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -89,9 +89,9 @@ class Metric(BaseModel):
                 if _item_tags:
                     _items.append(_item_tags.to_dict())
             _dict['tags'] = _items
-        # override the default output from pydantic by calling `to_dict()` of rate
-        if self.rate:
-            _dict['rate'] = self.rate.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of summary
+        if self.summary:
+            _dict['summary'] = self.summary.to_dict()
         # override the default output from pydantic by calling `to_dict()` of histogram
         if self.histogram:
             _dict['histogram'] = self.histogram.to_dict()
@@ -114,8 +114,8 @@ class Metric(BaseModel):
             "is_time": obj.get("is_time") if obj.get("is_time") is not None else False,
             "is_size": obj.get("is_size") if obj.get("is_size") is not None else False,
             "gauge": obj.get("gauge"),
-            "counter": obj.get("counter"),
-            "rate": Rate.from_dict(obj["rate"]) if obj.get("rate") is not None else None,
+            "total": obj.get("total"),
+            "summary": Summary.from_dict(obj["summary"]) if obj.get("summary") is not None else None,
             "histogram": Histogram.from_dict(obj["histogram"]) if obj.get("histogram") is not None else None,
             "update_ts": obj.get("update_ts")
         })

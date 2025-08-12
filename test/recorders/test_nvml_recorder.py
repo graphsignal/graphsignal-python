@@ -57,9 +57,6 @@ class NVMLRecorderTest(unittest.TestCase):
 
         recorder.on_metric_update()
 
-        for device_usage in recorder._last_snapshot:
-            print(device_usage)
-
         tracer = graphsignal._tracer
         if torch.cuda.is_available():
             self.assertTrue(tracer.get_tag('device.bus_id') is not None)
@@ -193,7 +190,7 @@ class NVMLRecorderTest(unittest.TestCase):
         metric_tags =  graphsignal._tracer.tags.copy()
         key = store.metric_key('gpu.errors.xid', metric_tags)
         if key in store._metrics:
-            self.assertEqual(store._metrics[key].counter, 3)
+            self.assertEqual(store._metrics[key].total, 3)
 
         error = mocked_upload_error.call_args[0][0]
 

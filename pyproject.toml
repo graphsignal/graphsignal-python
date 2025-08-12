@@ -29,9 +29,13 @@ python-dateutil = "*"
 pydantic = ">2"
 typing-extensions = ">4.7.1"
 nvidia-ml-py = ">=12"
+opentelemetry-api = "*"
+opentelemetry-sdk = "*"
+opentelemetry-exporter-otlp-proto-grpc = "*"
 
 [tool.poetry.group.dev.dependencies]
 torch = "*"
+prometheus-client = "*"
 
 [tool.poetry.scripts]
 update-client = "tools.update_client:main"
