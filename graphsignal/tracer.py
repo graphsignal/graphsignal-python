@@ -460,36 +460,36 @@ class Tracer:
 
     def trace(
             self, 
-            operation: str,
+            span_name: str,
             tags: Optional[Dict[str, str]] = None,
             include_profiles: Optional[list] = None) -> 'Span':
-        return Span(operation=operation, tags=tags, include_profiles=include_profiles)
+        return Span(name=span_name, tags=tags, include_profiles=include_profiles)
 
     def trace_function(
             self, 
             func=None, 
             *,
-            operation: Optional[str] = None,
+            span_name: Optional[str] = None,
             tags: Optional[Dict[str, str]] = None,
             include_profiles: Optional[list] = None):
         if func is None:
-            return functools.partial(self.trace_function, operation=operation, tags=tags, include_profiles=include_profiles)
+            return functools.partial(self.trace_function, span_name=span_name, tags=tags, include_profiles=include_profiles)
 
-        if operation is None:
-            operation_or_name = func.__name__
+        if span_name is None:
+            span_or_func_name = func.__name__
         else:
-            operation_or_name = operation
+            span_or_func_name = span_name
 
         if asyncio.iscoroutinefunction(func):
             @functools.wraps(func)
             async def tf_async_wrapper(*args, **kwargs):
-                async with self.trace(operation=operation_or_name, tags=tags, include_profiles=include_profiles):
+                async with self.trace(span_name=span_or_func_name, tags=tags, include_profiles=include_profiles):
                     return await func(*args, **kwargs)
             return tf_async_wrapper
         else:
             @functools.wraps(func)
             def tf_wrapper(*args, **kwargs):
-                with self.trace(operation=operation_or_name, tags=tags, include_profiles=include_profiles):
+                with self.trace(span_name=span_or_func_name, tags=tags, include_profiles=include_profiles):
                     return func(*args, **kwargs)
             return tf_wrapper
 

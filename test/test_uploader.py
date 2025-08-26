@@ -33,7 +33,7 @@ class UploaderTest(unittest.TestCase):
 
     @patch.object(client.DefaultApi, 'upload_spans')
     def test_flush(self, mocked_upload_spans):
-        model = client.Span(span_id='s1', trace_id='t1', start_us=0, end_us=0)
+        model = client.Span(span_id='s1', trace_id='t1', start_ns=0, end_ns=0, name='op1')
         graphsignal._tracer.uploader().upload_span(model)
         graphsignal._tracer.uploader().flush()
 
@@ -46,7 +46,7 @@ class UploaderTest(unittest.TestCase):
             raise Exception("Ex1")
         mocked_upload_spans.side_effect = side_effect
 
-        model = client.Span(span_id='s1', trace_id='t1', start_us=0, end_us=0)
+        model = client.Span(span_id='s1', trace_id='t1', start_ns=0, end_ns=0, name='op1')
         graphsignal._tracer.uploader().upload_span(model)
         graphsignal._tracer.uploader().upload_span(model)
         graphsignal._tracer.uploader().flush()
@@ -60,7 +60,7 @@ class UploaderTest(unittest.TestCase):
         server.set_response_data(b'{}')
         server.start()
 
-        model = client.Span(span_id='s1', trace_id='t1', start_us=0, end_us=0)
+        model = client.Span(span_id='s1', trace_id='t1', start_ns=0, end_ns=0, name='op1')
         graphsignal._tracer.uploader().upload_span(model)
         graphsignal._tracer.uploader().flush()
 

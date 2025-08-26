@@ -8,7 +8,7 @@ import contextvars
 
 import graphsignal
 from graphsignal import client
-from graphsignal.utils import fast_rand, uuid_sha1, sanitize_str
+from graphsignal.utils import uuid_sha1, sanitize_str
 
 logger = logging.getLogger('graphsignal')
 
@@ -111,7 +111,7 @@ class Span:
     MAX_PROFILE_SIZE = 256 * 1024
 
     __slots__ = [
-        '_operation',
+        '_name',
         '_tags',
         '_include_profiles_index',
         '_context_tags',
@@ -125,7 +125,7 @@ class Span:
         '_model',
         '_is_started',
         '_is_stopped',
-        '_start_us',
+        '_start_ns',
         '_start_counter',
         '_stop_counter',
         '_first_token_counter',
@@ -137,11 +137,11 @@ class Span:
         '_metrics'
     ]
 
-    def __init__(self, operation, tags=None, include_profiles=None, parent_context=None):
+    def __init__(self, name, tags=None, include_profiles=None, parent_context=None):
         self._is_started = False
 
-        if not operation:
-            logger.error('Span: operation is required')
+        if not name:
+            logger.error('Span: name is required')
             return
         if tags is not None:
             if not isinstance(tags, dict):
@@ -151,9 +151,10 @@ class Span:
                 logger.error('Span: too many tags (>{0})'.format(Span.MAX_SPAN_TAGS))
                 return
 
-        self._operation = sanitize_str(operation)
-        self._tags = {'operation.name': self._operation}
+        self._name = sanitize_str(name)
+        self._tags = None
         if tags is not None:
+            self._tags = {}
             self._tags.update(tags)
         self._include_profiles_index = set(include_profiles) if isinstance(include_profiles, list) else None
         self._context_tags = None
@@ -168,7 +169,7 @@ class Span:
             self._sampled = parent_context.sampled
         self._linked_span_ids = None
         self._is_root = False
-        self._start_us = None
+        self._start_ns = None
         self._start_counter = None
         self._stop_counter = None
         self._first_token_counter = None
@@ -209,9 +210,6 @@ class Span:
         self.stop()
         return False
 
-    def _should_record(self) -> bool:
-        return self._profiles is not None and len(self._profiles) > 0
-
     def _start(self):
         if self._is_started:
             return
@@ -219,7 +217,7 @@ class Span:
             return
 
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f'Starting span {self._operation}')
+            logger.debug(f'Starting span {self._name}')
 
         self._span_id = uuid_sha1(size=12)
         if self._trace_id is None:
@@ -231,10 +229,10 @@ class Span:
         self._model = client.Span(
             span_id=self._span_id,
             trace_id=self._trace_id,
-            start_us=0,
-            end_us=0,
+            start_ns=0,
+            end_ns=0,
+            name=self._name,
             tags=[],
-            exceptions=[],
             params=[],
             counters=[],
             profiles=[]
@@ -248,7 +246,7 @@ class Span:
         except Exception as exc:
             logger.error('Error in span start event handlers', exc_info=True)
 
-        self._start_us = int(time.time() * 1e6)
+        self._start_ns = int(time.time() * 1e9)
         self._start_counter = time.perf_counter_ns()
         self._is_started = True
 
@@ -263,15 +261,15 @@ class Span:
         self._is_stopped = True
 
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f'Stopping span {self._operation}')
+            logger.debug(f'Stopping span {self._name}')
 
         if self._stop_counter is None:
             self._measure()
         duration_ns = self._stop_counter - self._start_counter
-        end_us = int(self._start_us + duration_ns / 1e3)
-        now = int(end_us / 1e6)
+        end_ns = int(self._start_ns + duration_ns)
+        now = int(end_ns / 1e9)
 
-        self.set_counter('operation.duration', duration_ns)        
+        self.set_counter('span.duration', duration_ns)        
 
         # emit stop event
         try:
@@ -288,40 +286,45 @@ class Span:
         span_tags = self._merged_span_tags()
 
         # update RED metrics
+
+        metric_tags = span_tags.copy()
+        metric_tags['span.name'] = self._name
+
         _tracer().metric_store().inc_counter(
-            name='operation.count', tags=span_tags, value=1, update_ts=now)
+            name='span.call.count', tags=metric_tags, value=1, update_ts=now)
 
         if self._exc_infos and len(self._exc_infos) > 0:
             for exc_info in self._exc_infos:
                 if exc_info[0] is not None:
                     _tracer().metric_store().inc_counter(
-                        name='operation.error.count', tags=span_tags, value=1, update_ts=now)
+                        name='span.error.count', tags=metric_tags, value=1, update_ts=now)
                     self.set_tag('exception.name', exc_info[0].__name__)
 
         if duration_ns is not None:
             _tracer().metric_store().update_histogram(
-                name='operation.duration', tags=span_tags, value=duration_ns, update_ts=now, is_time=True)
+                name='span.duration', tags=metric_tags, value=duration_ns, update_ts=now, is_time=True)
 
         # update metrics
         if self._metrics is not None:
             for metric in self._metrics.values():
                 _tracer().metric_store().inc_counter(
-                    name=metric.name, tags=span_tags, value=metric.value, update_ts=now)
+                    name=metric.name, tags=metric_tags, value=metric.value, update_ts=now)
 
         # report errors
         if self._exc_infos:
             for exc_info in self._exc_infos:
                 _tracer().report_error(
-                    name='operation.error',
-                    tags=span_tags,
+                    name='span.error',
+                    tags=metric_tags,
                     level='error',
                     exc_info=exc_info)
 
         if self._sampled:
             # fill and upload span
             # copy data to span model
-            self._model.start_us = self._start_us
-            self._model.end_us = end_us
+            self._model.start_ns = self._start_ns
+            self._model.end_ns = end_ns
+            self._model.name = self._name
             if self._parent_span_id:
                 self._model.parent_span_id = self._parent_span_id
             if self._linked_span_ids:
@@ -541,10 +544,10 @@ class Span:
 
     def trace(
             self, 
-            operation: str,
+            span_name: str,
             tags: Optional[Dict[str, str]] = None) -> 'Span':
         return Span(
-            operation=operation, 
+            name=span_name, 
             tags=tags,
             parent_context=self.get_span_context())
  
@@ -594,4 +597,4 @@ class Span:
         return params
 
     def repr(self):
-        return 'Span({0})'.format(self._operation)
+        return 'Span({0})'.format(self._name)

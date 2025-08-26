@@ -3,12 +3,11 @@ import logging
 import time
 
 try:
-    from prometheus_client import REGISTRY, generate_latest
+    from prometheus_client import REGISTRY
     PROMETHEUS_AVAILABLE = True
 except ImportError:
     PROMETHEUS_AVAILABLE = False
     REGISTRY = None
-    generate_latest = None
 
 import graphsignal
 
@@ -16,14 +15,23 @@ logger = logging.getLogger('graphsignal')
 
 
 class PrometheusAdapter():
-    def __init__(self):
-        self._last_values = {}
-
-    def setup(self, export_map):
+    def __init__(self, registry=None, name_map_func=None):
         if not PROMETHEUS_AVAILABLE:
             logger.warning("Prometheus client not available. Prometheus metrics will not be collected.")
             return
-        self.export_map = export_map
+
+        if registry is None:
+            self._registry = REGISTRY
+        else:
+            self._registry = registry
+        self._last_values = {}
+
+        if not name_map_func:
+            raise ValueError('name_map_func is required')
+        self._name_map_func = name_map_func
+
+    def setup(self):
+        pass
 
     def collect(self):
         if not PROMETHEUS_AVAILABLE:
@@ -35,11 +43,10 @@ class PrometheusAdapter():
 
         try:
             metrics_collected = 0
-            
-            for metric in REGISTRY.collect():
-                target_name = self.export_map.get(metric.name, None)
+
+            for metric in self._registry.collect():
+                target_name = self._name_map_func(metric.name)
                 if not target_name:
-                    # skip metrics that are not in the export map
                     continue
                 
                 metrics_collected += 1

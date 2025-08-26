@@ -43,8 +43,9 @@ class PrometheusAdapterIntegrationTest(unittest.TestCase):
         gauge.labels('value1').set(42.5)
         
         # Collect the metric
-        adapter = PrometheusAdapter()
-        adapter.setup({'test_gauge': 'mapped_gauge'})
+        name_map = {'test_gauge': 'mapped_gauge'}
+        adapter = PrometheusAdapter(name_map_func=lambda name: name_map.get(name))
+        adapter.setup()
         adapter.collect()
         
         # Assert the metric was collected correctly
@@ -63,8 +64,9 @@ class PrometheusAdapterIntegrationTest(unittest.TestCase):
         counter.labels('value1').inc(10)
         
         # Collect the metric
-        adapter = PrometheusAdapter()
-        adapter.setup({'test_counter': 'mapped_counter'})
+        name_map = {'test_counter': 'mapped_counter'}
+        adapter = PrometheusAdapter(name_map_func=lambda name: name_map.get(name))
+        adapter.setup()
         
         # First collection - should not increment (just stores initial value)
         adapter.collect()
@@ -92,8 +94,9 @@ class PrometheusAdapterIntegrationTest(unittest.TestCase):
         histogram.labels('value1').observe(1.5)
         
         # Collect the metric
-        adapter = PrometheusAdapter()
-        adapter.setup({'test_histogram': 'mapped_histogram'})
+        name_map = {'test_histogram': 'mapped_histogram'}
+        adapter = PrometheusAdapter(name_map_func=lambda name: name_map.get(name))
+        adapter.setup()
         adapter.collect()
         
         # Assert the histogram was collected (check for rate metric)
@@ -114,8 +117,9 @@ class PrometheusAdapterIntegrationTest(unittest.TestCase):
         summary.labels('value1').observe(2.5)
         
         # Collect the metric
-        adapter = PrometheusAdapter()
-        adapter.setup({'test_summary': 'mapped_summary'})
+        name_map = {'test_summary': 'mapped_summary'}
+        adapter = PrometheusAdapter(name_map_func=lambda name: name_map.get(name))
+        adapter.setup()
         adapter.collect()
         
         # Assert the summary was collected (check for rate metric)

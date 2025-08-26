@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "graphsignal"
-version = "0.18.1"
+version = "0.18.2"
 description = "Graphsignal Tracer for Python"
 authors = ["Graphsignal, Inc. <devops@graphsignal.com>"]
 license = "Apache-2.0"
@@ -23,7 +23,7 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.9"
+python = ">=3.9,<4"
 urllib3 = ">=1.25.3,<2.1.0"
 python-dateutil = "*"
 pydantic = ">2"
@@ -31,7 +31,8 @@ typing-extensions = ">4.7.1"
 nvidia-ml-py = ">=12"
 opentelemetry-api = "*"
 opentelemetry-sdk = "*"
-opentelemetry-exporter-otlp-proto-grpc = "*"
+opentelemetry-exporter-otlp = "*"
+opentelemetry-semantic-conventions-ai = "*"
 
 [tool.poetry.group.dev.dependencies]
 torch = "*"

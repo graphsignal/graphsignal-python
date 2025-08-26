@@ -253,7 +253,7 @@ class TracerTest(unittest.TestCase):
         graphsignal.set_tag('k2', 'v2')
         graphsignal.set_context_tag('k3', 'v3')
 
-        span = Span(operation='op1')
+        span = Span(name='op1')
         span.set_tag('k5', 'v5')
         graphsignal.report_error(name='error1', level='warning', message='c1', tags=span.get_tags())
 
@@ -261,7 +261,6 @@ class TracerTest(unittest.TestCase):
 
         self.assertTrue(error.error_id is not None and error.error_id != '')
         self.assertEqual(error.name, 'error1')
-        self.assertEqual(find_tag(error, 'operation.name'), 'op1')
         self.assertIsNotNone(find_tag(error, 'host.name'))
         self.assertIsNotNone(find_tag(error, 'process.pid'))
         self.assertEqual(find_tag(error, 'k2'), 'v2')

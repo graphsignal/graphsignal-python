@@ -103,7 +103,7 @@ class SummaryMetric(BaseMetric):
     def export(self):
         with self._update_lock:
             model = super().export()
-            model.summary = client.Summary(count=self.count, sum=self.sum, sum2=self.sum2)
+            model.summary = client.Summary(count=int(self.count), sum=self.sum, sum2=self.sum2)
             return model
 
 
@@ -129,7 +129,7 @@ class HistogramMetric(BaseMetric):
             model.histogram = client.Histogram(bins=[], counts=[])
             for bin, count in self.histogram.items():
                 model.histogram.bins.append(bin)
-                model.histogram.counts.append(count)
+                model.histogram.counts.append(int(count))
             self.histogram = {}
             return model
 

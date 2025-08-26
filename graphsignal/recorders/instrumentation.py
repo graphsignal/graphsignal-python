@@ -59,13 +59,13 @@ def profile_method(obj, func_name, event_name=None, event_name_func=None, profil
         logger.debug('Cannot instrument %s.', func_name)
 
 
-def trace_method(obj, func_name, op_name=None, include_profiles=None, op_name_func=None, trace_func=None, data_func=None):
+def trace_method(obj, func_name, span_name=None, include_profiles=None, span_name_func=None, trace_func=None, data_func=None):
     def before_func(args, kwargs):
-        if op_name is None:
-            operation = op_name_func(args, kwargs)
+        if span_name_func is None:
+            selected_span_name = span_name
         else:
-            operation = op_name
-        return dict(span=graphsignal.trace(operation=operation, include_profiles=include_profiles))
+            selected_span_name = span_name_func(args, kwargs)
+        return dict(span=graphsignal.trace(span_name=selected_span_name, include_profiles=include_profiles))
 
     def after_func(args, kwargs, ret, exc, context):
         span = context['span']

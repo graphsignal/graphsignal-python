@@ -41,7 +41,7 @@ class SpansTest(unittest.TestCase):
 
         for i in range(10):
             span = Span(
-                operation='op1',
+                name='op1',
                 tags={'k4': 4.0})
             span.set_tag('k5', 'v5')
             span.set_param('p2', 'v22')
@@ -58,10 +58,10 @@ class SpansTest(unittest.TestCase):
 
         span = mocked_upload_span.call_args[0][0]
 
-        self.assertTrue(span.start_us > 0)
-        self.assertTrue(span.end_us > 0)
+        self.assertTrue(span.start_ns > 0)
+        self.assertTrue(span.end_ns > 0)
+        self.assertEqual(span.name, 'op1')
         self.assertEqual(find_tag(span, 'deployment'), 'd1')
-        self.assertEqual(find_tag(span, 'operation.name'), 'op1')
         self.assertIsNotNone(find_tag(span, 'host.name'))
         self.assertIsNotNone(find_tag(span, 'process.pid'))
         self.assertIsNotNone(find_tag(span, 'platform.name'))
@@ -76,18 +76,18 @@ class SpansTest(unittest.TestCase):
         self.assertEqual(find_tag(span, 'k3'), 'v3')
         self.assertEqual(find_tag(span, 'k4'), '4.0')
         self.assertEqual(find_tag(span, 'k5'), 'v5')
-        self.assertTrue(find_counter(span, 'operation.duration') > 0)
+        self.assertTrue(find_counter(span, 'span.duration') > 0)
         self.assertEqual(find_counter(span, 'c3'), 3)
         self.assertEqual(find_profile(span, 'prof1').format, 'fmt1')
         self.assertEqual(find_profile(span, 'prof1').content, 'content1')
 
         store = graphsignal._tracer.metric_store()
         metric_tags =  graphsignal._tracer.tags.copy()
-        metric_tags['operation.name'] = 'op1'
+        metric_tags['span.name'] = 'op1'
         metric_tags['k3'] = 'v3'  
         metric_tags['k4'] = 4.0
         metric_tags['k5'] = 'v5'
-        key = store.metric_key('operation.count', metric_tags)
+        key = store.metric_key('span.call.count', metric_tags)
         self.assertEqual(store._metrics[key].total, 10)
 
         key = store.metric_key('c3', metric_tags)
@@ -96,13 +96,13 @@ class SpansTest(unittest.TestCase):
     @patch.object(ProcessRecorder, 'on_span_start')
     @patch.object(Uploader, 'upload_span')
     def test_start_stop_contextvars(self, mocked_upload_span, mocked_process_on_span_start):
-        with Span(operation='op1') as span1:
+        with Span(name='op1') as span1:
             span1.set_sampled(True)
             ctx1 = span1.get_span_context()
             SpanContext.push_contextvars(ctx1)
 
             ctx1_copy = SpanContext.pop_contextvars()
-            with Span(operation='op2', parent_context=ctx1_copy) as span2:
+            with Span(name='op2', parent_context=ctx1_copy) as span2:
                 ctx2 = span2.get_span_context()
                 self.assertEqual(ctx1.trace_id, ctx2.trace_id)
 
@@ -124,13 +124,13 @@ class SpansTest(unittest.TestCase):
         store = graphsignal._tracer.log_store()
         store.clear()
 
-        span = Span(operation='op1')
+        span = Span(name='op1')
         span.set_sampled(True)
         span.stop()
         span = mocked_upload_span.call_args[0][0]
 
-        self.assertTrue(span.start_us > 0)
-        self.assertTrue(span.end_us > 0)
+        self.assertTrue(span.start_ns > 0)
+        self.assertTrue(span.end_ns > 0)
         self.assertEqual(find_log_entry(store, 'ex1').tags['deployment'], 'd1')
         self.assertIsNotNone(find_log_entry(store, 'ex1').message)
         self.assertIsNotNone(find_log_entry(store, 'ex1').exception)
@@ -143,24 +143,24 @@ class SpansTest(unittest.TestCase):
         store = graphsignal._tracer.log_store()
         store.clear()
 
-        span = Span(operation='op1')
+        span = Span(name='op1')
         span.set_sampled(True)
         span.stop()
 
         span = mocked_upload_span.call_args[0][0]
 
-        self.assertTrue(span.start_us > 0)
-        self.assertTrue(span.end_us > 0)
+        self.assertTrue(span.start_ns > 0)
+        self.assertTrue(span.end_ns > 0)
         self.assertEqual(find_log_entry(store, 'ex1').tags['deployment'], 'd1')
         self.assertIsNotNone(find_log_entry(store, 'ex1').message)
         self.assertIsNotNone(find_log_entry(store, 'ex1').exception)
 
     @patch.object(Uploader, 'upload_error')
     @patch.object(Uploader, 'upload_span')
-    def test_operation_exception(self, mocked_upload_span, mocked_upload_error):
+    def test_span_exception(self, mocked_upload_span, mocked_upload_error):
         for _ in range(2):
             try:
-                with Span(operation='op1') as span:
+                with Span(name='op1') as span:
                     span.set_sampled(True)
                     raise Exception('ex1')
             except Exception as ex:
@@ -172,24 +172,24 @@ class SpansTest(unittest.TestCase):
 
         # Check that errors were reported via report_error
         error = mocked_upload_error.call_args[0][0]
-        self.assertEqual(error.name, 'operation.error')
+        self.assertEqual(error.name, 'span.error')
         self.assertEqual(error.level, 'error')
         self.assertIn('Exception: ex1', error.message)
 
         store = graphsignal._tracer.metric_store()
         metric_tags = graphsignal._tracer.tags.copy()
-        metric_tags['operation.name'] = 'op1'
-        key = store.metric_key('operation.error.count', metric_tags)
+        metric_tags['span.name'] = 'op1'
+        key = store.metric_key('span.error.count', metric_tags)
         self.assertEqual(store._metrics[key].total, 2)
 
     @patch.object(Uploader, 'upload_span')
     def test_subspans(self, mocked_upload_span):
-        with Span(operation='op1') as span1:
+        with Span(name='op1') as span1:
             span1.set_sampled(True)
-            with span1.trace(operation='op2') as span2:
-                with span2.trace(operation='op3'):
+            with span1.trace(span_name='op2') as span2:
+                with span2.trace(span_name='op3'):
                     pass
-            with span1.trace(operation='ep4'):
+            with span1.trace(span_name='ep4'):
                 pass
 
         t3 = mocked_upload_span.call_args_list[0][0][0]
@@ -221,7 +221,7 @@ class SpansTest(unittest.TestCase):
         calls = 10000
         start_ns = time.perf_counter_ns()
         for _ in range(calls):
-            with Span(operation='op1') as span:
+            with Span(name='op1') as span:
                 span.set_tag('k1', 'v1')
         took_ns = time.perf_counter_ns() - start_ns
 

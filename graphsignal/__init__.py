@@ -108,21 +108,21 @@ def remove_param(name: str):
 
 
 def trace(
-        operation: str,
+        span_name: str,
         tags: Optional[Dict[str, str]] = None,
         include_profiles: Optional[list] = None) -> 'Span':
     _check_configured()
 
-    return _tracer.trace(operation=operation, tags=tags, include_profiles=include_profiles)
+    return _tracer.trace(span_name=span_name, tags=tags, include_profiles=include_profiles)
 
 
 def trace_function(
         func=None, 
         *,
-        operation: Optional[str] = None,
+        span_name: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
         include_profiles: Optional[list] = None) -> Any:
-    return _tracer.trace_function(func, operation=operation, tags=tags, include_profiles=include_profiles)
+    return _tracer.trace_function(func, span_name=span_name, tags=tags, include_profiles=include_profiles)
 
 
 def report_error(

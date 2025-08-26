@@ -116,7 +116,7 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
         model = mocked_upload_span.call_args[0][0]
 
         self.assertTrue(trace_func_called)
-        self.assertEqual(find_tag(model, 'operation.name'), 'op1')
+        self.assertEqual(model.name, 'op1')
 
     @patch.object(Uploader, 'upload_span')
     async def test_trace_method_generator(self, mocked_upload_span):
@@ -142,8 +142,8 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(trace_func_called)
         self.assertTrue(data_func_called)
-        self.assertEqual(find_tag(model, 'operation.name'), 'op1')
-        self.assertTrue(find_counter(model, 'operation.duration') > 0)
+        self.assertEqual(model.name,'op1')
+        self.assertTrue(find_counter(model, 'span.duration') > 0)
 
     async def test_patch_method(self):
         obj = Dummy()

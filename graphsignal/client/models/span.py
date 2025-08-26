@@ -34,13 +34,14 @@ class Span(BaseModel):
     trace_id: StrictStr = Field(description="Identifier of the trace.")
     parent_span_id: Optional[StrictStr] = Field(default=None, description="Identifier of the parent span, if this is a nested span.")
     linked_span_ids: Optional[List[StrictStr]] = Field(default=None, description="List of linked span identifiers.")
-    start_us: StrictInt = Field(description="Start time of the span in microseconds.")
-    end_us: StrictInt = Field(description="End time of the span in microseconds.")
+    start_ns: StrictInt = Field(description="Start time of the span in nanoseconds.")
+    end_ns: StrictInt = Field(description="End time of the span in nanoseconds.")
+    name: StrictStr = Field(description="The name of the span.")
     tags: Optional[List[Tag]] = Field(default=None, description="List of tags associated with the span.")
     params: Optional[List[Param]] = Field(default=None, description="List of parameters associated with the span.")
     counters: Optional[List[Counter]] = Field(default=None, description="Counters associated with the span.")
     profiles: Optional[List[Profile]] = Field(default=None, description="List of profiles related to the span.")
-    __properties: ClassVar[List[str]] = ["span_id", "trace_id", "parent_span_id", "linked_span_ids", "start_us", "end_us", "tags", "params", "counters", "profiles"]
+    __properties: ClassVar[List[str]] = ["span_id", "trace_id", "parent_span_id", "linked_span_ids", "start_ns", "end_ns", "name", "tags", "params", "counters", "profiles"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -125,8 +126,9 @@ class Span(BaseModel):
             "trace_id": obj.get("trace_id"),
             "parent_span_id": obj.get("parent_span_id"),
             "linked_span_ids": obj.get("linked_span_ids"),
-            "start_us": obj.get("start_us"),
-            "end_us": obj.get("end_us"),
+            "start_ns": obj.get("start_ns"),
+            "end_ns": obj.get("end_ns"),
+            "name": obj.get("name"),
             "tags": [Tag.from_dict(_item) for _item in obj["tags"]] if obj.get("tags") is not None else None,
             "params": [Param.from_dict(_item) for _item in obj["params"]] if obj.get("params") is not None else None,
             "counters": [Counter.from_dict(_item) for _item in obj["counters"]] if obj.get("counters") is not None else None,
