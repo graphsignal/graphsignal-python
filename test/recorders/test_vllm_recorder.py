@@ -77,7 +77,7 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
 
     @patch.object(Uploader, 'upload_span')
     @patch.object(Tracer, 'should_sample', return_value=True)
-    def test_convert_otel_span(self, mocked_upload_span, mocked_should_sample):
+    def test_convert_otel_span(self, mocked_should_sample, mocked_upload_span):
         try:
             import vllm
         except ImportError:

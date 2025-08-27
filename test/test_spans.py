@@ -51,7 +51,6 @@ class SpansTest(unittest.TestCase):
             span.set_profile('prof1', 'fmt1', 'content1')
             span.set_sampled(True)
             time.sleep(0.01)
-            span.set_perf_counter('first_token_ns')
             span.set_counter('output_tokens', 10)
             time.sleep(0.01)
             span.stop()

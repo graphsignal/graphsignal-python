@@ -173,17 +173,6 @@ class VLLMRecorder(BaseRecorder):
 
         graphsignal._tracer.uploader().upload_span(span)
 
-        print(f'[DEBUG] Span name={otel_span.name}, kind={otel_span.kind}, status={otel_span.status}')
-        print(f'[DEBUG] Span attributes: {otel_span.attributes}')
-        print(f'[DEBUG] Span events: {otel_span.events}')
-        print(f'[DEBUG] Span links: {otel_span.links}')
-        print(f'[DEBUG] Span status: {otel_span.status}')
-        print(f'[DEBUG] Span end time: {otel_span.end_time}')
-        print(f'[DEBUG] Span start time: {otel_span.start_time}')
-
-        print(f'[DEBUG] Graphsignal Span: {span}')
-
-
 
     def shutdown(self):
         if self._otel_adapter:

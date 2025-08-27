@@ -509,10 +509,6 @@ class Span:
         else:
             self._counters[name].value += value
 
-    def set_perf_counter(self, name: str) -> None:
-        if not self._is_stopped:
-            self.set_counter(name, time.perf_counter_ns() - self._start_counter)
-
     def get_counter(self, name: str) -> Optional[Union[int, float]]:
         if self._counters is None:
             return None
