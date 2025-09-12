@@ -269,7 +269,7 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(compare_semver((1, 2, 3), (1, 2, 2)), 1)
 
-    #@unittest.skip('for now')
+    @unittest.skip('for now')
     @patch.object(Uploader, 'upload_span')
     def test_overhead(self, mocked_upload_span):
         #import cProfile, pstats

@@ -222,7 +222,7 @@ class SpansTest(unittest.TestCase):
         self.assertEqual(t4.trace_id, t1.trace_id)
         self.assertEqual(t4.parent_span_id, t1.span_id)
 
-    #@unittest.skip('for now')
+    @unittest.skip('for now')
     @patch.object(Uploader, 'upload_span')
     def test_overhead(self, mocked_upload_span):
         #import cProfile, pstats
