@@ -17,26 +17,18 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
-from typing import Any, ClassVar, Dict, List, Optional
-from graphsignal.client.models.tag import Tag
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from typing import Any, ClassVar, Dict, List
 from typing import Optional, Set
 from typing_extensions import Self
 
-class Profile(BaseModel):
+class Attribute(BaseModel):
     """
-    Profile
+    Attribute
     """ # noqa: E501
-    profile_id: StrictStr = Field(description="Unique identifier for the profile.")
-    linked_span_ids: Optional[List[StrictStr]] = Field(default=None, description="List of linked span identifiers.")
-    start_ns: StrictInt = Field(description="Start time of the profile in nanoseconds.")
-    end_ns: StrictInt = Field(description="End time of the profile in nanoseconds.")
-    name: StrictStr = Field(description="The name of the profile.")
-    tags: Optional[List[Tag]] = Field(default=None, description="List of tags associated with the profile.")
-    format: StrictStr = Field(description="The format of the profile, e.g. chrome-trace.")
-    encoding: Optional[StrictStr] = Field(default=None, description="The encoding of the profile, e.g. json.")
-    content: StrictStr = Field(description="The content of the profile.")
-    __properties: ClassVar[List[str]] = ["profile_id", "linked_span_ids", "start_ns", "end_ns", "name", "tags", "format", "encoding", "content"]
+    name: StrictStr = Field(description="The name or name of the attribute.")
+    value: StrictStr = Field(description="The value of the attribute.")
+    __properties: ClassVar[List[str]] = ["name", "value"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -56,7 +48,7 @@ class Profile(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Optional[Self]:
-        """Create an instance of Profile from a JSON string"""
+        """Create an instance of Attribute from a JSON string"""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(self) -> Dict[str, Any]:
@@ -77,18 +69,11 @@ class Profile(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of each item in tags (list)
-        _items = []
-        if self.tags:
-            for _item_tags in self.tags:
-                if _item_tags:
-                    _items.append(_item_tags.to_dict())
-            _dict['tags'] = _items
         return _dict
 
     @classmethod
     def from_dict(cls, obj: Optional[Dict[str, Any]]) -> Optional[Self]:
-        """Create an instance of Profile from a dict"""
+        """Create an instance of Attribute from a dict"""
         if obj is None:
             return None
 
@@ -96,15 +81,8 @@ class Profile(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "profile_id": obj.get("profile_id"),
-            "linked_span_ids": obj.get("linked_span_ids"),
-            "start_ns": obj.get("start_ns"),
-            "end_ns": obj.get("end_ns"),
             "name": obj.get("name"),
-            "tags": [Tag.from_dict(_item) for _item in obj["tags"]] if obj.get("tags") is not None else None,
-            "format": obj.get("format"),
-            "encoding": obj.get("encoding"),
-            "content": obj.get("content")
+            "value": obj.get("value")
         })
         return _obj
 

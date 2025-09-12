@@ -8,7 +8,7 @@ import graphsignal
 from graphsignal.spans import Span, SpanContext
 from graphsignal.recorders.process_recorder import ProcessRecorder
 from graphsignal.uploader import Uploader
-from test.model_utils import find_tag, find_param, find_counter, find_profile, find_log_entry
+from test.model_utils import find_tag, find_attribute, find_counter, find_profile, find_log_entry
 
 
 logger = logging.getLogger('graphsignal')
@@ -30,22 +30,19 @@ class SpansTest(unittest.TestCase):
 
     @patch.object(ProcessRecorder, 'on_span_stop')
     @patch.object(Uploader, 'upload_span')
-    def test_start_stop(self, mocked_upload_span, mocked_process_on_span_stop):
+    @patch.object(Uploader, 'upload_profile')
+    def test_start_stop(self, mocked_upload_profile, mocked_upload_span, mocked_process_on_span_stop):
         graphsignal.set_tag('k2', 'v2')
 
         graphsignal.set_context_tag('k3', 'v3')
         graphsignal.set_context_tag('k4', 'v4')
-
-        graphsignal.set_param('p1', 'v1')
-        graphsignal.set_param('p2', 'v2')
 
         for i in range(10):
             span = Span(
                 name='op1',
                 tags={'k4': 4.0})
             span.set_tag('k5', 'v5')
-            span.set_param('p2', 'v22')
-            span.set_param('p3', 'v3')
+            span.set_attribute('p3', 'v3')
             span.set_counter('c3', 3)
             span.inc_counter_metric('c3', 3)
             span.set_profile('prof1', 'fmt1', 'content1')
@@ -67,9 +64,7 @@ class SpansTest(unittest.TestCase):
         self.assertIsNotNone(find_tag(span, 'platform.version'))
         self.assertIsNotNone(find_tag(span, 'runtime.name'))
         self.assertIsNotNone(find_tag(span, 'runtime.version'))
-        self.assertEqual(find_param(span, 'p1'), 'v1')
-        self.assertEqual(find_param(span, 'p2'), 'v22')
-        self.assertEqual(find_param(span, 'p3'), 'v3')
+        self.assertEqual(find_attribute(span, 'p3'), 'v3')
         self.assertEqual(find_tag(span, 'k1'), 'v1')
         self.assertEqual(find_tag(span, 'k2'), 'v2')
         self.assertEqual(find_tag(span, 'k3'), 'v3')
@@ -77,8 +72,25 @@ class SpansTest(unittest.TestCase):
         self.assertEqual(find_tag(span, 'k5'), 'v5')
         self.assertTrue(find_counter(span, 'span.duration') > 0)
         self.assertEqual(find_counter(span, 'c3'), 3)
-        self.assertEqual(find_profile(span, 'prof1').format, 'fmt1')
-        self.assertEqual(find_profile(span, 'prof1').content, 'content1')
+        
+        # Check that profile was uploaded separately
+        mocked_upload_profile.assert_called()
+        
+        # Find the profile with name 'prof1' among all uploaded profiles
+        prof1_profile = None
+        for call in mocked_upload_profile.call_args_list:
+            profile = call[0][0]
+            if profile.name == 'prof1':
+                prof1_profile = profile
+                break
+        
+        self.assertIsNotNone(prof1_profile, "Profile 'prof1' not found in uploaded profiles")
+        self.assertEqual(prof1_profile.name, 'prof1')
+        self.assertEqual(prof1_profile.format, 'fmt1')
+        self.assertEqual(prof1_profile.content, 'content1')
+        self.assertEqual(len(prof1_profile.linked_span_ids), 1)
+        self.assertTrue(prof1_profile.start_ns > 0)
+        self.assertTrue(prof1_profile.end_ns > 0)
 
         store = graphsignal._tracer.metric_store()
         metric_tags =  graphsignal._tracer.tags.copy()
@@ -170,9 +182,11 @@ class SpansTest(unittest.TestCase):
         self.assertEqual(mocked_upload_error.call_count, 2)
 
         # Check that errors were reported via report_error
+        span = mocked_upload_span.call_args[0][0]
         error = mocked_upload_error.call_args[0][0]
         self.assertEqual(error.name, 'span.error')
         self.assertEqual(error.level, 'error')
+        self.assertEqual(error.linked_span_ids, [span.span_id])
         self.assertIn('Exception: ex1', error.message)
 
         store = graphsignal._tracer.metric_store()
@@ -208,7 +222,7 @@ class SpansTest(unittest.TestCase):
         self.assertEqual(t4.trace_id, t1.trace_id)
         self.assertEqual(t4.parent_span_id, t1.span_id)
 
-    @unittest.skip('for now')
+    #@unittest.skip('for now')
     @patch.object(Uploader, 'upload_span')
     def test_overhead(self, mocked_upload_span):
         #import cProfile, pstats
@@ -216,15 +230,20 @@ class SpansTest(unittest.TestCase):
         #profiler.enable()
 
         graphsignal._tracer.debug_mode = False
+        logger.setLevel(logging.ERROR)
 
-        calls = 10000
+        calls = 1000
         start_ns = time.perf_counter_ns()
         for _ in range(calls):
             with Span(name='op1') as span:
+                span.set_sampled(True)
                 span.set_tag('k1', 'v1')
         took_ns = time.perf_counter_ns() - start_ns
 
         #stats = pstats.Stats(profiler).sort_stats('time')
         #stats.print_stats()
 
+        mocked_upload_span.assert_called()
+
+        #print(f"took_ns: {took_ns}, calls: {calls}")
         self.assertTrue(took_ns / calls < 200 * 1e3) # less than 200 microseconds per trace

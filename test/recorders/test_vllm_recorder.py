@@ -14,7 +14,7 @@ import graphsignal
 from graphsignal import client
 from graphsignal.uploader import Uploader
 from graphsignal.tracer import Tracer
-from test.model_utils import find_tag, find_param, find_counter
+from test.model_utils import find_tag, find_attribute, find_counter
 
 logger = logging.getLogger('graphsignal')
 
@@ -63,14 +63,15 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         print("Model output:")
         print(outputs[0].outputs[0].text)
 
-        model = mocked_upload_span.call_args[0][0]
+        span = mocked_upload_span.call_args[0][0]
 
-        self.assertEqual(find_tag(model, 'inference.engine.name'), 'vllm')
-        self.assertEqual(find_tag(model, 'inference.engine.version'), vllm.__version__)
-        self.assertEqual(find_tag(model, 'vllm.model.name'), 'gpt2')
-        self.assertEqual(find_param(model, 'vllm.model.name'), 'gpt2')
+        self.assertEqual(span.name, 'vllm.llm.generate')
+        self.assertEqual(find_tag(span, 'inference.engine.name'), 'vllm')
+        self.assertEqual(find_tag(span, 'inference.engine.version'), vllm.__version__)
+        self.assertEqual(find_tag(span, 'vllm.model.name'), 'gpt2')
+        self.assertEqual(find_attribute(span, 'vllm.model.name'), 'gpt2')
 
-        self.assertTrue(find_counter(model, 'span.duration') > 0)
+        self.assertTrue(find_counter(span, 'span.duration') > 0)
         #self.assertEqual(find_counter(model, 'output_tokens'), 18)
         #self.assertEqual(find_counter(model, 'prompt_tokens'), 78)
         #self.assertEqual(find_counter(model, 'completion_tokens'), 18)
@@ -90,7 +91,7 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         
         # Create a mock OTEL span with all possible attributes
         mock_otel_span = Mock()
-        mock_otel_span.name = "generate"
+        mock_otel_span.name = "llm_request"
         mock_otel_span.start_time = 1000000000  # 1 second in nanoseconds
         mock_otel_span.end_time = 2000000000    # 2 seconds in nanoseconds
         mock_otel_span.attributes = {
@@ -118,20 +119,22 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         # Check basic span properties
         self.assertEqual(span.start_ns, 1000000000)
         self.assertEqual(span.end_ns, 2000000000)
-        self.assertEqual(span.name, 'vllm.generate')
+        self.assertEqual(span.name, 'vllm.llm_request')
+
+        self.assertEqual(find_attribute(span, 'sampling.reason'), 'vllm.otel')
         
         # Check request attributes
         self.assertEqual(find_tag(span, 'vllm.request.id'), 'test_request_123')
         
         # Check model attributes
         self.assertEqual(find_tag(span, 'vllm.response.model'), 'Qwen/Qwen1.5-7B-Chat')
-        self.assertEqual(find_param(span, 'vllm.response.model'), 'Qwen/Qwen1.5-7B-Chat')
+        self.assertEqual(find_attribute(span, 'vllm.response.model'), 'Qwen/Qwen1.5-7B-Chat')
         
         # Check request parameters
-        self.assertEqual(find_param(span, 'vllm.request.temperature'), '0.7')
-        self.assertEqual(find_param(span, 'vllm.request.top_p'), '0.95')
-        self.assertEqual(find_param(span, 'vllm.request.max_tokens'), '256')
-        self.assertEqual(find_param(span, 'vllm.request.n'), '1')
+        self.assertEqual(find_attribute(span, 'vllm.request.temperature'), '0.7')
+        self.assertEqual(find_attribute(span, 'vllm.request.top_p'), '0.95')
+        self.assertEqual(find_attribute(span, 'vllm.request.max_tokens'), '256')
+        self.assertEqual(find_attribute(span, 'vllm.request.n'), '1')
         
         # Check usage metrics
         self.assertEqual(find_counter(span, 'vllm.usage.num_sequences'), 1.0)

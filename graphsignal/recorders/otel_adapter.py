@@ -52,8 +52,16 @@ class OTELAdapter():
             
         try:
             provider = trace.get_tracer_provider()
-                        
+
             if isinstance(provider, TracerProvider):
+                # clear existing span processors: fake endpoint affects performance due to timouts
+                if hasattr(provider, '_active_span_processor') and hasattr(provider._active_span_processor, '_span_processors'):
+                    provider._active_span_processor._span_processors.clear()
+                    logger.debug("Cleared existing span processors (_active_span_processor._span_processors)")
+                elif hasattr(provider, '_span_processors'):
+                    provider._span_processors.clear()
+                    logger.debug("Cleared existing span processors (_span_processors)")
+
                 self._local_exporter = LocalSpanExporter(self._export_callback)
                 try:
                     provider.add_span_processor(BatchSpanProcessor(self._local_exporter))

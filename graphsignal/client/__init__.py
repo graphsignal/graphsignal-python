@@ -31,6 +31,7 @@ from graphsignal.client.exceptions import ApiAttributeError
 from graphsignal.client.exceptions import ApiException
 
 # import models into sdk package
+from graphsignal.client.models.attribute import Attribute
 from graphsignal.client.models.counter import Counter
 from graphsignal.client.models.error import Error
 from graphsignal.client.models.error_query_result import ErrorQueryResult
@@ -39,8 +40,8 @@ from graphsignal.client.models.histogram import Histogram
 from graphsignal.client.models.log_entry import LogEntry
 from graphsignal.client.models.metric import Metric
 from graphsignal.client.models.metric_type import MetricType
-from graphsignal.client.models.param import Param
 from graphsignal.client.models.profile import Profile
+from graphsignal.client.models.profile_query_result import ProfileQueryResult
 from graphsignal.client.models.span import Span
 from graphsignal.client.models.span_query_result import SpanQueryResult
 from graphsignal.client.models.summary import Summary

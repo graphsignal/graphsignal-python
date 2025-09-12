@@ -13,6 +13,7 @@ from graphsignal.tracer import Tracer
 from graphsignal.uploader import Uploader
 from graphsignal.spans import Span
 from graphsignal.recorders.python_recorder import PythonRecorder, _format_frame
+from test.model_utils import find_attribute
 
 logger = logging.getLogger('graphsignal')
 
@@ -33,9 +34,6 @@ class PythonRecorderTest(unittest.TestCase):
     @patch.object(Tracer, 'emit_span_stop')
     @patch.object(Tracer, 'emit_span_read')
     def test_record(self, mocked_emit_span_read, mocked_emit_span_stop, mocked_emit_span_start):
-        # First call will be skipped, second call should succeed
-        graphsignal._tracer.set_profiling_mode('profile.cpython')
-        graphsignal._tracer.unset_profiling_mode()
 
         recorder = PythonRecorder()
         recorder._exclude_path = 'donotmatchpath'

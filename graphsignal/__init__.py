@@ -26,6 +26,7 @@ def configure(
     tags: Optional[Dict[str, str]] = None,
     auto_instrument: Optional[bool] = None,
     samples_per_min: Optional[int] = None,
+    profiles_per_min: Optional[int] = None,
     include_profiles: Optional[list] = None,
     debug_mode: Optional[bool] = None
 ) -> None:
@@ -40,6 +41,7 @@ def configure(
     tags = read_config_tags(tags)
     auto_instrument = read_config_param("auto_instrument", bool, auto_instrument, default_value=True)
     samples_per_min = read_config_param("samples_per_min", int, samples_per_min)
+    profiles_per_min = read_config_param("profiles_per_min", int, profiles_per_min)
     include_profiles = read_config_param("include_profiles", list, include_profiles)
     debug_mode = read_config_param("debug_mode", bool, debug_mode, default_value=False)
 
@@ -53,6 +55,7 @@ def configure(
         tags=tags,
         auto_instrument=auto_instrument,
         samples_per_min=samples_per_min,
+        profiles_per_min=profiles_per_min,
         include_profiles=include_profiles,
         debug_mode=debug_mode)
     _tracer.setup()
@@ -90,21 +93,6 @@ def get_context_tag(key: str) -> Optional[str]:
 def remove_context_tag(key: str):
     _check_configured()
     return _tracer.remove_context_tag(key)
-
-
-def set_param(name: str, value: Any) -> None:
-    _check_configured()
-    _tracer.set_param(name, value)
-
-
-def get_param(name: str) -> Optional[Any]:
-    _check_configured()
-    return _tracer.get_param(name)
-
-
-def remove_param(name: str):
-    _check_configured()
-    return _tracer.remove_param(name)
 
 
 def trace(

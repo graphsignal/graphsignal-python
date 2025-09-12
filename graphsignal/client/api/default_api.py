@@ -24,6 +24,8 @@ from graphsignal.client.models.error import Error
 from graphsignal.client.models.error_query_result import ErrorQueryResult
 from graphsignal.client.models.log_entry import LogEntry
 from graphsignal.client.models.metric import Metric
+from graphsignal.client.models.profile import Profile
+from graphsignal.client.models.profile_query_result import ProfileQueryResult
 from graphsignal.client.models.span import Span
 from graphsignal.client.models.span_query_result import SpanQueryResult
 
@@ -433,6 +435,409 @@ class DefaultApi:
         return self.api_client.param_serialize(
             method='GET',
             resource_path='/api/v1/errors/',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def query_profiles(
+        self,
+        name: Annotated[Optional[StrictStr], Field(description="Filter profiles by name. Provide profile name.")] = None,
+        tags: Annotated[Optional[StrictStr], Field(description="Filter profiles by tags. Provide tags as a semicolon-separated list of key-value pairs (e.g., 'key1:value1;key2:value2').")] = None,
+        format: Annotated[Optional[StrictStr], Field(description="Filter profiles by format (e.g., chrome-trace, pprof).")] = None,
+        text: Annotated[Optional[StrictStr], Field(description="Filter profiles by text. Provide text to search for in profile names or content.")] = None,
+        start_time: Annotated[Optional[datetime], Field(description="Start time for filtering profiles, in ISO format.")] = None,
+        end_time: Annotated[Optional[datetime], Field(description="End time for filtering profiles, in ISO format.")] = None,
+        limit: Annotated[Optional[StrictInt], Field(description="Limit the number of returned profiles. Default is 100. Max is 1000.")] = None,
+        offset: Annotated[Optional[StrictInt], Field(description="The number of profiles to skip before starting to collect the result set.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ProfileQueryResult:
+        """Query profiles
+
+        Query profiles by name, tags, format, text, and time range. Returns a list of profiles that match the query parameters.
+
+        :param name: Filter profiles by name. Provide profile name.
+        :type name: str
+        :param tags: Filter profiles by tags. Provide tags as a semicolon-separated list of key-value pairs (e.g., 'key1:value1;key2:value2').
+        :type tags: str
+        :param format: Filter profiles by format (e.g., chrome-trace, pprof).
+        :type format: str
+        :param text: Filter profiles by text. Provide text to search for in profile names or content.
+        :type text: str
+        :param start_time: Start time for filtering profiles, in ISO format.
+        :type start_time: datetime
+        :param end_time: End time for filtering profiles, in ISO format.
+        :type end_time: datetime
+        :param limit: Limit the number of returned profiles. Default is 100. Max is 1000.
+        :type limit: int
+        :param offset: The number of profiles to skip before starting to collect the result set.
+        :type offset: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._query_profiles_serialize(
+            name=name,
+            tags=tags,
+            format=format,
+            text=text,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+            offset=offset,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ProfileQueryResult",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def query_profiles_with_http_info(
+        self,
+        name: Annotated[Optional[StrictStr], Field(description="Filter profiles by name. Provide profile name.")] = None,
+        tags: Annotated[Optional[StrictStr], Field(description="Filter profiles by tags. Provide tags as a semicolon-separated list of key-value pairs (e.g., 'key1:value1;key2:value2').")] = None,
+        format: Annotated[Optional[StrictStr], Field(description="Filter profiles by format (e.g., chrome-trace, pprof).")] = None,
+        text: Annotated[Optional[StrictStr], Field(description="Filter profiles by text. Provide text to search for in profile names or content.")] = None,
+        start_time: Annotated[Optional[datetime], Field(description="Start time for filtering profiles, in ISO format.")] = None,
+        end_time: Annotated[Optional[datetime], Field(description="End time for filtering profiles, in ISO format.")] = None,
+        limit: Annotated[Optional[StrictInt], Field(description="Limit the number of returned profiles. Default is 100. Max is 1000.")] = None,
+        offset: Annotated[Optional[StrictInt], Field(description="The number of profiles to skip before starting to collect the result set.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[ProfileQueryResult]:
+        """Query profiles
+
+        Query profiles by name, tags, format, text, and time range. Returns a list of profiles that match the query parameters.
+
+        :param name: Filter profiles by name. Provide profile name.
+        :type name: str
+        :param tags: Filter profiles by tags. Provide tags as a semicolon-separated list of key-value pairs (e.g., 'key1:value1;key2:value2').
+        :type tags: str
+        :param format: Filter profiles by format (e.g., chrome-trace, pprof).
+        :type format: str
+        :param text: Filter profiles by text. Provide text to search for in profile names or content.
+        :type text: str
+        :param start_time: Start time for filtering profiles, in ISO format.
+        :type start_time: datetime
+        :param end_time: End time for filtering profiles, in ISO format.
+        :type end_time: datetime
+        :param limit: Limit the number of returned profiles. Default is 100. Max is 1000.
+        :type limit: int
+        :param offset: The number of profiles to skip before starting to collect the result set.
+        :type offset: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._query_profiles_serialize(
+            name=name,
+            tags=tags,
+            format=format,
+            text=text,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+            offset=offset,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ProfileQueryResult",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def query_profiles_without_preload_content(
+        self,
+        name: Annotated[Optional[StrictStr], Field(description="Filter profiles by name. Provide profile name.")] = None,
+        tags: Annotated[Optional[StrictStr], Field(description="Filter profiles by tags. Provide tags as a semicolon-separated list of key-value pairs (e.g., 'key1:value1;key2:value2').")] = None,
+        format: Annotated[Optional[StrictStr], Field(description="Filter profiles by format (e.g., chrome-trace, pprof).")] = None,
+        text: Annotated[Optional[StrictStr], Field(description="Filter profiles by text. Provide text to search for in profile names or content.")] = None,
+        start_time: Annotated[Optional[datetime], Field(description="Start time for filtering profiles, in ISO format.")] = None,
+        end_time: Annotated[Optional[datetime], Field(description="End time for filtering profiles, in ISO format.")] = None,
+        limit: Annotated[Optional[StrictInt], Field(description="Limit the number of returned profiles. Default is 100. Max is 1000.")] = None,
+        offset: Annotated[Optional[StrictInt], Field(description="The number of profiles to skip before starting to collect the result set.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Query profiles
+
+        Query profiles by name, tags, format, text, and time range. Returns a list of profiles that match the query parameters.
+
+        :param name: Filter profiles by name. Provide profile name.
+        :type name: str
+        :param tags: Filter profiles by tags. Provide tags as a semicolon-separated list of key-value pairs (e.g., 'key1:value1;key2:value2').
+        :type tags: str
+        :param format: Filter profiles by format (e.g., chrome-trace, pprof).
+        :type format: str
+        :param text: Filter profiles by text. Provide text to search for in profile names or content.
+        :type text: str
+        :param start_time: Start time for filtering profiles, in ISO format.
+        :type start_time: datetime
+        :param end_time: End time for filtering profiles, in ISO format.
+        :type end_time: datetime
+        :param limit: Limit the number of returned profiles. Default is 100. Max is 1000.
+        :type limit: int
+        :param offset: The number of profiles to skip before starting to collect the result set.
+        :type offset: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._query_profiles_serialize(
+            name=name,
+            tags=tags,
+            format=format,
+            text=text,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+            offset=offset,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ProfileQueryResult",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _query_profiles_serialize(
+        self,
+        name,
+        tags,
+        format,
+        text,
+        start_time,
+        end_time,
+        limit,
+        offset,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if name is not None:
+            
+            _query_params.append(('name', name))
+            
+        if tags is not None:
+            
+            _query_params.append(('tags', tags))
+            
+        if format is not None:
+            
+            _query_params.append(('format', format))
+            
+        if text is not None:
+            
+            _query_params.append(('text', text))
+            
+        if start_time is not None:
+            if isinstance(start_time, datetime):
+                _query_params.append(
+                    (
+                        'start_time',
+                        start_time.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('start_time', start_time))
+            
+        if end_time is not None:
+            if isinstance(end_time, datetime):
+                _query_params.append(
+                    (
+                        'end_time',
+                        end_time.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('end_time', end_time))
+            
+        if limit is not None:
+            
+            _query_params.append(('limit', limit))
+            
+        if offset is not None:
+            
+            _query_params.append(('offset', offset))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'APIKeyHeader'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v1/profiles/',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -1619,6 +2024,284 @@ class DefaultApi:
         return self.api_client.param_serialize(
             method='POST',
             resource_path='/api/v1/metrics/',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def upload_profiles(
+        self,
+        profile: List[Profile],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> Dict[str, object]:
+        """Upload profiles
+
+        Upload profiles
+
+        :param profile: (required)
+        :type profile: List[Profile]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._upload_profiles_serialize(
+            profile=profile,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "Dict[str, object]",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def upload_profiles_with_http_info(
+        self,
+        profile: List[Profile],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[Dict[str, object]]:
+        """Upload profiles
+
+        Upload profiles
+
+        :param profile: (required)
+        :type profile: List[Profile]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._upload_profiles_serialize(
+            profile=profile,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "Dict[str, object]",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def upload_profiles_without_preload_content(
+        self,
+        profile: List[Profile],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Upload profiles
+
+        Upload profiles
+
+        :param profile: (required)
+        :type profile: List[Profile]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._upload_profiles_serialize(
+            profile=profile,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "Dict[str, object]",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _upload_profiles_serialize(
+        self,
+        profile,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+            'Profile': '',
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if profile is not None:
+            _body_params = profile
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'APIKeyHeader'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v1/profiles/',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

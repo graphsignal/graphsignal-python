@@ -28,6 +28,9 @@ class Uploader:
     def upload_span(self, span):
         self.upload_signal(span)
 
+    def upload_profile(self, profile):
+        self.upload_signal(profile)
+
     def upload_error(self, error):
         self.upload_signal(error)
 
@@ -64,6 +67,10 @@ class Uploader:
                     spans = [signal for signal in outgoing if isinstance(signal, client.Span)]
                     if len(spans) > 0:
                         api_instance.upload_spans(spans)
+
+                    profiles = [signal for signal in outgoing if isinstance(signal, client.Profile)]
+                    if len(profiles) > 0:
+                        api_instance.upload_profiles(profiles)
 
                     errors = [signal for signal in outgoing if isinstance(signal, client.Error)]
                     if len(errors) > 0:

@@ -17,18 +17,18 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Any, ClassVar, Dict, List, Optional
+from graphsignal.client.models.profile import Profile
 from typing import Optional, Set
 from typing_extensions import Self
 
-class Param(BaseModel):
+class ProfileQueryResult(BaseModel):
     """
-    Param
+    ProfileQueryResult
     """ # noqa: E501
-    name: StrictStr = Field(description="The name or name of the parameter.")
-    value: StrictStr = Field(description="The value of the parameter.")
-    __properties: ClassVar[List[str]] = ["name", "value"]
+    data: Optional[List[Profile]] = Field(default=None, description="List of profiles resulting from the query.")
+    __properties: ClassVar[List[str]] = ["data"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -48,7 +48,7 @@ class Param(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Optional[Self]:
-        """Create an instance of Param from a JSON string"""
+        """Create an instance of ProfileQueryResult from a JSON string"""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(self) -> Dict[str, Any]:
@@ -69,11 +69,18 @@ class Param(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of each item in data (list)
+        _items = []
+        if self.data:
+            for _item_data in self.data:
+                if _item_data:
+                    _items.append(_item_data.to_dict())
+            _dict['data'] = _items
         return _dict
 
     @classmethod
     def from_dict(cls, obj: Optional[Dict[str, Any]]) -> Optional[Self]:
-        """Create an instance of Param from a dict"""
+        """Create an instance of ProfileQueryResult from a dict"""
         if obj is None:
             return None
 
@@ -81,8 +88,7 @@ class Param(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "name": obj.get("name"),
-            "value": obj.get("value")
+            "data": [Profile.from_dict(_item) for _item in obj["data"]] if obj.get("data") is not None else None
         })
         return _obj
 

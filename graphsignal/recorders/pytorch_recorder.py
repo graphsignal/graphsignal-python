@@ -20,15 +20,16 @@ class PyTorchRecorder(BaseRecorder):
         tracer.set_tag('framework.name', 'pytorch')
         tracer.set_tag('framework.version', torch.__version__)
 
-    def _can_include_profiles(self, span, profiles):
-        return (graphsignal._tracer.can_include_profiles(profiles) and 
-                span.can_include_profiles(profiles))
+    def _can_include_profile(self, span, profile_name):
+        return (graphsignal._tracer.can_include_profile(profile_name) and 
+                span.can_include_profile(profile_name))
 
     def on_span_start(self, span, context):
-        if (self._can_include_profiles(span, ['profile.pytorch']) and 
-            graphsignal._tracer.set_profiling_mode('profile.pytorch')):
-            context['profiled'] = True
+        if (self._can_include_profile(span, 'profile.pytorch') and 
+            graphsignal._tracer.set_profiling_mode('profile.pytorch', span.name)):
+            context['profile.pytorch'] = True
             span.set_sampled(True)
+            span.set_attribute('sampling.reason', 'profile.pytorch')
 
             if self._torch_prof:
                 # In case of previous profiling not stopped
@@ -49,16 +50,18 @@ class PyTorchRecorder(BaseRecorder):
             self._torch_prof.start()
 
     def on_span_stop(self, span, context):
-        if context.get('profiled', False):
+        if context.get('profile.pytorch', False):
             graphsignal._tracer.unset_profiling_mode()
             if self._torch_prof:
                 self._torch_prof.stop()
 
     def on_span_read(self, span, context):
-        if context.get('profiled', False):
+        if context.get('profile.pytorch', False):
             if self._torch_prof:
                 try:
                     self._convert_to_profile(span)
+                except Exception as e:
+                    logger.debug('Error converting to profile', exc_info=True)
                 finally:
                     self._torch_prof = None
 
@@ -241,7 +244,7 @@ class PyTorchRecorder(BaseRecorder):
 
             trace_file_size = os.path.getsize(trace_path)
             logger.debug('Chrome trace size: %s', trace_file_size)
-            if trace_file_size > 50 * 1e6:
+            if trace_file_size > 500 * 1e6:
                 logger.debug('Chrome trace file too big: %s', trace_file_size)
                 return None
 

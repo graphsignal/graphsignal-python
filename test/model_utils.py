@@ -10,10 +10,10 @@ def find_tag(model, key):
             return tag.value
     return None
 
-def find_param(model, name):
-    for param in model.params:
-        if param.name == name:
-            return param.value
+def find_attribute(model, name):
+    for attribute in model.attributes:
+        if attribute.name == name:
+            return attribute.value
     return None
 
 def find_counter(model, counter_name):

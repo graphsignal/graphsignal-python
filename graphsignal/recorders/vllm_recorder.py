@@ -4,7 +4,7 @@ import vllm
 
 import graphsignal
 from graphsignal import client
-from graphsignal.utils import uuid_sha1
+from graphsignal.utils import uuid_sha1, sanitize_str
 from graphsignal.recorders.base_recorder import BaseRecorder
 from graphsignal.recorders.instrumentation import trace_method, patch_method, parse_semver, compare_semver
 from graphsignal.recorders.prometheus_adapter import PrometheusAdapter
@@ -37,13 +37,22 @@ class VLLMRecorder(BaseRecorder):
                     store[new_key] = str(kwargs[key])
                 elif default is not None:
                     store[new_key] = str(default)
+            
+            def before_llm_init(args, kwargs):
+                # only enable if not explicitly enabled/disabled
+                if not 'disable_log_stats' in kwargs:
+                    kwargs['disable_log_stats'] = False
+                #if not 'otlp_traces_endpoint' in kwargs:
+                #    kwargs['otlp_traces_endpoint'] = 'grpc://localhost:4317'
 
             def after_llm_init(args, kwargs, ret, exc, context):
                 llm_obj = args[0]
                 llm_tags = {}
                 llm_params = {}
 
-                if self._otel_adapter is None:
+                # do not enable otel adapter until supported by vllm v1
+                # otherwise vllm falls back to v0
+                '''if self._otel_adapter is None:
                     # Define the export callback function
                     def otel_export_callback(otel_spans):
                         for otel_span in otel_spans:
@@ -51,7 +60,7 @@ class VLLMRecorder(BaseRecorder):
                         graphsignal._tracer.tick()
 
                     self._otel_adapter = OTELAdapter(export_callback=otel_export_callback)
-                    self._otel_adapter.setup()
+                    self._otel_adapter.setup()'''
 
                 model = None
                 if len(args) > 1 and args[1] is not None:
@@ -74,25 +83,23 @@ class VLLMRecorder(BaseRecorder):
                     for param_name, param_value in llm_tags.items():
                         span.set_tag(param_name, param_value)
                     for param_name, param_value in llm_params.items():
-                        span.set_param(param_name, param_value)
+                        span.set_attribute(param_name, param_value)
                     #sampling_params = kwargs.get('sampling_params', None)
 
-                trace_method(llm_obj, 'generate', 'llm.generate', trace_func=trace_generate)
+                trace_method(llm_obj, 'generate', 'vllm.llm.generate', trace_func=trace_generate)
 
-            patch_method(vllm.LLM, '__init__', after_func=after_llm_init)
-
-            '''def after_llm_engine_init(args, kwargs, ret, exc, context):
-                llm_engine = args[0]
-                trace_method(llm_engine, 'generate', 'LLMEngine.generate', trace_func=trace_generate)
-
-            patch_method(vllm.llm_engine.LLMEngine, '__init__', after_func=after_llm_engine_init)'''
+            patch_method(vllm.LLM, '__init__', before_func=before_llm_init, after_func=after_llm_init)
 
             '''def after_async_llm_init(args, kwargs, ret, exc, context):
-                llm_engine = args[0]
+                asumc_llm_engine = args[0]
 
-                trace_method(llm_engine, 'generate', 'AsyncLLMEngine.generate', trace_func=trace_generate)
+                def trace_async_generate(span, args, kwargs, ret, exc):
+                    print(f'trace_async_generate: {args}, {kwargs}, {ret}, {exc}')
 
-            patch_method(vllm.engine.async_llm_engine.AsyncLLMEngine, '__init__', after_func=after_async_llm_init)'''
+                trace_method(asumc_llm_engine, 'generate', 'AsyncLLMEngine.generate', trace_func=trace_async_generate)
+
+            patch_method(vllm.engine.async_llm_engine.AsyncLLMEngine, 'from_engine_args', after_func=after_async_llm_init)
+            patch_method(vllm.engine.async_llm_engine.AsyncLLMEngine, 'from_vllm_config', after_func=after_async_llm_init)'''
         else:
             logger.debug('VLLM tracing is only supported for >= 0.8.0.')
             return
@@ -120,7 +127,7 @@ class VLLMRecorder(BaseRecorder):
             self._prometheus_adapter.collect()
 
     def _convert_otel_span(self, otel_span):
-        if not graphsignal._tracer.should_sample('vllm'):
+        if not graphsignal._tracer.should_sample('vllm.' + otel_span.name):
             return
 
         if not otel_span.name:
@@ -139,37 +146,44 @@ class VLLMRecorder(BaseRecorder):
             name=f'vllm.{otel_span.name}',
             tags=[],
             params=[],
-            counters=[]
+            counters=[],
+            attributes=[]
         )
 
+        # set process tags
+        if graphsignal._tracer.tags:
+            for tag_key, tag_value in graphsignal._tracer.tags.items():
+                _add_tag(span, tag_key, tag_value)
+
         attributes = otel_span.attributes
+        _add_attribute(span, 'sampling.reason', 'vllm.otel')
         if 'gen_ai.request.id' in attributes:
-            span.tags.append(client.Tag(key='vllm.request.id', value=attributes['gen_ai.request.id']))
+            _add_tag(span, 'vllm.request.id', attributes['gen_ai.request.id'])
         if 'gen_ai.response.model' in attributes:
-            span.tags.append(client.Tag(key='vllm.response.model', value=attributes['gen_ai.response.model']))
-            span.params.append(client.Param(name='vllm.response.model', value=str(attributes['gen_ai.response.model'])))
+            _add_tag(span, 'vllm.response.model', attributes['gen_ai.response.model'])
+            _add_attribute(span, 'vllm.response.model', attributes['gen_ai.response.model'])
         if 'gen_ai.request.temperature' in attributes:
-            span.params.append(client.Param(name='vllm.request.temperature', value=str(attributes['gen_ai.request.temperature'])))
+            _add_attribute(span, 'vllm.request.temperature', attributes['gen_ai.request.temperature'])
         if 'gen_ai.request.top_p' in attributes:
-            span.params.append(client.Param(name='vllm.request.top_p', value=str(attributes['gen_ai.request.top_p'])))
+            _add_attribute(span, 'vllm.request.top_p', attributes['gen_ai.request.top_p'])
         if 'gen_ai.request.max_tokens' in attributes:
-            span.params.append(client.Param(name='vllm.request.max_tokens', value=str(attributes['gen_ai.request.max_tokens'])))
+            _add_attribute(span, 'vllm.request.max_tokens', attributes['gen_ai.request.max_tokens'])
         if 'gen_ai.request.n' in attributes:
-            span.params.append(client.Param(name='vllm.request.n', value=str(attributes['gen_ai.request.n'])))
+            _add_attribute(span, 'vllm.request.n', attributes['gen_ai.request.n'])
         if 'gen_ai.usage.num_sequences' in attributes:
-            span.counters.append(client.Counter(name='vllm.usage.num_sequences', value=float(attributes['gen_ai.usage.num_sequences'])))
+            _add_counter(span, 'vllm.usage.num_sequences', attributes['gen_ai.usage.num_sequences'])
         if 'gen_ai.usage.prompt_tokens' in attributes:
-            span.counters.append(client.Counter(name='vllm.usage.prompt_tokens', value=float(attributes['gen_ai.usage.prompt_tokens'])))
+            _add_counter(span, 'vllm.usage.prompt_tokens', attributes['gen_ai.usage.prompt_tokens'])
         if 'gen_ai.usage.completion_tokens' in attributes:
-            span.counters.append(client.Counter(name='vllm.usage.completion_tokens', value=float(attributes['gen_ai.usage.completion_tokens'])))
+            _add_counter(span, 'vllm.usage.completion_tokens', attributes['gen_ai.usage.completion_tokens'])
         if 'gen_ai.latency.time_in_queue' in attributes:
-            span.counters.append(client.Counter(name='vllm.latency.time_in_queue', value=float(attributes['gen_ai.latency.time_in_queue'])))
+            _add_counter(span, 'vllm.latency.time_in_queue', attributes['gen_ai.latency.time_in_queue'])
         if 'gen_ai.latency.time_to_first_token' in attributes:
-            span.counters.append(client.Counter(name='vllm.latency.time_to_first_token', value=float(attributes['gen_ai.latency.time_to_first_token'])))
+            _add_counter(span, 'vllm.latency.time_to_first_token', attributes['gen_ai.latency.time_to_first_token'])
         if 'gen_ai.latency.e2e' in attributes:
-            span.counters.append(client.Counter(name='vllm.latency.e2e', value=float(attributes['gen_ai.latency.e2e'])))
+            _add_counter(span, 'vllm.latency.e2e', attributes['gen_ai.latency.e2e'])
         if 'gen_ai.latency.time_in_scheduler' in attributes:
-            span.counters.append(client.Counter(name='vllm.latency.time_in_scheduler', value=float(attributes['gen_ai.latency.time_in_scheduler'])))        
+            _add_counter(span, 'vllm.latency.time_in_scheduler', attributes['gen_ai.latency.time_in_scheduler'])      
 
         graphsignal._tracer.uploader().upload_span(span)
 
@@ -177,3 +191,16 @@ class VLLMRecorder(BaseRecorder):
     def shutdown(self):
         if self._otel_adapter:
             self._otel_adapter.shutdown()
+
+def _add_tag(span, key, value):
+    span.tags.append(client.Tag(
+        key=sanitize_str(key, max_len=50), 
+        value=sanitize_str(value, max_len=250)))
+
+def _add_attribute(span, name, value):
+    span.attributes.append(client.Attribute(
+        name=sanitize_str(name, max_len=50), 
+        value=sanitize_str(value, max_len=2500)))
+
+def _add_counter(span, name, value):
+    span.counters.append(client.Counter(name=name, value=float(value)))

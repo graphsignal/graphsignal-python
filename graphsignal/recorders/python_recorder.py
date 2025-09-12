@@ -15,16 +15,17 @@ class PythonRecorder(BaseRecorder):
         self._profiler = None
         self._exclude_path = os.path.dirname(os.path.realpath(graphsignal.__file__))
 
-    def _can_include_profiles(self, span, profiles):
-        return (graphsignal._tracer.can_include_profiles(profiles) and 
-                span.can_include_profiles(profiles))
+    def _can_include_profile(self, span, profile_name):
+        return (graphsignal._tracer.can_include_profile(profile_name) and 
+                span.can_include_profile(profile_name))
 
     def on_span_start(self, span, context):
-        if (self._can_include_profiles(span, ['profile.cpython']) and 
-            graphsignal._tracer.set_profiling_mode('profile.cpython')):
+        if (self._can_include_profile(span, 'profile.cpython') and 
+            graphsignal._tracer.set_profiling_mode('profile.cpython', span.name)):
 
-            context['profiled'] = True
+            context['profile.cpython'] = True
             span.set_sampled(True)
+            span.set_attribute('sampling.reason', 'profile.cpython')
 
             if self._profiler:
                 # In case of previous profiling not stopped
@@ -34,13 +35,13 @@ class PythonRecorder(BaseRecorder):
             self._profiler.enable()
 
     def on_span_stop(self, span, context):
-        if context.get('profiled', False):
+        if context.get('profile.cpython', False):
             graphsignal._tracer.unset_profiling_mode()
             if self._profiler:
                 self._profiler.disable()
 
     def on_span_read(self, span, context):
-        if context.get('profiled', False):
+        if context.get('profile.cpython', False):
             if self._profiler:
                 try:
                     self._convert_to_profile(span)

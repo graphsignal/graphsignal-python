@@ -19,9 +19,8 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from graphsignal.client.models.attribute import Attribute
 from graphsignal.client.models.counter import Counter
-from graphsignal.client.models.param import Param
-from graphsignal.client.models.profile import Profile
 from graphsignal.client.models.tag import Tag
 from typing import Optional, Set
 from typing_extensions import Self
@@ -38,10 +37,9 @@ class Span(BaseModel):
     end_ns: StrictInt = Field(description="End time of the span in nanoseconds.")
     name: StrictStr = Field(description="The name of the span.")
     tags: Optional[List[Tag]] = Field(default=None, description="List of tags associated with the span.")
-    params: Optional[List[Param]] = Field(default=None, description="List of parameters associated with the span.")
+    attributes: Optional[List[Attribute]] = Field(default=None, description="List of attributes associated with the span.")
     counters: Optional[List[Counter]] = Field(default=None, description="Counters associated with the span.")
-    profiles: Optional[List[Profile]] = Field(default=None, description="List of profiles related to the span.")
-    __properties: ClassVar[List[str]] = ["span_id", "trace_id", "parent_span_id", "linked_span_ids", "start_ns", "end_ns", "name", "tags", "params", "counters", "profiles"]
+    __properties: ClassVar[List[str]] = ["span_id", "trace_id", "parent_span_id", "linked_span_ids", "start_ns", "end_ns", "name", "tags", "attributes", "counters"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -89,13 +87,13 @@ class Span(BaseModel):
                 if _item_tags:
                     _items.append(_item_tags.to_dict())
             _dict['tags'] = _items
-        # override the default output from pydantic by calling `to_dict()` of each item in params (list)
+        # override the default output from pydantic by calling `to_dict()` of each item in attributes (list)
         _items = []
-        if self.params:
-            for _item_params in self.params:
-                if _item_params:
-                    _items.append(_item_params.to_dict())
-            _dict['params'] = _items
+        if self.attributes:
+            for _item_attributes in self.attributes:
+                if _item_attributes:
+                    _items.append(_item_attributes.to_dict())
+            _dict['attributes'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in counters (list)
         _items = []
         if self.counters:
@@ -103,13 +101,6 @@ class Span(BaseModel):
                 if _item_counters:
                     _items.append(_item_counters.to_dict())
             _dict['counters'] = _items
-        # override the default output from pydantic by calling `to_dict()` of each item in profiles (list)
-        _items = []
-        if self.profiles:
-            for _item_profiles in self.profiles:
-                if _item_profiles:
-                    _items.append(_item_profiles.to_dict())
-            _dict['profiles'] = _items
         return _dict
 
     @classmethod
@@ -130,9 +121,8 @@ class Span(BaseModel):
             "end_ns": obj.get("end_ns"),
             "name": obj.get("name"),
             "tags": [Tag.from_dict(_item) for _item in obj["tags"]] if obj.get("tags") is not None else None,
-            "params": [Param.from_dict(_item) for _item in obj["params"]] if obj.get("params") is not None else None,
-            "counters": [Counter.from_dict(_item) for _item in obj["counters"]] if obj.get("counters") is not None else None,
-            "profiles": [Profile.from_dict(_item) for _item in obj["profiles"]] if obj.get("profiles") is not None else None
+            "attributes": [Attribute.from_dict(_item) for _item in obj["attributes"]] if obj.get("attributes") is not None else None,
+            "counters": [Counter.from_dict(_item) for _item in obj["counters"]] if obj.get("counters") is not None else None
         })
         return _obj
 

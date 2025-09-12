@@ -28,13 +28,14 @@ class Error(BaseModel):
     Error
     """ # noqa: E501
     error_id: StrictStr = Field(description="Unique identifier for the error.")
+    linked_span_ids: Optional[List[StrictStr]] = Field(default=None, description="List of linked span identifiers.")
     tags: Optional[List[Tag]] = Field(default=None, description="Tags associated with the error.")
     name: StrictStr = Field(description="The name of the error.")
     level: Optional[StrictStr] = Field(default=None, description="Error level (debug, info, warning, error, critical).")
     message: Optional[StrictStr] = Field(default=None, description="The error message.")
     stack_trace: Optional[StrictStr] = Field(default=None, description="Optional stack trace if available.")
     create_ts: StrictInt = Field(description="Unix timestamp (seconds) when the error was created.")
-    __properties: ClassVar[List[str]] = ["error_id", "tags", "name", "level", "message", "stack_trace", "create_ts"]
+    __properties: ClassVar[List[str]] = ["error_id", "linked_span_ids", "tags", "name", "level", "message", "stack_trace", "create_ts"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -95,6 +96,7 @@ class Error(BaseModel):
 
         _obj = cls.model_validate({
             "error_id": obj.get("error_id"),
+            "linked_span_ids": obj.get("linked_span_ids"),
             "tags": [Tag.from_dict(_item) for _item in obj["tags"]] if obj.get("tags") is not None else None,
             "name": obj.get("name"),
             "level": obj.get("level"),

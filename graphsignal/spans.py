@@ -103,12 +103,10 @@ class SpanContext:
 
 class Span:
     MAX_SPAN_TAGS = 25
-    MAX_PARAMS = 100
-    MAX_USAGES_COUNTERS = 25
-    MAX_PAYLOADS = 10
-    MAX_PAYLOAD_BYTES = 256 * 1024
+    MAX_ATTRIBUTES = 100
+    MAX_COUNTERS = 25
     MAX_PROFILES = 10
-    MAX_PROFILE_SIZE = 256 * 1024
+    MAX_PROFILE_SIZE = 100 * 1024 * 1024
 
     __slots__ = [
         '_name',
@@ -131,7 +129,7 @@ class Span:
         '_first_token_counter',
         '_output_tokens',
         '_exc_infos',
-        '_params',
+        '_attributes',
         '_counters',
         '_profiles',
         '_metrics'
@@ -178,7 +176,7 @@ class Span:
         self._model = None
         self._exc_infos = None
         self._counters = None
-        self._params = None
+        self._attributes = None
         self._profiles = None
         self._metrics = None
 
@@ -233,12 +231,16 @@ class Span:
             end_ns=0,
             name=self._name,
             tags=[],
-            params=[],
-            counters=[],
-            profiles=[]
+            attributes=[],
+            counters=[]
         )
 
         self._recorder_context = {}
+
+        # sample randomly if not set explicitly or inherited from parent
+        if not self.is_sampled():
+            self.set_sampled(_tracer().should_sample(('span.random', self._name)))
+            self.set_attribute('sampling.reason', 'span.random')
 
         # emit start event
         try:
@@ -313,11 +315,14 @@ class Span:
         # report errors
         if self._exc_infos:
             for exc_info in self._exc_infos:
+                self.set_sampled(True)
+                self.set_attribute('sampling.reason', 'span.error')
                 _tracer().report_error(
                     name='span.error',
                     tags=metric_tags,
                     level='error',
-                    exc_info=exc_info)
+                    exc_info=exc_info,
+                    span=self)
 
         if self._sampled:
             # fill and upload span
@@ -337,12 +342,12 @@ class Span:
                     value=sanitize_str(value, max_len=250)
                 ))
 
-            # copy params
-            if self._params is not None:
-                for key, value in self._merged_params().items():
-                    self._model.params.append(client.Param(
+            # copy attributes
+            if self._attributes is not None:
+                for key, value in self._attributes.items():
+                    self._model.attributes.append(client.Attribute(
                         name=sanitize_str(key, max_len=50),
-                        value=sanitize_str(value, max_len=250)
+                        value=sanitize_str(value, max_len=2500)
                     ))
 
             # copy counters
@@ -353,15 +358,24 @@ class Span:
                         value=counter.value
                     ))
 
-            # copy profiles
+            # upload profiles directly
             if self._profiles is not None:
                 for profile in self._profiles.values():
                     if len(profile.content) <= Span.MAX_PROFILE_SIZE:
-                        self._model.profiles.append(client.Profile(
+                        profile_model = client.Profile(
+                            profile_id=uuid_sha1(),
+                            linked_span_ids=[self._model.span_id],
+                            start_ns=self._model.start_ns,
+                            end_ns=self._model.end_ns,
                             name=profile.name,
                             format=profile.format,
-                            content=profile.content
-                        ))
+                            content=profile.content,
+                            tags=[]
+                        )
+                        # copy span tags to profile
+                        for tag in self._model.tags:
+                            profile_model.tags.append(client.Tag(key=tag.key, value=tag.value))
+                        _tracer().uploader().upload_profile(profile_model)
 
             # queue span model for upload
             _tracer().uploader().upload_span(self._model)
@@ -390,6 +404,10 @@ class Span:
     def trace_id(self) -> str:
         return self._trace_id
 
+    @property
+    def name(self) -> str:
+        return self._name
+
     def get_span_context(self):
         return SpanContext(
             trace_id=self._trace_id,
@@ -412,10 +430,10 @@ class Span:
     def is_sampled(self) -> bool:
         return self._sampled
 
-    def can_include_profiles(self, profiles) -> bool:
+    def can_include_profile(self, profile_name) -> bool:
         if self._include_profiles_index is None:
             return True
-        return any(prof in self._include_profiles_index for prof in profiles)
+        return profile_name in self._include_profiles_index
 
     def set_tag(self, key: str, value: str) -> None:
         if not key:
@@ -462,28 +480,28 @@ class Span:
         elif exc_info == True:
             self._exc_infos.append(sys.exc_info())
 
-    def set_param(self, name: str, value: str) -> None:
-        if self._params is None:
-            self._params = {}
+    def set_attribute(self, name: str, value: Any) -> None:
+        if self._attributes is None:
+            self._attributes = {}
 
         if not name:
-            logger.error('set_param: name must be provided')
+            logger.error('set_attribute: name must be provided')
             return
 
         if not value:
-            logger.error('set_param: value must be provided')
+            logger.error('set_attribute: value must be provided')
             return
 
-        if len(self._params) > Span.MAX_PARAMS:
-            logger.error('set_param: too many params (>{0})'.format(Span.MAX_PARAMS))
+        if len(self._attributes) > Span.MAX_ATTRIBUTES:
+            logger.error('set_attribute: too many attributes (>{0})'.format(Span.MAX_ATTRIBUTES))
             return
 
-        self._params[name] = value
+        self._attributes[name] = value
 
-    def get_param(self, name: str) -> Optional[str]:
-        if self._params is None:
+    def get_attribute(self, name: str) -> Optional[str]:
+        if self._attributes is None:
             return None
-        return self._params.get(name)
+        return self._attributes.get(name)
 
     def set_counter(self, name: str, value: int) -> None:
         if self._counters is None:
@@ -497,8 +515,8 @@ class Span:
             logger.error('set_counter: value must be number')
             return
 
-        if len(self._counters) > Span.MAX_USAGES_COUNTERS:
-            logger.error('set_counter: too many counters (>{0})'.format(Span.MAX_USAGES_COUNTERS))
+        if len(self._counters) > Span.MAX_COUNTERS:
+            logger.error('set_counter: too many counters (>{0})'.format(Span.MAX_COUNTERS))
             return
 
         self._counters[name] = Counter(name=name, value=value)
@@ -545,6 +563,7 @@ class Span:
         return Span(
             name=span_name, 
             tags=tags,
+            include_profiles=[],
             parent_context=self.get_span_context())
  
     def inc_counter_metric(
@@ -583,14 +602,6 @@ class Span:
         if extra_tags is not None:
             span_tags.update(extra_tags)
         return span_tags
-
-    def _merged_params(self):
-        params = {}
-        if _tracer().params is not None:
-            params.update(_tracer().params)
-        if self._params is not None:
-            params.update(self._params)
-        return params
 
     def repr(self):
         return 'Span({0})'.format(self._name)

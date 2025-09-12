@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "graphsignal"
-version = "0.18.2"
+version = "0.18.3"
 description = "Graphsignal Tracer for Python"
 authors = ["Graphsignal, Inc. <devops@graphsignal.com>"]
 license = "Apache-2.0"
@@ -33,6 +33,8 @@ opentelemetry-api = "*"
 opentelemetry-sdk = "*"
 opentelemetry-exporter-otlp = "*"
 opentelemetry-semantic-conventions-ai = "*"
+opentelemetry-proto = "*"
+grpcio = "*"
 
 [tool.poetry.group.dev.dependencies]
 torch = "*"

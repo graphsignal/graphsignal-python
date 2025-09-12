@@ -39,6 +39,23 @@ class Dummy:
             await asyncio.sleep(0.001)
             yield 'item' + str(i)
 
+class DummyNoSleep:
+    def __init__(self):
+        pass
+
+    def test(self, a, b, c=None):
+        return a + 1
+
+    def test_exc(self):
+        raise Exception('exc1')
+
+    def test_gen(self):
+        for i in range(2):
+            yield 'item' + str(i)
+
+    async def test_gen_async(self):
+        for i in range(2):
+            yield 'item' + str(i)
 
 class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
@@ -251,3 +268,33 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(compare_semver((1, 2, 3), (1, 2, 3)), 0)
 
         self.assertEqual(compare_semver((1, 2, 3), (1, 2, 2)), 1)
+
+    #@unittest.skip('for now')
+    @patch.object(Uploader, 'upload_span')
+    def test_overhead(self, mocked_upload_span):
+        #import cProfile, pstats
+        #profiler = cProfile.Profile()
+        #profiler.enable()
+
+        graphsignal._tracer.debug_mode = False
+        logger.setLevel(logging.ERROR)
+
+        obj = DummyNoSleep()
+
+        def trace_func(span, args, kwargs, ret, exc):
+            span.set_sampled(True)
+        trace_method(obj, 'test', 'op1', trace_func=trace_func)
+
+        calls = 1000
+        start_ns = time.perf_counter_ns()
+        for _ in range(calls):
+            obj.test(1, 2, c=3)
+        took_ns = time.perf_counter_ns() - start_ns
+
+        #stats = pstats.Stats(profiler).sort_stats('time')
+        #stats.print_stats()
+
+        mocked_upload_span.assert_called()
+
+        print(f"took_ns: {took_ns}, calls: {calls}")
+        self.assertTrue(took_ns / calls < 500 * 1e3) # less than 500 microseconds per trace

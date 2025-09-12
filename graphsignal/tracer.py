@@ -1,4 +1,5 @@
-from typing import Dict, Any, Union, Optional
+from token import OP
+from typing import Dict, Optional
 import logging
 import sys
 import os
@@ -18,7 +19,7 @@ from graphsignal.metrics import MetricStore
 from graphsignal.logs import LogStore
 from graphsignal.spans import Span
 from graphsignal import client
-from graphsignal.utils import fast_rand, uuid_sha1, sanitize_str
+from graphsignal.utils import uuid_sha1, sanitize_str
 
 logger = logging.getLogger('graphsignal')
 
@@ -50,6 +51,7 @@ RECORDER_SPECS = {
     '(default)': [
         ('graphsignal.recorders.process_recorder', 'ProcessRecorder'),
         ('graphsignal.recorders.python_recorder', 'PythonRecorder'),
+        ('graphsignal.recorders.exception_recorder', 'ExceptionRecorder'),
         ('graphsignal.recorders.nvml_recorder', 'NVMLRecorder')],
     'torch': [('graphsignal.recorders.pytorch_recorder', 'PyTorchRecorder')],
     'vllm': [('graphsignal.recorders.vllm_recorder', 'VLLMRecorder')]
@@ -110,7 +112,6 @@ class SamplingTokenBucket:
         self.tokens = self.capacity               # start full
         self.refill_rate_per_sec = self.capacity / 60.0  # tokens per second
         self.last_refill_time = time.monotonic()
-        self._first_request_skipped = False  # Track if first request has been skipped
     
     def _refill(self):
         now = time.monotonic()
@@ -121,20 +122,32 @@ class SamplingTokenBucket:
             self.tokens = min(self.capacity, self.tokens + new_tokens)
             self.last_refill_time = now
     
-    def should_sample(self) -> bool:
-        # Skip the first request
-        if not self._first_request_skipped:
-            self._first_request_skipped = True
-            return False
-        
+    def should_sample(self, consume=True) -> bool:
         # Only refill if we don't have enough tokens
         if self.tokens < 1:
             self._refill()
         
         if self.tokens >= 1:
-            self.tokens -= 1
+            if consume:
+                self.tokens -= 1
             return True
         return False
+
+class DynamicCycle:
+    def __init__(self):
+        self.keys = []
+        self.index = 0
+
+    def add(self, key):
+        if key not in self.keys:
+            self.keys.append(key)
+
+    def next(self):
+        if not self.keys:
+            raise ValueError("No keys to sample from")
+        key = self.keys[self.index]
+        self.index = (self.index + 1) % len(self.keys)
+        return key
 
 class Tracer:
     TICK_INTERVAL_SEC = 10
@@ -142,6 +155,7 @@ class Tracer:
     PROFILING_MODE_TIMEOUT_SEC = 60
     MAX_ERRORS_PER_MINUTE = 25
     VALID_ERROR_LEVELS = {'debug', 'info', 'warning', 'error', 'critical'}
+    MAX_SAMPLERS = 100
 
     def __init__(
             self, 
@@ -149,7 +163,8 @@ class Tracer:
             api_url=None, 
             tags=None, 
             auto_instrument=True, 
-            samples_per_min=10,
+            samples_per_min=5,
+            profiles_per_min=1,
             include_profiles=None,
             debug_mode=False):
         if debug_mode:
@@ -170,10 +185,9 @@ class Tracer:
             self.tags.update(tags)
         self.context_tags = contextvars.ContextVar('graphsignal_context_tags', default={})
 
-        self.params = {}
-
         self.auto_instrument = auto_instrument
-        self.samples_per_min = samples_per_min if samples_per_min is not None else 10
+        self.samples_per_min = samples_per_min if samples_per_min is not None else 5
+        self.profiles_per_min = profiles_per_min if profiles_per_min is not None else 1
         self.include_profiles = include_profiles
         self.debug_mode = debug_mode
 
@@ -194,6 +208,7 @@ class Tracer:
         self._profiling_mode_lock = threading.Lock()
         self._profiling_mode = None
         self._include_profiles_index = set(include_profiles) if isinstance(include_profiles, list) else None
+        self._active_profiles = DynamicCycle()
 
         self._process_start_ms = int(time.time() * 1e3)
 
@@ -310,15 +325,39 @@ class Tracer:
     def log_store(self):
         return self._log_store
 
-    def should_sample(self, sampler_key):
+    def sampler(self, sampler_key, samples_per_min):
         if sampler_key not in self._sampling_token_buckets:
-            self._sampling_token_buckets[sampler_key] = SamplingTokenBucket(self.samples_per_min)
-        return self._sampling_token_buckets[sampler_key].should_sample()
+            if len(self._sampling_token_buckets) >= self.MAX_SAMPLERS:
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug('Maximum number of samplers reached, skipping sampler: %s', sampler_key)
+                return None
+            self._sampling_token_buckets[sampler_key] = SamplingTokenBucket(samples_per_min)
+        return self._sampling_token_buckets[sampler_key]
 
-    def set_profiling_mode(self, profile_name):
-        if not self.should_sample(profile_name):
+    def should_sample(self, sampler_key, consume=True):
+        sampler = self.sampler(sampler_key, self.samples_per_min)
+        if not sampler:
+            return False
+        return sampler.should_sample(consume)
+
+    def should_profile(self, sampler_key, consume=True):
+        sampler = self.sampler(sampler_key, self.profiles_per_min)
+        if not sampler:
+            return False
+        return sampler.should_sample(consume)
+
+    def set_profiling_mode(self, profile_name, span_name=None):
+        # avoid entering the lock for every profiling mode check
+        # only check if we can sample, don't consume a token
+        sampler_key = (profile_name, span_name) if span_name else profile_name
+        if not self.should_profile(sampler_key, consume=False):
             return False
 
+        # allow all profilers to run
+        self._active_profiles.add(profile_name)
+        if self._active_profiles.next() != profile_name:
+            return False
+        
         with self._profiling_mode_lock:
             if self._profiling_mode and (time.time() - self._profiling_mode) > self.PROFILING_MODE_TIMEOUT_SEC:
                 self._profiling_mode = None
@@ -326,6 +365,9 @@ class Tracer:
             if self._profiling_mode:
                 return False
             else:
+                if not self.should_profile(sampler_key):
+                    return False
+                
                 self._profiling_mode = time.time()
                 return True
 
@@ -336,10 +378,10 @@ class Tracer:
     def is_profiling_mode(self):
         return self._profiling_mode is not None
 
-    def can_include_profiles(self, profiles) -> bool:
+    def can_include_profile(self, profile_name) -> bool:
         if self._include_profiles_index is None:
             return True
-        return any(prof in self._include_profiles_index for prof in profiles)
+        return profile_name in self._include_profiles_index
 
     def emit_span_start(self, span, context):
         last_exc = None
@@ -441,23 +483,6 @@ class Tracer:
     def get_context_tag(self, key: str) -> Optional[str]:
         return self.context_tags.get().get(key, None)
 
-    def set_param(self, name: str, value: Any) -> None:
-        if not name:
-            logger.error('set_param: name must be provided')
-            return
-
-        if value is None:
-            self.params.pop(name, None)
-            return
-
-        self.params[name] = value
-
-    def get_param(self, name: str) -> Optional[Any]:
-        return self.params.get(name, None)
-
-    def remove_param(self, name: str) -> None:
-        self.params.pop(name, None)
-
     def trace(
             self, 
             span_name: str,
@@ -499,7 +524,8 @@ class Tracer:
             tags: Optional[Dict[str, str]] = None,
             level: Optional[str] = None,
             message: Optional[str] = None,
-            exc_info: Optional[tuple] = None) -> None:
+            exc_info: Optional[tuple] = None,
+            span: Optional[Span] = None) -> None:
         now = int(time.time())
 
         if not name:
@@ -526,6 +552,9 @@ class Tracer:
             tags=[],
             name=name,
             create_ts=now)
+
+        if span:
+            model.linked_span_ids = [span.span_id]
 
         error_tags = {}
         if self.tags is not None:

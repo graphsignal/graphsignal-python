@@ -7,7 +7,7 @@ import pprint
 import graphsignal
 from graphsignal.uploader import Uploader
 from graphsignal.spans import Span
-from graphsignal.tracer import SamplingTokenBucket
+from graphsignal.tracer import SamplingTokenBucket, DynamicCycle
 from test.model_utils import find_tag
 
 logger = logging.getLogger('graphsignal')
@@ -24,45 +24,43 @@ class SamplingTokenBucketTest(unittest.TestCase):
 
     def test_should_sample_initial_call(self):
         bucket = SamplingTokenBucket(10)
-        # First call should be skipped
-        self.assertFalse(bucket.should_sample())
-        # Second call should be allowed
+        # First call should be allowed
+        self.assertTrue(bucket.should_sample())
+        # Second call should also be allowed
         self.assertTrue(bucket.should_sample())
 
     def test_should_sample_consumes_tokens(self):
         bucket = SamplingTokenBucket(10)
-        # First call should be skipped and not consume tokens
-        self.assertFalse(bucket.should_sample())
-        self.assertEqual(bucket.tokens, 10)  # No tokens consumed
-        
-        # Second call should be allowed and consume tokens
+        # First call should be allowed and consume tokens
         self.assertTrue(bucket.should_sample())
         self.assertAlmostEqual(bucket.tokens, 9, delta=0.001)
         
-        # Third call should also consume tokens
+        # Second call should also consume tokens
         self.assertTrue(bucket.should_sample())
         self.assertAlmostEqual(bucket.tokens, 8, delta=0.001)
+        
+        # Third call should also consume tokens
+        self.assertTrue(bucket.should_sample())
+        self.assertAlmostEqual(bucket.tokens, 7, delta=0.001)
 
     def test_should_sample_rate_limiting(self):
         bucket = SamplingTokenBucket(1)
-        # First call should be skipped
-        self.assertFalse(bucket.should_sample())
-        self.assertEqual(bucket.tokens, 1)  # No tokens consumed
-        
-        # Second call should consume the only token
+        # First call should consume the only token
         self.assertTrue(bucket.should_sample())
         self.assertLess(bucket.tokens, 0.1)
         
-        # Third call should be rate limited
+        # Second call should be rate limited
+        self.assertFalse(bucket.should_sample())
+        self.assertLess(bucket.tokens, 0.1)
+        
+        # Third call should also be rate limited
         self.assertFalse(bucket.should_sample())
         self.assertLess(bucket.tokens, 0.1)
 
     def test_token_refill(self):
         bucket = SamplingTokenBucket(60)
-        # Skip first request
-        bucket.should_sample()  # This returns False, no tokens consumed
         
-        # Consume all tokens (60 calls, but first was skipped)
+        # Consume all tokens (60 calls)
         for _ in range(60):
             bucket.should_sample()
         self.assertLess(bucket.tokens, 0.1)
@@ -83,20 +81,22 @@ class SamplingTokenBucketTest(unittest.TestCase):
         bucket120 = SamplingTokenBucket(120)
         self.assertEqual(bucket120.refill_rate_per_sec, 2.0)
 
-    def test_first_request_skipped(self):
-        bucket = SamplingTokenBucket(10)
+class DynamicCycleTest(unittest.TestCase):
+    def test_cycle_through_keys(self):
+        cycle = DynamicCycle()
         
-        # First request should be skipped
-        self.assertFalse(bucket.should_sample())
-        self.assertEqual(bucket.tokens, 10)  # No tokens consumed
+        # Add keys
+        cycle.add('key1')
+        cycle.add('key2')
+        cycle.add('key2')
+        cycle.add('key3')
         
-        # Second request should be allowed
-        self.assertTrue(bucket.should_sample())
-        self.assertAlmostEqual(bucket.tokens, 9, delta=0.001)  # One token consumed
-        
-        # Third request should also be allowed
-        self.assertTrue(bucket.should_sample())
-        self.assertAlmostEqual(bucket.tokens, 8, delta=0.001)  # Another token consumed
+        # Should cycle through keys in order
+        self.assertEqual(cycle.next(), 'key1')
+        self.assertEqual(cycle.next(), 'key2')
+        self.assertEqual(cycle.next(), 'key3')
+        self.assertEqual(cycle.next(), 'key1')
+        self.assertEqual(cycle.next(), 'key2')
 
 class TracerTest(unittest.TestCase):
     def setUp(self):
@@ -140,19 +140,14 @@ class TracerTest(unittest.TestCase):
         tracer = graphsignal._tracer
         
         tracer._profiling_mode = None
-        
-        # First call will be skipped
-        result = tracer.set_profiling_mode('python.cprofile')
-        self.assertIsInstance(result, bool)
-        self.assertFalse(result)  # First call skipped
-        
+                
         # Second call should succeed
-        result = tracer.set_profiling_mode('python.cprofile')
+        result = tracer.set_profiling_mode('profile.cpython')
         self.assertIsInstance(result, bool)
         self.assertTrue(result)  # Second call succeeds
         
         # Third call should fail (profiling mode already set)
-        result = tracer.set_profiling_mode('python.cprofile')
+        result = tracer.set_profiling_mode('profile.cpython')
         self.assertFalse(result)
 
     def test_set_profiling_mode_token_bucket_rate_limiting(self):
@@ -161,36 +156,31 @@ class TracerTest(unittest.TestCase):
         tracer._profiling_mode = None
         
         # Create bucket and consume all tokens
-        bucket = tracer._sampling_token_buckets.get('python.cprofile')
+        bucket = tracer._sampling_token_buckets.get('profile.cpython')
         if bucket is None:
-            tracer.set_profiling_mode('python.cprofile')  # This will create the bucket
-            bucket = tracer._sampling_token_buckets['python.cprofile']
+            tracer.set_profiling_mode('profile.cpython')  # This will create the bucket
+            bucket = tracer._sampling_token_buckets['profile.cpython']
         
         bucket.tokens = 0
         
-        result = tracer.set_profiling_mode('python.cprofile')
+        result = tracer.set_profiling_mode('profile.cpython')
         self.assertFalse(result)
 
     def test_set_profiling_mode_already_set_not_expired(self):
         tracer = graphsignal._tracer
         tracer._profiling_mode = time.time()
-        result = tracer.set_profiling_mode('python.cprofile')
+        result = tracer.set_profiling_mode('profile.cpython')
         self.assertFalse(result)
 
     def test_set_profiling_mode_expired(self):
         tracer = graphsignal._tracer
         tracer._profiling_mode = time.time() - (tracer.PROFILING_MODE_TIMEOUT_SEC + 1)
-        # First call will be skipped, second call should succeed
-        result = tracer.set_profiling_mode('python.cprofile')
-        self.assertFalse(result)  # First call skipped
-        result = tracer.set_profiling_mode('python.cprofile')
+        result = tracer.set_profiling_mode('profile.cpython')
         self.assertTrue(result)  # Second call succeeds
 
     def test_unset_profiling_mode(self):
         tracer = graphsignal._tracer
-        # First call will be skipped, second call should succeed
-        tracer.set_profiling_mode('python.cprofile')  # This returns False
-        tracer.set_profiling_mode('python.cprofile')  # This returns True and sets profiling mode
+        tracer.set_profiling_mode('profile.cpython')  # This returns True and sets profiling mode
         self.assertTrue(tracer.is_profiling_mode())
         tracer.unset_profiling_mode()
         self.assertFalse(tracer.is_profiling_mode())
@@ -207,19 +197,19 @@ class TracerTest(unittest.TestCase):
         self.assertEqual(len(tracer._sampling_token_buckets), 0)
         
         # Create bucket dynamically
-        result = tracer.set_profiling_mode('python.cprofile')
-        self.assertIn('python.cprofile', tracer._sampling_token_buckets)
-        self.assertEqual(tracer._sampling_token_buckets['python.cprofile'].capacity, tracer.samples_per_min)
+        result = tracer.set_profiling_mode('profile.cpython')
+        self.assertIn('profile.cpython', tracer._sampling_token_buckets)
+        self.assertEqual(tracer._sampling_token_buckets['profile.cpython'].capacity, tracer.profiles_per_min)
 
     def test_multiple_profile_types(self):
         tracer = graphsignal._tracer
         
         # Create different profile types
-        tracer.set_profiling_mode('python.cprofile')
-        tracer.set_profiling_mode('pytorch.profile')
+        tracer.set_profiling_mode('profile.cpython')
+        tracer.set_profiling_mode('profile.pytorch')
         
-        self.assertIn('python.cprofile', tracer._sampling_token_buckets)
-        self.assertIn('pytorch.profile', tracer._sampling_token_buckets)
+        self.assertIn('profile.cpython', tracer._sampling_token_buckets)
+        self.assertIn('profile.pytorch', tracer._sampling_token_buckets)
         self.assertEqual(len(tracer._sampling_token_buckets), 2)
 
     def test_token_buckets_independent_operation(self):
@@ -227,11 +217,11 @@ class TracerTest(unittest.TestCase):
         tracer._profiling_mode = None
         
         # Create buckets
-        tracer.set_profiling_mode('python.cprofile')
-        tracer.set_profiling_mode('pytorch.profile')
+        tracer.set_profiling_mode('profile.cpython')
+        tracer.set_profiling_mode('profile.pytorch')
         
-        python_bucket = tracer._sampling_token_buckets['python.cprofile']
-        pytorch_bucket = tracer._sampling_token_buckets['pytorch.profile']
+        python_bucket = tracer._sampling_token_buckets['profile.cpython']
+        pytorch_bucket = tracer._sampling_token_buckets['profile.pytorch']
         
         # Consume tokens from python bucket
         python_bucket.tokens = 0
@@ -240,11 +230,11 @@ class TracerTest(unittest.TestCase):
         self.assertGreater(pytorch_bucket.tokens, 0)
         
         # python bucket should be rate limited
-        result = tracer.set_profiling_mode('python.cprofile')
+        result = tracer.set_profiling_mode('profile.cpython')
         self.assertFalse(result)
         
         # pytorch bucket should still work
-        result = tracer.set_profiling_mode('pytorch.profile')
+        result = tracer.set_profiling_mode('profile.pytorch')
         self.assertIsInstance(result, bool)
 
     @patch.object(Uploader, 'upload_span')

@@ -12,7 +12,7 @@ import graphsignal
 from graphsignal import Tracer
 from graphsignal import spans
 from graphsignal.recorders.pytorch_recorder import PyTorchRecorder
-from test.model_utils import find_tag
+from test.model_utils import find_tag, find_attribute
 
 logger = logging.getLogger('graphsignal')
 
@@ -33,9 +33,6 @@ class PytorchRecorderTest(unittest.TestCase):
     @patch.object(Tracer, 'emit_span_stop')
     @patch.object(Tracer, 'emit_span_read')
     def test_record(self, mock_emit_span_start, mock_emit_span_stop, mock_emit_span_read):
-        # First call will be skipped, second call should succeed
-        graphsignal._tracer.set_profiling_mode('profile.pytorch')
-        graphsignal._tracer.unset_profiling_mode()
 
         recorder = PyTorchRecorder()
         recorder.setup()
