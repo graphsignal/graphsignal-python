@@ -146,9 +146,13 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
             trace_func_called = True
 
         data_func_called = False
-        def data_func(span, item):
+        data_func_called_stopped = False
+        def data_func(span, item, exc, stopped):
             nonlocal data_func_called
             data_func_called = True
+            if stopped:
+                nonlocal data_func_called_stopped
+                data_func_called_stopped = True
 
         trace_method(obj, 'test_gen', 'op1', trace_func=trace_func, data_func=data_func)
 
@@ -159,6 +163,7 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(trace_func_called)
         self.assertTrue(data_func_called)
+        self.assertTrue(data_func_called_stopped)
         self.assertEqual(model.name,'op1')
         self.assertTrue(find_counter(model, 'span.duration') > 0)
 
@@ -210,7 +215,7 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
         obj = Dummy()
 
         yield_func_called = False
-        def yield_func(stopped, item, context):
+        def yield_func(stopped, item, context, exc):
             nonlocal yield_func_called
             yield_func_called = True
             if not stopped:
@@ -228,7 +233,7 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
 
         yield_func_called = False
         yield_func_stop_called = False
-        def yield_func(stopped, item, context):
+        def yield_func(stopped, item, context, exc):
             nonlocal yield_func_called, yield_func_stop_called
             if not stopped:
                 yield_func_called = True

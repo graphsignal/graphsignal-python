@@ -16,6 +16,7 @@ from graphsignal import client
 from graphsignal.recorders.base_recorder import BaseRecorder
 import graphsignal
 from graphsignal import version
+from graphsignal.recorders.instrumentation import patch_method, unpatch_method
 
 logger = logging.getLogger('graphsignal')
 
@@ -128,15 +129,15 @@ class ProcessRecorder(BaseRecorder):
         if process_usage.current_rss > 0:
             store.set_gauge(
                 name='process.memory.usage', tags=metric_tags, 
-                value=process_usage.current_rss, update_ts=now, is_size=True)
+                value=process_usage.current_rss, update_ts=now)
         if process_usage.vm_size > 0:
             store.set_gauge(
                 name='process.memory.virtual', tags=metric_tags, 
-                value=process_usage.vm_size, update_ts=now, is_size=True)
+                value=process_usage.vm_size, update_ts=now)
         if node_usage.mem_used > 0:
             store.set_gauge(
                 name='host.memory.usage', tags=metric_tags, 
-                value=node_usage.mem_used, update_ts=now, is_size=True)
+                value=node_usage.mem_used, update_ts=now)
 
     def take_snapshot(self):
         if not OS_WIN:

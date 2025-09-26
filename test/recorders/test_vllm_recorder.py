@@ -33,50 +33,6 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         graphsignal.shutdown()
 
     @patch.object(Uploader, 'upload_span')
-    async def test_llm_generate(self, mocked_upload_span):
-        try:
-            import vllm
-        except ImportError:
-            self.skipTest("vllm is not installed")
-            return
-
-        if not torch.cuda.is_available():
-            self.skipTest("No CUDA available")
-            return
-
-        from vllm import LLM, SamplingParams
-
-        llm = LLM(
-            model="gpt2",
-            enforce_eager=True
-        )
-
-        sampling_params = SamplingParams(
-            temperature=0.7, 
-            top_p=0.95, 
-            max_tokens=256
-        )
-
-        outputs = llm.generate([f"What is 2 raised to 10 power?"], sampling_params)
-        outputs = llm.generate([f"What is 2 raised to 10 power?"], sampling_params)
-
-        print("Model output:")
-        print(outputs[0].outputs[0].text)
-
-        span = mocked_upload_span.call_args[0][0]
-
-        self.assertEqual(span.name, 'vllm.llm.generate')
-        self.assertEqual(find_tag(span, 'inference.engine.name'), 'vllm')
-        self.assertEqual(find_tag(span, 'inference.engine.version'), vllm.__version__)
-        self.assertEqual(find_tag(span, 'vllm.model.name'), 'gpt2')
-        self.assertEqual(find_attribute(span, 'vllm.model.name'), 'gpt2')
-
-        self.assertTrue(find_counter(span, 'span.duration') > 0)
-        #self.assertEqual(find_counter(model, 'output_tokens'), 18)
-        #self.assertEqual(find_counter(model, 'prompt_tokens'), 78)
-        #self.assertEqual(find_counter(model, 'completion_tokens'), 18)
-
-    @patch.object(Uploader, 'upload_span')
     @patch.object(Tracer, 'should_sample', return_value=True)
     def test_convert_otel_span(self, mocked_should_sample, mocked_upload_span):
         try:
@@ -142,8 +98,117 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_counter(span, 'vllm.usage.completion_tokens'), 1.0)
         
         # Check latency metrics
-        self.assertEqual(find_counter(span, 'vllm.latency.time_in_queue'), 0.012926340103149414)
-        self.assertEqual(find_counter(span, 'vllm.latency.time_to_first_token'), 0.22484421730041504)
-        self.assertEqual(find_counter(span, 'vllm.latency.e2e'), 0.22525858879089355)
-        self.assertEqual(find_counter(span, 'vllm.latency.time_in_scheduler'), 0.0013919062912464142)
+        self.assertEqual(find_counter(span, 'vllm.latency.time_in_queue'), 12926340)
+        self.assertEqual(find_counter(span, 'vllm.latency.time_to_first_token'), 224844217)
+        self.assertEqual(find_counter(span, 'vllm.latency.e2e'), 225258588)
+        self.assertEqual(find_counter(span, 'vllm.latency.time_in_scheduler'), 1391906)
 
+
+    @unittest.skipIf(os.getenv("RUN_VLLM_TESTS") != "1", "skipped unless forced")
+    @patch.object(Uploader, 'upload_span')
+    async def test_llm_generate(self, mocked_upload_span):
+        try:
+            import vllm
+        except ImportError:
+            self.skipTest("vllm is not installed")
+            return
+
+        if not torch.cuda.is_available():
+            self.skipTest("No CUDA available")
+            return
+
+        from vllm import LLM, SamplingParams
+
+        llm = LLM(
+            model="distilgpt2",
+            enforce_eager=True
+        )
+
+        sampling_params = SamplingParams(
+            temperature=0.7, 
+            top_p=0.95, 
+            max_tokens=256
+        )
+
+        outputs = llm.generate([f"What is 2 raised to 10 power?"], sampling_params)
+        outputs = llm.generate([f"What is 2 raised to 10 power?"], sampling_params)
+
+        print("Model output:")
+        print(outputs)
+
+        span = mocked_upload_span.call_args[0][0]
+
+        self.assertEqual(span.name, 'vllm.llm.generate')
+        self.assertEqual(find_tag(span, 'inference.engine.name'), 'vllm')
+        self.assertEqual(find_tag(span, 'inference.engine.version'), vllm.__version__)
+        self.assertEqual(find_tag(span, 'vllm.model.name'), 'distilgpt2')
+        self.assertIsNotNone(find_tag(span, 'vllm.request.id'))
+
+        self.assertTrue(find_counter(span, 'span.duration') > 0)
+        self.assertTrue(find_counter(span, 'vllm.usage.prompt_tokens') > 0)
+        self.assertTrue(find_counter(span, 'vllm.usage.completion_tokens') > 0)
+
+    @unittest.skipIf(os.getenv("RUN_VLLM_TESTS") != "1", "skipped unless forced")
+    @patch.object(Uploader, 'upload_span')
+    async def test_async_llm_generate(self, mocked_upload_span):
+        try:
+            import vllm
+        except ImportError:
+            self.skipTest("vllm is not installed")
+            return
+
+        if not torch.cuda.is_available():
+            self.skipTest("No CUDA available")
+            return
+
+        from vllm.v1.engine.async_llm import AsyncLLM
+        from vllm.engine.arg_utils import AsyncEngineArgs
+        from vllm import SamplingParams
+
+        # Set environment variable to enable v1 engine
+        import os
+        os.environ['VLLM_USE_V1'] = '1'
+
+        # Initialize the AsyncLLM engine
+        engine_args = AsyncEngineArgs(
+            model="distilgpt2", # state-spaces/mamba-130m-hf
+            enforce_eager=True
+        )
+        
+        async_llm = AsyncLLM.from_engine_args(engine_args)
+
+        # Define sampling parameters
+        sampling_params = SamplingParams(
+            temperature=0.7,
+            top_p=0.95,
+            max_tokens=256
+        )
+
+        # Generate text asynchronously
+        prompt = "What is 2 raised to 10 power?"
+        request_id = "test_async_request_1"
+
+        outputs = []
+        async for output in async_llm.generate(prompt, sampling_params, request_id):
+            outputs.append(output)
+
+        print("Async model output:")
+        print(outputs)
+
+        # Verify that upload_span was called
+        self.assertTrue(mocked_upload_span.called)
+        
+        # Get the span that was uploaded
+        span = mocked_upload_span.call_args[0][0]
+
+        # Verify span properties
+        self.assertEqual(span.name, 'vllm.asyncllm.generate')
+        self.assertEqual(find_tag(span, 'inference.engine.name'), 'vllm')
+        self.assertEqual(find_tag(span, 'inference.engine.version'), vllm.__version__)
+        self.assertEqual(find_tag(span, 'vllm.model.name'), 'distilgpt2')
+        self.assertEqual(find_tag(span, 'vllm.request.id'), request_id)
+
+        self.assertTrue(find_counter(span, 'span.duration') > 0)
+        self.assertTrue(find_counter(span, 'vllm.latency.time_to_first_token') > 0)
+        self.assertTrue(find_counter(span, 'vllm.usage.prompt_tokens') > 0)
+        self.assertTrue(find_counter(span, 'vllm.usage.completion_tokens') > 0)

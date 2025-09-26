@@ -12,13 +12,11 @@ logger = logging.getLogger('graphsignal')
 
 
 class BaseMetric:
-    def __init__(self, name, tags, unit=None, is_time=False, is_size=False):
+    def __init__(self, name, tags, unit=None):
         self._update_lock = threading.Lock()
         self.name = name
         self.tags = tags
         self.unit = unit
-        self.is_time = is_time
-        self.is_size = is_size
         self.is_updated = False
 
     def touch(self):
@@ -31,8 +29,6 @@ class BaseMetric:
             name=self.name,
             tags=[],
             type=self.type,
-            is_time=self.is_time,
-            is_size=self.is_size,
             update_ts=self.update_ts)
         for key, value in self.tags.items():
             model.tags.append(client.Tag(
@@ -143,7 +139,7 @@ class MetricStore:
     def metric_key(self, name, tags):
         return (name, frozenset(tags.items()))
 
-    def set_gauge(self, name, tags, value, update_ts, unit=None, is_time=False, is_size=False):
+    def set_gauge(self, name, tags, value, update_ts, unit=None):
         if name is None:
             raise ValueError('Gauge name cannot be None')
         if value is None:
@@ -152,7 +148,7 @@ class MetricStore:
         key = self.metric_key(name, tags)
         with self._update_lock:
             if key not in self._metrics:
-                metric = self._metrics[key] = GaugeMetric(name, tags, unit=unit, is_time=is_time, is_size=is_size)
+                metric = self._metrics[key] = GaugeMetric(name, tags, unit=unit)
             else:
                 metric = self._metrics[key]
         metric.update(value, update_ts)
@@ -192,7 +188,7 @@ class MetricStore:
         metric.update(count, sum_val, sum2_val, update_ts)
         return metric
 
-    def update_histogram(self, name, tags, value, update_ts, unit=None, is_time=False, is_size=False):
+    def update_histogram(self, name, tags, value, update_ts, unit=None):
         if name is None:
             raise ValueError('Histogram name cannot be None')
         if value is None:
@@ -201,7 +197,7 @@ class MetricStore:
         key = self.metric_key(name, tags)
         with self._update_lock:
             if key not in self._metrics:
-                metric = self._metrics[key] = HistogramMetric(name, tags, unit=unit, is_time=is_time, is_size=is_size)
+                metric = self._metrics[key] = HistogramMetric(name, tags, unit=unit)
             else:
                 metric = self._metrics[key]
         metric.update(value, update_ts)

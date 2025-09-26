@@ -42,7 +42,7 @@ def profile_method(obj, func_name, event_name=None, event_name_func=None, profil
             except Exception as e:
                 logger.debug('Error tracing %s', func_name, exc_info=True)
 
-    def yield_func(stopped, item, context):
+    def yield_func(stopped, item, context, exc):
         start_ns = context['start_ns']
 
         if stopped:
@@ -84,14 +84,19 @@ def trace_method(obj, func_name, span_name=None, include_profiles=None, span_nam
         if not is_generator(ret) and not is_async_generator(ret):
             span.stop()
 
-    def yield_func(stopped, item, context):
+    def yield_func(stopped, item, context, exc):
         span = context['span']
+
+        if exc is not None:
+            span.add_exception(exc)
 
         if stopped:
             span.stop()
+            if data_func:
+                data_func(span, None, exc, stopped)
         else:
             if data_func:
-                data_func(span, item)
+                data_func(span, item, exc, stopped)
 
     if not patch_method(obj, func_name, before_func=before_func, after_func=after_func, yield_func=yield_func):
         logger.debug('Cannot instrument %s.', func_name)
@@ -136,19 +141,19 @@ class GeneratorWrapper(ObjectProxy):
         try:
             item = self._gen.__next__()
             try:
-                self._yield_func(False, item, self._context)
+                self._yield_func(False, item, self._context, None)
             except:
                 logger.debug('Exception in yield_func', exc_info=True)
             return item
         except StopIteration:
             try:
-                self._yield_func(True, None, self._context)
+                self._yield_func(True, None, self._context, None)
             except:
                 logger.debug('Exception in yield_func', exc_info=True)
             raise
-        except Exception as e:
+        except Exception as ex:
             try:
-                self._yield_func(True, None, self._context)
+                self._yield_func(True, None, self._context, ex)
             except:
                 logger.debug('Exception in yield_func', exc_info=True)
             raise
@@ -177,19 +182,19 @@ class AsyncGeneratorWrapper(ObjectProxy):
         try:
             item = await self._async_gen.__anext__()
             try:
-                self._yield_func(False, item, self._context)
+                self._yield_func(False, item, self._context, None)
             except:
                 logger.debug('Exception in yield_func', exc_info=True)
             return item
         except StopAsyncIteration:
             try:
-                self._yield_func(True, None, self._context)
+                self._yield_func(True, None, self._context, None)
             except:
                 logger.debug('Exception in yield_func', exc_info=True)
             raise
-        except Exception as e:
+        except Exception as ex:
             try:
-                self._yield_func(True, None, self._context)
+                self._yield_func(True, None, self._context, ex)
             except:
                 logger.debug('Exception in yield_func', exc_info=True)
             raise

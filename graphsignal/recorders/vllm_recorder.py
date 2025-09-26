@@ -30,6 +30,7 @@ class VLLMRecorder(BaseRecorder):
         tracer.set_tag('inference.engine.version', version)
 
         if compare_semver(parsed_version, (0, 8, 0)) >= 0:
+            # LLM
             def read_kwarg(store, kwargs, key, new_key=None, default=None):
                 if new_key is None:
                     new_key = key
@@ -39,11 +40,8 @@ class VLLMRecorder(BaseRecorder):
                     store[new_key] = str(default)
             
             def before_llm_init(args, kwargs):
-                # only enable if not explicitly enabled/disabled
-                if not 'disable_log_stats' in kwargs:
-                    kwargs['disable_log_stats'] = False
-                #if not 'otlp_traces_endpoint' in kwargs:
-                #    kwargs['otlp_traces_endpoint'] = 'grpc://localhost:4317'
+                kwargs['disable_log_stats'] = False
+                # kwargs['otlp_traces_endpoint'] = 'grpc://localhost:4317'
 
             def after_llm_init(args, kwargs, ret, exc, context):
                 llm_obj = args[0]
@@ -66,40 +64,183 @@ class VLLMRecorder(BaseRecorder):
                 if len(args) > 1 and args[1] is not None:
                     model = args[1]
                 read_kwarg(llm_tags, kwargs, 'model', 'vllm.model.name', default=model)
-                read_kwarg(llm_params, kwargs, 'model', 'vllm.model.name', default=model)
-                read_kwarg(llm_params, kwargs, 'tokenizer', 'vllm.tokenizer.name')
-                read_kwarg(llm_params, kwargs, 'tensor_parallel_size', 'vllm.tensor_parallel_size')
-                read_kwarg(llm_params, kwargs, 'dtype', 'vllm.dtype')
-                read_kwarg(llm_params, kwargs, 'quantization', 'vllm.quantization')
-                read_kwarg(llm_params, kwargs, 'gpu_memory_utilization', 'vllm.gpu_memory_utilization')
-                read_kwarg(llm_params, kwargs, 'swap_space', 'vllm.swap_space')
-                read_kwarg(llm_params, kwargs, 'cpu_offload_gb', 'vllm.cpu_offload_gb')
-                read_kwarg(llm_params, kwargs, 'enforce_eager', 'vllm.enforce_eager')
-                read_kwarg(llm_params, kwargs, 'max_seq_len_to_capture', 'vllm.max_seq_len_to_capture')
-                read_kwarg(llm_params, kwargs, 'disable_custom_all_reduce', 'vllm.disable_custom_all_reduce')
-                read_kwarg(llm_params, kwargs, 'disable_async_output_proc', 'vllm.disable_async_output_proc')
+                read_kwarg(llm_tags, kwargs, 'tokenizer', 'vllm.tokenizer.name')
+                read_kwarg(llm_tags, kwargs, 'dtype', 'vllm.dtype')
+                read_kwarg(llm_tags, kwargs, 'quantization', 'vllm.quantization')
+                read_kwarg(llm_tags, kwargs, 'enforce_eager', 'vllm.enforce_eager')
+                read_kwarg(llm_tags, kwargs, 'tensor_parallel_size', 'vllm.tensor_parallel_size')
+                read_kwarg(llm_tags, kwargs, 'enforce_eager', 'vllm.enforce_eager')
 
                 def trace_generate(span, args, kwargs, ret, exc):
-                    for param_name, param_value in llm_tags.items():
-                        span.set_tag(param_name, param_value)
+                    for tag_name, tag_value in llm_tags.items():
+                        span.set_tag(tag_name, tag_value)
                     for param_name, param_value in llm_params.items():
                         span.set_attribute(param_name, param_value)
                     #sampling_params = kwargs.get('sampling_params', None)
+
+                    span.measure_event_as_counter('vllm.latency.e2e')
+                    if ret and isinstance(ret, list):
+                        for item in ret:
+                            if span.get_tag('vllm.request.id') is None and hasattr(item, 'request_id') and item.request_id:
+                                span.set_tag('vllm.request.id', item.request_id)
+                            if hasattr(item, 'prompt_token_ids') and item.prompt_token_ids and len(item.prompt_token_ids) > 0:
+                                span.set_counter('vllm.usage.prompt_tokens', len(item.prompt_token_ids))
+                            if hasattr(item, 'num_cached_tokens') and item.num_cached_tokens > 0:
+                                span.set_counter('vllm.usage.cached_tokens', item.num_cached_tokens)
+                            for output in item.outputs:
+                                if hasattr(output, 'token_ids') and output.token_ids and len(output.token_ids) > 0:
+                                    span.inc_counter('vllm.usage.completion_tokens', len(output.token_ids))
 
                 trace_method(llm_obj, 'generate', 'vllm.llm.generate', trace_func=trace_generate)
 
             patch_method(vllm.LLM, '__init__', before_func=before_llm_init, after_func=after_llm_init)
 
-            '''def after_async_llm_init(args, kwargs, ret, exc, context):
-                asumc_llm_engine = args[0]
-
+            # AsyncLLM
+            def patch_generate(async_llm_engine, tags, params):
                 def trace_async_generate(span, args, kwargs, ret, exc):
-                    print(f'trace_async_generate: {args}, {kwargs}, {ret}, {exc}')
+                    for tag_name, tag_value in tags.items():
+                        span.set_tag(tag_name, tag_value)
+                    for param_name, param_value in params.items():
+                        span.set_attribute(param_name, param_value)
 
-                trace_method(asumc_llm_engine, 'generate', 'AsyncLLMEngine.generate', trace_func=trace_async_generate)
+                def trace_async_generate_data(span, item, exc, stopped):
+                    if not stopped:
+                        if not span.get_counter('vllm.latency.time_to_first_token'):
+                            span.measure_event_as_counter('vllm.latency.time_to_first_token')
+                            if hasattr(item, 'request_id') and item.request_id:
+                                span.set_tag('vllm.request.id', item.request_id)
+                            if hasattr(item, 'prompt_token_ids') and item.prompt_token_ids and len(item.prompt_token_ids) > 0:
+                                span.set_counter('vllm.usage.prompt_tokens', len(item.prompt_token_ids))
+                            if hasattr(item, 'num_cached_tokens') and item.num_cached_tokens > 0:
+                                span.set_counter('vllm.usage.cached_tokens', item.num_cached_tokens)
+                        for output in item.outputs:
+                            if hasattr(output, 'token_ids') and output.token_ids and len(output.token_ids) > 0:
+                                span.inc_counter('vllm.usage.completion_tokens', len(output.token_ids))
+                    else:
+                        span.measure_event_as_counter('vllm.latency.e2e')
 
-            patch_method(vllm.engine.async_llm_engine.AsyncLLMEngine, 'from_engine_args', after_func=after_async_llm_init)
-            patch_method(vllm.engine.async_llm_engine.AsyncLLMEngine, 'from_vllm_config', after_func=after_async_llm_init)'''
+                        e2e = span.get_counter('vllm.latency.e2e')
+                        ttft = span.get_counter('vllm.latency.time_to_first_token')
+                        completion_tokens = span.get_counter('vllm.usage.completion_tokens')
+                        if e2e and e2e > 0 and ttft and ttft > 0 and completion_tokens and completion_tokens > 0:
+                            tpot = (e2e - ttft) / completion_tokens
+                            span.set_counter('vllm.latency.time_per_output_token', tpot)
+
+                trace_method(async_llm_engine, 'generate', 'vllm.asyncllm.generate', trace_func=trace_async_generate, data_func=trace_async_generate_data)
+
+            def before_from_engine_args(args, kwargs):
+                if len(args) > 0:
+                    engine_args = args[0]
+                else:
+                    engine_args = kwargs['engine_args']
+
+                if engine_args.disable_log_stats:
+                    engine_args.disable_log_stats = False
+
+            def after_from_engine_args(args, kwargs, ret, exc, context):
+                if len(args) > 0:
+                    engine_args = args[0]
+                else:
+                    engine_args = kwargs['engine_args']
+                async_llm = ret
+
+                tags = {}
+                params = {}
+
+                if engine_args.model:
+                    tags['vllm.model.name'] = engine_args.model
+                if engine_args.tokenizer:
+                    tags['vllm.tokenizer.name'] = engine_args.tokenizer
+                if engine_args.dtype:
+                    tags['vllm.dtype'] = engine_args.dtype
+                if engine_args.kv_cache_dtype:
+                    tags['vllm.kv_cache_dtype'] = engine_args.kv_cache_dtype
+                if engine_args.quantization:
+                    tags['vllm.quantization'] = engine_args.quantization
+
+                if (engine_args.tensor_parallel_size > 1 or
+                    engine_args.pipeline_parallel_size > 1 or
+                    engine_args.data_parallel_size > 1):
+
+                    if engine_args.pipeline_parallel_size:
+                        tags['vllm.pipeline_parallel_size'] = engine_args.pipeline_parallel_size
+                    if engine_args.tensor_parallel_size:
+                        tags['vllm.tensor_parallel_size'] = engine_args.tensor_parallel_size
+                    if engine_args.data_parallel_size:
+                        tags['vllm.data_parallel_size'] = engine_args.data_parallel_size
+                    if engine_args.data_parallel_rank:
+                        tags['vllm.data_parallel_rank'] = engine_args.data_parallel_rank
+                    if engine_args.data_parallel_rank_local:
+                        tags['vllm.data_parallel_rank_local'] = engine_args.data_parallel_rank_local
+                    if engine_args.data_parallel_master_ip:
+                        tags['vllm.data_parallel_master_ip'] = engine_args.data_parallel_master_ip
+                    if engine_args.data_parallel_master_port:
+                        tags['vllm.data_parallel_master_port'] = engine_args.data_parallel_master_port
+                    if engine_args.data_parallel_rpc_port:
+                        tags['vllm.data_parallel_rpc_port'] = engine_args.data_parallel_rpc_port
+                    if engine_args.data_parallel_backend:
+                        tags['vllm.data_parallel_backend'] = engine_args.data_parallel_backend
+
+                if engine_args.enforce_eager:
+                    tags['vllm.enforce_eager'] = engine_args.enforce_eager
+
+                patch_generate(async_llm, tags, params)
+
+            def before_from_vllm_config(args, kwargs):
+                kwargs['disable_log_stats'] = False
+
+            def after_from_vllm_config(args, kwargs, ret, exc, context):
+                if len(args) > 0:
+                    vllm_config = args[0]
+                else:
+                    vllm_config = kwargs['vllm_config']
+                async_llm = ret
+
+                tags = {}
+                params = {}
+
+                if vllm_config.model_config.model:
+                    tags['vllm.model.name'] = vllm_config.model_config.model
+                if vllm_config.model_config.tokenizer:
+                    tags['vllm.tokenizer.name'] = vllm_config.model_config.tokenizer
+                if vllm_config.model_config.dtype:
+                    tags['vllm.dtype'] = vllm_config.model_config.dtype
+                if vllm_config.cache_config.cache_dtype:
+                    tags['vllm.kv_cache_dtype'] = vllm_config.cache_config.cache_dtype
+                if vllm_config.model_config.quantization:
+                    tags['vllm.quantization'] = vllm_config.model_config.quantization
+                
+                if (vllm_config.parallel_config.tensor_parallel_size > 1 or
+                    vllm_config.parallel_config.pipeline_parallel_size > 1 or
+                    vllm_config.parallel_config.data_parallel_size > 1):
+                    
+                    if vllm_config.parallel_config.pipeline_parallel_size:
+                        tags['vllm.pipeline_parallel_size'] = vllm_config.parallel_config.pipeline_parallel_size
+                    if vllm_config.parallel_config.tensor_parallel_size:
+                        tags['vllm.tensor_parallel_size'] = vllm_config.parallel_config.tensor_parallel_size
+                    if vllm_config.parallel_config.data_parallel_size:
+                        tags['vllm.data_parallel_size'] = vllm_config.parallel_config.data_parallel_size
+                    if vllm_config.parallel_config.data_parallel_rank:
+                        tags['vllm.data_parallel_rank'] = vllm_config.parallel_config.data_parallel_rank
+                    if vllm_config.parallel_config.data_parallel_rank_local:
+                        tags['vllm.data_parallel_rank_local'] = vllm_config.parallel_config.data_parallel_rank_local
+                    if vllm_config.parallel_config.data_parallel_master_ip:
+                        tags['vllm.data_parallel_master_ip'] = vllm_config.parallel_config.data_parallel_master_ip
+                    if vllm_config.parallel_config.data_parallel_master_port:
+                        tags['vllm.data_parallel_master_port'] = vllm_config.parallel_config.data_parallel_master_port
+                    if vllm_config.parallel_config.data_parallel_rpc_port:
+                        tags['vllm.data_parallel_rpc_port'] = vllm_config.parallel_config.data_parallel_rpc_port
+                    if vllm_config.parallel_config.data_parallel_backend:
+                        tags['vllm.data_parallel_backend'] = vllm_config.parallel_config.data_parallel_backend
+                
+                if vllm_config.model_config.enforce_eager:
+                    tags['vllm.enforce_eager'] = vllm_config.model_config.enforce_eager
+
+                patch_generate(async_llm, tags, params)
+
+            from vllm.v1.engine.async_llm import AsyncLLM
+            patch_method(AsyncLLM, 'from_engine_args', before_func=before_from_engine_args, after_func=after_from_engine_args)
+            patch_method(AsyncLLM, 'from_vllm_config', before_func=before_from_vllm_config, after_func=after_from_vllm_config)
         else:
             logger.debug('VLLM tracing is only supported for >= 0.8.0.')
             return
@@ -177,13 +318,17 @@ class VLLMRecorder(BaseRecorder):
         if 'gen_ai.usage.completion_tokens' in attributes:
             _add_counter(span, 'vllm.usage.completion_tokens', attributes['gen_ai.usage.completion_tokens'])
         if 'gen_ai.latency.time_in_queue' in attributes:
-            _add_counter(span, 'vllm.latency.time_in_queue', attributes['gen_ai.latency.time_in_queue'])
+            _add_counter(span, 'vllm.latency.time_in_queue', attributes['gen_ai.latency.time_in_queue'], sec_to_ns=True)
         if 'gen_ai.latency.time_to_first_token' in attributes:
-            _add_counter(span, 'vllm.latency.time_to_first_token', attributes['gen_ai.latency.time_to_first_token'])
+            _add_counter(span, 'vllm.latency.time_to_first_token', attributes['gen_ai.latency.time_to_first_token'],  sec_to_ns=True)
         if 'gen_ai.latency.e2e' in attributes:
-            _add_counter(span, 'vllm.latency.e2e', attributes['gen_ai.latency.e2e'])
+            _add_counter(span, 'vllm.latency.e2e', attributes['gen_ai.latency.e2e'], sec_to_ns=True)
         if 'gen_ai.latency.time_in_scheduler' in attributes:
-            _add_counter(span, 'vllm.latency.time_in_scheduler', attributes['gen_ai.latency.time_in_scheduler'])      
+            _add_counter(span, 'vllm.latency.time_in_scheduler', attributes['gen_ai.latency.time_in_scheduler'], sec_to_ns=True)      
+        if 'gen_ai.latency.time_in_model_forward' in attributes:
+            _add_counter(span, 'vllm.latency.time_in_model_forward', attributes['gen_ai.latency.time_in_model_forward'], sec_to_ns=True)
+        if 'gen_ai.latency.time_in_model_execute' in attributes:
+            _add_counter(span, 'vllm.latency.time_in_model_execute', attributes['gen_ai.latency.time_in_model_execute'], sec_to_ns=True)
 
         graphsignal._tracer.uploader().upload_span(span)
 
@@ -202,5 +347,7 @@ def _add_attribute(span, name, value):
         name=sanitize_str(name, max_len=50), 
         value=sanitize_str(value, max_len=2500)))
 
-def _add_counter(span, name, value):
+def _add_counter(span, name, value, sec_to_ns: bool = False):
+    if sec_to_ns:
+        value = int(value * 1e9)
     span.counters.append(client.Counter(name=name, value=float(value)))

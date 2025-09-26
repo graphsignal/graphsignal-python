@@ -66,7 +66,6 @@ class PyTorchRecorder(BaseRecorder):
                     self._torch_prof = None
 
     def on_metric_update(self):
-        """Record PyTorch GPU memory metrics using torch.cuda.memory_stats"""
         if not torch.cuda.is_available():
             return
 
@@ -95,22 +94,22 @@ class PyTorchRecorder(BaseRecorder):
                 if 'allocated_bytes.all.current' in memory_stats:
                     store.set_gauge(
                         name='pytorch.memory.allocated', tags=metric_tags,
-                        value=memory_stats['allocated_bytes.all.current'], update_ts=now, is_size=True)
+                        value=memory_stats['allocated_bytes.all.current'], update_ts=now)
                 
                 if 'reserved_bytes.all.current' in memory_stats:
                     store.set_gauge(
                         name='pytorch.memory.reserved', tags=metric_tags,
-                        value=memory_stats['reserved_bytes.all.current'], update_ts=now, is_size=True)
+                        value=memory_stats['reserved_bytes.all.current'], update_ts=now)
                 
                 if 'allocated_bytes.all.peak' in memory_stats:
                     store.set_gauge(
                         name='pytorch.memory.allocated.peak', tags=metric_tags,
-                        value=memory_stats['allocated_bytes.all.peak'], update_ts=now, is_size=True)
+                        value=memory_stats['allocated_bytes.all.peak'], update_ts=now)
                 
                 if 'reserved_bytes.all.peak' in memory_stats:
                     store.set_gauge(
                         name='pytorch.memory.reserved.peak', tags=metric_tags,
-                        value=memory_stats['reserved_bytes.all.peak'], update_ts=now, is_size=True)
+                        value=memory_stats['reserved_bytes.all.peak'], update_ts=now)
                 
                 # Record allocation/deallocation counts
                 if 'allocated_bytes.all.count' in memory_stats:
@@ -161,14 +160,14 @@ class PyTorchRecorder(BaseRecorder):
                 if 'allocated_bytes.all.cached' in memory_stats:
                     store.set_gauge(
                         name='pytorch.memory.cached', tags=metric_tags,
-                        value=memory_stats['allocated_bytes.all.cached'], update_ts=now, is_size=True)
+                        value=memory_stats['allocated_bytes.all.cached'], update_ts=now)
                 
                 # Record device memory info
                 device_memory = torch.cuda.get_device_properties(device_idx).total_memory
                 if device_memory > 0:
                     store.set_gauge(
                         name='pytorch.memory.total', tags=metric_tags,
-                        value=device_memory, update_ts=now, is_size=True)
+                        value=device_memory, update_ts=now)
                 
                 # Calculate memory utilization percentage
                 if device_memory > 0 and 'reserved_bytes.all.current' in memory_stats:

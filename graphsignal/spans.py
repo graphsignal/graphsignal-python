@@ -271,7 +271,7 @@ class Span:
         end_ns = int(self._start_ns + duration_ns)
         now = int(end_ns / 1e9)
 
-        self.set_counter('span.duration', duration_ns)        
+        self.set_counter('span.duration', duration_ns)
 
         # emit stop event
         try:
@@ -304,7 +304,7 @@ class Span:
 
         if duration_ns is not None:
             _tracer().metric_store().update_histogram(
-                name='span.duration', tags=metric_tags, value=duration_ns, update_ts=now, is_time=True)
+                name='span.duration', tags=metric_tags, value=duration_ns, update_ts=now)
 
         # update metrics
         if self._metrics is not None:
@@ -534,6 +534,10 @@ class Span:
         if counter:
             return counter.value
         return None
+
+    def measure_event_as_counter(self, name: str) -> None:
+        elapsed_ns = time.perf_counter_ns() - self._start_counter
+        self.set_counter(name, elapsed_ns)
 
     def set_profile(
             self, 

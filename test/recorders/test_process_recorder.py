@@ -1,7 +1,7 @@
 import unittest
 import logging
 import sys
-from unittest.mock import patch, Mock
+from unittest.mock import patch, Mock, MagicMock
 import socket
 import pprint
 import time
@@ -13,6 +13,22 @@ from graphsignal.recorders.process_recorder import ProcessRecorder
 logger = logging.getLogger('graphsignal')
 
 mem = []
+
+def check_graphsignal():
+    """Function to run in child process to check if graphsignal is configured"""
+    try:
+        import graphsignal
+        has_tracer = hasattr(graphsignal, '_tracer') and graphsignal._tracer is not None
+        has_correct_api_key = has_tracer and graphsignal._tracer.api_key == 'k1'
+        return f"tracer_exists:{has_tracer},api_key_correct:{has_correct_api_key}"
+    except Exception as e:
+        return f"error:{str(e)}"
+
+def worker_with_file(result_file):
+    """Worker function that checks graphsignal and writes result to file"""
+    result = check_graphsignal()
+    with open(result_file, 'w') as f:
+        f.write(result)
 
 class ProcessRecorderTest(unittest.TestCase):
     def setUp(self):

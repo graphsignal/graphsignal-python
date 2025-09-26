@@ -324,19 +324,19 @@ class NVMLRecorder(BaseRecorder):
             if device_usage.mem_used > 0:
                 store.set_gauge(
                     name='gpu.memory.usage', tags=metric_tags, 
-                    value=device_usage.mem_used, update_ts=now, is_size=True)
+                    value=device_usage.mem_used, update_ts=now)
             if device_usage.mem_free > 0:
                 store.set_gauge(
                     name='gpu.memory.free', tags=metric_tags, 
-                    value=device_usage.mem_free, update_ts=now, is_size=True)
+                    value=device_usage.mem_free, update_ts=now)
             if device_usage.mem_total > 0:
                 store.set_gauge(
                     name='gpu.memory.total', tags=metric_tags, 
-                    value=device_usage.mem_total, update_ts=now, is_size=True)
+                    value=device_usage.mem_total, update_ts=now)
             if device_usage.mem_reserved > 0:
                 store.set_gauge(
                     name='gpu.memory.reserved', tags=metric_tags, 
-                    value=device_usage.mem_reserved, update_ts=now, is_size=True)
+                    value=device_usage.mem_reserved, update_ts=now)
             if device_usage.gpu_temp_c > 0:
                 store.set_gauge(
                     name='gpu.temperature', tags=metric_tags, 
