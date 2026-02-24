@@ -1,0 +1,47 @@
+# syntax=docker/dockerfile:1.7
+#
+# Build prebuilt CUPTI profiler libraries for a given CUDA version/major.
+# Intended to be used with `docker buildx build --platform ... --output type=local,...`.
+#
+# Example:
+#   docker buildx build --platform linux/amd64,linux/arm64 \
+#     --build-arg CUDA_VERSION=12.4.1 --build-arg CUDA_MAJOR=12 \
+#     -f Dockerfile.cupti --output type=local,dest=dist/cu12 .
+#
+ARG CUDA_VERSION=12.4.1
+FROM --platform=$TARGETPLATFORM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04 AS builder
+
+ARG CUDA_MAJOR=12
+ARG TARGETARCH
+
+WORKDIR /src
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential \
+      ca-certificates \
+      git \
+      make \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the repo to build context.
+COPY . .
+
+# Build the shared library and place it under /out/<arch>-cu<major>/libgscuptiprof.so
+#
+# Note: CUDA devel images usually ship CUPTI under /usr/local/cuda/extras/CUPTI
+# (headers + libs). We point Makefile vars there to avoid distro-dependent packages.
+RUN set -eux; \
+    arch_tag="${TARGETARCH:-}"; \
+    case "$arch_tag" in \
+      amd64|arm64) : ;; \
+      *) echo "Unsupported TARGETARCH: $arch_tag" >&2; exit 2 ;; \
+    esac; \
+    make cupti \
+      CUDA_HOME=/usr/local/cuda \
+      CUDA_MAJOR="${CUDA_MAJOR}"; \
+    mkdir -p "/out/${arch_tag}-cu${CUDA_MAJOR}"; \
+    cp -f "build/libgscuptiprof.so.${CUDA_MAJOR}" "/out/${arch_tag}-cu${CUDA_MAJOR}/libgscuptiprof.so"
+
+FROM scratch AS out
+COPY --from=builder /out/ /
+

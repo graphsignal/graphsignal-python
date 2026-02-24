@@ -10,10 +10,10 @@ from unittest.mock import patch, Mock
 import pprint
 
 import graphsignal
-from graphsignal.recorders.instrumentation import patch_method, trace_method, profile_method, read_args, parse_semver, compare_semver
-from graphsignal.spans import Span
-from graphsignal.uploader import Uploader
-from test.model_utils import find_tag, find_counter
+from graphsignal.recorders.instrumentation import patch_method, trace_method, read_args, parse_semver, compare_semver
+from graphsignal.signals.spans import Span
+from graphsignal.core.signal_uploader import SignalUploader
+from test.test_utils import find_tag, find_counter
 
 logger = logging.getLogger('graphsignal')
 
@@ -64,59 +64,12 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._tracer.auto_export = False
+        graphsignal._ticker.auto_tick = False
 
     async def asyncTearDown(self):
         graphsignal.shutdown()
 
-    async def test_profile_method(self):
-        obj = Dummy()
-
-        def event_name_func(args, kwargs):
-            return 'event2'
-
-        measured_duration_ns = 0
-        def profile_func(event_name, duration_ns):
-            self.assertEqual(event_name, 'event2')
-            self.assertTrue(duration_ns > 0)
-            nonlocal measured_duration_ns
-            measured_duration_ns += duration_ns
-
-        profile_method(
-            obj=obj, 
-            func_name='test', 
-            event_name_func=event_name_func, 
-            profile_func=profile_func)
-
-        obj.test(1, 2, c=3)
-        obj.test(1, 2, c=3)
-        obj.test(1, 2, c=3)
-
-        self.assertTrue(measured_duration_ns > 0)
-
-    async def test_profile_method_generator(self):
-        obj = Dummy()
-
-        measured_duration_ns = 0
-        def profile_func(event_name, duration_ns):
-            self.assertEqual(event_name, 'event1')
-            self.assertTrue(duration_ns > 0)
-            nonlocal measured_duration_ns
-            measured_duration_ns += duration_ns
-
-        profile_method(
-            obj=obj, 
-            func_name='test_gen', 
-            event_name='event1', 
-            profile_func=profile_func)
-
-        for item in obj.test_gen():
-            pass
-
-        self.assertTrue(measured_duration_ns > 0)
-
-
-    @patch.object(Uploader, 'upload_span')
+    @patch.object(SignalUploader, 'upload_span')
     async def test_trace_method(self, mocked_upload_span):
         obj = Dummy()
 
@@ -130,12 +83,12 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
 
         obj.test(1, 2, c=3)
 
-        model = mocked_upload_span.call_args[0][0]
+        proto = mocked_upload_span.call_args[0][0]
 
         self.assertTrue(trace_func_called)
-        self.assertEqual(model.name, 'op1')
+        self.assertEqual(proto.name, 'op1')
 
-    @patch.object(Uploader, 'upload_span')
+    @patch.object(SignalUploader, 'upload_span')
     async def test_trace_method_generator(self, mocked_upload_span):
         obj = Dummy()
 
@@ -159,13 +112,13 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
         for item in obj.test_gen():
             pass
 
-        model = mocked_upload_span.call_args[0][0]
+        proto = mocked_upload_span.call_args[0][0]
 
         self.assertTrue(trace_func_called)
         self.assertTrue(data_func_called)
         self.assertTrue(data_func_called_stopped)
-        self.assertEqual(model.name,'op1')
-        self.assertTrue(find_counter(model, 'span.duration') > 0)
+        self.assertEqual(proto.name,'op1')
+        self.assertTrue(find_counter(proto, 'span.duration') > 0)
 
     async def test_patch_method(self):
         obj = Dummy()
@@ -275,13 +228,13 @@ class InstrumentationTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(compare_semver((1, 2, 3), (1, 2, 2)), 1)
 
     @unittest.skip('for now')
-    @patch.object(Uploader, 'upload_span')
+    @patch.object(SignalUploader, 'upload_span')
     def test_overhead(self, mocked_upload_span):
         #import cProfile, pstats
         #profiler = cProfile.Profile()
         #profiler.enable()
 
-        graphsignal._tracer.debug_mode = False
+        graphsignal._ticker.debug_mode = False
         logger.setLevel(logging.ERROR)
 
         obj = DummyNoSleep()

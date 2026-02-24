@@ -7,17 +7,14 @@ class BaseRecorder(ABC):
     def setup(self):
         pass
 
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+
     def shutdown(self):
         pass
 
-    def on_span_start(self, span, context):
-        pass
-
-    def on_span_stop(self, span, context):
-        pass
-
-    def on_span_read(self, span, context):
-        pass
-
-    def on_metric_update(self):
+    def on_tick(self):
         pass

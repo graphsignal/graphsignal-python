@@ -1,4 +1,6 @@
 include README.md
 include LICENSE
 include NOTICE
-include lib
+recursive-include graphsignal/_native *
+recursive-include src/cupti *.cpp
+include Makefile

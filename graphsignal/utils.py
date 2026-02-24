@@ -1,7 +1,11 @@
 import uuid
 import hashlib
 import random
+import tempfile
+import shutil
+import logging
 
+logger = logging.getLogger('graphsignal')
 
 RANDOM_CACHE = [random.random() for _ in range(10000)]
 idx = 0
@@ -27,3 +31,12 @@ def sha1(text, size=-1):
 
 def uuid_sha1(size=-1):
     return sha1(str(uuid.uuid4()), size)
+
+def create_log_dir():
+    log_dir = tempfile.mkdtemp(prefix='graphsignal-')
+    logger.debug('Created temporary log directory %s', log_dir)
+    return log_dir
+
+def remove_log_dir(log_dir):
+    shutil.rmtree(log_dir)
+    logger.debug('Removed temporary log directory %s', log_dir)

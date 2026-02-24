@@ -3,7 +3,7 @@ import sys
 import threading
 import asyncio
 import traceback
-from typing import Optional, Any
+from typing import Optional
 
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
@@ -19,7 +19,7 @@ class ExceptionRecorder(BaseRecorder):
         self._is_setup = False
 
     def setup(self):
-        if not graphsignal._tracer.auto_instrument:
+        if not graphsignal._ticker.auto_instrument:
             return
 
         if self._is_setup:
@@ -73,7 +73,6 @@ class ExceptionRecorder(BaseRecorder):
         logger.debug('Exception recorder shutdown complete')
 
     def _handle_exception(self, exc_type, exc_value, exc_traceback):
-        """Handle uncaught exceptions in the main thread."""
         try:
             # Report the exception
             self._report_exception(
@@ -89,7 +88,6 @@ class ExceptionRecorder(BaseRecorder):
             self._original_excepthook(exc_type, exc_value, exc_traceback)
 
     def _handle_threading_exception(self, args):
-        """Handle uncaught exceptions in threads."""
         try:
             # Report the exception
             self._report_exception(
@@ -106,7 +104,6 @@ class ExceptionRecorder(BaseRecorder):
             self._original_threading_excepthook(args)
 
     def _handle_asyncio_exception(self, loop, context):
-        """Handle uncaught exceptions in asyncio tasks."""
         try:
             exception = context.get('exception')
             if exception is not None:
@@ -136,10 +133,10 @@ class ExceptionRecorder(BaseRecorder):
     def _report_exception(self, name: str, exc_info: Optional[tuple] = None, 
                          message: Optional[str] = None, context: Optional[str] = None,
                          thread_name: Optional[str] = None, task_name: Optional[str] = None):
-        """Report an exception using graphsignal.report_error."""
         try:
             # Build tags
             tags = {}
+            tags['exception.name'] = name
             if context:
                 tags['exception.context'] = context
             if thread_name:
@@ -147,13 +144,36 @@ class ExceptionRecorder(BaseRecorder):
             if task_name:
                 tags['exception.task_name'] = task_name
 
-            # Report the error
-            graphsignal.report_error(
-                name=name,
+            # Format the message
+            log_message = message
+            if not log_message and exc_info:
+                # Format exception info into message
+                if exc_info[0] and hasattr(exc_info[0], '__name__'):
+                    log_message = str(exc_info[0].__name__)
+                    if exc_info[1]:
+                        log_message += f': {str(exc_info[1])}'
+                elif exc_info[1]:
+                    log_message = str(exc_info[1])
+                else:
+                    log_message = name
+
+            if not log_message:
+                log_message = name
+
+            # Format stack trace if available
+            exception_str = None
+            if exc_info and exc_info[2]:
+                try:
+                    exception_str = ''.join(traceback.format_tb(exc_info[2]))
+                except Exception:
+                    pass
+
+            # Log the message
+            graphsignal.log_message(
+                message=log_message,
                 tags=tags,
                 level='error',
-                message=message,
-                exc_info=exc_info
+                exception=exception_str
             )
         except Exception as e:
             logger.error('Error reporting exception', exc_info=True)

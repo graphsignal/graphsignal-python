@@ -2,19 +2,16 @@ import unittest
 import logging
 import sys
 import os
-import json
-import time
-import base64
 from unittest.mock import patch, Mock
-import pprint
-import types
+import subprocess
 import torch
 
 import graphsignal
-from graphsignal import client
-from graphsignal.uploader import Uploader
-from graphsignal.tracer import Tracer
-from test.model_utils import find_tag, find_attribute, find_counter
+from graphsignal.proto import signals_pb2
+from graphsignal.core.signal_uploader import SignalUploader
+from graphsignal.core.ticker import Ticker
+from test.test_utils import find_tag, find_attribute, find_counter
+from test.core.test_signal_uploader import HttpTestServer
 
 logger = logging.getLogger('graphsignal')
 
@@ -27,14 +24,19 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._tracer.auto_export = False
+        graphsignal._ticker.auto_tick = False
 
     async def asyncTearDown(self):
         graphsignal.shutdown()
 
-    @patch.object(Uploader, 'upload_span')
-    @patch.object(Tracer, 'should_sample', return_value=True)
-    def test_convert_otel_span(self, mocked_should_sample, mocked_upload_span):
+        try:
+            subprocess.run(['pkill', '-f', 'VLLM'], check=False, timeout=5)
+        except Exception:
+            pass
+
+    @patch.object(SignalUploader, 'upload_span')
+    @patch.object(Ticker, 'should_trace', return_value=True)
+    def test_convert_otel_span(self, mocked_should_trace, mocked_upload_span):
         try:
             import vllm
         except ImportError:
@@ -73,11 +75,11 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         span = mocked_upload_span.call_args[0][0]
 
         # Check basic span properties
-        self.assertEqual(span.start_ns, 1000000000)
-        self.assertEqual(span.end_ns, 2000000000)
+        self.assertEqual(span.start_ts, 1000000000)
+        self.assertEqual(span.end_ts, 2000000000)
         self.assertEqual(span.name, 'vllm.llm_request')
 
-        self.assertEqual(find_attribute(span, 'sampling.reason'), 'vllm.otel')
+        self.assertEqual(find_tag(span, 'sampling.reason'), 'vllm.otel')
         
         # Check request attributes
         self.assertEqual(find_tag(span, 'vllm.request.id'), 'test_request_123')
@@ -105,7 +107,7 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
 
 
     @unittest.skipIf(os.getenv("RUN_VLLM_TESTS") != "1", "skipped unless forced")
-    @patch.object(Uploader, 'upload_span')
+    @patch.object(SignalUploader, 'upload_span')
     async def test_llm_generate(self, mocked_upload_span):
         try:
             import vllm
@@ -121,7 +123,7 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         llm = LLM(
             model="distilgpt2",
-            enforce_eager=True
+            #enforce_eager=True
         )
 
         sampling_params = SamplingParams(
@@ -148,8 +150,9 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(find_counter(span, 'vllm.usage.prompt_tokens') > 0)
         self.assertTrue(find_counter(span, 'vllm.usage.completion_tokens') > 0)
 
+
     @unittest.skipIf(os.getenv("RUN_VLLM_TESTS") != "1", "skipped unless forced")
-    @patch.object(Uploader, 'upload_span')
+    @patch.object(SignalUploader, 'upload_span')
     async def test_async_llm_generate(self, mocked_upload_span):
         try:
             import vllm
@@ -172,7 +175,7 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         # Initialize the AsyncLLM engine
         engine_args = AsyncEngineArgs(
             model="distilgpt2", # state-spaces/mamba-130m-hf
-            enforce_eager=True
+            #enforce_eager=True
         )
         
         async_llm = AsyncLLM.from_engine_args(engine_args)
@@ -212,3 +215,5 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(find_counter(span, 'vllm.latency.time_to_first_token') > 0)
         self.assertTrue(find_counter(span, 'vllm.usage.prompt_tokens') > 0)
         self.assertTrue(find_counter(span, 'vllm.usage.completion_tokens') > 0)
+
+

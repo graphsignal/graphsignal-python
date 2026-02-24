@@ -1,8 +1,8 @@
 import logging
 import os
-import sys
 import time
 import socket
+import traceback
 
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
@@ -166,6 +166,9 @@ class NVMLRecorder(BaseRecorder):
         except BaseException:
             logger.debug('Error reading hostname', exc_info=True)
 
+        self._visible_device_idxs: list[int] = []
+        self._current_device_idxs: list[int] = []
+
     def setup(self):
         try:
             nvmlInit()
@@ -173,42 +176,58 @@ class NVMLRecorder(BaseRecorder):
             logger.debug('Initialized NVML')
         except BaseException:
             logger.debug('Error initializing NVML, skipping GPU usage')
+            return
 
         self._setup_us = int(time.time() * 1e6)
 
+        device_count = nvmlDeviceGetCount()
+        if device_count == 0:
+            return
+
+        # Get visible device idxs
+        cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
+        if cuda_visible_devices:
+            self._visible_device_idxs = list(map(int, cuda_visible_devices.split(',')))
+        else:
+            self._visible_device_idxs = list(range(device_count))  # all devices visible
+        
+        # Get current device idxs
+        local_rank = None
+        for env_var in ["LOCAL_RANK", "SLURM_LOCALID", "NCCL_LOCAL_RANK", "OMPI_COMM_WORLD_LOCAL_RANK"]:
+            if env_var in os.environ:
+                local_rank = os.environ[env_var]
+                break
+
+        if local_rank is not None:
+            if local_rank < len(self._visible_device_idxs):
+                self._current_device_idxs = [self._visible_device_idxs[local_rank]]
+            else:
+                logger.debug(f'Local rank {local_rank} is out of visible device idxs {self._visible_device_idxs}')
+        else:
+            # Find actual current devices for multi-GPU processes here, to avoid redundant data collection (metrics, errors), also from non-worker processes.
+            pass
+
+        # Fallback to all visible devices if no current devices are set
+        if len(self._current_device_idxs) == 0:
+            self._current_device_idxs = self._visible_device_idxs.copy()
+
+        # Get device data for current devices
         device_usages = self.take_snapshot()
 
+        # Set ticker tags for first current device
+        ticker = graphsignal._ticker
         if len(device_usages) > 0:
-            cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
-            if cuda_visible_devices:
-                visible_idxs = list(map(int, cuda_visible_devices.split(',')))
-            else:
-                visible_idxs = list(range(len(device_usages)))  # all devices visible
-            
-            local_rank = None
-            for env_var in ["LOCAL_RANK", "SLURM_LOCALID", "NCCL_LOCAL_RANK", "OMPI_COMM_WORLD_LOCAL_RANK"]:
-                if env_var in os.environ:
-                    local_rank = os.environ[env_var]
-                    break
-            if local_rank:
-                default_idx = int(local_rank)
-            else:
-                default_idx = visible_idxs[0]
+            device_usage = device_usages[0]
+            if device_usage.bus_id:
+                ticker.set_tag('device.bus_id', device_usage.bus_id)
+            if device_usage.device_uuid:
+                ticker.set_tag('device.uuid', device_usage.device_uuid)
+            if self._hostname and device_usage.bus_id:
+                ticker.set_tag('device.address', f'{self._hostname}:{device_usage.bus_id}')
+            if device_usage.device_name:
+                ticker.set_tag('device.name', device_usage.device_name)
 
-            tracer = graphsignal._tracer
-            for device_usage in device_usages:
-                if device_usage.device_idx == default_idx:
-                    if device_usage.bus_id:
-                        tracer.set_tag('device.bus_id', device_usage.bus_id)
-                    if device_usage.device_uuid:
-                        tracer.set_tag('device.uuid', device_usage.device_uuid)
-                    if self._hostname and device_usage.bus_id:
-                        tracer.set_tag('device.address', f'{self._hostname}:{device_usage.bus_id}')
-                    if device_usage.device_name:
-                        tracer.set_tag('device.name', device_usage.device_name)
-                    break
-
-        # Setup error monitoring
+        # Setup error monitoring for current devices
         self._setup_error_monitoring()
 
     def _setup_error_monitoring(self):
@@ -216,8 +235,7 @@ class NVMLRecorder(BaseRecorder):
             return
             
         try:
-            device_count = nvmlDeviceGetCount()
-            for idx in range(device_count):
+            for idx in self._current_device_idxs:
                 try:
                     handle = nvmlDeviceGetHandleByIndex(idx)
                     
@@ -285,8 +303,8 @@ class NVMLRecorder(BaseRecorder):
         except BaseException:
             logger.error('Error shutting down NVML', exc_info=True)
 
-    def on_metric_update(self):
-        now = int(time.time())
+    def on_tick(self):
+        now_ns = time.time_ns()
         
         self._check_for_errors()
         
@@ -298,8 +316,8 @@ class NVMLRecorder(BaseRecorder):
             return
 
         for idx, device_usage in enumerate(device_usages):
-            store = graphsignal._tracer.metric_store()
-            metric_tags = graphsignal._tracer.tags.copy()
+            ticker = graphsignal._ticker
+            metric_tags = {}
             if device_usage.bus_id:
                 metric_tags['device.bus_id'] = device_usage.bus_id
             if device_usage.device_uuid:
@@ -310,188 +328,187 @@ class NVMLRecorder(BaseRecorder):
                 metric_tags['device.name'] = device_usage.device_name
 
             if device_usage.gpu_utilization_percent > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.utilization', tags=metric_tags, 
-                    value=device_usage.gpu_utilization_percent, update_ts=now, unit='percent')
+                    value=device_usage.gpu_utilization_percent, measurement_ts=now_ns, unit='percent')
             if device_usage.mxu_utilization_percent > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.mxu.utilization', tags=metric_tags, 
-                    value=device_usage.mxu_utilization_percent, update_ts=now, unit='percent')
+                    value=device_usage.mxu_utilization_percent, measurement_ts=now_ns, unit='percent')
             if device_usage.mem_access_percent > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.memory.access', tags=metric_tags, 
-                    value=device_usage.mem_access_percent, update_ts=now, unit='percent')
+                    value=device_usage.mem_access_percent, measurement_ts=now_ns, unit='percent')
             if device_usage.mem_used > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.memory.usage', tags=metric_tags, 
-                    value=device_usage.mem_used, update_ts=now)
+                    value=device_usage.mem_used, measurement_ts=now_ns)
             if device_usage.mem_free > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.memory.free', tags=metric_tags, 
-                    value=device_usage.mem_free, update_ts=now)
+                    value=device_usage.mem_free, measurement_ts=now_ns)
             if device_usage.mem_total > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.memory.total', tags=metric_tags, 
-                    value=device_usage.mem_total, update_ts=now)
+                    value=device_usage.mem_total, measurement_ts=now_ns)
             if device_usage.mem_reserved > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.memory.reserved', tags=metric_tags, 
-                    value=device_usage.mem_reserved, update_ts=now)
+                    value=device_usage.mem_reserved, measurement_ts=now_ns)
             if device_usage.gpu_temp_c > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.temperature', tags=metric_tags, 
-                    value=device_usage.gpu_temp_c, update_ts=now, unit='celsius')
+                    value=device_usage.gpu_temp_c, measurement_ts=now_ns, unit='celsius')
             if device_usage.power_usage_w > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.power.usage', tags=metric_tags, 
-                    value=device_usage.power_usage_w, update_ts=now, unit='watts')
+                    value=device_usage.power_usage_w, measurement_ts=now_ns, unit='watts')
             
             # PCIe metrics
             if device_usage.pcie_throughput_tx > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.pcie.throughput.tx', tags=metric_tags, 
-                    value=device_usage.pcie_throughput_tx, update_ts=now, unit='bytes_per_second')
+                    value=device_usage.pcie_throughput_tx, measurement_ts=now_ns, unit='bytes_per_second')
             if device_usage.pcie_throughput_rx > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.pcie.throughput.rx', tags=metric_tags, 
-                    value=device_usage.pcie_throughput_rx, update_ts=now, unit='bytes_per_second')
+                    value=device_usage.pcie_throughput_rx, measurement_ts=now_ns, unit='bytes_per_second')
             if device_usage.pcie_utilization_tx_percent > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.pcie.utilization.tx', tags=metric_tags, 
-                    value=device_usage.pcie_utilization_tx_percent, update_ts=now, unit='percent')
+                    value=device_usage.pcie_utilization_tx_percent, measurement_ts=now_ns, unit='percent')
             if device_usage.pcie_utilization_rx_percent > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.pcie.utilization.rx', tags=metric_tags, 
-                    value=device_usage.pcie_utilization_rx_percent, update_ts=now, unit='percent')
+                    value=device_usage.pcie_utilization_rx_percent, measurement_ts=now_ns, unit='percent')
             if device_usage.pcie_bandwidth_tx_mbps > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.pcie.bandwidth.tx', tags=metric_tags, 
-                    value=device_usage.pcie_bandwidth_tx_mbps, update_ts=now, unit='megabits_per_second')
+                    value=device_usage.pcie_bandwidth_tx_mbps, measurement_ts=now_ns, unit='megabits_per_second')
             if device_usage.pcie_bandwidth_rx_mbps > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.pcie.bandwidth.rx', tags=metric_tags, 
-                    value=device_usage.pcie_bandwidth_rx_mbps, update_ts=now, unit='megabits_per_second')
+                    value=device_usage.pcie_bandwidth_rx_mbps, measurement_ts=now_ns, unit='megabits_per_second')
             if device_usage.pcie_max_bandwidth_gbps > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.pcie.max_bandwidth', tags=metric_tags, 
-                    value=device_usage.pcie_max_bandwidth_gbps, update_ts=now, unit='gigabits_per_second')
+                    value=device_usage.pcie_max_bandwidth_gbps, measurement_ts=now_ns, unit='gigabits_per_second')
             
             # NVLINK metrics
             if device_usage.nvlink_throughput_data_tx_kibs > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.nvlink.throughput.data.tx', tags=metric_tags, 
-                    value=device_usage.nvlink_throughput_data_tx_kibs, update_ts=now, unit='kibibytes_per_second')
+                    value=device_usage.nvlink_throughput_data_tx_kibs, measurement_ts=now_ns, unit='kibibytes_per_second')
             if device_usage.nvlink_throughput_data_rx_kibs > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.nvlink.throughput.data.rx', tags=metric_tags, 
-                    value=device_usage.nvlink_throughput_data_rx_kibs, update_ts=now, unit='kibibytes_per_second')
+                    value=device_usage.nvlink_throughput_data_rx_kibs, measurement_ts=now_ns, unit='kibibytes_per_second')
             if device_usage.nvlink_throughput_raw_tx_kibs > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.nvlink.throughput.raw.tx', tags=metric_tags, 
-                    value=device_usage.nvlink_throughput_raw_tx_kibs, update_ts=now, unit='kibibytes_per_second')
+                    value=device_usage.nvlink_throughput_raw_tx_kibs, measurement_ts=now_ns, unit='kibibytes_per_second')
             if device_usage.nvlink_throughput_raw_rx_kibs > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.nvlink.throughput.raw.rx', tags=metric_tags, 
-                    value=device_usage.nvlink_throughput_raw_rx_kibs, update_ts=now, unit='kibibytes_per_second')
+                    value=device_usage.nvlink_throughput_raw_rx_kibs, measurement_ts=now_ns, unit='kibibytes_per_second')
             if device_usage.nvlink_bandwidth_tx_gbps > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.nvlink.bandwidth.tx', tags=metric_tags, 
-                    value=device_usage.nvlink_bandwidth_tx_gbps, update_ts=now, unit='gigabits_per_second')
+                    value=device_usage.nvlink_bandwidth_tx_gbps, measurement_ts=now_ns, unit='gigabits_per_second')
             if device_usage.nvlink_bandwidth_rx_gbps > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.nvlink.bandwidth.rx', tags=metric_tags, 
-                    value=device_usage.nvlink_bandwidth_rx_gbps, update_ts=now, unit='gigabits_per_second')
+                    value=device_usage.nvlink_bandwidth_rx_gbps, measurement_ts=now_ns, unit='gigabits_per_second')
             if device_usage.nvlink_utilization_tx_percent > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.nvlink.utilization.tx', tags=metric_tags, 
-                    value=device_usage.nvlink_utilization_tx_percent, update_ts=now, unit='percent')
+                    value=device_usage.nvlink_utilization_tx_percent, measurement_ts=now_ns, unit='percent')
             if device_usage.nvlink_utilization_rx_percent > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.nvlink.utilization.rx', tags=metric_tags, 
-                    value=device_usage.nvlink_utilization_rx_percent, update_ts=now, unit='percent')
+                    value=device_usage.nvlink_utilization_rx_percent, measurement_ts=now_ns, unit='percent')
             if device_usage.nvlink_link_count > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.nvlink.link_count', tags=metric_tags, 
-                    value=device_usage.nvlink_link_count, update_ts=now)
+                    value=device_usage.nvlink_link_count, measurement_ts=now_ns)
             if device_usage.nvlink_active_links > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.nvlink.active_links', tags=metric_tags, 
-                    value=device_usage.nvlink_active_links, update_ts=now)
+                    value=device_usage.nvlink_active_links, measurement_ts=now_ns)
             if device_usage.nvlink_link_speed_gbps > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.nvlink.link_speed', tags=metric_tags, 
-                    value=device_usage.nvlink_link_speed_gbps, update_ts=now, unit='gigabits_per_second')
+                    value=device_usage.nvlink_link_speed_gbps, measurement_ts=now_ns, unit='gigabits_per_second')
             if device_usage.nvlink_link_width > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.nvlink.link_width', tags=metric_tags, 
-                    value=device_usage.nvlink_link_width, update_ts=now)
+                    value=device_usage.nvlink_link_width, measurement_ts=now_ns)
             
             # Error metrics
             if device_usage.ecc_sbe_volatile_total > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.errors.ecc.sbe.volatile', tags=metric_tags,
-                    value=device_usage.ecc_sbe_volatile_total, update_ts=now)
+                    value=device_usage.ecc_sbe_volatile_total, measurement_ts=now_ns)
             if device_usage.ecc_dbe_volatile_total > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.errors.ecc.dbe.volatile', tags=metric_tags,
-                    value=device_usage.ecc_dbe_volatile_total, update_ts=now)
+                    value=device_usage.ecc_dbe_volatile_total, measurement_ts=now_ns)
             if device_usage.ecc_sbe_aggregate_total > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.errors.ecc.sbe.aggregate', tags=metric_tags,
-                    value=device_usage.ecc_sbe_aggregate_total, update_ts=now)
+                    value=device_usage.ecc_sbe_aggregate_total, measurement_ts=now_ns)
             if device_usage.ecc_dbe_aggregate_total > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.errors.ecc.dbe.aggregate', tags=metric_tags,
-                    value=device_usage.ecc_dbe_aggregate_total, update_ts=now)
+                    value=device_usage.ecc_dbe_aggregate_total, measurement_ts=now_ns)
             if device_usage.pcie_replay_counter > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.errors.pcie.replay', tags=metric_tags,
-                    value=device_usage.pcie_replay_counter, update_ts=now)
+                    value=device_usage.pcie_replay_counter, measurement_ts=now_ns)
             if device_usage.nvlink_replay_errors > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.errors.nvlink.replay', tags=metric_tags,
-                    value=device_usage.nvlink_replay_errors, update_ts=now)
+                    value=device_usage.nvlink_replay_errors, measurement_ts=now_ns)
             if device_usage.nvlink_recovery_errors > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.errors.nvlink.recovery', tags=metric_tags,
-                    value=device_usage.nvlink_recovery_errors, update_ts=now)
+                    value=device_usage.nvlink_recovery_errors, measurement_ts=now_ns)
             if device_usage.nvlink_crc_errors > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.errors.nvlink.crc', tags=metric_tags,
-                    value=device_usage.nvlink_crc_errors, update_ts=now)
+                    value=device_usage.nvlink_crc_errors, measurement_ts=now_ns)
             if device_usage.nvlink_minor_errors > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.errors.nvlink.minor', tags=metric_tags,
-                    value=device_usage.nvlink_minor_errors, update_ts=now)
+                    value=device_usage.nvlink_minor_errors, measurement_ts=now_ns)
             if device_usage.nvlink_major_errors > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.errors.nvlink.major', tags=metric_tags,
-                    value=device_usage.nvlink_major_errors, update_ts=now)
+                    value=device_usage.nvlink_major_errors, measurement_ts=now_ns)
             if device_usage.nvlink_fatal_errors > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.errors.nvlink.fatal', tags=metric_tags,
-                    value=device_usage.nvlink_fatal_errors, update_ts=now)
+                    value=device_usage.nvlink_fatal_errors, measurement_ts=now_ns)
             if device_usage.retired_pages_sbe > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.errors.retired_pages.sbe', tags=metric_tags,
-                    value=device_usage.retired_pages_sbe, update_ts=now)
+                    value=device_usage.retired_pages_sbe, measurement_ts=now_ns)
             if device_usage.retired_pages_dbe > 0:
-                store.set_gauge(
+                ticker.set_gauge(
                     name='gpu.errors.retired_pages.dbe', tags=metric_tags,
-                    value=device_usage.retired_pages_dbe, update_ts=now)
+                    value=device_usage.retired_pages_dbe, measurement_ts=now_ns)
 
             # XID errors
             num_xid_errors = len(device_usage.last_xid_error_codes)
             if num_xid_errors > 0:
-                store.inc_counter(
+                ticker.inc_counter(
                     name='gpu.errors.xid', tags=metric_tags, 
-                    value=num_xid_errors, update_ts=now)
+                    value=num_xid_errors, measurement_ts=now_ns)
                 for xid_error_code in device_usage.last_xid_error_codes:
-                    graphsignal._tracer.report_error(
-                        name='gpu.errors.xid',
+                    graphsignal._ticker.log_message(
+                        message=f'XID error {xid_error_code}',
                         tags=metric_tags,
-                        level='error',
-                        message=f'XID error {xid_error_code}'
+                        level='error'
                     )
                 device_usage.last_xid_error_codes = []
 
@@ -499,15 +516,11 @@ class NVMLRecorder(BaseRecorder):
         if not self._is_initialized:
             return []
 
-        current_pid = os.getpid()
-
         device_usages: List[DeviceUsage] = []
 
         now_us = int(time.time() * 1e6)
 
-        device_count = nvmlDeviceGetCount()
-
-        for idx in range(0, device_count):
+        for idx in self._current_device_idxs:
             device_usage = DeviceUsage()
             device_usages.append(device_usage)
 
@@ -964,7 +977,8 @@ def _log_nvml_error(err):
         if (err.value == NVML_ERROR_NOT_FOUND):
             pass
         elif (err.value == NVML_ERROR_NOT_SUPPORTED):
-            logger.debug('NVML call not supported', exc_info=True)
+            #logger.debug('NVML call not supported', exc_info=True)
+            pass
         elif (err.value == NVML_ERROR_INVALID_ARGUMENT):
             logger.debug(f'NVML call invalid argument', exc_info=True)
         else:

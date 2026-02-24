@@ -7,19 +7,19 @@ import functools
 from unittest.mock import patch, Mock
 
 import graphsignal
-from graphsignal.spans import Span
+from graphsignal.signals.spans import Span
 
 logger = logging.getLogger('graphsignal')
 
 
-class TracerAsyncTest(unittest.IsolatedAsyncioTestCase):
+class GraphsignalAsyncTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._tracer.auto_export = False
+        graphsignal._ticker.auto_tick = False
 
     async def asyncTearDown(self):
         graphsignal.shutdown()

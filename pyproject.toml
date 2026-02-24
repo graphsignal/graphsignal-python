@@ -1,13 +1,18 @@
 [tool.poetry]
 name = "graphsignal"
-version = "0.18.4"
-description = "Graphsignal Tracer for Python"
+version = "0.19.0"
+description = "Graphsignal SDK for Python"
 authors = ["Graphsignal, Inc. <devops@graphsignal.com>"]
 license = "Apache-2.0"
 homepage = "https://graphsignal.com"
 repository = "https://graphsignal.com"
 readme = "README.md"
 keywords = ["LLM observability", "LLM analytics", "Agent observability", "Agent analytics"]
+include = [
+    "Makefile",
+    "src/cupti/*",
+    "graphsignal/_native/*",
+]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
@@ -25,9 +30,12 @@ classifiers = [
 [tool.poetry.dependencies]
 python = ">=3.9,<4"
 urllib3 = ">=1.25.3,<2.1.0"
+xxhash = "*"
 python-dateutil = "*"
 pydantic = ">2"
 typing-extensions = ">4.7.1"
+protobuf = "*"
+requests = "*"
 nvidia-ml-py = ">=12"
 opentelemetry-api = "*"
 opentelemetry-sdk = "*"
@@ -37,12 +45,14 @@ opentelemetry-proto = "*"
 grpcio = "*"
 
 [tool.poetry.group.dev.dependencies]
-torch = "*"
 prometheus-client = "*"
+pytest = "*"
+pytest-forked = "*"
 
 [tool.poetry.scripts]
-update-client = "tools.update_client:main"
+build-protobuf = "tools.build_protobuf:main"
 test = "tools.run_tests:main"
+graphsignal-run = "graphsignal.commands.graphsignal_run:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

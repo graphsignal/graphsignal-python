@@ -9,23 +9,22 @@ import random
 
 import graphsignal
 from graphsignal.recorders.process_recorder import ProcessRecorder
+from test.test_utils import find_last_datapoint
 
 logger = logging.getLogger('graphsignal')
 
 mem = []
 
 def check_graphsignal():
-    """Function to run in child process to check if graphsignal is configured"""
     try:
         import graphsignal
-        has_tracer = hasattr(graphsignal, '_tracer') and graphsignal._tracer is not None
-        has_correct_api_key = has_tracer and graphsignal._tracer.api_key == 'k1'
-        return f"tracer_exists:{has_tracer},api_key_correct:{has_correct_api_key}"
+        has_ticker = hasattr(graphsignal, '_ticker') and graphsignal._ticker is not None
+        has_correct_api_key = has_ticker and graphsignal._ticker.api_key == 'k1'
+        return f"ticker_exists:{has_ticker},api_key_correct:{has_correct_api_key}"
     except Exception as e:
         return f"error:{str(e)}"
 
 def worker_with_file(result_file):
-    """Worker function that checks graphsignal and writes result to file"""
     result = check_graphsignal()
     with open(result_file, 'w') as f:
         f.write(result)
@@ -37,7 +36,7 @@ class ProcessRecorderTest(unittest.TestCase):
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._tracer.auto_export = False
+        graphsignal._ticker.auto_tick = False
 
     def tearDown(self):
         graphsignal.shutdown()
@@ -55,15 +54,15 @@ class ProcessRecorderTest(unittest.TestCase):
 
         recorder.take_snapshot()
 
-        recorder.on_metric_update()
+        recorder.on_tick()
 
-        store = graphsignal._tracer.metric_store()
-        metric_tags =  graphsignal._tracer.tags.copy()
+        store = graphsignal._ticker.metric_store()
+        metric_tags =  graphsignal._ticker.tags.copy()
         key = store.metric_key('process.cpu.usage', metric_tags)
-        self.assertTrue(store._metrics[key].gauge > 0)
+        self.assertTrue(find_last_datapoint(store, key).gauge > 0)
         key = store.metric_key('process.memory.usage', metric_tags)
-        self.assertTrue(store._metrics[key].gauge > 0)
+        self.assertTrue(find_last_datapoint(store, key).gauge > 0)
         key = store.metric_key('process.memory.virtual', metric_tags)
-        self.assertTrue(store._metrics[key].gauge > 0)
+        self.assertTrue(find_last_datapoint(store, key).gauge > 0)
         key = store.metric_key('host.memory.usage', metric_tags)
-        self.assertTrue(store._metrics[key].gauge > 0)
+        self.assertTrue(find_last_datapoint(store, key).gauge > 0)

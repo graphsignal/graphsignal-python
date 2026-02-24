@@ -3,7 +3,6 @@ from functools import wraps
 import asyncio
 import types
 import re
-import time
 
 import graphsignal
 
@@ -12,60 +11,13 @@ logger = logging.getLogger('graphsignal')
 version_regexp = re.compile(r'^(\d+)\.?(\d+)?\.?(\d+)?')
 
 
-def profile_method(obj, func_name, event_name=None, event_name_func=None, profile_func=None):
-    def before_func(args, kwargs):
-        profiled_event_name = None
-        if event_name:
-            profiled_event_name = event_name
-        elif event_name_func:
-            try:
-                profiled_event_name = event_name_func(args, kwargs)
-            except Exception as e:
-                logger.debug('Error tracing %s', func_name, exc_info=True)
-        else:
-            profiled_event_name = func_name
-
-        return dict(
-            event_name=profiled_event_name,
-            start_ns=time.perf_counter_ns())
-
-    def after_func(args, kwargs, ret, exc, context):
-        start_ns = context['start_ns']
-
-        if not is_generator(ret) and not is_async_generator(ret):
-            duration_ns = time.perf_counter_ns() - start_ns
-
-            try:
-                if not context.get('finished', False):
-                    context['finished'] = True
-                    profile_func(context['event_name'], duration_ns)
-            except Exception as e:
-                logger.debug('Error tracing %s', func_name, exc_info=True)
-
-    def yield_func(stopped, item, context, exc):
-        start_ns = context['start_ns']
-
-        if stopped:
-            duration_ns = time.perf_counter_ns() - start_ns
-
-            try:
-                if not context.get('finished', False):
-                    context['finished'] = True
-                    profile_func(context['event_name'], duration_ns)
-            except Exception as e:
-                logger.debug('Error tracing %s', func_name, exc_info=True)
-
-    if not patch_method(obj, func_name, before_func=before_func, after_func=after_func, yield_func=yield_func):
-        logger.debug('Cannot instrument %s.', func_name)
-
-
-def trace_method(obj, func_name, span_name=None, include_profiles=None, span_name_func=None, trace_func=None, data_func=None):
+def trace_method(obj, func_name, span_name=None, span_name_func=None, trace_func=None, data_func=None):
     def before_func(args, kwargs):
         if span_name_func is None:
             selected_span_name = span_name
         else:
             selected_span_name = span_name_func(args, kwargs)
-        return dict(span=graphsignal.trace(span_name=selected_span_name, include_profiles=include_profiles))
+        return dict(span=graphsignal.trace(span_name=selected_span_name))
 
     def after_func(args, kwargs, ret, exc, context):
         span = context['span']

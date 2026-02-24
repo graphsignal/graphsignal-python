@@ -1,14 +1,14 @@
 import logging
 import os
-import json
 import time
 import torch
 
 import graphsignal
 from graphsignal.recorders.base_recorder import BaseRecorder
-from graphsignal.recorders.profiler_utils import create_log_dir, remove_log_dir
+from graphsignal.utils import create_log_dir, remove_log_dir
 
 logger = logging.getLogger('graphsignal')
+
 
 class PyTorchRecorder(BaseRecorder):
     def __init__(self):
@@ -16,60 +16,18 @@ class PyTorchRecorder(BaseRecorder):
         self._log_dir = None
 
     def setup(self):
-        tracer = graphsignal._tracer
-        tracer.set_tag('framework.name', 'pytorch')
-        tracer.set_tag('framework.version', torch.__version__)
+        ticker = graphsignal._ticker
+        ticker.set_tag('framework.name', 'pytorch')
+        ticker.set_tag('framework.version', torch.__version__)
 
-    def _can_include_profile(self, span, profile_name):
-        return (graphsignal._tracer.can_include_profile(profile_name) and 
-                span.can_include_profile(profile_name))
+        for category, function_path in PROFILED_PATHS:
+            ticker.profile_function_path(function_path, category=category)
 
-    def on_span_start(self, span, context):
-        if (self._can_include_profile(span, 'profile.pytorch') and 
-            graphsignal._tracer.set_profiling_mode('profile.pytorch', span.name)):
-            context['profile.pytorch'] = True
-            span.set_sampled(True)
-            span.set_attribute('sampling.reason', 'profile.pytorch')
-
-            if self._torch_prof:
-                # In case of previous profiling not stopped
-                self._torch_prof.stop()
-                self._torch_prof = None
-
-            def _schedule_func(step):
-                return torch.profiler.ProfilerAction.RECORD
-            self._torch_prof = torch.profiler.profile(
-                activities=[
-                    torch.profiler.ProfilerActivity.CPU, 
-                    torch.profiler.ProfilerActivity.CUDA],
-                schedule=_schedule_func,
-                record_shapes=False,
-                profile_memory=True,
-                with_stack=False,
-                with_flops=True)
-            self._torch_prof.start()
-
-    def on_span_stop(self, span, context):
-        if context.get('profile.pytorch', False):
-            graphsignal._tracer.unset_profiling_mode()
-            if self._torch_prof:
-                self._torch_prof.stop()
-
-    def on_span_read(self, span, context):
-        if context.get('profile.pytorch', False):
-            if self._torch_prof:
-                try:
-                    self._convert_to_profile(span)
-                except Exception as e:
-                    logger.debug('Error converting to profile', exc_info=True)
-                finally:
-                    self._torch_prof = None
-
-    def on_metric_update(self):
+    def on_tick(self):
         if not torch.cuda.is_available():
             return
 
-        now = int(time.time())
+        now_ns = time.time_ns()
         device_count = torch.cuda.device_count()
         
         for device_idx in range(device_count):
@@ -82,8 +40,9 @@ class PyTorchRecorder(BaseRecorder):
                 memory_stats = torch.cuda.memory_stats(device_idx)
                 
                 # Set up metric tags
-                store = graphsignal._tracer.metric_store()
-                metric_tags = graphsignal._tracer.tags.copy()
+                ticker = graphsignal._ticker
+
+                metric_tags = {}
                 metric_tags['device.type'] = 'gpu'
                 metric_tags['device.index'] = device_idx
                 metric_tags['device.name'] = device_name
@@ -92,149 +51,100 @@ class PyTorchRecorder(BaseRecorder):
                 
                 # Record memory metrics
                 if 'allocated_bytes.all.current' in memory_stats:
-                    store.set_gauge(
+                    ticker.set_gauge(
                         name='pytorch.memory.allocated', tags=metric_tags,
-                        value=memory_stats['allocated_bytes.all.current'], update_ts=now)
+                        value=memory_stats['allocated_bytes.all.current'], measurement_ts=now_ns)
                 
                 if 'reserved_bytes.all.current' in memory_stats:
-                    store.set_gauge(
+                    ticker.set_gauge(
                         name='pytorch.memory.reserved', tags=metric_tags,
-                        value=memory_stats['reserved_bytes.all.current'], update_ts=now)
+                        value=memory_stats['reserved_bytes.all.current'], measurement_ts=now_ns)
                 
                 if 'allocated_bytes.all.peak' in memory_stats:
-                    store.set_gauge(
+                    ticker.set_gauge(
                         name='pytorch.memory.allocated.peak', tags=metric_tags,
-                        value=memory_stats['allocated_bytes.all.peak'], update_ts=now)
+                        value=memory_stats['allocated_bytes.all.peak'], measurement_ts=now_ns)
                 
                 if 'reserved_bytes.all.peak' in memory_stats:
-                    store.set_gauge(
+                    ticker.set_gauge(
                         name='pytorch.memory.reserved.peak', tags=metric_tags,
-                        value=memory_stats['reserved_bytes.all.peak'], update_ts=now)
+                        value=memory_stats['reserved_bytes.all.peak'], measurement_ts=now_ns)
                 
                 # Record allocation/deallocation counts
                 if 'allocated_bytes.all.count' in memory_stats:
-                    store.set_gauge(
+                    ticker.set_gauge(
                         name='pytorch.memory.allocations', tags=metric_tags,
-                        value=memory_stats['allocated_bytes.all.count'], update_ts=now)
+                        value=memory_stats['allocated_bytes.all.count'], measurement_ts=now_ns)
                 
                 if 'allocated_bytes.all.freed' in memory_stats:
-                    store.set_gauge(
+                    ticker.set_gauge(
                         name='pytorch.memory.deallocations', tags=metric_tags,
-                        value=memory_stats['allocated_bytes.all.freed'], update_ts=now)
+                        value=memory_stats['allocated_bytes.all.freed'], measurement_ts=now_ns)
                 
                 # Record additional memory management metrics
                 if 'num_alloc_retries' in memory_stats:
-                    store.set_gauge(
+                    ticker.set_gauge(
                         name='pytorch.memory.alloc_retries', tags=metric_tags,
-                        value=memory_stats['num_alloc_retries'], update_ts=now)
+                        value=memory_stats['num_alloc_retries'], measurement_ts=now_ns)
                 
                 if 'num_ooms' in memory_stats:
-                    store.set_gauge(
+                    ticker.set_gauge(
                         name='pytorch.memory.ooms', tags=metric_tags,
-                        value=memory_stats['num_ooms'], update_ts=now)
+                        value=memory_stats['num_ooms'], measurement_ts=now_ns)
                 
                 if 'num_sync_all_streams' in memory_stats:
-                    store.set_gauge(
+                    ticker.set_gauge(
                         name='pytorch.memory.sync_all_streams', tags=metric_tags,
-                        value=memory_stats['num_sync_all_streams'], update_ts=now)
+                        value=memory_stats['num_sync_all_streams'], measurement_ts=now_ns)
                 
                 if 'num_device_alloc' in memory_stats:
-                    store.set_gauge(
+                    ticker.set_gauge(
                         name='pytorch.memory.device_alloc', tags=metric_tags,
-                        value=memory_stats['num_device_alloc'], update_ts=now)
+                        value=memory_stats['num_device_alloc'], measurement_ts=now_ns)
                 
                 if 'num_device_free' in memory_stats:
-                    store.set_gauge(
+                    ticker.set_gauge(
                         name='pytorch.memory.device_free', tags=metric_tags,
-                        value=memory_stats['num_device_free'], update_ts=now)
+                        value=memory_stats['num_device_free'], measurement_ts=now_ns)
                 
                 # Record fragmentation metrics
                 if 'allocated_bytes.all.peak' in memory_stats and 'reserved_bytes.all.peak' in memory_stats:
                     if memory_stats['reserved_bytes.all.peak'] > 0:
                         fragmentation = (memory_stats['reserved_bytes.all.peak'] - memory_stats['allocated_bytes.all.peak']) / memory_stats['reserved_bytes.all.peak']
-                        store.set_gauge(
+                        ticker.set_gauge(
                             name='pytorch.memory.fragmentation', tags=metric_tags,
-                            value=fragmentation * 100, update_ts=now, unit='percent')
+                            value=fragmentation * 100, measurement_ts=now_ns, unit='percent')
                 
                 # Record cache metrics
                 if 'allocated_bytes.all.cached' in memory_stats:
-                    store.set_gauge(
+                    ticker.set_gauge(
                         name='pytorch.memory.cached', tags=metric_tags,
-                        value=memory_stats['allocated_bytes.all.cached'], update_ts=now)
+                        value=memory_stats['allocated_bytes.all.cached'], measurement_ts=now_ns)
                 
                 # Record device memory info
                 device_memory = torch.cuda.get_device_properties(device_idx).total_memory
                 if device_memory > 0:
-                    store.set_gauge(
+                    ticker.set_gauge(
                         name='pytorch.memory.total', tags=metric_tags,
-                        value=device_memory, update_ts=now)
+                        value=device_memory, measurement_ts=now_ns)
                 
                 # Calculate memory utilization percentage
                 if device_memory > 0 and 'reserved_bytes.all.current' in memory_stats:
                     utilization = (memory_stats['reserved_bytes.all.current'] / device_memory) * 100
-                    store.set_gauge(
+                    ticker.set_gauge(
                         name='pytorch.memory.utilization', tags=metric_tags,
-                        value=utilization, update_ts=now, unit='percent')
+                        value=utilization, measurement_ts=now_ns, unit='percent')
                 
             except Exception as e:
                 logger.warning(f'Failed to record PyTorch memory metrics for device {device_idx}: {e}')
 
-    def _convert_to_profile(self, span):
-        cpu_profile = []
-        for event_avg in self._torch_prof.key_averages():
-            if event_avg.key and event_avg.key.startswith('ProfilerStep'):
-                continue
-            cpu_profile.append(dict(
-                op_name = event_avg.key,
-                device_type = event_avg.device_type.name if event_avg.device_type else None,
-                count = _uint(event_avg.count),
-                cpu_time_ns = _ns(event_avg.cpu_time_total),
-                self_cpu_time_ns = _ns(event_avg.self_cpu_time_total),
-                device_time_ns = _ns(event_avg.device_time_total),
-                self_device_time_ns = _ns(event_avg.self_device_time_total),
-                cpu_memory = _uint(event_avg.cpu_memory_usage),
-                self_cpu_memory = _uint(event_avg.self_cpu_memory_usage),
-                device_memory = _uint(event_avg.device_memory_usage),
-                self_device_memory = _uint(event_avg.self_device_memory_usage),
-                flops = _uint(event_avg.flops)
-            ))
-
-        if len(cpu_profile) > 0:
-            span.set_profile(
-                name='profile.pytorch.cpu', 
-                format='event-averages', 
-                content=json.dumps(cpu_profile))
-
-        kernel_index = {}
-        for event in self._torch_prof.events():
-            for kernel in event.kernels:
-                key = (event.key, kernel.name, kernel.device)
-                if key in kernel_index:
-                    kernel_avg = kernel_index[key]
-                    kernel_avg['count'] += 1
-                    kernel_avg['duration_ns'] += _ns(kernel.duration)
-                else:
-                    kernel_avg = kernel_index[key] = dict(
-                        device_idx = kernel.device,
-                        op_name = event.name,
-                        kernel_name = kernel.name,
-                        count = 1,
-                        duration_ns = _ns(kernel.duration)
-                    )
-
-        device_profile = list(kernel_index.values())
-        span.set_profile(
-            name='profile.pytorch.kernel', 
-            format='event-averages', 
-            content=json.dumps(device_profile))
-
-        chrome_trace = self._export_chrome_trace()
-        if chrome_trace:
-            span.set_profile('profile.pytorch.trace', 'chrome-trace', chrome_trace)
-
     def _export_chrome_trace(self):
         try:
             read_start_time = time.time()
+
+            if len(self._torch_prof.key_averages()) == 0:
+                logger.debug('PyTorch profiler has no results to export')
+                return None
 
             self._log_dir = create_log_dir()
 
@@ -250,14 +160,43 @@ class PyTorchRecorder(BaseRecorder):
             with open(trace_path, "r") as f:
                 return str(f.read())
         finally:
-            remove_log_dir(self._log_dir)
+            if self._log_dir:
+                remove_log_dir(self._log_dir)
             logger.debug('Chrome trace export time: %s', time.time() - read_start_time)
 
         return None
 
-def _ns(val):
-    return int(max(val, 0) * 1e3)
+PROFILED_PATHS = [
+    # NN module forwards (typically dominate compute; ms-ish depending on shapes)
+    ('pytorch.nn', "torch.nn.Linear.forward"),
+    ('pytorch.nn', "torch.nn.Conv1d.forward"),
+    ('pytorch.nn', "torch.nn.Conv2d.forward"),
+    ('pytorch.nn', "torch.nn.Conv3d.forward"),
+    ('pytorch.nn', "torch.nn.ConvTranspose1d.forward"),
+    ('pytorch.nn', "torch.nn.ConvTranspose2d.forward"),
+    ('pytorch.nn', "torch.nn.ConvTranspose3d.forward"),
+    ('pytorch.nn', "torch.nn.Embedding.forward"),
+    ('pytorch.nn', "torch.nn.LayerNorm.forward"),
+    ('pytorch.nn', "torch.nn.GroupNorm.forward"),
+    ('pytorch.nn', "torch.nn.RMSNorm.forward"),
+    ('pytorch.nn', "torch.nn.MultiheadAttention.forward"),
 
+    # distributed collectives (Python API surface)
+    ('pytorch.comm', "torch.distributed.all_reduce"),
+    ('pytorch.comm', "torch.distributed.all_gather_into_tensor"),
+    ('pytorch.comm', "torch.distributed.reduce_scatter_tensor"),
+    ('pytorch.comm', "torch.distributed.all_to_all_single"),
+    ('pytorch.comm', "torch.distributed.barrier"),
+    ('pytorch.comm', "torch.distributed.send"),
+    ('pytorch.comm', "torch.distributed.recv"),
+    ('pytorch.comm', "torch.distributed.batch_isend_irecv"),
 
-def _uint(val):
-    return max(int(val), 0)
+    # “where async comm time is paid” (functional collectives)
+    ('pytorch.comm_wait', "torch.distributed._functional_collectives.wait_tensor"),
+    ('pytorch.comm_wait', "torch.distributed._functional_collectives.AsyncCollectiveTensor.wait"),
+
+    # Python-level CUDA sync points
+    ('pytorch.cuda_sync', "torch.cuda.synchronize"),
+    ('pytorch.cuda_sync', "torch.cuda.streams.Stream.synchronize"),
+    ('pytorch.cuda_sync', "torch.cuda.streams.Event.synchronize"),
+]

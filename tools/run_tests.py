@@ -1,8 +1,11 @@
-import unittest
 import sys
+import pytest
 
 def main():
-    test_args = []
+    base_args = ['-vv', '--log-cli-level=DEBUG', '--forked']
+    
     if len(sys.argv) > 1:
-        test_args = ['-p', sys.argv[1]]
-    unittest.main(module=None, argv=['unittest', 'discover'] + test_args, verbosity=2)
+        test_args = sys.argv[1:]
+        pytest.main(base_args + test_args)
+    else:
+        pytest.main(base_args + ['test'])

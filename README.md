@@ -4,12 +4,12 @@
 [![Version](https://img.shields.io/github/v/tag/graphsignal/graphsignal-python?label=version)](https://github.com/graphsignal/graphsignal-python)
 
 
-Graphsignal is an inference observability platform that helps developers accelerate and troubleshoot AI systems. With Graphsignal, developers can:
+Graphsignal is an inference observability platform that helps developers accelerate and troubleshoot AI systems. It provides essential visibility across the inference stack, including:
 
-* Trace and profile LLM generations, communication, CUDA kernels, batching, and more.
-* Monitor inference performance, CPU/GPU utilization, memory usage, and server metrics.
-* Track and get alerst on errors and exceptions - with contextual data, stack traces, and triggering conditions.
-* Compare performance across models, versions, hardware setups, and optimization configurations.
+* Continuous, high-resolution profiling timelines exposing operation durations and resource utilization across inference workloads.
+* LLM generation tracing with per-step timing, token throughput, and latency breakdowns for major inference frameworks.
+* System-level metrics for inference engines and hardware (CPU, GPU, accelerators).
+* Error monitoring for device-level failures, runtime exceptions, and inference errors.
 
 
 [![Dashboards](https://graphsignal.com/external/screenshot-dashboard.png)](https://graphsignal.com/)
@@ -28,7 +28,7 @@ pip install -U graphsignal
 
 ## Configure
 
-Configure Graphsignal tracer by specifying your API key directly or via `GRAPHSIGNAL_API_KEY` environment variable.
+Configure the Graphsignal SDK by specifying your API key directly or via the `GRAPHSIGNAL_API_KEY` environment variable.
 
 ```python
 import graphsignal
@@ -42,14 +42,10 @@ See [`configure()`](https://graphsignal.com/docs/reference/python-api/#graphsign
 
 To get an API key, sign up for a free account at [graphsignal.com](https://graphsignal.com). The key can then be found in your account's [Settings / API Keys](https://app.graphsignal.com/settings/api-keys) page.
 
-Alternatively, you can add Graphsignal tracer from the command line, when running your module or script. Environment variables `GRAPHSIGNAL_API_KEY` and `GRAPHSIGNAL_DEPLOYMENT` must be set.
+Alternatively, you can use the Graphsignal runner when running your application. Pass the API key via the `GRAPHSIGNAL_API_KEY` environment variable.
 
 ```bash
-python -m graphsignal <script>
-```
-
-```bash
-python -m graphsignal -m <module>
+graphsignal-run <my-app>
 ```
 
 
@@ -60,12 +56,15 @@ Graphsignal integrates through tracing - either via auto-instrumentation or manu
 Refer to the guides below for detailed information on:
 
 * [Manual Tracing](https://graphsignal.com/docs/guides/manual-tracing/)
-* [Inference Profiling](https://graphsignal.com/docs/guides/infefence-profiling/)
+* [Manual Profiling](https://graphsignal.com/docs/guides/manual-profiling/)
 * [Using Tags](https://graphsignal.com/docs/guides/using-tags/)
 
-See [API reference](https://graphsignal.com/docs/reference/python-api/) for full documentation.
+See integration documentation for libraries and inference engines:
 
-Integration examples are available in [examples](https://github.com/graphsignal/examples) repository.
+* [PyTorch](https://graphsignal.com/docs/integrations/pytorch/)
+* [vLLM](https://graphsignal.com/docs/integrations/vllm/)
+
+See the [API reference](https://graphsignal.com/docs/reference/python-api/) for complete documentation.
 
 
 ## Analyze
@@ -75,7 +74,7 @@ Integration examples are available in [examples](https://github.com/graphsignal/
 
 ## Overhead
 
-Graphsignal tracer is highly lightweight. The overhead per trace is measured to be less than 100 microseconds. While profiling can introduce slight overhead, the profiling rate it is limited.
+Graphsignal tracer is highly lightweight. The overhead per trace is measured to be less than 100 microseconds. While profiling can introduce slight overhead, the profiling rate is limited.
 
 
 ## Security and Privacy

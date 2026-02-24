@@ -1,33 +1,32 @@
 import logging
-import time
 import vllm
 
 import graphsignal
-from graphsignal import client
+from graphsignal.proto import signals_pb2
 from graphsignal.utils import uuid_sha1, sanitize_str
 from graphsignal.recorders.base_recorder import BaseRecorder
 from graphsignal.recorders.instrumentation import trace_method, patch_method, parse_semver, compare_semver
-from graphsignal.recorders.prometheus_adapter import PrometheusAdapter
-from graphsignal.recorders.otel_adapter import OTELAdapter
+from graphsignal.otel.prometheus_adapter import PrometheusAdapter
 
 logger = logging.getLogger('graphsignal')
 
+
 class VLLMRecorder(BaseRecorder):
     def __init__(self):
-        self._profiling = False
+        self._prometheus_adapter = None
         self._otel_adapter = None
 
     def setup(self):
-        if not graphsignal._tracer.auto_instrument:
+        if not graphsignal._ticker.auto_instrument:
             return
 
         version = vllm.__version__
         self._library_version = version
         parsed_version = parse_semver(version)
 
-        tracer = graphsignal._tracer
-        tracer.set_tag('inference.engine.name', 'vllm')
-        tracer.set_tag('inference.engine.version', version)
+        ticker = graphsignal._ticker
+        ticker.set_tag('inference.engine.name', 'vllm')
+        ticker.set_tag('inference.engine.version', version)
 
         if compare_semver(parsed_version, (0, 8, 0)) >= 0:
             # LLM
@@ -55,7 +54,7 @@ class VLLMRecorder(BaseRecorder):
                     def otel_export_callback(otel_spans):
                         for otel_span in otel_spans:
                             self._convert_otel_span(otel_span)
-                        graphsignal._tracer.tick()
+                        graphsignal._ticker.tick()
 
                     self._otel_adapter = OTELAdapter(export_callback=otel_export_callback)
                     self._otel_adapter.setup()'''
@@ -245,6 +244,11 @@ class VLLMRecorder(BaseRecorder):
             logger.debug('VLLM tracing is only supported for >= 0.8.0.')
             return
         
+        # profiling functions
+        for category, function_path in PROFILED_PATHS:
+            ticker.profile_function_path(function_path, category=category)
+
+        # prometheus metrics
         prometheus_registry = None
         try:
             from vllm.v1.metrics.prometheus import get_prometheus_registry
@@ -263,12 +267,12 @@ class VLLMRecorder(BaseRecorder):
             name_map_func=metric_name_map_func)
         self._prometheus_adapter.setup()
 
-    def on_metric_update(self):
+    def on_tick(self):
         if self._prometheus_adapter:
             self._prometheus_adapter.collect()
 
     def _convert_otel_span(self, otel_span):
-        if not graphsignal._tracer.should_sample('vllm.' + otel_span.name):
+        if not graphsignal._ticker.should_trace(('vllm.' + otel_span.name, 'random')):
             return
 
         if not otel_span.name:
@@ -279,25 +283,20 @@ class VLLMRecorder(BaseRecorder):
             logger.error(f'Invalid Open Telemetry span: start_time={otel_span.start_time}, end_time={otel_span.end_time}')
             return
 
-        span = client.Span(
-            span_id=uuid_sha1(size=12),
-            trace_id=uuid_sha1(size=12),
-            start_ns=otel_span.start_time,
-            end_ns=otel_span.end_time,
-            name=f'vllm.{otel_span.name}',
-            tags=[],
-            params=[],
-            counters=[],
-            attributes=[]
-        )
+        span = signals_pb2.Span()
+        span.span_id = uuid_sha1(size=12)
+        span.trace_id = uuid_sha1(size=12)
+        span.start_ts = otel_span.start_time
+        span.end_ts = otel_span.end_time
+        span.name = f'vllm.{otel_span.name}'
 
         # set process tags
-        if graphsignal._tracer.tags:
-            for tag_key, tag_value in graphsignal._tracer.tags.items():
+        if graphsignal._ticker.tags:
+            for tag_key, tag_value in graphsignal._ticker.tags.items():
                 _add_tag(span, tag_key, tag_value)
 
         attributes = otel_span.attributes
-        _add_attribute(span, 'sampling.reason', 'vllm.otel')
+        _add_tag(span, 'sampling.reason', 'vllm.otel')
         if 'gen_ai.request.id' in attributes:
             _add_tag(span, 'vllm.request.id', attributes['gen_ai.request.id'])
         if 'gen_ai.response.model' in attributes:
@@ -330,24 +329,89 @@ class VLLMRecorder(BaseRecorder):
         if 'gen_ai.latency.time_in_model_execute' in attributes:
             _add_counter(span, 'vllm.latency.time_in_model_execute', attributes['gen_ai.latency.time_in_model_execute'], sec_to_ns=True)
 
-        graphsignal._tracer.uploader().upload_span(span)
-
+        graphsignal._ticker.signal_uploader().upload_span(span)
 
     def shutdown(self):
         if self._otel_adapter:
             self._otel_adapter.shutdown()
 
 def _add_tag(span, key, value):
-    span.tags.append(client.Tag(
-        key=sanitize_str(key, max_len=50), 
-        value=sanitize_str(value, max_len=250)))
+    tag = span.tags.add()
+    tag.key = sanitize_str(key, max_len=50)
+    tag.value = sanitize_str(value, max_len=250)
 
 def _add_attribute(span, name, value):
-    span.attributes.append(client.Attribute(
-        name=sanitize_str(name, max_len=50), 
-        value=sanitize_str(value, max_len=2500)))
+    attr = span.attributes.add()
+    attr.name = sanitize_str(name, max_len=50)
+    attr.value = sanitize_str(value, max_len=2500)
 
 def _add_counter(span, name, value, sec_to_ns: bool = False):
     if sec_to_ns:
         value = int(value * 1e9)
-    span.counters.append(client.Counter(name=name, value=float(value)))
+    counter = span.counters.add()
+    counter.name = name
+    counter.value = float(value)
+
+
+PROFILED_PATHS = [
+    # Entrypoints (end-to-end request latency; 100ms -> seconds)
+    ('vllm.e2e', "vllm.entrypoints.llm.LLM.generate"),
+    ('vllm.e2e', "vllm.v1.engine.async_llm.AsyncLLM.generate"),
+    ('vllm.e2e', "vllm.entrypoints.api_server.generate"),
+    ('vllm.e2e', "vllm.entrypoints.openai.chat_completion.api_router.create_chat_completion"),
+    ('vllm.e2e', "vllm.entrypoints.openai.completion.api_router.create_completion"),
+    ('vllm.e2e', "vllm.entrypoints.openai.chat_completion.serving.OpenAIServingChat.create_chat_completion"),
+    ('vllm.e2e', "vllm.entrypoints.openai.completion.serving.OpenAIServingCompletion.create_completion"),
+
+    # Engine loop / core orchestration (~sub-ms -> 10s of ms per step)
+    ('vllm.engine', "vllm.v1.engine.llm_engine.LLMEngine.add_request"),
+    ('vllm.engine', "vllm.v1.engine.llm_engine.LLMEngine.step"),
+    ('vllm.engine', "vllm.v1.engine.core.EngineCore.step"),
+    ('vllm.engine', "vllm.v1.engine.core.EngineCore.step_with_batch_queue"),
+
+    # Scheduler (batching + KV decisions; CPU overhead; similar scale to engine step)
+    ('vllm.engine', "vllm.v1.core.sched.scheduler.Scheduler.schedule"),
+    ('vllm.engine', "vllm.v1.core.sched.scheduler.Scheduler.update_from_output"),
+
+    # Executor / worker boundary (can dominate in multiproc; includes CPU<->GPU boundary)
+    ('vllm.model_exec', "vllm.v1.executor.abstract.Executor.execute_model"),
+    ('vllm.model_exec', "vllm.v1.executor.abstract.Executor.sample_tokens"),
+    ('vllm.model_exec', "vllm.v1.worker.worker_base.WorkerBase.execute_model"),
+    ('vllm.model_exec', "vllm.v1.worker.gpu_worker.Worker.execute_model"),
+
+    # GPU model runner (prefill+decode GPU time + surrounding CPU prep)
+    ('vllm.model_exec', "vllm.v1.worker.gpu_model_runner.GPUModelRunner.execute_model"),
+    ('vllm.model_exec', "vllm.v1.worker.gpu_model_runner.GPUModelRunner._model_forward"),
+    ('vllm.model_exec', "vllm.v1.worker.gpu_model_runner.GPUModelRunner.sample_tokens"),
+
+    # Attention (keep high-level layer forwards; backend-specific impls may not be importable)
+    ('vllm.attention', "vllm.attention.layer.Attention.forward"),
+    ('vllm.attention', "vllm.attention.layer.MLAAttention.forward"),
+    # These helpers are Python-level and often sit on the hot path when direct-call is enabled.
+    ('vllm.attention', "vllm.attention.layer.unified_attention"),
+    ('vllm.attention', "vllm.attention.layer.unified_attention_with_output"),
+    ('vllm.attention', "vllm.attention.layer.unified_mla_attention"),
+    ('vllm.attention', "vllm.attention.layer.unified_mla_attention_with_output"),
+
+    # KV cache ops (v1 latest uses allocate_slots; allocation/free can be >1ms under pressure)
+    ('vllm.kv_cache', "vllm.v1.core.kv_cache_manager.KVCacheManager.allocate_slots"),
+    ('vllm.kv_cache', "vllm.v1.core.kv_cache_manager.KVCacheManager.free"),
+    ('vllm.kv_cache', "vllm._custom_ops.reshape_and_cache_flash"),
+    ('vllm.kv_cache', "vllm._custom_ops.swap_blocks"),
+
+    # Multi-GPU comm (NCCL/custom collectives; can be >1ms depending on size/topology)
+    ('vllm.comm', "vllm.distributed.parallel_state.GroupCoordinator.all_reduce"),
+    ('vllm.comm', "vllm.distributed.parallel_state.GroupCoordinator.all_gather"),
+    ('vllm.comm', "vllm.distributed.parallel_state.GroupCoordinator.reduce_scatter"),
+    ('vllm.comm', "vllm.distributed.parallel_state.GroupCoordinator.broadcast"),
+    ('vllm.comm', "vllm.distributed.parallel_state.GroupCoordinator.broadcast_tensor_dict"),
+    ('vllm.comm', "vllm.distributed.parallel_state.GroupCoordinator.send_tensor_dict"),
+    ('vllm.comm', "vllm.distributed.parallel_state.GroupCoordinator.recv_tensor_dict"),
+    ('vllm.comm', "vllm.distributed.communication_op.tensor_model_parallel_all_reduce"),
+    ('vllm.comm', "vllm.distributed.communication_op.tensor_model_parallel_all_gather"),
+    ('vllm.comm', "vllm.distributed.communication_op.tensor_model_parallel_reduce_scatter"),
+
+    # Output processing
+    ('vllm.output', "vllm.v1.engine.output_processor.OutputProcessor.process_outputs"),
+    ('vllm.output', "vllm.v1.engine.detokenizer.BaseIncrementalDetokenizer.update"),
+]

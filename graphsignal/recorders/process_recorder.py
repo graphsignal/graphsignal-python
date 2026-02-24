@@ -12,7 +12,6 @@ try:
 except ImportError:
     pass
 
-from graphsignal import client
 from graphsignal.recorders.base_recorder import BaseRecorder
 import graphsignal
 from graphsignal import version
@@ -83,61 +82,61 @@ class ProcessRecorder(BaseRecorder):
     def setup(self):
         process_usage, node_usage = self.take_snapshot()
 
-        tracer = graphsignal._tracer
+        ticker = graphsignal._ticker
         if platform.system() and platform.release():
-            tracer.set_tag('platform.name', platform.system())
-            tracer.set_tag('platform.version', platform.release())
+            ticker.set_tag('platform.name', platform.system())
+            ticker.set_tag('platform.version', platform.release())
         if sys.version_info and len(sys.version_info) >= 3:
-            tracer.set_tag('runtime.name', 'python')
-            tracer.set_tag('runtime.version', f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')
+            ticker.set_tag('runtime.name', 'python')
+            ticker.set_tag('runtime.version', f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')
         if node_usage.hostname:
-            tracer.set_tag('host.name', node_usage.hostname)
+            ticker.set_tag('host.name', node_usage.hostname)
         if process_usage.pid:
-            tracer.set_tag('process.pid', str(process_usage.pid))
+            ticker.set_tag('process.pid', str(process_usage.pid))
         if node_usage.hostname and process_usage.pid:
-            tracer.set_tag('process.address', f'{node_usage.hostname}:{process_usage.pid}')
+            ticker.set_tag('process.address', f'{node_usage.hostname}:{process_usage.pid}')
         if node_usage.pod_uid:
-            tracer.set_tag('pod.uid', node_usage.pod_uid)
+            ticker.set_tag('pod.uid', node_usage.pod_uid)
         if node_usage.container_id:
-            tracer.set_tag('container.id', node_usage.container_id)
+            ticker.set_tag('container.id', node_usage.container_id)
 
         for env_var in ["RANK", "NCCL_RANK", "SLURM_PROCID", "OMPI_COMM_WORLD_RANK"]:
             if env_var in os.environ:
-                tracer.set_tag('process.rank', os.environ[env_var])
+                ticker.set_tag('process.rank', os.environ[env_var])
                 break
 
         for env_var in ["LOCAL_RANK", "NCCL_LOCAL_RANK", "SLURM_LOCALID", "OMPI_COMM_WORLD_LOCAL_RANK"]:
             if env_var in os.environ:
-                tracer.set_tag('process.local_rank', os.environ[env_var])
+                ticker.set_tag('process.local_rank', os.environ[env_var])
                 break
 
-        tracer.set_tag('tracer.name', f'graphsignal-python')
-        tracer.set_tag('tracer.version', version.__version__)
+        ticker.set_tag('ticker.name', f'graphsignal-python')
+        ticker.set_tag('ticker.version', version.__version__)
 
-    def on_metric_update(self):
-        now = int(time.time())
+    def on_tick(self):
+        now_ns = time.time_ns()
 
         process_usage, node_usage = self.take_snapshot()
 
-        store = graphsignal._tracer.metric_store()
-        metric_tags = graphsignal._tracer.tags.copy()
+        ticker = graphsignal._ticker
 
+        metric_tags = {}
         if process_usage.cpu_usage_percent > 0:
-            store.set_gauge(
+            ticker.set_gauge(
                 name='process.cpu.usage', tags=metric_tags, 
-                value=process_usage.cpu_usage_percent, update_ts=now, unit='%')
+                value=process_usage.cpu_usage_percent, measurement_ts=now_ns, unit='%')
         if process_usage.current_rss > 0:
-            store.set_gauge(
+            ticker.set_gauge(
                 name='process.memory.usage', tags=metric_tags, 
-                value=process_usage.current_rss, update_ts=now)
+                value=process_usage.current_rss, measurement_ts=now_ns)
         if process_usage.vm_size > 0:
-            store.set_gauge(
+            ticker.set_gauge(
                 name='process.memory.virtual', tags=metric_tags, 
-                value=process_usage.vm_size, update_ts=now)
+                value=process_usage.vm_size, measurement_ts=now_ns)
         if node_usage.mem_used > 0:
-            store.set_gauge(
+            ticker.set_gauge(
                 name='host.memory.usage', tags=metric_tags, 
-                value=node_usage.mem_used, update_ts=now)
+                value=node_usage.mem_used, measurement_ts=now_ns)
 
     def take_snapshot(self):
         if not OS_WIN:

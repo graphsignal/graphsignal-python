@@ -8,7 +8,7 @@ from unittest.mock import patch, Mock, call
 
 import graphsignal
 from graphsignal.recorders.exception_recorder import ExceptionRecorder
-from graphsignal.uploader import Uploader
+from graphsignal.proto import signals_pb2
 
 logger = logging.getLogger('graphsignal')
 
@@ -21,23 +21,20 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._tracer.auto_export = False
-        graphsignal._tracer.auto_instrument = True
+        graphsignal._ticker.auto_tick = False
+        graphsignal._ticker.auto_instrument = True
 
     async def asyncTearDown(self):
         graphsignal.shutdown()
 
     def test_recorder_initialization(self):
-        """Test that the exception recorder is properly initialized through Graphsignal."""
         # Check if the exception recorder is in the recorders
-        recorders = list(graphsignal._tracer.recorders())
+        recorders = list(graphsignal._ticker.recorders())
         exception_recorders = [r for r in recorders if isinstance(r, ExceptionRecorder)]
         self.assertEqual(len(exception_recorders), 1)
         self.assertTrue(exception_recorders[0]._is_setup)
 
-    @patch.object(Uploader, 'upload_error')
-    def test_setup_and_shutdown(self, mocked_upload_error):
-        """Test that exception recorder can be set up and shut down properly."""
+    def test_setup_and_shutdown(self):
         recorder = ExceptionRecorder()
         
         # Store original handlers
@@ -60,11 +57,9 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(threading.excepthook, original_threading_excepthook)
         self.assertFalse(recorder._is_setup)
 
-    @patch.object(Uploader, 'upload_error')
-    def test_main_thread_exception_handling(self, mocked_upload_error):
-        """Test that main thread exceptions are caught and reported."""
+    def test_main_thread_exception_handling(self):
         # Get the initialized recorder
-        recorders = list(graphsignal._tracer.recorders())
+        recorders = list(graphsignal._ticker.recorders())
         recorder = next(r for r in recorders if isinstance(r, ExceptionRecorder))
         
         # Store original excepthook
@@ -76,6 +71,10 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
         # Temporarily replace the original excepthook with our mock
         recorder._original_excepthook = mock_original_excepthook
         
+        # Clear log store before test
+        log_store = graphsignal._ticker.log_store()
+        log_store.clear()
+        
         # Now call our exception handler directly
         exc_type = ValueError
         exc_value = ValueError("Test exception")
@@ -83,13 +82,20 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
         
         recorder._handle_exception(exc_type, exc_value, exc_traceback)
         
-        # Verify the exception was reported
-        self.assertEqual(mocked_upload_error.call_count, 1)
-        error_call = mocked_upload_error.call_args[0][0]
-        self.assertEqual(error_call.name, 'uncaught_exception')
-        self.assertEqual(error_call.level, 'error')
-        self.assertIn('exception.context', [tag.key for tag in error_call.tags])
-        self.assertEqual('main_thread', next(tag.value for tag in error_call.tags if tag.key == 'exception.context'))
+        # Verify the exception was logged
+        log_batches = log_store.export()
+        self.assertEqual(len(log_batches), 1)
+        
+        batch = log_batches[0]
+        tag_dict = {tag.key: tag.value for tag in batch.tags}
+        self.assertEqual(tag_dict['exception.name'], 'uncaught_exception')
+        self.assertEqual(tag_dict['exception.context'], 'main_thread')
+        
+        self.assertEqual(len(batch.log_entries), 1)
+        entry = batch.log_entries[0]
+        self.assertEqual(entry.level, signals_pb2.LogEntry.LogLevel.ERROR_LEVEL)
+        self.assertIn('ValueError', entry.message)
+        self.assertIn('Test exception', entry.message)
         
         # Verify original excepthook was called
         mock_original_excepthook.assert_called_once_with(exc_type, exc_value, exc_traceback)
@@ -97,11 +103,9 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
         # Restore
         recorder._original_excepthook = original_excepthook
 
-    @patch.object(Uploader, 'upload_error')
-    def test_threading_exception_handling(self, mocked_upload_error):
-        """Test that threading exceptions are caught and reported."""
+    def test_threading_exception_handling(self):
         # Get the initialized recorder
-        recorders = list(graphsignal._tracer.recorders())
+        recorders = list(graphsignal._ticker.recorders())
         recorder = next(r for r in recorders if isinstance(r, ExceptionRecorder))
         
         # Create a mock to track calls to the original threading excepthook
@@ -109,6 +113,10 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
         
         # Temporarily replace the original threading excepthook with our mock
         recorder._original_threading_excepthook = mock_original_threading_excepthook
+        
+        # Clear log store before test
+        log_store = graphsignal._ticker.log_store()
+        log_store.clear()
         
         # Create mock args for threading exception
         class MockArgs:
@@ -124,15 +132,21 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
         # Call our threading exception handler directly
         recorder._handle_threading_exception(mock_args)
         
-        # Verify the exception was reported
-        self.assertEqual(mocked_upload_error.call_count, 1)
-        error_call = mocked_upload_error.call_args[0][0]
-        self.assertEqual(error_call.name, 'uncaught_thread_exception')
-        self.assertEqual(error_call.level, 'error')
-        self.assertIn('exception.context', [tag.key for tag in error_call.tags])
-        self.assertEqual('thread', next(tag.value for tag in error_call.tags if tag.key == 'exception.context'))
-        self.assertIn('exception.thread_name', [tag.key for tag in error_call.tags])
-        self.assertEqual('test_thread', next(tag.value for tag in error_call.tags if tag.key == 'exception.thread_name'))
+        # Verify the exception was logged
+        log_batches = log_store.export()
+        self.assertEqual(len(log_batches), 1)
+        
+        batch = log_batches[0]
+        tag_dict = {tag.key: tag.value for tag in batch.tags}
+        self.assertEqual(tag_dict['exception.name'], 'uncaught_thread_exception')
+        self.assertEqual(tag_dict['exception.context'], 'thread')
+        self.assertEqual(tag_dict['exception.thread_name'], 'test_thread')
+        
+        self.assertEqual(len(batch.log_entries), 1)
+        entry = batch.log_entries[0]
+        self.assertEqual(entry.level, signals_pb2.LogEntry.LogLevel.ERROR_LEVEL)
+        self.assertIn('RuntimeError', entry.message)
+        self.assertIn('Thread exception', entry.message)
         
         # Verify original threading excepthook was called
         mock_original_threading_excepthook.assert_called_once_with(mock_args)
@@ -140,11 +154,9 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
         # Restore
         recorder._original_threading_excepthook = threading.excepthook
 
-    @patch.object(Uploader, 'upload_error')
-    async def test_asyncio_exception_handling(self, mocked_upload_error):
-        """Test that asyncio exceptions are caught and reported."""
+    async def test_asyncio_exception_handling(self):
         # Get the initialized recorder
-        recorders = list(graphsignal._tracer.recorders())
+        recorders = list(graphsignal._ticker.recorders())
         recorder = next(r for r in recorders if isinstance(r, ExceptionRecorder))
         
         # Create a mock to track calls to the original loop exception handler
@@ -152,6 +164,10 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
         
         # Temporarily replace the original loop exception handler with our mock
         recorder._original_loop_exception_handler = mock_original_loop_exception_handler
+        
+        # Clear log store before test
+        log_store = graphsignal._ticker.log_store()
+        log_store.clear()
         
         # Create mock task
         mock_task = Mock()
@@ -167,15 +183,21 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
         # Call our asyncio exception handler directly
         recorder._handle_asyncio_exception(loop, context)
         
-        # Verify the exception was reported
-        self.assertEqual(mocked_upload_error.call_count, 1)
-        error_call = mocked_upload_error.call_args[0][0]
-        self.assertEqual(error_call.name, 'uncaught_asyncio_exception')
-        self.assertEqual(error_call.level, 'error')
-        self.assertIn('exception.context', [tag.key for tag in error_call.tags])
-        self.assertEqual('asyncio', next(tag.value for tag in error_call.tags if tag.key == 'exception.context'))
-        self.assertIn('exception.task_name', [tag.key for tag in error_call.tags])
-        self.assertEqual('test_async_task', next(tag.value for tag in error_call.tags if tag.key == 'exception.task_name'))
+        # Verify the exception was logged
+        log_batches = log_store.export()
+        self.assertEqual(len(log_batches), 1)
+        
+        batch = log_batches[0]
+        tag_dict = {tag.key: tag.value for tag in batch.tags}
+        self.assertEqual(tag_dict['exception.name'], 'uncaught_asyncio_exception')
+        self.assertEqual(tag_dict['exception.context'], 'asyncio')
+        self.assertEqual(tag_dict['exception.task_name'], 'test_async_task')
+        
+        self.assertEqual(len(batch.log_entries), 1)
+        entry = batch.log_entries[0]
+        self.assertEqual(entry.level, signals_pb2.LogEntry.LogLevel.ERROR_LEVEL)
+        self.assertIn('CancelledError', entry.message)
+        self.assertIn('Async exception', entry.message)
         
         # Verify original handler was called
         mock_original_loop_exception_handler.assert_called_once_with(loop, context)
@@ -183,11 +205,9 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
         # Restore
         recorder._original_loop_exception_handler = None
 
-    @patch.object(Uploader, 'upload_error')
-    async def test_asyncio_error_handling(self, mocked_upload_error):
-        """Test that asyncio errors (non-exception) are caught and reported."""
+    async def test_asyncio_error_handling(self):
         # Get the initialized recorder
-        recorders = list(graphsignal._tracer.recorders())
+        recorders = list(graphsignal._ticker.recorders())
         recorder = next(r for r in recorders if isinstance(r, ExceptionRecorder))
         
         # Create a mock to track calls to the original loop exception handler
@@ -195,6 +215,10 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
         
         # Temporarily replace the original loop exception handler with our mock
         recorder._original_loop_exception_handler = mock_original_loop_exception_handler
+        
+        # Clear log store before test
+        log_store = graphsignal._ticker.log_store()
+        log_store.clear()
         
         # Create mock task
         mock_task = Mock()
@@ -210,14 +234,20 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
         # Call our asyncio exception handler directly
         recorder._handle_asyncio_exception(loop, context)
         
-        # Verify the error was reported
-        self.assertEqual(mocked_upload_error.call_count, 1)
-        error_call = mocked_upload_error.call_args[0][0]
-        self.assertEqual(error_call.name, 'asyncio_error')
-        self.assertEqual(error_call.level, 'error')
-        self.assertEqual(error_call.message, 'Task was destroyed but it is pending!')
-        self.assertIn('exception.context', [tag.key for tag in error_call.tags])
-        self.assertEqual('asyncio', next(tag.value for tag in error_call.tags if tag.key == 'exception.context'))
+        # Verify the error was logged
+        log_batches = log_store.export()
+        self.assertEqual(len(log_batches), 1)
+        
+        batch = log_batches[0]
+        tag_dict = {tag.key: tag.value for tag in batch.tags}
+        self.assertEqual(tag_dict['exception.name'], 'asyncio_error')
+        self.assertEqual(tag_dict['exception.context'], 'asyncio')
+        self.assertEqual(tag_dict['exception.task_name'], 'test_task')
+        
+        self.assertEqual(len(batch.log_entries), 1)
+        entry = batch.log_entries[0]
+        self.assertEqual(entry.level, signals_pb2.LogEntry.LogLevel.ERROR_LEVEL)
+        self.assertEqual(entry.message, 'Task was destroyed but it is pending!')
         
         # Verify original handler was called
         mock_original_loop_exception_handler.assert_called_once_with(loop, context)
@@ -225,14 +255,12 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
         # Restore
         recorder._original_loop_exception_handler = None
 
-    @patch.object(Uploader, 'upload_error')
-    def test_exception_in_handler(self, mocked_upload_error):
-        """Test that exceptions in the handler itself don't break the system."""
+    def test_exception_in_handler(self):
         recorder = ExceptionRecorder()
         recorder.setup()
         
-        # Mock report_error to raise an exception
-        with patch('graphsignal.report_error', side_effect=Exception("Handler error")):
+        # Mock log_message to raise an exception
+        with patch('graphsignal.log_message', side_effect=Exception("Handler error")):
             # Mock the original excepthook to avoid actually raising
             original_excepthook = sys.excepthook
             mock_excepthook = Mock()
@@ -254,7 +282,6 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
         recorder.shutdown()
 
     def test_double_setup(self):
-        """Test that calling setup multiple times doesn't cause issues."""
         recorder = ExceptionRecorder()
         
         # First setup
@@ -268,19 +295,16 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
         recorder.shutdown()
 
     def test_shutdown_without_setup(self):
-        """Test that shutdown without setup doesn't cause issues."""
         recorder = ExceptionRecorder()
         
         # Shutdown without setup should not raise
         recorder.shutdown()
         self.assertFalse(recorder._is_setup)
 
-    @patch.object(Uploader, 'upload_error')
-    def test_auto_instrument_disabled(self, mocked_upload_error):
-        """Test that recorder doesn't setup when auto_instrument is disabled."""
+    def test_auto_instrument_disabled(self):
         # Disable auto instrument
-        original_auto_instrument = graphsignal._tracer.auto_instrument
-        graphsignal._tracer.auto_instrument = False
+        original_auto_instrument = graphsignal._ticker.auto_instrument
+        graphsignal._ticker.auto_instrument = False
         
         try:
             recorder = ExceptionRecorder()
@@ -288,18 +312,13 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
             
             # Should not be setup
             self.assertFalse(recorder._is_setup)
-            
-            # No error should be uploaded
-            self.assertEqual(mocked_upload_error.call_count, 0)
         finally:
             # Restore
-            graphsignal._tracer.auto_instrument = original_auto_instrument
+            graphsignal._ticker.auto_instrument = original_auto_instrument
 
-    @patch.object(Uploader, 'upload_error')
-    def test_exception_tags(self, mocked_upload_error):
-        """Test that exception tags are properly set."""
+    def test_exception_tags(self):
         # Get the initialized recorder
-        recorders = list(graphsignal._tracer.recorders())
+        recorders = list(graphsignal._ticker.recorders())
         recorder = next(r for r in recorders if isinstance(r, ExceptionRecorder))
         
         # Create a mock to track calls to the original excepthook
@@ -307,6 +326,10 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
         
         # Temporarily replace the original excepthook with our mock
         recorder._original_excepthook = mock_original_excepthook
+        
+        # Clear log store before test
+        log_store = graphsignal._ticker.log_store()
+        log_store.clear()
         
         # Now call our exception handler directly
         exc_type = ValueError
@@ -316,10 +339,13 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
         recorder._handle_exception(exc_type, exc_value, exc_traceback)
         
         # Verify tags are set correctly
-        self.assertEqual(mocked_upload_error.call_count, 1)
-        error_call = mocked_upload_error.call_args[0][0]
-        tag_dict = {tag.key: tag.value for tag in error_call.tags}
+        log_batches = log_store.export()
+        self.assertEqual(len(log_batches), 1)
         
+        batch = log_batches[0]
+        tag_dict = {tag.key: tag.value for tag in batch.tags}
+        
+        self.assertEqual(tag_dict['exception.name'], 'uncaught_exception')
         self.assertEqual(tag_dict['exception.context'], 'main_thread')
         
         # Restore

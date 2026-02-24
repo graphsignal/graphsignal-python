@@ -1,6 +1,10 @@
 import sys
+import os
 import runpy
 import graphsignal
+from graphsignal.bootstrap.utils import add_bootstrap_to_pythonpath
+
+add_bootstrap_to_pythonpath()
 
 
 def main():
