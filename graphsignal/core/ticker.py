@@ -400,7 +400,7 @@ class Ticker:
                 logger.error('Failed to initialize recorder for module: %s', module_name, exc_info=True)
 
     def recorders(self):
-        for recorder_list in self._recorders.values():
+        for recorder_list in list(self._recorders.values()):
             for recorder in recorder_list:
                 yield recorder
 

@@ -138,33 +138,6 @@ class PyTorchRecorder(BaseRecorder):
             except Exception as e:
                 logger.warning(f'Failed to record PyTorch memory metrics for device {device_idx}: {e}')
 
-    def _export_chrome_trace(self):
-        try:
-            read_start_time = time.time()
-
-            if len(self._torch_prof.key_averages()) == 0:
-                logger.debug('PyTorch profiler has no results to export')
-                return None
-
-            self._log_dir = create_log_dir()
-
-            trace_path = os.path.join(self._log_dir, 'trace.json')
-            self._torch_prof.export_chrome_trace(trace_path)
-
-            trace_file_size = os.path.getsize(trace_path)
-            logger.debug('Chrome trace size: %s', trace_file_size)
-            if trace_file_size > 500 * 1e6:
-                logger.debug('Chrome trace file too big: %s', trace_file_size)
-                return None
-
-            with open(trace_path, "r") as f:
-                return str(f.read())
-        finally:
-            if self._log_dir:
-                remove_log_dir(self._log_dir)
-            logger.debug('Chrome trace export time: %s', time.time() - read_start_time)
-
-        return None
 
 PROFILED_PATHS = [
     # NN module forwards (typically dominate compute; ms-ish depending on shapes)

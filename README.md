@@ -25,6 +25,8 @@ Install the Graphsignal library.
 pip install -U graphsignal
 ```
 
+**GPU profiling (Linux):** For CUPTI-based GPU profiling, install the extra matching your CUDA version: `pip install graphsignal[cu12]` (CUDA 12.x) or `pip install graphsignal[cu13]` (CUDA 13.x).
+
 
 ## Configure
 

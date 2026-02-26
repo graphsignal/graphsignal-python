@@ -14,14 +14,14 @@ files = [
 
 [[package]]
 name = "certifi"
-version = "2026.1.4"
+version = "2026.2.25"
 description = "Python package for providing Mozilla's CA Bundle."
 optional = false
 python-versions = ">=3.7"
 groups = ["main"]
 files = [
-    {file = "certifi-2026.1.4-py3-none-any.whl", hash = "sha256:9943707519e4add1115f44c2bc244f782c0249876bf51b6599fee1ffbedd685c"},
-    {file = "certifi-2026.1.4.tar.gz", hash = "sha256:ac726dd470482006e014ad384921ed6438c457018f4b3d204aea4281258b2120"},
+    {file = "certifi-2026.2.25-py3-none-any.whl", hash = "sha256:027692e4402ad994f1c42e52a4997a9763c646b73e4096e4d5d6db8af1d6f0fa"},
+    {file = "certifi-2026.2.25.tar.gz", hash = "sha256:e887ab5cee78ea814d3472169153c2d12cd43b14bd03329a39a9c6e2e80bfba7"},
 ]
 
 [[package]]
@@ -337,6 +337,34 @@ markers = "python_version >= \"3.13\""
 files = [
     {file = "iniconfig-2.3.0-py3-none-any.whl", hash = "sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12"},
     {file = "iniconfig-2.3.0.tar.gz", hash = "sha256:c76315c77db068650d49c5b56314774a7804df16fee4402c1f19d6d15d8c4730"},
+]
+
+[[package]]
+name = "nvidia-cuda-cupti"
+version = "13.1.115"
+description = "CUDA profiling tools runtime libs."
+optional = true
+python-versions = ">=3"
+groups = ["main"]
+markers = "sys_platform == \"linux\" and extra == \"cu13\""
+files = [
+    {file = "nvidia_cuda_cupti-13.1.115-py3-none-manylinux_2_25_aarch64.whl", hash = "sha256:2b0ffd140b48ca45d5b26e4b4bf718f193b9054f2e0b71f77490a6ddecfaaf27"},
+    {file = "nvidia_cuda_cupti-13.1.115-py3-none-manylinux_2_25_x86_64.whl", hash = "sha256:2c76d91807cf76fc0e4b08ad71c4dff0e8e9f678fc8dbbbc43ec55125a70b553"},
+    {file = "nvidia_cuda_cupti-13.1.115-py3-none-win_amd64.whl", hash = "sha256:657554422e48ad742bb3c7e53bb96e40fd1bf376aeec995a34b231a262e29b05"},
+]
+
+[[package]]
+name = "nvidia-cuda-cupti-cu12"
+version = "12.9.79"
+description = "CUDA profiling tools runtime libs."
+optional = true
+python-versions = ">=3"
+groups = ["main"]
+markers = "sys_platform == \"linux\" and extra == \"cu12\""
+files = [
+    {file = "nvidia_cuda_cupti_cu12-12.9.79-py3-none-manylinux_2_25_aarch64.whl", hash = "sha256:791853b030602c6a11d08b5578edfb957cadea06e9d3b26adbf8d036135a4afe"},
+    {file = "nvidia_cuda_cupti_cu12-12.9.79-py3-none-manylinux_2_25_x86_64.whl", hash = "sha256:096bcf334f13e1984ba36685ad4c1d6347db214de03dbb6eebb237b41d9d934f"},
+    {file = "nvidia_cuda_cupti_cu12-12.9.79-py3-none-win_amd64.whl", hash = "sha256:1848a9380067560d5bee10ed240eecc22991713e672c0515f9c3d9396adf93c8"},
 ]
 
 [[package]]
@@ -1148,7 +1176,11 @@ enabler = ["pytest-enabler (>=2.2)"]
 test = ["big-O", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more_itertools", "pytest (>=6,!=8.1.*)", "pytest-ignore-flaky"]
 type = ["pytest-mypy"]
 
+[extras]
+cu12 = ["nvidia-cuda-cupti-cu12"]
+cu13 = ["nvidia-cuda-cupti"]
+
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9,<4"
-content-hash = "0e2eb77e987c4f2d3381ef35b87e4b4a0f7b5c8bc3336e3011031e3a076aa736"
+content-hash = "2d5894c40811f4f6288a1bccec39f206103989ec9bf72e4797eb2630025cdc22"

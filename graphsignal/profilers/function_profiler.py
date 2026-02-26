@@ -84,7 +84,7 @@ class FunctionProfiler():
         try:
             mon = sys.monitoring
         except ImportError:
-            logger.debug('sys.monitoring is not available')
+            logger.error('sys.monitoring is not available')
             return
 
         self._tool_id = 4 # GRAPHSIGNAL_ID

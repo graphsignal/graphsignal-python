@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "graphsignal"
-version = "0.19.0"
+version = "0.19.1"
 description = "Graphsignal SDK for Python"
 authors = ["Graphsignal, Inc. <devops@graphsignal.com>"]
 license = "Apache-2.0"
@@ -43,6 +43,12 @@ opentelemetry-exporter-otlp = "*"
 opentelemetry-semantic-conventions-ai = "*"
 opentelemetry-proto = "*"
 grpcio = "*"
+nvidia-cuda-cupti-cu12 = { version = ">=12,<13", optional = true, markers = "sys_platform == 'linux'" }
+nvidia-cuda-cupti = { version = ">=13,<14", optional = true, markers = "sys_platform == 'linux'" }
+
+[tool.poetry.extras]
+cu12 = ["nvidia-cuda-cupti-cu12"]
+cu13 = ["nvidia-cuda-cupti"]
 
 [tool.poetry.group.dev.dependencies]
 prometheus-client = "*"

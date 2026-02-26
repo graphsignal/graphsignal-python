@@ -385,13 +385,8 @@ PROFILED_PATHS = [
     ('vllm.model_exec', "vllm.v1.worker.gpu_model_runner.GPUModelRunner.sample_tokens"),
 
     # Attention (keep high-level layer forwards; backend-specific impls may not be importable)
-    ('vllm.attention', "vllm.attention.layer.Attention.forward"),
-    ('vllm.attention', "vllm.attention.layer.MLAAttention.forward"),
-    # These helpers are Python-level and often sit on the hot path when direct-call is enabled.
-    ('vllm.attention', "vllm.attention.layer.unified_attention"),
-    ('vllm.attention', "vllm.attention.layer.unified_attention_with_output"),
-    ('vllm.attention', "vllm.attention.layer.unified_mla_attention"),
-    ('vllm.attention', "vllm.attention.layer.unified_mla_attention_with_output"),
+    ('vllm.attention', "vllm.model_executor.layers.attention.attention.Attention.forward"),
+    ('vllm.attention', "vllm.model_executor.layers.attention.mla_attention.MLAAttention.forward"),
 
     # KV cache ops (v1 latest uses allocate_slots; allocation/free can be >1ms under pressure)
     ('vllm.kv_cache', "vllm.v1.core.kv_cache_manager.KVCacheManager.allocate_slots"),

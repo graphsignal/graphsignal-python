@@ -73,22 +73,18 @@ class CuptiProfiler:
             logger.debug("CUPTI profiler not supported on this platform")
             return
 
-        if not _detect_cuda_major():
+        cuda_major = _detect_cuda_major()
+        if not cuda_major:
             logger.debug("CUDA not available, disabling CUPTI profiler")
             return
 
-        loaded = False
-        for name in ("libcupti.so", "libcupti.so.13", "libcupti.so.12"):
-            try:
-                ctypes.CDLL(name, mode=ctypes.RTLD_GLOBAL)
-                loaded = True
-                break
-            except OSError:
-                continue
-            except Exception:
-                continue
-        if not loaded:
-            logger.warning("libcupti.so not found, disabling CUPTI profiler")
+        if not _best_effort_load_libcupti(prefer_major=cuda_major):
+            logger.warning(
+                "libcupti.so not found (CUDA %s detected), disabling CUPTI profiler. "
+                "Install Graphsignal Python package with CUPTI extras (graphsignal[cu12] or graphsignal[cu13]) "
+                "or install a CUDA toolkit that includes CUPTI (e.g. libcupti-dev / cuda-toolkit-%s-x).",
+                cuda_major,
+            )
             return
 
         so_path = self._so_path
@@ -101,8 +97,7 @@ class CuptiProfiler:
             return
 
         try:
-            _best_effort_load_libcupti()
-
+            logger.debug("Loading profiler library: %s", so_path)
             self.lib = ctypes.CDLL(so_path)
 
             self.lib.prof_start.argtypes = [ctypes.c_uint64, ctypes.c_uint64, ctypes.c_uint32]
@@ -138,7 +133,7 @@ class CuptiProfiler:
             self._start_debug_drain_timer()
             self._disabled = False
         except Exception as exc:
-            logger.debug("Failed to setup CUPTI profiler", exc_info=True)
+            logger.error("Failed to setup CUPTI profiler", exc_info=True)
             self.lib = None
 
         logger.debug('CUPTI profiler setup complete')
@@ -495,13 +490,46 @@ def _default_cupti_profiler_so() -> Optional[str]:
     return None
 
 
-def _best_effort_load_libcupti() -> None:
-    for name in ("libcupti.so", "libcupti.so.13", "libcupti.so.12"):
+def _best_effort_load_libcupti(*, prefer_major: Optional[int] = None) -> bool:
+    ordered_sonames: tuple[str, ...]
+    if prefer_major == 12:
+        ordered_sonames = ("libcupti.so.12",)
+    elif prefer_major == 13:
+        ordered_sonames = ("libcupti.so.13",)
+    else:
+        ordered_sonames = ("libcupti.so.13", "libcupti.so.12", "libcupti.so")
+
+    def _try_load(p: str) -> bool:
         try:
-            ctypes.CDLL(name, mode=ctypes.RTLD_GLOBAL)
-            return
-        except OSError:
-            continue
+            logger.debug("Trying to load CUPTI library: %s", p)
+            ctypes.CDLL(p, mode=ctypes.RTLD_GLOBAL)
+            return True
+        except OSError as exc:
+            logger.debug("Failed to load CUPTI library %s: %s", p, exc)
+            return False
+
+    for name in ordered_sonames:
+        if _try_load(name):
+            return True
+
+    try:
+        import importlib.util
+
+        pkg_dir: Optional[str] = None
+        spec = importlib.util.find_spec("nvidia.cuda_cupti")
+        if spec and spec.submodule_search_locations:
+            pkg_dir = next(iter(spec.submodule_search_locations), None)
+        if pkg_dir:
+            lib_dir = os.path.join(pkg_dir, "lib")
+            logger.debug("Searching NVIDIA CUPTI package lib dir: %s", lib_dir)
+            if os.path.isdir(lib_dir):
+                for so in ordered_sonames:
+                    exact = os.path.join(lib_dir, so)
+                    if os.path.exists(exact):
+                        if _try_load(exact):
+                            return True
+    except Exception as exc:
+        logger.debug("Failed to locate NVIDIA CUPTI package lib dir: %s", exc)
 
     cuda_home = os.getenv("CUDA_HOME") or os.getenv("CUDA_PATH") or "/usr/local/cuda"
     candidates: list[str] = []
@@ -509,17 +537,12 @@ def _best_effort_load_libcupti() -> None:
         os.path.join(cuda_home, "extras", "CUPTI", "lib64"),
         os.path.join(cuda_home, "extras", "CUPTI", "lib"),
     ):
-        candidates.extend([
-            os.path.join(base, "libcupti.so"),
-            os.path.join(base, "libcupti.so.13"),
-            os.path.join(base, "libcupti.so.12"),
-        ])
+        candidates.extend([os.path.join(base, name) for name in ordered_sonames])
     for p in candidates:
-        try:
-            ctypes.CDLL(p, mode=ctypes.RTLD_GLOBAL)
-            return
-        except OSError:
-            continue
+        if _try_load(p):
+            return True
+
+    return False
 
 
 KERNEL_PATTERNS = [
