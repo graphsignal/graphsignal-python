@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "graphsignal"
-version = "0.19.1"
+version = "0.19.2"
 description = "Graphsignal SDK for Python"
 authors = ["Graphsignal, Inc. <devops@graphsignal.com>"]
 license = "Apache-2.0"
@@ -12,6 +12,7 @@ include = [
     "Makefile",
     "src/cupti/*",
     "graphsignal/_native/*",
+    { path = "graphsignal.pth", format = ["sdist", "wheel"] },
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -29,7 +30,7 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4"
-urllib3 = ">=1.25.3,<2.1.0"
+urllib3 = ">=1.25.3,<3"
 xxhash = "*"
 python-dateutil = "*"
 pydantic = ">2"

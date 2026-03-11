@@ -10,7 +10,7 @@ Graphsignal is an inference observability platform that helps developers acceler
 * LLM generation tracing with per-step timing, token throughput, and latency breakdowns for major inference frameworks.
 * System-level metrics for inference engines and hardware (CPU, GPU, accelerators).
 * Error monitoring for device-level failures, runtime exceptions, and inference errors.
-
+* AI debugging to explain performance data and errors, identify bottlenecks, and recommend optimizations across the inference stack.
 
 [![Dashboards](https://graphsignal.com/external/screenshot-dashboard.png)](https://graphsignal.com/)
 
@@ -36,7 +36,7 @@ Configure the Graphsignal SDK by specifying your API key directly or via the `GR
 import graphsignal
 
 graphsignal.configure(api_key='my-api-key')
-# or pass the API key in GRAPHSIGNAL_API_KEY environment variable
+# or pass the API key via the GRAPHSIGNAL_API_KEY environment variable
 ```
 
 See [`configure()`](https://graphsignal.com/docs/reference/python-api/#graphsignalconfigure) API docs for all configuration parameters.
@@ -53,7 +53,7 @@ graphsignal-run <my-app>
 
 ## Integrate
 
-Graphsignal integrates through tracing - either via auto-instrumentation or manual setup. It automatically captures traces, errors, performance profiles, and data. All insights are available for analysis at [app.graphsignal.com](https://app.graphsignal.com/).
+Graphsignal works automatically and also provides an API for manual tracing and profiling. It captures performance profiles, traces, metrics, and errors. All insights are available for analysis at [app.graphsignal.com](https://app.graphsignal.com/).
 
 Refer to the guides below for detailed information on:
 
@@ -76,12 +76,12 @@ See the [API reference](https://graphsignal.com/docs/reference/python-api/) for 
 
 ## Overhead
 
-Graphsignal tracer is highly lightweight. The overhead per trace is measured to be less than 100 microseconds. While profiling can introduce slight overhead, the profiling rate is limited.
+The SDK has no impact on production performance that needs to be considered. Profiling uses low-overhead profiling APIs, so it runs with minimal impact on your code. Tracing is lightweight—overhead per trace is typically under 100 microseconds.
 
 
 ## Security and Privacy
 
-The Graphsignal tracer only establishes outbound connections to `api.graphsignal.com` to send data; inbound connections or commands are not possible.
+The Graphsignal SDK only establishes outbound connections to `api.graphsignal.com` to send data; inbound connections or commands are not possible.
 
 Content and sensitive information, such as prompts and completions, are not recorded.
 

@@ -1,6 +1,7 @@
 include README.md
 include LICENSE
 include NOTICE
+include graphsignal.pth
 recursive-include graphsignal/_native *
 recursive-include src/cupti *.cpp
 include Makefile

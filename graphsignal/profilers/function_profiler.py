@@ -253,8 +253,11 @@ class FunctionProfiler():
         def _rollover_loop():
             while not self._rollover_stop_event.wait(self._resolution_ns / 1e9 / 10):
                 try:
+                    current_ts = self._current_bucket_ts
+                    if current_ts is None:
+                        continue
                     now_ns = time.time_ns()
-                    if round_to_rollup(now_ns) > round_to_rollup(self._current_bucket_ts):
+                    if round_to_rollup(now_ns) > round_to_rollup(current_ts):
                         self._rollover_buckets(now_ns)
                 except Exception as exc:
                     logger.error('Error in rollover timer: %s', exc, exc_info=True)
