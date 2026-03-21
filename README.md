@@ -65,6 +65,7 @@ See integration documentation for libraries and inference engines:
 
 * [PyTorch](https://graphsignal.com/docs/integrations/pytorch/)
 * [vLLM](https://graphsignal.com/docs/integrations/vllm/)
+* [SGLang](https://graphsignal.com/docs/integrations/sglang/)
 
 See the [API reference](https://graphsignal.com/docs/reference/python-api/) for complete documentation.
 
@@ -72,6 +73,11 @@ See the [API reference](https://graphsignal.com/docs/reference/python-api/) for 
 ## Analyze
 
 [Log in](https://app.graphsignal.com/) to Graphsignal to monitor and analyze your application.
+
+
+## Debug with AI
+
+Install the Graphsignal skill to let your AI coding agent (Cursor, Claude Code, Codex, or Gemini) fetch and analyze debug context directly from your IDE. See [AI Debugging](https://graphsignal.com/docs/guides/ai-debugging/) for setup instructions.
 
 
 ## Overhead

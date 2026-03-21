@@ -33,7 +33,7 @@ class ConfigLoader:
             try:
                 update_func(changed_options)
             except Exception as exc:
-                logger.error('Error calling update function: %s', exc, exc_info=True)
+                logger.debug('Error calling update function: %s', exc, exc_info=True)
 
     def get_str_option(self, name: str) -> Optional[str]:
         return self._options.get(name)
@@ -102,9 +102,9 @@ class ConfigLoader:
                 try:
                     self.emit_update(changed_options)
                 except Exception as exc:
-                    logger.error('Error emitting update for changed options: %s', exc, exc_info=True)
+                    logger.debug('Error emitting update for changed options: %s', exc, exc_info=True)
 
             logger.debug('Fetched SDK config: %s', new_options)
         except Exception as exc:
-            logger.error('Error fetching sampling config: %s', exc, exc_info=True)
+            logger.debug('Error fetching sampling config: %s', exc, exc_info=True)
 

@@ -10,6 +10,7 @@ import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.core.signal_uploader import SignalUploader
 from graphsignal.core.ticker import Ticker
+from graphsignal.utils import sha1
 from test.test_utils import find_tag, find_attribute, find_counter
 from test.core.test_signal_uploader import HttpTestServer
 
@@ -52,6 +53,9 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         mock_otel_span.name = "llm_request"
         mock_otel_span.start_time = 1000000000  # 1 second in nanoseconds
         mock_otel_span.end_time = 2000000000    # 2 seconds in nanoseconds
+        mock_otel_span.trace_id = 'trace_vllm_123'
+        mock_otel_span.span_id = 'span_vllm_123'
+        mock_otel_span.parent_span_id = ''
         mock_otel_span.attributes = {
             'gen_ai.request.id': 'test_request_123',
             'gen_ai.response.model': 'Qwen/Qwen1.5-7B-Chat',
@@ -77,7 +81,11 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         # Check basic span properties
         self.assertEqual(span.start_ts, 1000000000)
         self.assertEqual(span.end_ts, 2000000000)
+        self.assertEqual(find_counter(span, 'span.duration'), 1000000000.0)
         self.assertEqual(span.name, 'vllm.llm_request')
+        self.assertEqual(span.trace_id, sha1('trace_vllm_123', size=12))
+        self.assertEqual(span.span_id, sha1('span_vllm_123', size=12))
+        self.assertEqual(span.parent_span_id, '')
 
         self.assertEqual(find_tag(span, 'sampling.reason'), 'vllm.otel')
         
@@ -104,6 +112,106 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_counter(span, 'vllm.latency.time_to_first_token'), 224844217)
         self.assertEqual(find_counter(span, 'vllm.latency.e2e'), 225258588)
         self.assertEqual(find_counter(span, 'vllm.latency.time_in_scheduler'), 1391906)
+
+    @patch.object(SignalUploader, 'upload_span')
+    @patch.object(Ticker, 'should_trace', return_value=True)
+    def test_convert_otel_span_samples_root_and_children(self, mocked_should_trace, mocked_upload_span):
+        try:
+            import vllm
+        except ImportError:
+            self.skipTest("vllm is not installed")
+            return
+
+        from graphsignal.recorders.vllm_recorder import VLLMRecorder
+
+        recorder = VLLMRecorder()
+
+        root_span = Mock()
+        root_span.name = "llm_request"
+        root_span.start_time = 1000000000
+        root_span.end_time = 2000000000
+        root_span.trace_id = 'tracev1'
+        root_span.span_id = 'rootv1'
+        root_span.parent_span_id = ''
+        root_span.attributes = {}
+
+        child_span = Mock()
+        child_span.name = "model_step"
+        child_span.start_time = 1200000000
+        child_span.end_time = 1300000000
+        child_span.trace_id = 'tracev1'
+        child_span.span_id = 'childv1'
+        child_span.parent_span_id = 'rootv1'
+        child_span.attributes = {}
+
+        recorder._convert_otel_span(root_span)
+        recorder._convert_otel_span(child_span)
+
+        self.assertEqual(mocked_upload_span.call_count, 2)
+        mocked_should_trace.assert_called_once()
+
+    @patch.object(SignalUploader, 'upload_span')
+    @patch.object(Ticker, 'should_trace', return_value=False)
+    def test_convert_otel_span_drops_children_when_root_not_sampled(self, mocked_should_trace, mocked_upload_span):
+        try:
+            import vllm
+        except ImportError:
+            self.skipTest("vllm is not installed")
+            return
+
+        from graphsignal.recorders.vllm_recorder import VLLMRecorder
+
+        recorder = VLLMRecorder()
+
+        root_span = Mock()
+        root_span.name = "llm_request"
+        root_span.start_time = 1000000000
+        root_span.end_time = 2000000000
+        root_span.trace_id = 'tracev1'
+        root_span.span_id = 'rootv1'
+        root_span.parent_span_id = ''
+        root_span.attributes = {}
+
+        child_span = Mock()
+        child_span.name = "model_step"
+        child_span.start_time = 1200000000
+        child_span.end_time = 1300000000
+        child_span.trace_id = 'tracev1'
+        child_span.span_id = 'childv1'
+        child_span.parent_span_id = 'rootv1'
+        child_span.attributes = {}
+
+        recorder._convert_otel_span(root_span)
+        recorder._convert_otel_span(child_span)
+
+        mocked_upload_span.assert_not_called()
+        mocked_should_trace.assert_called_once()
+
+    @patch.object(SignalUploader, 'upload_span')
+    @patch.object(Ticker, 'should_trace', return_value=True)
+    def test_convert_otel_span_drops_when_ids_missing(self, mocked_should_trace, mocked_upload_span):
+        try:
+            import vllm
+        except ImportError:
+            self.skipTest("vllm is not installed")
+            return
+
+        from graphsignal.recorders.vllm_recorder import VLLMRecorder
+
+        recorder = VLLMRecorder()
+        span_without_ids = Mock()
+        span_without_ids.name = "llm_request"
+        span_without_ids.start_time = 1000000000
+        span_without_ids.end_time = 2000000000
+        span_without_ids.trace_id = ''
+        span_without_ids.span_id = ''
+        span_without_ids.parent_span_id = ''
+        span_without_ids.attributes = {}
+
+        recorder._convert_otel_span(span_without_ids)
+
+        mocked_upload_span.assert_not_called()
+        mocked_should_trace.assert_not_called()
 
 
     @unittest.skipIf(os.getenv("RUN_VLLM_TESTS") != "1", "skipped unless forced")

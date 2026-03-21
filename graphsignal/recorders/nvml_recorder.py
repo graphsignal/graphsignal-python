@@ -982,9 +982,9 @@ def _log_nvml_error(err):
         elif (err.value == NVML_ERROR_INVALID_ARGUMENT):
             logger.debug(f'NVML call invalid argument', exc_info=True)
         else:
-            logger.error('Error calling NVML', exc_info=True)
+            logger.debug('Error calling NVML', exc_info=True)
     else:
-        logger.error('Exception calling NVML', exc_info=True)
+        logger.debug('Exception calling NVML', exc_info=True)
 
 
 def _format_version(version):

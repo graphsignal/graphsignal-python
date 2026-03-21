@@ -136,7 +136,7 @@ class PyTorchRecorder(BaseRecorder):
                         value=utilization, measurement_ts=now_ns, unit='percent')
                 
             except Exception as e:
-                logger.warning(f'Failed to record PyTorch memory metrics for device {device_idx}: {e}')
+                logger.debug(f'Failed to record PyTorch memory metrics for device {device_idx}: {e}')
 
 
 PROFILED_PATHS = [

@@ -45,24 +45,33 @@ class OTELCollectorServicer(TraceServiceServicer):
         try:
             # Create a mock OpenTelemetry span with the OTLP data
             class MockOTELSpan:
+                @staticmethod
+                def _extract_any_value(any_value):
+                    value_type = any_value.WhichOneof('value')
+                    if value_type == 'string_value':
+                        return any_value.string_value
+                    if value_type == 'int_value':
+                        return any_value.int_value
+                    if value_type == 'double_value':
+                        return any_value.double_value
+                    if value_type == 'bool_value':
+                        return any_value.bool_value
+                    return None
+
                 def __init__(self, otlp_span, resource):
                     self.name = otlp_span.name
                     self.start_time = otlp_span.start_time_unix_nano
                     self.end_time = otlp_span.end_time_unix_nano
+                    self.trace_id = otlp_span.trace_id.hex() if otlp_span.trace_id else None
+                    self.span_id = otlp_span.span_id.hex() if otlp_span.span_id else None
+                    self.parent_span_id = otlp_span.parent_span_id.hex() if otlp_span.parent_span_id else None
                     self.attributes = {}
                     
                     # Convert attributes
                     for attr in otlp_span.attributes:
                         key = attr.key
-                        if attr.value.string_value:
-                            value = attr.value.string_value
-                        elif attr.value.int_value:
-                            value = attr.value.int_value
-                        elif attr.value.double_value:
-                            value = attr.value.double_value
-                        elif attr.value.bool_value:
-                            value = attr.value.bool_value
-                        else:
+                        value = self._extract_any_value(attr.value)
+                        if value is None:
                             continue
                         self.attributes[key] = value
                     
@@ -70,15 +79,8 @@ class OTELCollectorServicer(TraceServiceServicer):
                     if resource and resource.attributes:
                         for attr in resource.attributes:
                             key = attr.key
-                            if attr.value.string_value:
-                                value = attr.value.string_value
-                            elif attr.value.int_value:
-                                value = attr.value.int_value
-                            elif attr.value.double_value:
-                                value = attr.value.double_value
-                            elif attr.value.bool_value:
-                                value = attr.value.bool_value
-                            else:
+                            value = self._extract_any_value(attr.value)
+                            if value is None:
                                 continue
                             self.attributes[key] = value
                             

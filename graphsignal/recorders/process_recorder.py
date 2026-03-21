@@ -110,8 +110,8 @@ class ProcessRecorder(BaseRecorder):
                 ticker.set_tag('process.local_rank', os.environ[env_var])
                 break
 
-        ticker.set_tag('ticker.name', f'graphsignal-python')
-        ticker.set_tag('ticker.version', version.__version__)
+        ticker.set_tag('sdk.name', f'graphsignal-python')
+        ticker.set_tag('sdk.version', version.__version__)
 
     def on_tick(self):
         now_ns = time.time_ns()

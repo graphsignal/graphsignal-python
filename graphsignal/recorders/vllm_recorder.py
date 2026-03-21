@@ -3,7 +3,7 @@ import vllm
 
 import graphsignal
 from graphsignal.proto import signals_pb2
-from graphsignal.utils import uuid_sha1, sanitize_str
+from graphsignal.utils import sanitize_str, sha1
 from graphsignal.recorders.base_recorder import BaseRecorder
 from graphsignal.recorders.instrumentation import trace_method, patch_method, parse_semver, compare_semver
 from graphsignal.otel.prometheus_adapter import PrometheusAdapter
@@ -12,9 +12,13 @@ logger = logging.getLogger('graphsignal')
 
 
 class VLLMRecorder(BaseRecorder):
+    MAX_TRACE_SAMPLING_DECISIONS = 10000
+
     def __init__(self):
         self._prometheus_adapter = None
         self._otel_adapter = None
+        self._trace_sampling_decisions = {}
+        self._trace_sampling_order = []
 
     def setup(self):
         if not graphsignal._ticker.auto_instrument:
@@ -272,9 +276,6 @@ class VLLMRecorder(BaseRecorder):
             self._prometheus_adapter.collect()
 
     def _convert_otel_span(self, otel_span):
-        if not graphsignal._ticker.should_trace(('vllm.' + otel_span.name, 'random')):
-            return
-
         if not otel_span.name:
             logger.error(f'Invalid Open Telemetry span: name={otel_span.name}')
             return
@@ -283,19 +284,35 @@ class VLLMRecorder(BaseRecorder):
             logger.error(f'Invalid Open Telemetry span: start_time={otel_span.start_time}, end_time={otel_span.end_time}')
             return
 
+        trace_id = _otel_id_str(getattr(otel_span, 'trace_id', None))
+        span_id = _otel_id_str(getattr(otel_span, 'span_id', None))
+        if not trace_id or not span_id:
+            logger.debug(
+                'Invalid Open Telemetry span IDs: trace_id=%s span_id=%s',
+                getattr(otel_span, 'trace_id', None),
+                getattr(otel_span, 'span_id', None),
+            )
+            return
+        parent_span_id = _otel_id_str(getattr(otel_span, 'parent_span_id', None))
+        if not self._should_sample_trace_span(otel_span.name, trace_id, parent_span_id):
+            return
+
         span = signals_pb2.Span()
-        span.span_id = uuid_sha1(size=12)
-        span.trace_id = uuid_sha1(size=12)
+        span.span_id = sha1(span_id, size=12)
+        span.trace_id = sha1(trace_id, size=12)
+        if _has_parent_span_id(parent_span_id):
+            span.parent_span_id = sha1(parent_span_id, size=12)
         span.start_ts = otel_span.start_time
         span.end_ts = otel_span.end_time
         span.name = f'vllm.{otel_span.name}'
+        _add_counter(span, 'span.duration', span.end_ts - span.start_ts)
 
         # set process tags
         if graphsignal._ticker.tags:
             for tag_key, tag_value in graphsignal._ticker.tags.items():
                 _add_tag(span, tag_key, tag_value)
 
-        attributes = otel_span.attributes
+        attributes = otel_span.attributes if otel_span.attributes else {}
         _add_tag(span, 'sampling.reason', 'vllm.otel')
         if 'gen_ai.request.id' in attributes:
             _add_tag(span, 'vllm.request.id', attributes['gen_ai.request.id'])
@@ -331,6 +348,25 @@ class VLLMRecorder(BaseRecorder):
 
         graphsignal._ticker.signal_uploader().upload_span(span)
 
+    def _should_sample_trace_span(self, span_name, trace_id, parent_span_id):
+        if not _has_parent_span_id(parent_span_id):
+            sampled = graphsignal._ticker.should_trace((f'vllm.{span_name}', 'random'))
+            self._remember_trace_sampling_decision(trace_id, sampled)
+            return sampled
+        if not trace_id:
+            return False
+        return self._trace_sampling_decisions.get(trace_id, False)
+
+    def _remember_trace_sampling_decision(self, trace_id, sampled):
+        if not trace_id:
+            return
+        if trace_id not in self._trace_sampling_decisions:
+            self._trace_sampling_order.append(trace_id)
+        self._trace_sampling_decisions[trace_id] = sampled
+        while len(self._trace_sampling_order) > self.MAX_TRACE_SAMPLING_DECISIONS:
+            old_trace_id = self._trace_sampling_order.pop(0)
+            self._trace_sampling_decisions.pop(old_trace_id, None)
+
     def shutdown(self):
         if self._otel_adapter:
             self._otel_adapter.shutdown()
@@ -340,12 +376,25 @@ def _add_tag(span, key, value):
     tag.key = sanitize_str(key, max_len=50)
     tag.value = sanitize_str(value, max_len=250)
 
+def _otel_id_str(value, max_len=64):
+    if value is None:
+        return None
+    normalized = sanitize_str(value, max_len=max_len).strip().lower()
+    return normalized or None
+
+def _has_parent_span_id(parent_span_id):
+    return bool(parent_span_id) and parent_span_id.strip('0') != ''
+
 def _add_attribute(span, name, value):
     attr = span.attributes.add()
     attr.name = sanitize_str(name, max_len=50)
     attr.value = sanitize_str(value, max_len=2500)
 
 def _add_counter(span, name, value, sec_to_ns: bool = False):
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return
     if sec_to_ns:
         value = int(value * 1e9)
     counter = span.counters.add()

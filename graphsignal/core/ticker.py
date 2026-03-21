@@ -54,7 +54,8 @@ RECORDER_SPECS = {
         ('graphsignal.recorders.exception_recorder', 'ExceptionRecorder'),
         ('graphsignal.recorders.nvml_recorder', 'NVMLRecorder')],
     'torch': [('graphsignal.recorders.pytorch_recorder', 'PyTorchRecorder')],
-    'vllm': [('graphsignal.recorders.vllm_recorder', 'VLLMRecorder')]
+    'vllm': [('graphsignal.recorders.vllm_recorder', 'VLLMRecorder')],
+    'sglang': [('graphsignal.recorders.sglang_recorder', 'SGLangRecorder')]
 }
 
 class SourceLoaderWrapper(importlib.abc.SourceLoader):
