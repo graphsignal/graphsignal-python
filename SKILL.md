@@ -7,7 +7,7 @@ description: >-
   or asks about graphsignal-run, CUPTI, or GPU profiling setup.
 ---
 
-# Graphsignal Integration
+# Graphsignal SDK
 
 Graphsignal captures performance profiles, traces, metrics, and errors for inference workloads. Auto-instrumentation covers vLLM, SGLang, and PyTorch out of the box.
 
