@@ -546,50 +546,193 @@ def _best_effort_load_libcupti(*, prefer_major: Optional[int] = None) -> bool:
 
 
 KERNEL_PATTERNS = [
-    ("nccl", [
-        "nccl",
-        "allreduce", 
+    # ---- Communication ----
+    # Custom all-reduce before NCCL collectives: vLLM/SGLang custom AR kernels
+    # contain "all_reduce" which would otherwise match nccl groups.
+    ("allreduce_custom", [
+        "cross_device_reduce",
+        "allreduce_prototype",
+        "allreduce_ll",
+        "mscclpp",
+        "all_reduce_one_shot",
+        "all_reduce_two_shot",
+    ]),
+    # NCCL split by collective type. Tensor-parallel inference is dominated by
+    # allreduce; pipeline-parallel and other TP strategies use allgather or
+    # reduce-scatter, so the split reveals which collective is the bottleneck.
+    ("nccl_allreduce", [
+        "AllReduce",
+        "allreduce",
         "all_reduce",
-        "reducescatter", 
-        "reduce_scatter",
-        "allgather", 
+    ]),
+    ("nccl_allgather", [
+        "AllGather",
+        "allgather",
         "all_gather",
+    ]),
+    ("nccl_reducescatter", [
+        "ReduceScatter",
+        "reducescatter",
+        "reduce_scatter",
+    ]),
+    ("nccl_broadcast", [
+        "Broadcast",
         "broadcast",
     ]),
-    ("matmul_gemm", [
-        "cublas",
-        "cublaslt",
-        "cublasltmatmul",
-        "cutlass",
-        "gemm",
+    ("nccl_other", [
+        "nccl",
     ]),
-    ("attention_flash", [
+
+    # ---- MoE ----
+    # Split into routing (gate/topk), permutation (token shuffling/alignment),
+    # and MoE-specific GEMM. Registered before generic softmax/topk/gemm groups
+    # so MoE-specific kernels don't leak into them.
+    ("moe_routing", [
+        "moeSoftmax",
+        "moeSigmoid",
+        "moeTopK",
+        "topkGating",
+        "grouped_topk",
+        "moe_fused_gate",
+    ]),
+    ("moe_permute", [
+        "expandInputRows",
+        "finalizeMoe",
+        "shuffleInputRows",
+        "shuffleRows",
+        "moe_align",
+        "moe_sum",
+        "count_and_sort_expert",
+        "compute_expert_offsets",
+        "compute_problem_sizes",
+        "compute_arg_sorts",
+        "get_group_gemm_starts",
+        "moe_lora",
+        "prepare_moe",
+        "apply_shuffle_mul_sum",
+    ]),
+    ("moe_gemm", [
+        "router_gemm",
+        "fused_a_gemm",
+        "moe_wna16",
+        "moe_q",
+    ]),
+
+    # ---- Attention ----
+    # Split by phase for prefill/decode latency debugging (TTFT vs TBOT).
+    ("attention_decode", [
+        "paged_attention",
+    ]),
+    ("attention_mla", [
+        "cutlass_mla",
+        "mla_decode",
+        "concat_mla",
+    ]),
+    ("attention_prefill", [
         "flash_attn",
         "flashattn",
         "fmha",
-        "paged_attention",
+        "mha_fwd",
+        "flash_fwd",
         "flashinfer",
     ]),
-    ("qkv_proj", [
-        "qkv_proj",
-        "fused_qkv",
-        "linear_qkv",
+    ("attention_merge", [
+        "merge_attn",
+        "MergeState",
     ]),
-    ("kv_cache", [
+
+    # ---- GEMM / linear ----
+    # Quantized GEMM split by backend (only one is active per deployment).
+    ("gemm_marlin", [
+        "marlin",
+        "machete",
+    ]),
+    ("gemm_gptq", [
+        "gptq",
+        "gemm_half_q",
+    ]),
+    ("gemm_gguf", [
+        "mul_mat_vec_q",
+        "mul_mat_q",
+    ]),
+    ("gemm_qserve", [
+        "qserve",
+    ]),
+    # Generic GEMM split by backend: cuBLAS vs CUTLASS have different
+    # performance characteristics and tuning knobs.
+    ("gemm_cublas", [
+        "cublas",
+        "cublaslt",
+        "cublasltmatmul",
+    ]),
+    ("gemm_cutlass", [
+        "cutlass",
+    ]),
+    ("gemm_other", [
+        "gemm",
+    ]),
+
+    # ---- KV cache ----
+    ("kv_cache_store", [
         "reshape_and_cache",
-        "paged_kv",
-        "cache_kv",
+        "concat_and_cache",
+        "store_kvcache",
+        "indexer_k_quant",
         "write_kv",
         "scatter_kv",
-        "gather_kv",
+        "cache_kv",
     ]),
-    ("layernorm_rmsnorm", [
+    ("kv_cache_read", [
+        "gather_kv",
+        "gather_and_maybe_dequant",
+        "paged_kv",
+    ]),
+    ("kv_cache_manage", [
+        "copy_blocks",
+        "hicache",
+        "transfer_page",
+    ]),
+
+    # ---- Quantization (non-GEMM) ----
+    # Activation quantization: dynamic per-token/per-tensor scaling overhead.
+    ("quant_activation", [
+        "per_token_quant",
+        "per_tensor_quant",
+        "per_token_group_quant",
+        "scaled_fp8_quant",
+        "dynamic_per_token",
+        "static_scaled_int8",
+        "dynamic_scaled_int8",
+        "cvt_fp16_to_fp4",
+        "nvfp4",
+        "mxfp8",
+        "convert_fp8",
+    ]),
+    # Weight/cache dequantization.
+    ("dequantize", [
+        "dequantize",
+        "quantize_q8",
+        "awq_dequantize",
+        "hadamard_transform",
+    ]),
+
+    # ---- Normalization ----
+    ("rmsnorm", [
+        "rms_norm",
+        "rmsnorm",
+        "fused_add_rmsnorm",
+    ]),
+    ("layernorm", [
         "fused_layer_norm",
         "layer_norm",
         "layernorm",
-        "rms_norm",
-        "rmsnorm",
     ]),
+    ("qknorm", [
+        "qknorm",
+        "fusedQKNorm",
+    ]),
+
+    # ---- Other compute ----
     ("softmax", [
         "scaled_masked_softmax",
         "masked_softmax",
@@ -599,11 +742,16 @@ KERNEL_PATTERNS = [
         "rotary_embedding",
         "apply_rotary",
         "rotary",
+        "fused_rope",
     ]),
     ("activation", [
+        "silu_and_mul",
+        "silu_mul",
+        "act_and_mul",
         "silu",
         "swish",
         "gelu",
+        "swiglu",
     ]),
     ("elementwise", [
         "vectorized_elementwise",
@@ -616,12 +764,41 @@ KERNEL_PATTERNS = [
         "index_select",
         "embedding",
     ]),
-    ("sampling", [
-        "multinomial",
+
+    # ---- Sampling ----
+    ("sampling_topk", [
         "top_p",
+        "top_k",
+        "topk",
         "argmax",
+        "multinomial",
+        "renorm_probs",
         "sampling",
     ]),
+    # Grammar-constrained decoding / penalties can be a bottleneck with
+    # structured output or long context repetition penalty.
+    ("sampling_constrained", [
+        "repetition_penalties",
+        "token_bitmask",
+        "LogitsBitmask",
+    ]),
+
+    # ---- Speculative decoding ----
+    ("speculative", [
+        "speculative_sampling",
+        "eagle",
+        "verify_tree",
+        "build_tree",
+        "ngram",
+    ]),
+
+    # ---- Mamba / SSM ----
+    ("mamba_ssm", [
+        "selective_scan",
+        "causal_conv1d",
+    ]),
+
+    # ---- Triton ----
     ("triton", [
         "triton",
     ]),

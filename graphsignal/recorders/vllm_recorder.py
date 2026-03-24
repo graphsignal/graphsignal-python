@@ -186,6 +186,18 @@ class VLLMRecorder(BaseRecorder):
 
                 if engine_args.enforce_eager:
                     tags['vllm.enforce_eager'] = engine_args.enforce_eager
+                if engine_args.enable_prefix_caching is not None:
+                    tags['vllm.enable_prefix_caching'] = engine_args.enable_prefix_caching
+                if engine_args.enable_chunked_prefill is not None:
+                    tags['vllm.enable_chunked_prefill'] = engine_args.enable_chunked_prefill
+                if engine_args.max_num_seqs is not None:
+                    tags['vllm.max_num_seqs'] = engine_args.max_num_seqs
+                if engine_args.max_num_batched_tokens is not None:
+                    tags['vllm.max_num_batched_tokens'] = engine_args.max_num_batched_tokens
+                if engine_args.scheduling_policy:
+                    tags['vllm.scheduling_policy'] = engine_args.scheduling_policy
+                if engine_args.speculative_config is not None:
+                    tags['vllm.speculative_config'] = str(engine_args.speculative_config)
 
                 patch_generate(async_llm, tags, params)
 
@@ -238,6 +250,20 @@ class VLLMRecorder(BaseRecorder):
                 
                 if vllm_config.model_config.enforce_eager:
                     tags['vllm.enforce_eager'] = vllm_config.model_config.enforce_eager
+                if hasattr(vllm_config, 'cache_config') and vllm_config.cache_config.enable_prefix_caching is not None:
+                    tags['vllm.enable_prefix_caching'] = vllm_config.cache_config.enable_prefix_caching
+                if hasattr(vllm_config, 'scheduler_config'):
+                    sc = vllm_config.scheduler_config
+                    if sc.chunked_prefill_enabled is not None:
+                        tags['vllm.enable_chunked_prefill'] = sc.chunked_prefill_enabled
+                    if sc.max_num_seqs:
+                        tags['vllm.max_num_seqs'] = sc.max_num_seqs
+                    if sc.max_num_batched_tokens:
+                        tags['vllm.max_num_batched_tokens'] = sc.max_num_batched_tokens
+                    if sc.policy:
+                        tags['vllm.scheduling_policy'] = str(sc.policy)
+                if hasattr(vllm_config, 'speculative_config') and vllm_config.speculative_config is not None:
+                    tags['vllm.speculative_config'] = str(type(vllm_config.speculative_config).__name__)
 
                 patch_generate(async_llm, tags, params)
 
@@ -345,6 +371,12 @@ class VLLMRecorder(BaseRecorder):
             _add_counter(span, 'vllm.latency.time_in_model_forward', attributes['gen_ai.latency.time_in_model_forward'], sec_to_ns=True)
         if 'gen_ai.latency.time_in_model_execute' in attributes:
             _add_counter(span, 'vllm.latency.time_in_model_execute', attributes['gen_ai.latency.time_in_model_execute'], sec_to_ns=True)
+        if 'gen_ai.latency.time_in_model_prefill' in attributes:
+            _add_counter(span, 'vllm.latency.time_in_model_prefill', attributes['gen_ai.latency.time_in_model_prefill'], sec_to_ns=True)
+        if 'gen_ai.latency.time_in_model_decode' in attributes:
+            _add_counter(span, 'vllm.latency.time_in_model_decode', attributes['gen_ai.latency.time_in_model_decode'], sec_to_ns=True)
+        if 'gen_ai.latency.time_in_model_inference' in attributes:
+            _add_counter(span, 'vllm.latency.time_in_model_inference', attributes['gen_ai.latency.time_in_model_inference'], sec_to_ns=True)
 
         graphsignal._ticker.signal_uploader().upload_span(span)
 
@@ -409,18 +441,25 @@ PROFILED_PATHS = [
     ('vllm.e2e', "vllm.entrypoints.api_server.generate"),
     ('vllm.e2e', "vllm.entrypoints.openai.chat_completion.api_router.create_chat_completion"),
     ('vllm.e2e', "vllm.entrypoints.openai.completion.api_router.create_completion"),
+    ('vllm.e2e', "vllm.entrypoints.openai.responses.api_router.create_responses"),
     ('vllm.e2e', "vllm.entrypoints.openai.chat_completion.serving.OpenAIServingChat.create_chat_completion"),
     ('vllm.e2e', "vllm.entrypoints.openai.completion.serving.OpenAIServingCompletion.create_completion"),
+    ('vllm.e2e', "vllm.entrypoints.openai.responses.serving.OpenAIServingResponses.create_responses"),
 
     # Engine loop / core orchestration (~sub-ms -> 10s of ms per step)
     ('vllm.engine', "vllm.v1.engine.llm_engine.LLMEngine.add_request"),
     ('vllm.engine', "vllm.v1.engine.llm_engine.LLMEngine.step"),
     ('vllm.engine', "vllm.v1.engine.core.EngineCore.step"),
     ('vllm.engine', "vllm.v1.engine.core.EngineCore.step_with_batch_queue"),
+    ('vllm.engine', "vllm.v1.engine.core.EngineCore.post_step"),
+
+    # Input processing (tokenization + validation; can dominate for long/multimodal prompts)
+    ('vllm.engine', "vllm.v1.engine.input_processor.InputProcessor.process_inputs"),
 
     # Scheduler (batching + KV decisions; CPU overhead; similar scale to engine step)
     ('vllm.engine', "vllm.v1.core.sched.scheduler.Scheduler.schedule"),
     ('vllm.engine', "vllm.v1.core.sched.scheduler.Scheduler.update_from_output"),
+    ('vllm.engine', "vllm.v1.core.sched.scheduler.Scheduler.get_grammar_bitmask"),
 
     # Executor / worker boundary (can dominate in multiproc; includes CPU<->GPU boundary)
     ('vllm.model_exec', "vllm.v1.executor.abstract.Executor.execute_model"),
@@ -431,7 +470,15 @@ PROFILED_PATHS = [
     # GPU model runner (prefill+decode GPU time + surrounding CPU prep)
     ('vllm.model_exec', "vllm.v1.worker.gpu_model_runner.GPUModelRunner.execute_model"),
     ('vllm.model_exec', "vllm.v1.worker.gpu_model_runner.GPUModelRunner._model_forward"),
+    ('vllm.model_exec', "vllm.v1.worker.gpu_model_runner.GPUModelRunner._prepare_inputs"),
+    ('vllm.model_exec', "vllm.v1.worker.gpu_model_runner.GPUModelRunner._update_states"),
     ('vllm.model_exec', "vllm.v1.worker.gpu_model_runner.GPUModelRunner.sample_tokens"),
+
+    # Speculative decoding proposers (draft token proposal time; varies by algorithm)
+    ('vllm.spec_decode', "vllm.v1.spec_decode.eagle.SpecDecodeBaseProposer.propose"),
+    ('vllm.spec_decode', "vllm.v1.spec_decode.eagle.SpecDecodeBaseProposer.propose_tree"),
+    ('vllm.spec_decode', "vllm.v1.spec_decode.ngram_proposer.NgramProposer.propose"),
+    ('vllm.spec_decode', "vllm.v1.spec_decode.ngram_proposer_gpu.NgramProposerGPU.propose"),
 
     # Attention (keep high-level layer forwards; backend-specific impls may not be importable)
     ('vllm.attention', "vllm.model_executor.layers.attention.attention.Attention.forward"),
@@ -440,6 +487,8 @@ PROFILED_PATHS = [
     # KV cache ops (v1 latest uses allocate_slots; allocation/free can be >1ms under pressure)
     ('vllm.kv_cache', "vllm.v1.core.kv_cache_manager.KVCacheManager.allocate_slots"),
     ('vllm.kv_cache', "vllm.v1.core.kv_cache_manager.KVCacheManager.free"),
+    ('vllm.kv_cache', "vllm.v1.core.kv_cache_manager.KVCacheManager.get_computed_blocks"),
+    ('vllm.kv_cache', "vllm.v1.core.kv_cache_manager.KVCacheManager.cache_blocks"),
     ('vllm.kv_cache', "vllm._custom_ops.reshape_and_cache_flash"),
     ('vllm.kv_cache', "vllm._custom_ops.swap_blocks"),
 
