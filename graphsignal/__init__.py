@@ -108,22 +108,22 @@ def profile_function(
         func=None, 
         *,
         category: Optional[str] = None,
-        event_name: Optional[str] = None) -> Any:
+        op_name: Optional[str] = None) -> Any:
     _check_configured()
-    return _ticker.profile_function(func, category=category, event_name=event_name)
+    return _ticker.profile_function(func, category=category, op_name=op_name)
 
 
 def profile_function_path(
         path: str,
         category: Optional[str] = None,
-        event_name: Optional[str] = None) -> Any:
+        op_name: Optional[str] = None) -> Any:
     _check_configured()
-    return _ticker.profile_function_path(path, category=category, event_name=event_name)
+    return _ticker.profile_function_path(path, category=category, op_name=op_name)
 
 
-def profile_cuda_kernel(kernel_pattern: str, event_name: str) -> None:
+def profile_cuda_kernel(kernel_pattern: str, op_name: str) -> None:
     _check_configured()
-    return _ticker.profile_cuda_kernel(kernel_pattern, event_name)
+    return _ticker.profile_cuda_kernel(kernel_pattern, op_name)
 
 
 def log_message(message: str, *, tags: Optional[Dict[str, str]] = None, level: Optional[str] = None, exception: Optional[str] = None) -> None:

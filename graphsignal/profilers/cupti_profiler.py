@@ -184,9 +184,9 @@ class CuptiProfiler:
         self.lib.prof_stop()
 
     def _setup_events(self) -> None:
-        for event_name, patterns in KERNEL_PATTERNS:
+        for op_name, patterns in KERNEL_PATTERNS:
             for pattern in patterns:
-                self.add_kernel_pattern(pattern, event_name)
+                self.add_kernel_pattern(pattern, op_name)
 
         for memcpy_kind in MEMCPY_KINDS:
             self.add_memcpy_kind(memcpy_kind, memcpy_kind)
@@ -196,11 +196,11 @@ class CuptiProfiler:
             self._current_event_id += 1
             return self._current_event_id
 
-    def add_kernel_pattern(self, pattern: str, event_name: str) -> None:
-        descriptor = dict(category="gpu.compute", event_name=event_name, statistic="cumtime", unit="ns")
+    def add_kernel_pattern(self, pattern: str, op_name: str) -> None:
+        descriptor = dict(category="gpu.compute", op_name=op_name, statistic="cumtime", unit="ns")
         cumtime_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
 
-        descriptor = dict(category="gpu.compute", event_name=event_name, statistic="ncalls")
+        descriptor = dict(category="gpu.compute", op_name=op_name, statistic="ncalls")
         ncalls_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
 
         event_id = self._next_event_id()
@@ -217,14 +217,14 @@ class CuptiProfiler:
             bytes_field_id=None,
         )
 
-    def add_memcpy_kind(self, memcpy_kind: str, event_name: str) -> None:
-        descriptor = dict(category="gpu.memory", event_name=event_name, statistic="cumtime", unit="ns")
+    def add_memcpy_kind(self, memcpy_kind: str, op_name: str) -> None:
+        descriptor = dict(category="gpu.memory", op_name=op_name, statistic="cumtime", unit="ns")
         cumtime_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
 
-        descriptor = dict(category="gpu.memory", event_name=event_name, statistic="ncalls")
+        descriptor = dict(category="gpu.memory", op_name=op_name, statistic="ncalls")
         ncalls_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
 
-        descriptor = dict(category="gpu.memory", event_name=event_name, statistic="bytes", unit="bytes")
+        descriptor = dict(category="gpu.memory", op_name=op_name, statistic="bytes", unit="bytes")
         bytes_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
 
         event_id = self._next_event_id()
@@ -512,24 +512,48 @@ def _best_effort_load_libcupti(*, prefer_major: Optional[int] = None) -> bool:
         if _try_load(name):
             return True
 
+    def _try_pkg_lib_dir(lib_dir: str) -> bool:
+        logger.debug("Searching NVIDIA CUPTI package lib dir: %s", lib_dir)
+        if not os.path.isdir(lib_dir):
+            return False
+        for so in ordered_sonames:
+            exact = os.path.join(lib_dir, so)
+            if os.path.exists(exact) and _try_load(exact):
+                return True
+        for entry in sorted(os.listdir(lib_dir)):
+            if entry.startswith("libcupti.so") and _try_load(os.path.join(lib_dir, entry)):
+                return True
+        return False
+
+    # nvidia.cuda_cupti namespace (nvidia-cuda-cupti-cu12)
     try:
         import importlib.util
 
-        pkg_dir: Optional[str] = None
         spec = importlib.util.find_spec("nvidia.cuda_cupti")
         if spec and spec.submodule_search_locations:
             pkg_dir = next(iter(spec.submodule_search_locations), None)
-        if pkg_dir:
-            lib_dir = os.path.join(pkg_dir, "lib")
-            logger.debug("Searching NVIDIA CUPTI package lib dir: %s", lib_dir)
-            if os.path.isdir(lib_dir):
-                for so in ordered_sonames:
-                    exact = os.path.join(lib_dir, so)
-                    if os.path.exists(exact):
-                        if _try_load(exact):
-                            return True
+            if pkg_dir and _try_pkg_lib_dir(os.path.join(pkg_dir, "lib")):
+                return True
     except Exception as exc:
-        logger.debug("Failed to locate NVIDIA CUPTI package lib dir: %s", exc)
+        logger.debug("Failed to locate nvidia.cuda_cupti package: %s", exc)
+
+    # nvidia/cuXX/ layout (nvidia-cuda-cupti >= 13)
+    try:
+        import importlib.metadata as _meta
+
+        for dist_name in ("nvidia-cuda-cupti", *(f"nvidia-cuda-cupti-cu{m}" for m in (prefer_major,) if m)):
+            try:
+                dist = _meta.distribution(dist_name)
+                for f in dist.files or ():
+                    fstr = str(f)
+                    if "libcupti.so" in fstr:
+                        full_path = str(dist.locate_file(f))
+                        if os.path.exists(full_path) and _try_load(full_path):
+                            return True
+            except _meta.PackageNotFoundError:
+                continue
+    except Exception as exc:
+        logger.debug("Failed to locate CUPTI via importlib.metadata: %s", exc)
 
     cuda_home = os.getenv("CUDA_HOME") or os.getenv("CUDA_PATH") or "/usr/local/cuda"
     candidates: list[str] = []

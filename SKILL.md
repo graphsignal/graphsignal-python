@@ -194,7 +194,7 @@ with graphsignal.trace('my-function') as span:
 Profile specific Python functions (3.12+):
 
 ```python
-graphsignal.profile_function(func=slow_transform, category='transform', event_name='data-transform')
+graphsignal.profile_function(func=slow_transform, category='transform', op_name='data-transform')
 ```
 
 Profile by import path (avoids direct import):
@@ -206,7 +206,7 @@ graphsignal.profile_function_path(path='myapp.tasks.prepare_data', category='pre
 Profile CUDA kernels by pattern (Linux, CUPTI required):
 
 ```python
-graphsignal.profile_cuda_kernel(kernel_pattern="cublas", event_name="matmul_gemm")
+graphsignal.profile_cuda_kernel(kernel_pattern="cublas", op_name="matmul_gemm")
 ```
 
 ## Tags

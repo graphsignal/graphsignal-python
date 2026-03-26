@@ -62,7 +62,7 @@ class FunctionProfilerTest(unittest.TestCase):
         profiler.setup()
         
         test_func = self.test_functions.fast_function
-        profiler.add_function(test_func, category='test', event_name='fast_function')
+        profiler.add_function(test_func, category='test', op_name='fast_function')
         
         # Call the function - this will trigger sys.monitoring callbacks
         test_func()
@@ -101,7 +101,7 @@ class FunctionProfilerTest(unittest.TestCase):
         profiler.setup()
         
         test_func = self.test_functions.slow_function
-        profiler.add_function(test_func, category='test', event_name='slow_function')
+        profiler.add_function(test_func, category='test', op_name='slow_function')
         
         # Start function call in a thread
         def call_function():
@@ -154,7 +154,7 @@ class FunctionProfilerTest(unittest.TestCase):
         profiler._stop_rollover_timer()
         
         test_func = self.test_functions.fast_function
-        profiler.add_function(test_func, category='test', event_name='fast_function')
+        profiler.add_function(test_func, category='test', op_name='fast_function')
         
         # Call function multiple times in parallel
         num_calls = 5
@@ -209,7 +209,7 @@ class FunctionProfilerTest(unittest.TestCase):
         profiler.setup()
         
         test_func = self.test_functions.error_function
-        profiler.add_function(test_func, category='test', event_name='error_function')
+        profiler.add_function(test_func, category='test', op_name='error_function')
         
         # Call function that raises exception
         try:
@@ -261,7 +261,7 @@ class FunctionProfilerTest(unittest.TestCase):
         profiler.setup()
         
         test_func = self.test_functions.fast_function
-        profiler.add_function(test_func, category='test', event_name='fast_function')
+        profiler.add_function(test_func, category='test', op_name='fast_function')
         
         # Call function
         test_func()
@@ -296,8 +296,8 @@ class FunctionProfilerTest(unittest.TestCase):
         func1 = self.test_functions.fast_function
         func2 = TestFunctions.static_function  # static method, no instance needed
         
-        profiler.add_function(func1, category='test', event_name='func1')
-        profiler.add_function(func2, category='test', event_name='func2')
+        profiler.add_function(func1, category='test', op_name='func1')
+        profiler.add_function(func2, category='test', op_name='func2')
         
         # Call both functions
         func1()
@@ -407,7 +407,7 @@ class FunctionProfilerTest(unittest.TestCase):
         profiler.setup()
         
         test_func = self.test_functions.fast_function
-        profiler.add_function(test_func, category='test', event_name='fast_function')
+        profiler.add_function(test_func, category='test', op_name='fast_function')
         
         # Initialize bucket to avoid first-time creation overhead
         test_func()
@@ -446,7 +446,7 @@ class FunctionProfilerTest(unittest.TestCase):
         profiler.add_function_path(
             'test.profilers.test_function_profiler.TestFunctions.fast_function',
             category='test',
-            event_name='fast_function_path'
+            op_name='fast_function_path'
         )
         
         # Call the function
@@ -469,7 +469,7 @@ class FunctionProfilerTest(unittest.TestCase):
         profiler.set_resolution_ns(resolution_ns)
         # Don't call setup, so profiler is disabled
         test_func = self.test_functions.fast_function
-        profiler.add_function(test_func, category='test', event_name='fast_function')
+        profiler.add_function(test_func, category='test', op_name='fast_function')
         
         # Call function
         test_func()
@@ -489,7 +489,7 @@ class FunctionProfilerTest(unittest.TestCase):
         profiler.setup()
         
         test_func = self.test_functions.fast_function
-        profiler.add_function(test_func, category='test', event_name='fast_function')
+        profiler.add_function(test_func, category='test', op_name='fast_function')
         
         # Start multiple threads calling the function
         def call_repeatedly():

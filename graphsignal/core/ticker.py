@@ -538,14 +538,14 @@ class Ticker:
                     return func(*args, **kwargs)
             return tf_wrapper
 
-    def profile_function(self, func, category: Optional[str] = None, event_name: Optional[str] = None):
-        self._function_profiler.add_function(func, category, event_name)
+    def profile_function(self, func, category: Optional[str] = None, op_name: Optional[str] = None):
+        self._function_profiler.add_function(func, category, op_name)
 
-    def profile_function_path(self, path, category: Optional[str] = None, event_name: Optional[str] = None):
-        self._function_profiler.add_function_path(path, category, event_name)
+    def profile_function_path(self, path, category: Optional[str] = None, op_name: Optional[str] = None):
+        self._function_profiler.add_function_path(path, category, op_name)
 
-    def profile_cuda_kernel(self, kernel_pattern: str, event_name: str):
-        self._cupti_profiler.add_kernel_pattern(kernel_pattern,event_name)
+    def profile_cuda_kernel(self, kernel_pattern: str, op_name: str):
+        self._cupti_profiler.add_kernel_pattern(kernel_pattern, op_name)
 
     def set_gauge(self, name, value, measurement_ts, unit=None, aggregate=False, tags=None):
         self._metric_store.set_gauge(name=name, value=value, measurement_ts=measurement_ts, unit=unit, aggregate=aggregate, tags=tags)

@@ -110,7 +110,7 @@ class FunctionProfiler():
         self._buckets.clear()
         self._fields.clear()
 
-    def _build_descriptor(self, func, category=None, event_name=None, statistic=None, unit=None):
+    def _build_descriptor(self, func, category=None, op_name=None, statistic=None, unit=None):
         descriptor = {}
 
         code = getattr(func, "__code__", None)
@@ -125,10 +125,10 @@ class FunctionProfiler():
         if category is not None:
             descriptor['category'] = category
 
-        if event_name is not None:
-            descriptor['event_name'] = event_name
+        if op_name is not None:
+            descriptor['op_name'] = op_name
         elif func_name:
-            descriptor['event_name'] = func_name
+            descriptor['op_name'] = func_name
 
         if statistic is not None:
             descriptor['statistic'] = statistic
@@ -138,7 +138,7 @@ class FunctionProfiler():
 
         return descriptor
 
-    def add_function(self, func, category=None, event_name=None):
+    def add_function(self, func, category=None, op_name=None):
         if self._disabled:
             return
 
@@ -148,13 +148,13 @@ class FunctionProfiler():
         if category is None:
             category = 'python'
 
-        descriptor = self._build_descriptor(func, category, event_name, 'cumtime', unit='ns')
+        descriptor = self._build_descriptor(func, category, op_name, 'cumtime', unit='ns')
         cumtime_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
 
-        descriptor = self._build_descriptor(func, category, event_name, 'ncalls')
+        descriptor = self._build_descriptor(func, category, op_name, 'ncalls')
         ncalls_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
 
-        descriptor = self._build_descriptor(func, category, event_name, 'nerrors')
+        descriptor = self._build_descriptor(func, category, op_name, 'nerrors')
         nerrors_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
 
         code = func.__code__
@@ -168,7 +168,7 @@ class FunctionProfiler():
         sys.monitoring.set_local_events(self._tool_id, code, E.PY_START | E.PY_RETURN)
         sys.monitoring.set_events(self._tool_id, E.PY_UNWIND)
 
-    def add_function_path(self, path, category=None, event_name=None):
+    def add_function_path(self, path, category=None, op_name=None):
         try:
             func = locate(path)
         except Exception as e:
@@ -194,7 +194,7 @@ class FunctionProfiler():
                 f"Could not resolve '{path}': not a Python function (no __code__)"
             )
             return
-        self.add_function(func, category, event_name)
+        self.add_function(func, category, op_name)
             
     def _py_start_callback(self, code, off):
         if self._disabled:
