@@ -40,11 +40,10 @@ class CuptiProfilerTest(unittest.TestCase):
         profiler = CuptiProfiler(profile_name="test_profile", so_path="/tmp/fake.so", debug_mode=True)
 
         def _cdll_side_effect(path, *args, **kwargs):
-            if path == "libcupti.so":
-                raise OSError("not found")
-            raise AssertionError("unexpected CDLL load")
+            raise OSError("not found")
 
         with patch("graphsignal.profilers.cupti_profiler.sys.platform", "linux"), \
+             patch("graphsignal.profilers.cupti_profiler._detect_cuda_major", return_value=12), \
              patch("graphsignal.profilers.cupti_profiler.ctypes.CDLL", side_effect=_cdll_side_effect):
             profiler.setup()
 

@@ -1,12 +1,14 @@
 import logging
+
 import vllm
 
 import graphsignal
 from graphsignal.proto import signals_pb2
 from graphsignal.utils import sanitize_str, sha1
-from graphsignal.recorders.base_recorder import BaseRecorder
-from graphsignal.recorders.instrumentation import trace_method, patch_method, parse_semver, compare_semver
+from graphsignal.otel.otel_collector import OTELCollector
 from graphsignal.otel.prometheus_adapter import PrometheusAdapter
+from graphsignal.recorders.base_recorder import BaseRecorder
+from graphsignal.recorders.instrumentation import patch_method
 
 logger = logging.getLogger('graphsignal')
 
@@ -16,7 +18,10 @@ class VLLMRecorder(BaseRecorder):
 
     def __init__(self):
         self._prometheus_adapter = None
-        self._otel_adapter = None
+        self._otel_collector = None
+        self._otel_endpoint = None
+        self._library_version = None
+        self._startup_options = {}
         self._trace_sampling_decisions = {}
         self._trace_sampling_order = []
 
@@ -24,261 +29,17 @@ class VLLMRecorder(BaseRecorder):
         if not graphsignal._ticker.auto_instrument:
             return
 
-        version = vllm.__version__
-        self._library_version = version
-        parsed_version = parse_semver(version)
-
+        self._library_version = vllm.__version__
         ticker = graphsignal._ticker
         ticker.set_tag('inference.engine.name', 'vllm')
-        ticker.set_tag('inference.engine.version', version)
+        ticker.set_tag('inference.engine.version', self._library_version)
 
-        if compare_semver(parsed_version, (0, 8, 0)) >= 0:
-            # LLM
-            def read_kwarg(store, kwargs, key, new_key=None, default=None):
-                if new_key is None:
-                    new_key = key
-                if key in kwargs:
-                    store[new_key] = str(kwargs[key])
-                elif default is not None:
-                    store[new_key] = str(default)
-            
-            def before_llm_init(args, kwargs):
-                kwargs['disable_log_stats'] = False
-                # kwargs['otlp_traces_endpoint'] = 'grpc://localhost:4317'
+        self._setup_otel_collector()
+        self._patch_vllm_args()
 
-            def after_llm_init(args, kwargs, ret, exc, context):
-                llm_obj = args[0]
-                llm_tags = {}
-                llm_params = {}
-
-                # do not enable otel adapter until supported by vllm v1
-                # otherwise vllm falls back to v0
-                '''if self._otel_adapter is None:
-                    # Define the export callback function
-                    def otel_export_callback(otel_spans):
-                        for otel_span in otel_spans:
-                            self._convert_otel_span(otel_span)
-                        graphsignal._ticker.tick()
-
-                    self._otel_adapter = OTELAdapter(export_callback=otel_export_callback)
-                    self._otel_adapter.setup()'''
-
-                model = None
-                if len(args) > 1 and args[1] is not None:
-                    model = args[1]
-                read_kwarg(llm_tags, kwargs, 'model', 'vllm.model.name', default=model)
-                read_kwarg(llm_tags, kwargs, 'tokenizer', 'vllm.tokenizer.name')
-                read_kwarg(llm_tags, kwargs, 'dtype', 'vllm.dtype')
-                read_kwarg(llm_tags, kwargs, 'quantization', 'vllm.quantization')
-                read_kwarg(llm_tags, kwargs, 'enforce_eager', 'vllm.enforce_eager')
-                read_kwarg(llm_tags, kwargs, 'tensor_parallel_size', 'vllm.tensor_parallel_size')
-                read_kwarg(llm_tags, kwargs, 'enforce_eager', 'vllm.enforce_eager')
-
-                def trace_generate(span, args, kwargs, ret, exc):
-                    for tag_name, tag_value in llm_tags.items():
-                        span.set_tag(tag_name, tag_value)
-                    for param_name, param_value in llm_params.items():
-                        span.set_attribute(param_name, param_value)
-                    #sampling_params = kwargs.get('sampling_params', None)
-
-                    span.measure_event_as_counter('vllm.latency.e2e')
-                    if ret and isinstance(ret, list):
-                        for item in ret:
-                            if span.get_tag('vllm.request.id') is None and hasattr(item, 'request_id') and item.request_id:
-                                span.set_tag('vllm.request.id', item.request_id)
-                            if hasattr(item, 'prompt_token_ids') and item.prompt_token_ids and len(item.prompt_token_ids) > 0:
-                                span.set_counter('vllm.usage.prompt_tokens', len(item.prompt_token_ids))
-                            if hasattr(item, 'num_cached_tokens') and item.num_cached_tokens > 0:
-                                span.set_counter('vllm.usage.cached_tokens', item.num_cached_tokens)
-                            for output in item.outputs:
-                                if hasattr(output, 'token_ids') and output.token_ids and len(output.token_ids) > 0:
-                                    span.inc_counter('vllm.usage.completion_tokens', len(output.token_ids))
-
-                trace_method(llm_obj, 'generate', 'vllm.llm.generate', trace_func=trace_generate)
-
-            patch_method(vllm.LLM, '__init__', before_func=before_llm_init, after_func=after_llm_init)
-
-            # AsyncLLM
-            def patch_generate(async_llm_engine, tags, params):
-                def trace_async_generate(span, args, kwargs, ret, exc):
-                    for tag_name, tag_value in tags.items():
-                        span.set_tag(tag_name, tag_value)
-                    for param_name, param_value in params.items():
-                        span.set_attribute(param_name, param_value)
-
-                def trace_async_generate_data(span, item, exc, stopped):
-                    if not stopped:
-                        if not span.get_counter('vllm.latency.time_to_first_token'):
-                            span.measure_event_as_counter('vllm.latency.time_to_first_token')
-                            if hasattr(item, 'request_id') and item.request_id:
-                                span.set_tag('vllm.request.id', item.request_id)
-                            if hasattr(item, 'prompt_token_ids') and item.prompt_token_ids and len(item.prompt_token_ids) > 0:
-                                span.set_counter('vllm.usage.prompt_tokens', len(item.prompt_token_ids))
-                            if hasattr(item, 'num_cached_tokens') and item.num_cached_tokens > 0:
-                                span.set_counter('vllm.usage.cached_tokens', item.num_cached_tokens)
-                        for output in item.outputs:
-                            if hasattr(output, 'token_ids') and output.token_ids and len(output.token_ids) > 0:
-                                span.inc_counter('vllm.usage.completion_tokens', len(output.token_ids))
-                    else:
-                        span.measure_event_as_counter('vllm.latency.e2e')
-
-                        e2e = span.get_counter('vllm.latency.e2e')
-                        ttft = span.get_counter('vllm.latency.time_to_first_token')
-                        completion_tokens = span.get_counter('vllm.usage.completion_tokens')
-                        if e2e and e2e > 0 and ttft and ttft > 0 and completion_tokens and completion_tokens > 0:
-                            tpot = (e2e - ttft) / completion_tokens
-                            span.set_counter('vllm.latency.time_per_output_token', tpot)
-
-                trace_method(async_llm_engine, 'generate', 'vllm.asyncllm.generate', trace_func=trace_async_generate, data_func=trace_async_generate_data)
-
-            def before_from_engine_args(args, kwargs):
-                if len(args) > 0:
-                    engine_args = args[0]
-                else:
-                    engine_args = kwargs['engine_args']
-
-                if engine_args.disable_log_stats:
-                    engine_args.disable_log_stats = False
-
-            def after_from_engine_args(args, kwargs, ret, exc, context):
-                if len(args) > 0:
-                    engine_args = args[0]
-                else:
-                    engine_args = kwargs['engine_args']
-                async_llm = ret
-
-                tags = {}
-                params = {}
-
-                if engine_args.model:
-                    tags['vllm.model.name'] = engine_args.model
-                if engine_args.tokenizer:
-                    tags['vllm.tokenizer.name'] = engine_args.tokenizer
-                if engine_args.dtype:
-                    tags['vllm.dtype'] = engine_args.dtype
-                if engine_args.kv_cache_dtype:
-                    tags['vllm.kv_cache_dtype'] = engine_args.kv_cache_dtype
-                if engine_args.quantization:
-                    tags['vllm.quantization'] = engine_args.quantization
-
-                if (engine_args.tensor_parallel_size > 1 or
-                    engine_args.pipeline_parallel_size > 1 or
-                    engine_args.data_parallel_size > 1):
-
-                    if engine_args.pipeline_parallel_size:
-                        tags['vllm.pipeline_parallel_size'] = engine_args.pipeline_parallel_size
-                    if engine_args.tensor_parallel_size:
-                        tags['vllm.tensor_parallel_size'] = engine_args.tensor_parallel_size
-                    if engine_args.data_parallel_size:
-                        tags['vllm.data_parallel_size'] = engine_args.data_parallel_size
-                    if engine_args.data_parallel_rank:
-                        tags['vllm.data_parallel_rank'] = engine_args.data_parallel_rank
-                    if engine_args.data_parallel_rank_local:
-                        tags['vllm.data_parallel_rank_local'] = engine_args.data_parallel_rank_local
-                    if engine_args.data_parallel_master_ip:
-                        tags['vllm.data_parallel_master_ip'] = engine_args.data_parallel_master_ip
-                    if engine_args.data_parallel_master_port:
-                        tags['vllm.data_parallel_master_port'] = engine_args.data_parallel_master_port
-                    if engine_args.data_parallel_rpc_port:
-                        tags['vllm.data_parallel_rpc_port'] = engine_args.data_parallel_rpc_port
-                    if engine_args.data_parallel_backend:
-                        tags['vllm.data_parallel_backend'] = engine_args.data_parallel_backend
-
-                if engine_args.enforce_eager:
-                    tags['vllm.enforce_eager'] = engine_args.enforce_eager
-                if engine_args.enable_prefix_caching is not None:
-                    tags['vllm.enable_prefix_caching'] = engine_args.enable_prefix_caching
-                if engine_args.enable_chunked_prefill is not None:
-                    tags['vllm.enable_chunked_prefill'] = engine_args.enable_chunked_prefill
-                if engine_args.max_num_seqs is not None:
-                    tags['vllm.max_num_seqs'] = engine_args.max_num_seqs
-                if engine_args.max_num_batched_tokens is not None:
-                    tags['vllm.max_num_batched_tokens'] = engine_args.max_num_batched_tokens
-                if engine_args.scheduling_policy:
-                    tags['vllm.scheduling_policy'] = engine_args.scheduling_policy
-                if engine_args.speculative_config is not None:
-                    tags['vllm.speculative_config'] = str(engine_args.speculative_config)
-
-                patch_generate(async_llm, tags, params)
-
-            def before_from_vllm_config(args, kwargs):
-                kwargs['disable_log_stats'] = False
-
-            def after_from_vllm_config(args, kwargs, ret, exc, context):
-                if len(args) > 0:
-                    vllm_config = args[0]
-                else:
-                    vllm_config = kwargs['vllm_config']
-                async_llm = ret
-
-                tags = {}
-                params = {}
-
-                if vllm_config.model_config.model:
-                    tags['vllm.model.name'] = vllm_config.model_config.model
-                if vllm_config.model_config.tokenizer:
-                    tags['vllm.tokenizer.name'] = vllm_config.model_config.tokenizer
-                if vllm_config.model_config.dtype:
-                    tags['vllm.dtype'] = vllm_config.model_config.dtype
-                if vllm_config.cache_config.cache_dtype:
-                    tags['vllm.kv_cache_dtype'] = vllm_config.cache_config.cache_dtype
-                if vllm_config.model_config.quantization:
-                    tags['vllm.quantization'] = vllm_config.model_config.quantization
-                
-                if (vllm_config.parallel_config.tensor_parallel_size > 1 or
-                    vllm_config.parallel_config.pipeline_parallel_size > 1 or
-                    vllm_config.parallel_config.data_parallel_size > 1):
-                    
-                    if vllm_config.parallel_config.pipeline_parallel_size:
-                        tags['vllm.pipeline_parallel_size'] = vllm_config.parallel_config.pipeline_parallel_size
-                    if vllm_config.parallel_config.tensor_parallel_size:
-                        tags['vllm.tensor_parallel_size'] = vllm_config.parallel_config.tensor_parallel_size
-                    if vllm_config.parallel_config.data_parallel_size:
-                        tags['vllm.data_parallel_size'] = vllm_config.parallel_config.data_parallel_size
-                    if vllm_config.parallel_config.data_parallel_rank:
-                        tags['vllm.data_parallel_rank'] = vllm_config.parallel_config.data_parallel_rank
-                    if vllm_config.parallel_config.data_parallel_rank_local:
-                        tags['vllm.data_parallel_rank_local'] = vllm_config.parallel_config.data_parallel_rank_local
-                    if vllm_config.parallel_config.data_parallel_master_ip:
-                        tags['vllm.data_parallel_master_ip'] = vllm_config.parallel_config.data_parallel_master_ip
-                    if vllm_config.parallel_config.data_parallel_master_port:
-                        tags['vllm.data_parallel_master_port'] = vllm_config.parallel_config.data_parallel_master_port
-                    if vllm_config.parallel_config.data_parallel_rpc_port:
-                        tags['vllm.data_parallel_rpc_port'] = vllm_config.parallel_config.data_parallel_rpc_port
-                    if vllm_config.parallel_config.data_parallel_backend:
-                        tags['vllm.data_parallel_backend'] = vllm_config.parallel_config.data_parallel_backend
-                
-                if vllm_config.model_config.enforce_eager:
-                    tags['vllm.enforce_eager'] = vllm_config.model_config.enforce_eager
-                if hasattr(vllm_config, 'cache_config') and vllm_config.cache_config.enable_prefix_caching is not None:
-                    tags['vllm.enable_prefix_caching'] = vllm_config.cache_config.enable_prefix_caching
-                if hasattr(vllm_config, 'scheduler_config'):
-                    sc = vllm_config.scheduler_config
-                    if sc.chunked_prefill_enabled is not None:
-                        tags['vllm.enable_chunked_prefill'] = sc.chunked_prefill_enabled
-                    if sc.max_num_seqs:
-                        tags['vllm.max_num_seqs'] = sc.max_num_seqs
-                    if sc.max_num_batched_tokens:
-                        tags['vllm.max_num_batched_tokens'] = sc.max_num_batched_tokens
-                    if sc.policy:
-                        tags['vllm.scheduling_policy'] = str(sc.policy)
-                if hasattr(vllm_config, 'speculative_config') and vllm_config.speculative_config is not None:
-                    tags['vllm.speculative_config'] = str(type(vllm_config.speculative_config).__name__)
-
-                patch_generate(async_llm, tags, params)
-
-            from vllm.v1.engine.async_llm import AsyncLLM
-            patch_method(AsyncLLM, 'from_engine_args', before_func=before_from_engine_args, after_func=after_from_engine_args)
-            patch_method(AsyncLLM, 'from_vllm_config', before_func=before_from_vllm_config, after_func=after_from_vllm_config)
-        else:
-            logger.debug('VLLM tracing is only supported for >= 0.8.0.')
-            return
-        
-        # profiling functions
         for category, function_path in PROFILED_PATHS:
             ticker.profile_function_path(function_path, category=category)
 
-        # prometheus metrics
         prometheus_registry = None
         try:
             from vllm.v1.metrics.prometheus import get_prometheus_registry
@@ -293,9 +54,100 @@ class VLLMRecorder(BaseRecorder):
             return None
 
         self._prometheus_adapter = PrometheusAdapter(
-            registry=prometheus_registry, 
+            registry=prometheus_registry,
             name_map_func=metric_name_map_func)
         self._prometheus_adapter.setup()
+
+    def _setup_otel_collector(self):
+        if self._otel_collector:
+            return
+
+        def otel_export_callback(otel_spans):
+            for otel_span in otel_spans:
+                self._convert_otel_span(otel_span)
+            graphsignal._ticker.tick()
+
+        self._otel_collector = OTELCollector(export_callback=otel_export_callback)
+        self._otel_collector.setup()
+
+        port = self._otel_collector.get_port()
+        if port:
+            self._otel_endpoint = f'localhost:{port}'
+        else:
+            endpoint = self._otel_collector.get_endpoint()
+            if endpoint and endpoint.startswith('grpc://'):
+                endpoint = endpoint[len('grpc://'):]
+            self._otel_endpoint = endpoint
+
+        if self._otel_endpoint:
+            logger.debug('vLLM OTEL endpoint configured: %s', self._otel_endpoint)
+
+    def _patch_vllm_args(self):
+        def _apply_engine_args(engine_args):
+            if engine_args is None:
+                return
+            if hasattr(engine_args, 'disable_log_stats'):
+                engine_args.disable_log_stats = False
+            if self._otel_endpoint and hasattr(engine_args, 'otlp_traces_endpoint'):
+                engine_args.otlp_traces_endpoint = self._otel_endpoint
+            self._capture_startup_options(engine_args)
+
+        def _apply_vllm_config(vllm_config):
+            if vllm_config is None:
+                return
+            if self._otel_endpoint and hasattr(vllm_config, 'observability_config'):
+                obs = vllm_config.observability_config
+                if hasattr(obs, 'otlp_traces_endpoint'):
+                    obs.otlp_traces_endpoint = self._otel_endpoint
+            self._capture_startup_options_from_config(vllm_config)
+
+        try:
+            from vllm.v1.engine.async_llm import AsyncLLM
+
+            def before_from_engine_args(args, kwargs):
+                engine_args = args[0] if args else kwargs.get('engine_args')
+                _apply_engine_args(engine_args)
+
+            def before_from_vllm_config(args, kwargs):
+                vllm_config = args[0] if args else kwargs.get('vllm_config')
+                _apply_vllm_config(vllm_config)
+
+            patch_method(AsyncLLM, 'from_engine_args', before_func=before_from_engine_args)
+            patch_method(AsyncLLM, 'from_vllm_config', before_func=before_from_vllm_config)
+        except Exception:
+            logger.debug('vLLM AsyncLLM not available for patching.', exc_info=True)
+
+        try:
+            def before_llm_init(args, kwargs):
+                kwargs['disable_log_stats'] = False
+                if self._otel_endpoint:
+                    kwargs['otlp_traces_endpoint'] = self._otel_endpoint
+
+            patch_method(vllm.LLM, '__init__', before_func=before_llm_init)
+        except Exception:
+            logger.debug('vLLM LLM not available for patching.', exc_info=True)
+
+    def _capture_startup_options(self, engine_args):
+        for option_name in STARTUP_PERF_OPTIONS:
+            if not hasattr(engine_args, option_name):
+                continue
+            option_value = getattr(engine_args, option_name)
+            if option_value is None:
+                continue
+            self._startup_options[option_name] = option_value
+
+    def _capture_startup_options_from_config(self, vllm_config):
+        if vllm_config is None:
+            return
+        for config_path, option_name in VLLM_CONFIG_OPTIONS:
+            try:
+                obj = vllm_config
+                for part in config_path.split('.'):
+                    obj = getattr(obj, part)
+                if obj is not None:
+                    self._startup_options[option_name] = obj
+            except (AttributeError, TypeError):
+                continue
 
     def on_tick(self):
         if self._prometheus_adapter:
@@ -303,11 +155,11 @@ class VLLMRecorder(BaseRecorder):
 
     def _convert_otel_span(self, otel_span):
         if not otel_span.name:
-            logger.error(f'Invalid Open Telemetry span: name={otel_span.name}')
+            logger.error('Invalid Open Telemetry span: name=%s', otel_span.name)
             return
 
         if not (otel_span.start_time > 0 and otel_span.end_time > 0):
-            logger.error(f'Invalid Open Telemetry span: start_time={otel_span.start_time}, end_time={otel_span.end_time}')
+            logger.error('Invalid Open Telemetry span: start_time=%s, end_time=%s', otel_span.start_time, otel_span.end_time)
             return
 
         trace_id = _otel_id_str(getattr(otel_span, 'trace_id', None))
@@ -333,13 +185,13 @@ class VLLMRecorder(BaseRecorder):
         span.name = f'vllm.{otel_span.name}'
         _add_counter(span, 'span.duration', span.end_ts - span.start_ts)
 
-        # set process tags
         if graphsignal._ticker.tags:
             for tag_key, tag_value in graphsignal._ticker.tags.items():
                 _add_tag(span, tag_key, tag_value)
 
         attributes = otel_span.attributes if otel_span.attributes else {}
         _add_tag(span, 'sampling.reason', 'vllm.otel')
+
         if 'gen_ai.request.id' in attributes:
             _add_tag(span, 'vllm.request.id', attributes['gen_ai.request.id'])
         if 'gen_ai.response.model' in attributes:
@@ -353,20 +205,22 @@ class VLLMRecorder(BaseRecorder):
             _add_attribute(span, 'vllm.request.max_tokens', attributes['gen_ai.request.max_tokens'])
         if 'gen_ai.request.n' in attributes:
             _add_attribute(span, 'vllm.request.n', attributes['gen_ai.request.n'])
+
         if 'gen_ai.usage.num_sequences' in attributes:
             _add_counter(span, 'vllm.usage.num_sequences', attributes['gen_ai.usage.num_sequences'])
         if 'gen_ai.usage.prompt_tokens' in attributes:
             _add_counter(span, 'vllm.usage.prompt_tokens', attributes['gen_ai.usage.prompt_tokens'])
         if 'gen_ai.usage.completion_tokens' in attributes:
             _add_counter(span, 'vllm.usage.completion_tokens', attributes['gen_ai.usage.completion_tokens'])
+
         if 'gen_ai.latency.time_in_queue' in attributes:
             _add_counter(span, 'vllm.latency.time_in_queue', attributes['gen_ai.latency.time_in_queue'], sec_to_ns=True)
         if 'gen_ai.latency.time_to_first_token' in attributes:
-            _add_counter(span, 'vllm.latency.time_to_first_token', attributes['gen_ai.latency.time_to_first_token'],  sec_to_ns=True)
+            _add_counter(span, 'vllm.latency.time_to_first_token', attributes['gen_ai.latency.time_to_first_token'], sec_to_ns=True)
         if 'gen_ai.latency.e2e' in attributes:
             _add_counter(span, 'vllm.latency.e2e', attributes['gen_ai.latency.e2e'], sec_to_ns=True)
         if 'gen_ai.latency.time_in_scheduler' in attributes:
-            _add_counter(span, 'vllm.latency.time_in_scheduler', attributes['gen_ai.latency.time_in_scheduler'], sec_to_ns=True)      
+            _add_counter(span, 'vllm.latency.time_in_scheduler', attributes['gen_ai.latency.time_in_scheduler'], sec_to_ns=True)
         if 'gen_ai.latency.time_in_model_forward' in attributes:
             _add_counter(span, 'vllm.latency.time_in_model_forward', attributes['gen_ai.latency.time_in_model_forward'], sec_to_ns=True)
         if 'gen_ai.latency.time_in_model_execute' in attributes:
@@ -377,6 +231,9 @@ class VLLMRecorder(BaseRecorder):
             _add_counter(span, 'vllm.latency.time_in_model_decode', attributes['gen_ai.latency.time_in_model_decode'], sec_to_ns=True)
         if 'gen_ai.latency.time_in_model_inference' in attributes:
             _add_counter(span, 'vllm.latency.time_in_model_inference', attributes['gen_ai.latency.time_in_model_inference'], sec_to_ns=True)
+
+        for option_name, option_value in self._startup_options.items():
+            _add_attribute(span, f'vllm.startup.{option_name}', option_value)
 
         graphsignal._ticker.signal_uploader().upload_span(span)
 
@@ -400,13 +257,16 @@ class VLLMRecorder(BaseRecorder):
             self._trace_sampling_decisions.pop(old_trace_id, None)
 
     def shutdown(self):
-        if self._otel_adapter:
-            self._otel_adapter.shutdown()
+        if self._otel_collector:
+            self._otel_collector.shutdown()
+            self._otel_collector = None
+
 
 def _add_tag(span, key, value):
     tag = span.tags.add()
     tag.key = sanitize_str(key, max_len=50)
     tag.value = sanitize_str(value, max_len=250)
+
 
 def _otel_id_str(value, max_len=64):
     if value is None:
@@ -414,15 +274,18 @@ def _otel_id_str(value, max_len=64):
     normalized = sanitize_str(value, max_len=max_len).strip().lower()
     return normalized or None
 
+
 def _has_parent_span_id(parent_span_id):
     return bool(parent_span_id) and parent_span_id.strip('0') != ''
+
 
 def _add_attribute(span, name, value):
     attr = span.attributes.add()
     attr.name = sanitize_str(name, max_len=50)
     attr.value = sanitize_str(value, max_len=2500)
 
-def _add_counter(span, name, value, sec_to_ns: bool = False):
+
+def _add_counter(span, name, value, sec_to_ns=False):
     try:
         value = float(value)
     except (TypeError, ValueError):
@@ -434,8 +297,52 @@ def _add_counter(span, name, value, sec_to_ns: bool = False):
     counter.value = float(value)
 
 
+STARTUP_PERF_OPTIONS = (
+    'model',
+    'tokenizer',
+    'dtype',
+    'kv_cache_dtype',
+    'quantization',
+    'tensor_parallel_size',
+    'pipeline_parallel_size',
+    'data_parallel_size',
+    'enforce_eager',
+    'enable_prefix_caching',
+    'enable_chunked_prefill',
+    'max_num_seqs',
+    'max_num_batched_tokens',
+    'max_model_len',
+    'gpu_memory_utilization',
+    'scheduling_policy',
+    'speculative_config',
+    'block_size',
+    'swap_space',
+    'num_scheduler_steps',
+)
+
+VLLM_CONFIG_OPTIONS = (
+    ('model_config.model', 'model'),
+    ('model_config.tokenizer', 'tokenizer'),
+    ('model_config.dtype', 'dtype'),
+    ('model_config.quantization', 'quantization'),
+    ('model_config.enforce_eager', 'enforce_eager'),
+    ('model_config.max_model_len', 'max_model_len'),
+    ('cache_config.cache_dtype', 'kv_cache_dtype'),
+    ('cache_config.enable_prefix_caching', 'enable_prefix_caching'),
+    ('cache_config.block_size', 'block_size'),
+    ('cache_config.swap_space_bytes', 'swap_space'),
+    ('parallel_config.tensor_parallel_size', 'tensor_parallel_size'),
+    ('parallel_config.pipeline_parallel_size', 'pipeline_parallel_size'),
+    ('parallel_config.data_parallel_size', 'data_parallel_size'),
+    ('scheduler_config.max_num_seqs', 'max_num_seqs'),
+    ('scheduler_config.max_num_batched_tokens', 'max_num_batched_tokens'),
+    ('scheduler_config.chunked_prefill_enabled', 'enable_chunked_prefill'),
+    ('scheduler_config.policy', 'scheduling_policy'),
+    ('scheduler_config.num_scheduler_steps', 'num_scheduler_steps'),
+)
+
+
 PROFILED_PATHS = [
-    # Entrypoints (end-to-end request latency; 100ms -> seconds)
     ('vllm.e2e', "vllm.entrypoints.llm.LLM.generate"),
     ('vllm.e2e', "vllm.v1.engine.async_llm.AsyncLLM.generate"),
     ('vllm.e2e', "vllm.entrypoints.api_server.generate"),
@@ -446,45 +353,37 @@ PROFILED_PATHS = [
     ('vllm.e2e', "vllm.entrypoints.openai.completion.serving.OpenAIServingCompletion.create_completion"),
     ('vllm.e2e', "vllm.entrypoints.openai.responses.serving.OpenAIServingResponses.create_responses"),
 
-    # Engine loop / core orchestration (~sub-ms -> 10s of ms per step)
     ('vllm.engine', "vllm.v1.engine.llm_engine.LLMEngine.add_request"),
     ('vllm.engine', "vllm.v1.engine.llm_engine.LLMEngine.step"),
     ('vllm.engine', "vllm.v1.engine.core.EngineCore.step"),
     ('vllm.engine', "vllm.v1.engine.core.EngineCore.step_with_batch_queue"),
     ('vllm.engine', "vllm.v1.engine.core.EngineCore.post_step"),
 
-    # Input processing (tokenization + validation; can dominate for long/multimodal prompts)
     ('vllm.engine', "vllm.v1.engine.input_processor.InputProcessor.process_inputs"),
 
-    # Scheduler (batching + KV decisions; CPU overhead; similar scale to engine step)
     ('vllm.engine', "vllm.v1.core.sched.scheduler.Scheduler.schedule"),
     ('vllm.engine', "vllm.v1.core.sched.scheduler.Scheduler.update_from_output"),
     ('vllm.engine', "vllm.v1.core.sched.scheduler.Scheduler.get_grammar_bitmask"),
 
-    # Executor / worker boundary (can dominate in multiproc; includes CPU<->GPU boundary)
     ('vllm.model_exec', "vllm.v1.executor.abstract.Executor.execute_model"),
     ('vllm.model_exec', "vllm.v1.executor.abstract.Executor.sample_tokens"),
     ('vllm.model_exec', "vllm.v1.worker.worker_base.WorkerBase.execute_model"),
     ('vllm.model_exec', "vllm.v1.worker.gpu_worker.Worker.execute_model"),
 
-    # GPU model runner (prefill+decode GPU time + surrounding CPU prep)
     ('vllm.model_exec', "vllm.v1.worker.gpu_model_runner.GPUModelRunner.execute_model"),
     ('vllm.model_exec', "vllm.v1.worker.gpu_model_runner.GPUModelRunner._model_forward"),
     ('vllm.model_exec', "vllm.v1.worker.gpu_model_runner.GPUModelRunner._prepare_inputs"),
     ('vllm.model_exec', "vllm.v1.worker.gpu_model_runner.GPUModelRunner._update_states"),
     ('vllm.model_exec', "vllm.v1.worker.gpu_model_runner.GPUModelRunner.sample_tokens"),
 
-    # Speculative decoding proposers (draft token proposal time; varies by algorithm)
     ('vllm.spec_decode', "vllm.v1.spec_decode.eagle.SpecDecodeBaseProposer.propose"),
     ('vllm.spec_decode', "vllm.v1.spec_decode.eagle.SpecDecodeBaseProposer.propose_tree"),
     ('vllm.spec_decode', "vllm.v1.spec_decode.ngram_proposer.NgramProposer.propose"),
     ('vllm.spec_decode', "vllm.v1.spec_decode.ngram_proposer_gpu.NgramProposerGPU.propose"),
 
-    # Attention (keep high-level layer forwards; backend-specific impls may not be importable)
     ('vllm.attention', "vllm.model_executor.layers.attention.attention.Attention.forward"),
     ('vllm.attention', "vllm.model_executor.layers.attention.mla_attention.MLAAttention.forward"),
 
-    # KV cache ops (v1 latest uses allocate_slots; allocation/free can be >1ms under pressure)
     ('vllm.kv_cache', "vllm.v1.core.kv_cache_manager.KVCacheManager.allocate_slots"),
     ('vllm.kv_cache', "vllm.v1.core.kv_cache_manager.KVCacheManager.free"),
     ('vllm.kv_cache', "vllm.v1.core.kv_cache_manager.KVCacheManager.get_computed_blocks"),
@@ -492,7 +391,6 @@ PROFILED_PATHS = [
     ('vllm.kv_cache', "vllm._custom_ops.reshape_and_cache_flash"),
     ('vllm.kv_cache', "vllm._custom_ops.swap_blocks"),
 
-    # Multi-GPU comm (NCCL/custom collectives; can be >1ms depending on size/topology)
     ('vllm.comm', "vllm.distributed.parallel_state.GroupCoordinator.all_reduce"),
     ('vllm.comm', "vllm.distributed.parallel_state.GroupCoordinator.all_gather"),
     ('vllm.comm', "vllm.distributed.parallel_state.GroupCoordinator.reduce_scatter"),
@@ -504,7 +402,6 @@ PROFILED_PATHS = [
     ('vllm.comm', "vllm.distributed.communication_op.tensor_model_parallel_all_gather"),
     ('vllm.comm', "vllm.distributed.communication_op.tensor_model_parallel_reduce_scatter"),
 
-    # Output processing
     ('vllm.output', "vllm.v1.engine.output_processor.OutputProcessor.process_outputs"),
     ('vllm.output', "vllm.v1.engine.detokenizer.BaseIncrementalDetokenizer.update"),
 ]

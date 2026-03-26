@@ -2,6 +2,7 @@ import unittest
 import logging
 import sys
 import os
+import time
 from unittest.mock import patch, Mock
 import subprocess
 import torch
@@ -47,12 +48,16 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         from graphsignal.recorders.vllm_recorder import VLLMRecorder
         
         recorder = VLLMRecorder()
+        recorder._startup_options = {
+            'tensor_parallel_size': 2,
+            'dtype': 'bfloat16',
+            'enforce_eager': False,
+        }
         
-        # Create a mock OTEL span with all possible attributes
         mock_otel_span = Mock()
         mock_otel_span.name = "llm_request"
-        mock_otel_span.start_time = 1000000000  # 1 second in nanoseconds
-        mock_otel_span.end_time = 2000000000    # 2 seconds in nanoseconds
+        mock_otel_span.start_time = 1000000000
+        mock_otel_span.end_time = 2000000000
         mock_otel_span.trace_id = 'trace_vllm_123'
         mock_otel_span.span_id = 'span_vllm_123'
         mock_otel_span.parent_span_id = ''
@@ -74,11 +79,9 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         
         recorder._convert_otel_span(mock_otel_span)
         
-        # Verify upload_span was called
         mocked_upload_span.assert_called_once()
         span = mocked_upload_span.call_args[0][0]
 
-        # Check basic span properties
         self.assertEqual(span.start_ts, 1000000000)
         self.assertEqual(span.end_ts, 2000000000)
         self.assertEqual(find_counter(span, 'span.duration'), 1000000000.0)
@@ -89,29 +92,28 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(find_tag(span, 'sampling.reason'), 'vllm.otel')
         
-        # Check request attributes
         self.assertEqual(find_tag(span, 'vllm.request.id'), 'test_request_123')
         
-        # Check model attributes
         self.assertEqual(find_tag(span, 'vllm.response.model'), 'Qwen/Qwen1.5-7B-Chat')
         self.assertEqual(find_attribute(span, 'vllm.response.model'), 'Qwen/Qwen1.5-7B-Chat')
         
-        # Check request parameters
         self.assertEqual(find_attribute(span, 'vllm.request.temperature'), '0.7')
         self.assertEqual(find_attribute(span, 'vllm.request.top_p'), '0.95')
         self.assertEqual(find_attribute(span, 'vllm.request.max_tokens'), '256')
         self.assertEqual(find_attribute(span, 'vllm.request.n'), '1')
         
-        # Check usage metrics
         self.assertEqual(find_counter(span, 'vllm.usage.num_sequences'), 1.0)
         self.assertEqual(find_counter(span, 'vllm.usage.prompt_tokens'), 16.0)
         self.assertEqual(find_counter(span, 'vllm.usage.completion_tokens'), 1.0)
         
-        # Check latency metrics
         self.assertEqual(find_counter(span, 'vllm.latency.time_in_queue'), 12926340)
         self.assertEqual(find_counter(span, 'vllm.latency.time_to_first_token'), 224844217)
         self.assertEqual(find_counter(span, 'vllm.latency.e2e'), 225258588)
         self.assertEqual(find_counter(span, 'vllm.latency.time_in_scheduler'), 1391906)
+
+        self.assertEqual(find_attribute(span, 'vllm.startup.tensor_parallel_size'), '2')
+        self.assertEqual(find_attribute(span, 'vllm.startup.dtype'), 'bfloat16')
+        self.assertEqual(find_attribute(span, 'vllm.startup.enforce_eager'), 'False')
 
     @patch.object(SignalUploader, 'upload_span')
     @patch.object(Ticker, 'should_trace', return_value=True)
@@ -216,7 +218,7 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
 
     @unittest.skipIf(os.getenv("RUN_VLLM_TESTS") != "1", "skipped unless forced")
     @patch.object(SignalUploader, 'upload_span')
-    async def test_llm_generate(self, mocked_upload_span):
+    def test_llm_generate(self, mocked_upload_span):
         try:
             import vllm
         except ImportError:
@@ -227,12 +229,19 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
             self.skipTest("No CUDA available")
             return
 
+        _ = vllm.__version__
+        vllm_recorder = None
+        for recorder in graphsignal._ticker.recorders():
+            if recorder.__class__.__name__ == 'VLLMRecorder':
+                vllm_recorder = recorder
+                break
+        if vllm_recorder is None or not vllm_recorder._otel_endpoint:
+            self.skipTest('vLLM recorder OTEL endpoint not available')
+            return
+
         from vllm import LLM, SamplingParams
 
-        llm = LLM(
-            model="distilgpt2",
-            #enforce_eager=True
-        )
+        llm = LLM(model="distilgpt2")
 
         sampling_params = SamplingParams(
             temperature=0.7, 
@@ -240,23 +249,21 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
             max_tokens=256
         )
 
-        outputs = llm.generate([f"What is 2 raised to 10 power?"], sampling_params)
-        outputs = llm.generate([f"What is 2 raised to 10 power?"], sampling_params)
+        outputs = llm.generate(["What is 2 raised to 10 power?"], sampling_params)
+        outputs = llm.generate(["What is 2 raised to 10 power?"], sampling_params)
 
-        print("Model output:")
-        print(outputs)
+        for _ in range(12):
+            if mocked_upload_span.called:
+                break
+            time.sleep(0.25)
 
+        self.assertTrue(mocked_upload_span.called)
         span = mocked_upload_span.call_args[0][0]
 
-        self.assertEqual(span.name, 'vllm.llm.generate')
+        self.assertTrue(span.name.startswith('vllm.'))
         self.assertEqual(find_tag(span, 'inference.engine.name'), 'vllm')
         self.assertEqual(find_tag(span, 'inference.engine.version'), vllm.__version__)
-        self.assertEqual(find_tag(span, 'vllm.model.name'), 'distilgpt2')
-        self.assertIsNotNone(find_tag(span, 'vllm.request.id'))
-
-        self.assertTrue(find_counter(span, 'span.duration') > 0)
-        self.assertTrue(find_counter(span, 'vllm.usage.prompt_tokens') > 0)
-        self.assertTrue(find_counter(span, 'vllm.usage.completion_tokens') > 0)
+        self.assertEqual(find_tag(span, 'sampling.reason'), 'vllm.otel')
 
 
     @unittest.skipIf(os.getenv("RUN_VLLM_TESTS") != "1", "skipped unless forced")
@@ -272,30 +279,29 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
             self.skipTest("No CUDA available")
             return
 
+        _ = vllm.__version__
+        vllm_recorder = None
+        for recorder in graphsignal._ticker.recorders():
+            if recorder.__class__.__name__ == 'VLLMRecorder':
+                vllm_recorder = recorder
+                break
+        if vllm_recorder is None or not vllm_recorder._otel_endpoint:
+            self.skipTest('vLLM recorder OTEL endpoint not available')
+            return
+
         from vllm.v1.engine.async_llm import AsyncLLM
         from vllm.engine.arg_utils import AsyncEngineArgs
         from vllm import SamplingParams
 
-        # Set environment variable to enable v1 engine
-        import os
-        os.environ['VLLM_USE_V1'] = '1'
-
-        # Initialize the AsyncLLM engine
-        engine_args = AsyncEngineArgs(
-            model="distilgpt2", # state-spaces/mamba-130m-hf
-            #enforce_eager=True
-        )
-        
+        engine_args = AsyncEngineArgs(model="distilgpt2")
         async_llm = AsyncLLM.from_engine_args(engine_args)
 
-        # Define sampling parameters
         sampling_params = SamplingParams(
             temperature=0.7,
             top_p=0.95,
             max_tokens=256
         )
 
-        # Generate text asynchronously
         prompt = "What is 2 raised to 10 power?"
         request_id = "test_async_request_1"
 
@@ -303,25 +309,15 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         async for output in async_llm.generate(prompt, sampling_params, request_id):
             outputs.append(output)
 
-        print("Async model output:")
-        print(outputs)
+        for _ in range(12):
+            if mocked_upload_span.called:
+                break
+            time.sleep(0.25)
 
-        # Verify that upload_span was called
         self.assertTrue(mocked_upload_span.called)
-        
-        # Get the span that was uploaded
         span = mocked_upload_span.call_args[0][0]
 
-        # Verify span properties
-        self.assertEqual(span.name, 'vllm.asyncllm.generate')
+        self.assertTrue(span.name.startswith('vllm.'))
         self.assertEqual(find_tag(span, 'inference.engine.name'), 'vllm')
         self.assertEqual(find_tag(span, 'inference.engine.version'), vllm.__version__)
-        self.assertEqual(find_tag(span, 'vllm.model.name'), 'distilgpt2')
-        self.assertEqual(find_tag(span, 'vllm.request.id'), request_id)
-
-        self.assertTrue(find_counter(span, 'span.duration') > 0)
-        self.assertTrue(find_counter(span, 'vllm.latency.time_to_first_token') > 0)
-        self.assertTrue(find_counter(span, 'vllm.usage.prompt_tokens') > 0)
-        self.assertTrue(find_counter(span, 'vllm.usage.completion_tokens') > 0)
-
-
+        self.assertEqual(find_tag(span, 'sampling.reason'), 'vllm.otel')

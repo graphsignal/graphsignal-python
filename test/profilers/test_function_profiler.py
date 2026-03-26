@@ -291,6 +291,7 @@ class FunctionProfilerTest(unittest.TestCase):
         
         profiler.set_resolution_ns(resolution_ns)
         profiler.setup()
+        profiler._stop_rollover_timer()
         
         func1 = self.test_functions.fast_function
         func2 = TestFunctions.static_function  # static method, no instance needed
@@ -301,9 +302,6 @@ class FunctionProfilerTest(unittest.TestCase):
         # Call both functions
         func1()
         func2()
-        
-        # Wait a bit
-        time.sleep(0.1)
         
         # Should have separate buckets
         code1 = func1.__code__
@@ -352,15 +350,15 @@ class FunctionProfilerTest(unittest.TestCase):
         code = test_func.__code__
         
         # Mock field IDs
-        mock_duration_id = 1
-        mock_calls_id = 2
-        mock_errors_id = 3
+        mock_cumtime_id = 1
+        mock_ncalls_id = 2
+        mock_nerrors_id = 3
         
         from graphsignal.profilers.function_profiler import FunctionFields
         profiler._fields[code] = FunctionFields(
-            duration_field_id=mock_duration_id,
-            calls_field_id=mock_calls_id,
-            errors_field_id=mock_errors_id
+            cumtime_field_id=mock_cumtime_id,
+            ncalls_field_id=mock_ncalls_id,
+            nerrors_field_id=mock_nerrors_id
         )
         
         # Test enter callback
@@ -573,14 +571,14 @@ class FunctionProfilerTest(unittest.TestCase):
         
         from graphsignal.profilers.function_profiler import FunctionFields
         profiler._fields[code1] = FunctionFields(
-            duration_field_id=1,
-            calls_field_id=2,
-            errors_field_id=3
+            cumtime_field_id=1,
+            ncalls_field_id=2,
+            nerrors_field_id=3
         )
         profiler._fields[code2] = FunctionFields(
-            duration_field_id=4,
-            calls_field_id=5,
-            errors_field_id=6
+            cumtime_field_id=4,
+            ncalls_field_id=5,
+            nerrors_field_id=6
         )
         
         # Manually trigger enter/exit to populate buckets
@@ -604,10 +602,10 @@ class FunctionProfilerTest(unittest.TestCase):
             # Should have entries for both functions
             self.assertGreater(len(profile), 0)
             # Check that both functions' field IDs are present
-            self.assertIn(1, profile)  # func1 duration_field_id
-            self.assertIn(2, profile)  # func1 calls_field_id
-            self.assertIn(4, profile)  # func2 duration_field_id
-            self.assertIn(5, profile)  # func2 calls_field_id
+            self.assertIn(1, profile)  # func1 cumtime_field_id
+            self.assertIn(2, profile)  # func1 ncalls_field_id
+            self.assertIn(4, profile)  # func2 cumtime_field_id
+            self.assertIn(5, profile)  # func2 ncalls_field_id
 
     def test_error_exit(self):
         bucket = FunctionBucket()

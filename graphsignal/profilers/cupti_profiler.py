@@ -15,11 +15,11 @@ logger = logging.getLogger("graphsignal")
 
 
 class EventFields:
-    __slots__ = ['duration_field_id', 'calls_field_id', 'bytes_field_id']
+    __slots__ = ['cumtime_field_id', 'ncalls_field_id', 'bytes_field_id']
 
-    def __init__(self, duration_field_id=None, calls_field_id=None, bytes_field_id=None):
-        self.duration_field_id = duration_field_id
-        self.calls_field_id = calls_field_id
+    def __init__(self, cumtime_field_id=None, ncalls_field_id=None, bytes_field_id=None):
+        self.cumtime_field_id = cumtime_field_id
+        self.ncalls_field_id = ncalls_field_id
         self.bytes_field_id = bytes_field_id
 
 
@@ -83,7 +83,7 @@ class CuptiProfiler:
                 "libcupti.so not found (CUDA %s detected), disabling CUPTI profiler. "
                 "Install Graphsignal Python package with CUPTI extras (graphsignal[cu12] or graphsignal[cu13]) "
                 "or install a CUDA toolkit that includes CUPTI (e.g. libcupti-dev / cuda-toolkit-%s-x).",
-                cuda_major,
+                cuda_major, cuda_major,
             )
             return
 
@@ -197,11 +197,11 @@ class CuptiProfiler:
             return self._current_event_id
 
     def add_kernel_pattern(self, pattern: str, event_name: str) -> None:
-        descriptor = dict(category="gpu.compute", event_name=event_name, statistic="duration", unit="ns")
-        duration_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
+        descriptor = dict(category="gpu.compute", event_name=event_name, statistic="cumtime", unit="ns")
+        cumtime_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
 
-        descriptor = dict(category="gpu.compute", event_name=event_name, statistic="call_count")
-        calls_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
+        descriptor = dict(category="gpu.compute", event_name=event_name, statistic="ncalls")
+        ncalls_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
 
         event_id = self._next_event_id()
 
@@ -212,17 +212,17 @@ class CuptiProfiler:
             return
 
         self._fields[event_id] = EventFields(
-            duration_field_id=duration_field_id,
-            calls_field_id=calls_field_id,
+            cumtime_field_id=cumtime_field_id,
+            ncalls_field_id=ncalls_field_id,
             bytes_field_id=None,
         )
 
     def add_memcpy_kind(self, memcpy_kind: str, event_name: str) -> None:
-        descriptor = dict(category="gpu.memory", event_name=event_name, statistic="duration", unit="ns")
-        duration_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
+        descriptor = dict(category="gpu.memory", event_name=event_name, statistic="cumtime", unit="ns")
+        cumtime_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
 
-        descriptor = dict(category="gpu.memory", event_name=event_name, statistic="call_count")
-        calls_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
+        descriptor = dict(category="gpu.memory", event_name=event_name, statistic="ncalls")
+        ncalls_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
 
         descriptor = dict(category="gpu.memory", event_name=event_name, statistic="bytes", unit="bytes")
         bytes_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
@@ -236,10 +236,10 @@ class CuptiProfiler:
             return
 
         self._fields[event_id] = EventFields(
-            duration_field_id=duration_field_id,
-                calls_field_id=calls_field_id,
-                bytes_field_id=bytes_field_id,
-            )
+            cumtime_field_id=cumtime_field_id,
+            ncalls_field_id=ncalls_field_id,
+            bytes_field_id=bytes_field_id,
+        )
 
     def _cupti_activity_drain(self, start_ts: int, end_ts: int) -> Dict[str, Any]:
         if not self.lib:
@@ -328,13 +328,13 @@ class CuptiProfiler:
                 bytes_val = int(eb.get("bytes", 0) or 0)
 
                 if num_running > 0 or exit_offset_ns > 0:
-                    duration = self._resolution_ns * num_running - enter_offset_ns + exit_offset_ns
-                    duration = max(0, duration)
-                    if fields.duration_field_id and duration > 0:
-                        profile[fields.duration_field_id] = duration
-                    num_calls = num_running + num_exited
-                    if fields.calls_field_id and num_calls > 0:
-                        profile[fields.calls_field_id] = num_calls
+                    cumtime = self._resolution_ns * num_running - enter_offset_ns + exit_offset_ns
+                    cumtime = max(0, cumtime)
+                    if fields.cumtime_field_id and cumtime > 0:
+                        profile[fields.cumtime_field_id] = cumtime
+                    ncalls = num_running + num_exited
+                    if fields.ncalls_field_id and ncalls > 0:
+                        profile[fields.ncalls_field_id] = ncalls
                     if fields.bytes_field_id and bytes_val > 0:
                         profile[fields.bytes_field_id] = bytes_val
 

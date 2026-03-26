@@ -12,12 +12,12 @@ logger = logging.getLogger('graphsignal')
 
 
 class FunctionFields:
-    __slots__ = ['duration_field_id', 'calls_field_id', 'errors_field_id']
+    __slots__ = ['cumtime_field_id', 'ncalls_field_id', 'nerrors_field_id']
 
-    def __init__(self, duration_field_id=None, calls_field_id=None, errors_field_id=None):
-        self.duration_field_id = duration_field_id
-        self.calls_field_id = calls_field_id
-        self.errors_field_id = errors_field_id
+    def __init__(self, cumtime_field_id=None, ncalls_field_id=None, nerrors_field_id=None):
+        self.cumtime_field_id = cumtime_field_id
+        self.ncalls_field_id = ncalls_field_id
+        self.nerrors_field_id = nerrors_field_id
 
 class FunctionBucket:
     __slots__ = [
@@ -148,20 +148,20 @@ class FunctionProfiler():
         if category is None:
             category = 'python'
 
-        descriptor = self._build_descriptor(func, category, event_name, 'duration', unit='ns')
-        duration_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
+        descriptor = self._build_descriptor(func, category, event_name, 'cumtime', unit='ns')
+        cumtime_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
 
-        descriptor = self._build_descriptor(func, category, event_name, 'call_count')
-        calls_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
+        descriptor = self._build_descriptor(func, category, event_name, 'ncalls')
+        ncalls_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
 
-        descriptor = self._build_descriptor(func, category, event_name, 'error_count')
-        errors_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
+        descriptor = self._build_descriptor(func, category, event_name, 'nerrors')
+        nerrors_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
 
         code = func.__code__
         self._fields[code] = FunctionFields(
-            duration_field_id=duration_field_id,
-            calls_field_id=calls_field_id,
-            errors_field_id=errors_field_id
+            cumtime_field_id=cumtime_field_id,
+            ncalls_field_id=ncalls_field_id,
+            nerrors_field_id=nerrors_field_id
         )
 
         E = sys.monitoring.events
@@ -285,15 +285,15 @@ class FunctionProfiler():
                 if not fields:
                     continue
                 if bucket.num_running > 0 or bucket.exit_offset_ns > 0:
-                    duration = bucket_size_ns * bucket.num_running - bucket.enter_offset_ns + bucket.exit_offset_ns
-                    duration = max(0, duration)
-                    if fields.duration_field_id and duration > 0:
-                        profile[fields.duration_field_id] = duration
-                    num_calls = bucket.num_running + bucket.num_exited
-                    if fields.calls_field_id and num_calls > 0:
-                        profile[fields.calls_field_id] = num_calls
-                    if fields.errors_field_id and bucket.num_errors > 0:
-                        profile[fields.errors_field_id] = bucket.num_errors
+                    cumtime = bucket_size_ns * bucket.num_running - bucket.enter_offset_ns + bucket.exit_offset_ns
+                    cumtime = max(0, cumtime)
+                    if fields.cumtime_field_id and cumtime > 0:
+                        profile[fields.cumtime_field_id] = cumtime
+                    ncalls = bucket.num_running + bucket.num_exited
+                    if fields.ncalls_field_id and ncalls > 0:
+                        profile[fields.ncalls_field_id] = ncalls
+                    if fields.nerrors_field_id and bucket.num_errors > 0:
+                        profile[fields.nerrors_field_id] = bucket.num_errors
 
                 bucket.rollover(now_ns)
 
