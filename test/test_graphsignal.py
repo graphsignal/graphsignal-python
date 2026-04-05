@@ -20,13 +20,13 @@ class GraphsignalTest(unittest.TestCase):
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._ticker.auto_tick = False
+        graphsignal._ticker._auto_tick = False
 
     def tearDown(self):
         graphsignal.shutdown()
 
     def test_configure(self):
-        self.assertEqual(graphsignal._ticker.api_key, 'k1')
+        self.assertEqual(graphsignal._ticker.api_key(), 'k1')
         self.assertEqual(graphsignal._ticker.debug_mode, True)
 
     @patch.object(Span, '_stop', return_value=None)
@@ -67,7 +67,7 @@ try:
     import graphsignal
     ticker_exists = hasattr(graphsignal, '_ticker') and graphsignal._ticker is not None
     if ticker_exists:
-        api_key_set = graphsignal._ticker.api_key is not None
+        api_key_set = graphsignal._ticker.api_key() is not None
         sys.exit(0 if api_key_set else 1)
     else:
         sys.exit(1)
@@ -113,7 +113,7 @@ try:
     
     # Configure graphsignal
     graphsignal.configure(api_key='test-fork-key', debug_mode=True)
-    graphsignal._ticker.auto_tick = False
+    graphsignal._ticker._auto_tick = False
     
     ticker = graphsignal._ticker
     

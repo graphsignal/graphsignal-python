@@ -24,7 +24,7 @@ class PytorchRecorderTest(unittest.TestCase):
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._ticker.auto_tick = False
+        graphsignal._ticker._auto_tick = False
 
     def tearDown(self):
         graphsignal.shutdown()
@@ -58,7 +58,7 @@ class PytorchRecorderTest(unittest.TestCase):
         self.assertTrue(has_pytorch_metrics)
 
         # Test specific memory metrics
-        metric_tags = graphsignal._ticker.tags.copy()
+        metric_tags = graphsignal._ticker.process_tags()
         metric_tags.update({'device.index': 0, 'device.type': 'gpu', 'framework.name': 'pytorch'})
 
         # Basic memory metrics

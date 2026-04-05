@@ -20,7 +20,7 @@ class SignalUploaderTest(unittest.TestCase):
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._ticker.auto_tick = False
+        graphsignal._ticker._auto_tick = False
         graphsignal._ticker.signal_uploader().clear()
 
     def tearDown(self):
@@ -62,7 +62,7 @@ class SignalUploaderTest(unittest.TestCase):
         self.assertEqual(len(graphsignal._ticker.signal_uploader()._buffer), 2)
 
     def test_upload_signals(self):
-        graphsignal._ticker.api_url = 'http://localhost:5005'
+        graphsignal._ticker._api_url = 'http://localhost:5005'
 
         server = HttpTestServer(5005)
         server.set_response_data(b'')

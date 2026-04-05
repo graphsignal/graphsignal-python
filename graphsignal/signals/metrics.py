@@ -30,7 +30,7 @@ class MetricStore:
         if metric_type is None:
             raise ValueError('Metric type cannot be None')
 
-        all_tags = graphsignal._ticker.tags.copy()
+        all_tags = graphsignal._ticker.process_tags()
         if tags is not None:
             all_tags.update(tags)
 

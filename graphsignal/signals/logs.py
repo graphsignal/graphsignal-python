@@ -39,16 +39,15 @@ class LogStore:
         entry.exception = exception if exception else ''
         entry.log_ts = timestamp_ns if timestamp_ns else time.time_ns()
 
-        all_tags = graphsignal._ticker.tags.copy()
-        if tags is not None:
-            all_tags.update(tags)
+        if tags is None:
+            tags = {}
 
-        batch_key = frozenset(all_tags.items())
+        batch_key = frozenset(tags.items())
         batch = self._log_batches.get(batch_key)
         if batch is None:
             batch = signals_pb2.LogBatch()
 
-            for key, value in all_tags.items():
+            for key, value in tags.items():
                 tag = batch.tags.add()
                 tag.key = str(key)[:50]
                 tag.value = str(value)[:250]
@@ -63,13 +62,14 @@ class LogStore:
             exception=None,
             timestamp_ns=None):
 
-        if tags is None:
-            tags = {}
-        tags['scope.name'] = 'sdk.python'
-        tags['logger'] = 'graphsignal'
+        all_tags = graphsignal._ticker.process_tags()
+        if tags is not None:
+            all_tags.update(tags)
+        all_tags['scope.name'] = 'sdk.python'
+        all_tags['logger'] = 'graphsignal'
 
         self.log_message(
-            tags=tags,
+            tags=all_tags,
             level=level,
             message=f'Graphsignal {version.__version__}: {message}',
             exception=exception,

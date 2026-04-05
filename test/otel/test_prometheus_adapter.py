@@ -21,7 +21,7 @@ class PrometheusAdapterIntegrationTest(unittest.TestCase):
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._ticker.auto_tick = False
+        graphsignal._ticker._auto_tick = False
         
         # Clear any existing metrics
         REGISTRY._collector_to_names.clear()
@@ -49,7 +49,7 @@ class PrometheusAdapterIntegrationTest(unittest.TestCase):
         
         # Assert the metric was collected correctly
         store = graphsignal._ticker.metric_store()
-        metric_tags = graphsignal._ticker.tags.copy()
+        metric_tags = graphsignal._ticker.process_tags()
         metric_tags.update({'label1': 'value1'})
         key = store.metric_key('mapped_gauge', metric_tags)
         
@@ -77,7 +77,7 @@ class PrometheusAdapterIntegrationTest(unittest.TestCase):
         
         # Assert the counter was incremented by the delta
         store = graphsignal._ticker.metric_store()
-        metric_tags = graphsignal._ticker.tags.copy()
+        metric_tags = graphsignal._ticker.process_tags()
         metric_tags.update({'label1': 'value1'})
         key = store.metric_key('mapped_counter', metric_tags)
         
@@ -98,7 +98,7 @@ class PrometheusAdapterIntegrationTest(unittest.TestCase):
         
         # Assert the histogram was collected (check for rate metric)
         store = graphsignal._ticker.metric_store()
-        metric_tags = graphsignal._ticker.tags.copy()
+        metric_tags = graphsignal._ticker.process_tags()
         metric_tags.update({'label1': 'value1'})
         
         # Histograms now create rate metrics using _count and _sum
@@ -120,7 +120,7 @@ class PrometheusAdapterIntegrationTest(unittest.TestCase):
         
         # Assert the summary was collected (check for rate metric)
         store = graphsignal._ticker.metric_store()
-        metric_tags = graphsignal._ticker.tags.copy()
+        metric_tags = graphsignal._ticker.process_tags()
         metric_tags.update({'label1': 'value1'})
         
         # Summaries now create rate metrics using _count and _sum

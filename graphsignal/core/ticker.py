@@ -15,6 +15,7 @@ from graphsignal.core.signal_uploader import SignalUploader
 from graphsignal.core.config_loader import ConfigLoader
 from graphsignal.signals.metrics import MetricStore
 from graphsignal.signals.logs import LogStore
+from graphsignal.signals.resources import ResourceStore
 from graphsignal.signals.spans import Span
 from graphsignal.core.sampler import TimeCoordinatedSampler
 from graphsignal.profilers.function_profiler import FunctionProfiler
@@ -33,7 +34,7 @@ class GraphsignalLogHandler(logging.Handler):
 
     def emit(self, record):
         try:
-            log_tags = self._ticker.tags.copy()
+            log_tags = self._ticker.process_tags()
 
             exception = None
             if record.exc_info and isinstance(record.exc_info, tuple):
@@ -128,14 +129,14 @@ class Ticker:
         if not api_key:
             raise ValueError('api_key is required')
 
-        self.api_key = api_key
+        self._api_key = api_key
         if api_url:
-            self.api_url = api_url
+            self._api_url = api_url
         else:
-            self.api_url = 'https://api.graphsignal.com'
-        self.tags = {}
+            self._api_url = 'https://api.graphsignal.com'
+        self._process_tags = {}
         if tags:
-            self.tags.update(tags)
+            self._process_tags.update(tags)
         self.context_tags = contextvars.ContextVar('graphsignal_context_tags', default={})
 
         self.auto_instrument = auto_instrument
@@ -156,15 +157,16 @@ class Ticker:
         self._signal_uploader = None
         self._metric_store = None
         self._log_store = None
+        self._resource_store = None
         self._function_profiler = None
         self._cupti_profiler = None
         self._recorders = None
 
         self._process_start_ms = int(time.time() * 1e3)
 
-        self.last_tick_ts = time.time()
+        self._last_tick_ts = time.time()
 
-        self.auto_tick = True
+        self._auto_tick = True
 
     def setup(self):
         logger.debug('SDK setup started')
@@ -190,6 +192,9 @@ class Ticker:
 
         # initialize log store
         self._log_store = LogStore()
+
+        # initialize resource store
+        self._resource_store = ResourceStore()
 
         # initialize ticker log handler early so that all SDK components
         # (including profilers) can emit logs into the log store.
@@ -230,14 +235,14 @@ class Ticker:
         def _tick_loop():
             if not self._tick_stop_event.wait(Ticker.TICK_DELAY_SEC):
                 try:
-                    if self.auto_tick:
+                    if self._auto_tick:
                         self.tick(force=True)
                 except Exception as exc:
                     logger.error('Error in initial tick: %s', exc, exc_info=True)
             
             while not self._tick_stop_event.wait(Ticker.TICK_INTERVAL_SEC):
                 try:
-                    if self.auto_tick:
+                    if self._auto_tick:
                         self.tick()
                 except Exception as exc:
                     logger.error('Error in tick timer: %s', exc, exc_info=True)
@@ -288,6 +293,12 @@ class Ticker:
                 except Exception:
                     pass
             
+            if self._resource_store:
+                try:
+                    self._resource_store.clear()
+                except Exception:
+                    pass
+            
             if self._signal_uploader:
                 try:
                     self._signal_uploader._buffer_lock = threading.Lock()
@@ -305,7 +316,7 @@ class Ticker:
         logger.debug('SDK reinitialization after fork complete')
 
     def shutdown(self):
-        if self.auto_tick:
+        if self._auto_tick:
             self.tick(block=True, force=True)
 
         if self._tick_stop_event:
@@ -333,13 +344,14 @@ class Ticker:
         self._recorders = None
         self._metric_store = None
         self._log_store = None
+        self._resource_store = None
         self._signal_uploader = None
 
         if self._config_loader:
             self._config_loader.shutdown()
             self._config_loader = None
 
-        self.tags = None
+        self._process_tags = None
 
         self.context_tags.set({})
         self.context_tags = None
@@ -414,6 +426,20 @@ class Ticker:
     def log_store(self):
         return self._log_store
 
+    def resource_store(self):
+        return self._resource_store
+
+    def process_tags(self) -> Dict[str, str]:
+        if self._process_tags is None:
+            return {}
+        return self._process_tags.copy()
+
+    def api_key(self) -> str:
+        return self._api_key
+
+    def api_url(self) -> str:
+        return self._api_url
+
     def sampler(self, sampler_key):
         if sampler_key not in self._samplers:
             if len(self._samplers) >= self.MAX_SAMPLERS:
@@ -451,10 +477,10 @@ class Ticker:
             return
 
         if value is None:
-            self.tags.pop(key, None)
+            self._process_tags.pop(key, None)
             return
 
-        if len(self.tags) > Ticker.MAX_PROCESS_TAGS:
+        if len(self._process_tags) > Ticker.MAX_PROCESS_TAGS:
             logger.error('set_tag: too many tags (>{0})'.format(Ticker.MAX_PROCESS_TAGS))
             return
 
@@ -464,13 +490,13 @@ class Ticker:
             else:
                 value = '{0}-{1}'.format(value, uuid_sha1(size=12))
 
-        self.tags[key] = value
+        self._process_tags[key] = value
 
     def get_tag(self, key: str) -> Optional[str]:
-        return self.tags.get(key, None)
+        return self._process_tags.get(key, None)
 
     def remove_tag(self, key: str) -> None:
-        self.tags.pop(key, None)
+        self._process_tags.pop(key, None)
 
     def set_context_tag(self, key: str, value: str, append_uuid: Optional[bool] = False) -> None:
         if not key:
@@ -571,9 +597,12 @@ class Ticker:
     def log_message(self, message: str, *, tags: Optional[Dict[str, str]] = None, level: Optional[str] = None, exception: Optional[str] = None):
         self.log_store().log_message(message=message, tags=tags, level=level, exception=exception)
 
+    def update_resource(self, kind, tags=None, attributes=None, first_seen_ts=None, last_seen_ts=None):
+        self._resource_store.update_resource(kind=kind, tags=tags, attributes=attributes, first_seen_ts=first_seen_ts, last_seen_ts=last_seen_ts)
+
     def tick(self, block=False, force=False):
         now = time.time()
-        if not force and (now - self.last_tick_ts) < Ticker.TICK_INTERVAL_SEC - 1:
+        if not force and (now - self._last_tick_ts) < Ticker.TICK_INTERVAL_SEC - 1:
             return
         
         if not self._tick_lock.acquire(blocking=False):
@@ -602,11 +631,16 @@ class Ticker:
                         for batch in batches:
                             self.signal_uploader().upload_log_batch(batch)
 
+                    if self._resource_store.has_unexported():
+                        resources = self._resource_store.export()
+                        for resource in resources:
+                            self.signal_uploader().upload_resource(resource)
+
                     self._signal_uploader.flush()
                 except Exception as exc:
                     logger.error('Error in tick execution: %s', exc, exc_info=True)
 
-            self.last_tick_ts = now
+            self._last_tick_ts = now
 
             self._tick_run_thread = threading.Thread(target=_run_tick, daemon=True)
             self._tick_run_thread.start()

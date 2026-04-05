@@ -131,6 +131,11 @@ def log_message(message: str, *, tags: Optional[Dict[str, str]] = None, level: O
     return _ticker.log_message(message=message, tags=tags, level=level, exception=exception)
 
 
+def update_resource(kind: str, tags: Optional[Dict[str, str]] = None, attributes: Optional[Dict[str, str]] = None, first_seen_ts: Optional[int] = None, last_seen_ts: Optional[int] = None) -> None:
+    _check_configured()
+    return _ticker.update_resource(kind=kind, tags=tags, attributes=attributes, first_seen_ts=first_seen_ts, last_seen_ts=last_seen_ts)
+
+
 def tick(block=False, force=False) -> None:
     _check_configured()
 
@@ -162,6 +167,7 @@ __all__ = [
     'SpanContext',
     'Span',
     'log_message',
+    'update_resource',
     'set_tag',
     'get_tag',
     'set_context_tag',

@@ -298,6 +298,7 @@ class FunctionProfiler():
                 bucket.rollover(now_ns)
 
         if len(profile) > 0:
-            graphsignal._ticker.update_profile(name=self._profile_name, profile=profile, measurement_ts=now_ns)
+            process_tags = graphsignal._ticker.process_tags()
+            graphsignal._ticker.update_profile(name=self._profile_name, profile=profile, measurement_ts=now_ns, tags=process_tags)
 
         self._current_bucket_ts = now_ns

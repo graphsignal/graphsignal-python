@@ -134,8 +134,7 @@ class ExceptionRecorder(BaseRecorder):
                          message: Optional[str] = None, context: Optional[str] = None,
                          thread_name: Optional[str] = None, task_name: Optional[str] = None):
         try:
-            # Build tags
-            tags = {}
+            tags = graphsignal._ticker.process_tags()
             tags['exception.name'] = name
             if context:
                 tags['exception.context'] = context

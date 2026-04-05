@@ -25,7 +25,7 @@ class SGLangRecorderTest(unittest.TestCase):
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._ticker.auto_tick = False
+        graphsignal._ticker._auto_tick = False
 
     def tearDown(self):
         graphsignal.shutdown()
@@ -113,9 +113,9 @@ class SGLangRecorderTest(unittest.TestCase):
         self.assertEqual(find_counter(span, 'sglang.latency.time_in_model_decode'), 350000000)
         self.assertEqual(find_counter(span, 'sglang.latency.time_in_model_inference'), 430000000)
 
-        self.assertEqual(find_attribute(span, 'sglang.startup.tp_size'), '2')
-        self.assertEqual(find_attribute(span, 'sglang.startup.chunked_prefill_size'), '4096')
-        self.assertEqual(find_attribute(span, 'sglang.startup.attention_backend'), 'flashinfer')
+        self.assertIsNone(find_attribute(span, 'sglang.startup.tp_size'))
+        self.assertIsNone(find_attribute(span, 'sglang.startup.chunked_prefill_size'))
+        self.assertIsNone(find_attribute(span, 'sglang.startup.attention_backend'))
 
     @patch.object(SignalUploader, 'upload_span')
     @patch.object(Ticker, 'should_trace', return_value=True)

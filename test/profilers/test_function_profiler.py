@@ -43,7 +43,7 @@ class FunctionProfilerTest(unittest.TestCase):
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._ticker.auto_tick = False
+        graphsignal._ticker._auto_tick = False
         # shutdown to allow reconfiguration of the profiler
         graphsignal._ticker._function_profiler.shutdown()
         # Create instance for calling instance methods

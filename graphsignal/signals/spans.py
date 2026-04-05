@@ -537,8 +537,7 @@ class Span:
 
     def _merged_span_tags(self, extra_tags=None):
         span_tags = {}
-        if _ticker().tags is not None:
-            span_tags.update(_ticker().tags)
+        span_tags.update(_ticker().process_tags())
         if self._context_tags:
             span_tags.update(self._context_tags)
         if self._tags is not None:

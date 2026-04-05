@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 
 import sglang
 
@@ -25,12 +26,14 @@ class SGLangRecorder(BaseRecorder):
         self._startup_options = {}
         self._trace_sampling_decisions = {}
         self._trace_sampling_order = []
+        self._engine_start_ts = None
 
     def setup(self):
         if not graphsignal._ticker.auto_instrument:
             return
 
         self._library_version = sglang.__version__
+        self._engine_start_ts = time.time_ns()
         ticker = graphsignal._ticker
         ticker.set_tag('inference.engine.name', 'sglang')
         ticker.set_tag('inference.engine.version', self._library_version)
@@ -138,6 +141,21 @@ class SGLangRecorder(BaseRecorder):
         if self._prometheus_adapter:
             self._prometheus_adapter.collect()
 
+        resource_tags = graphsignal._ticker.process_tags()
+
+        resource_attrs = {}
+        resource_attrs['engine.name'] = 'sglang'
+        if self._library_version:
+            resource_attrs['engine.version'] = self._library_version
+        for option_name, option_value in self._startup_options.items():
+            resource_attrs[f'sglang.startup.{option_name}'] = str(option_value)
+
+        graphsignal._ticker.update_resource(
+            'engine',
+            tags=resource_tags,
+            attributes=resource_attrs,
+            first_seen_ts=self._engine_start_ts)
+
     def _convert_otel_span(self, otel_span):
         if not otel_span.name:
             logger.error('Invalid Open Telemetry span: name=%s', otel_span.name)
@@ -170,9 +188,8 @@ class SGLangRecorder(BaseRecorder):
         span.name = f'sglang.{otel_span.name}'
         _add_counter(span, 'span.duration', span.end_ts - span.start_ts)
 
-        if graphsignal._ticker.tags:
-            for tag_key, tag_value in graphsignal._ticker.tags.items():
-                _add_tag(span, tag_key, tag_value)
+        for tag_key, tag_value in graphsignal._ticker.process_tags().items():
+            _add_tag(span, tag_key, tag_value)
 
         attributes = otel_span.attributes if otel_span.attributes else {}
         _add_tag(span, 'sampling.reason', 'sglang.otel')
@@ -215,9 +232,6 @@ class SGLangRecorder(BaseRecorder):
             _add_counter(span, 'sglang.latency.time_in_model_decode', attributes['gen_ai.latency.time_in_model_decode'], sec_to_ns=True)
         if 'gen_ai.latency.time_in_model_inference' in attributes:
             _add_counter(span, 'sglang.latency.time_in_model_inference', attributes['gen_ai.latency.time_in_model_inference'], sec_to_ns=True)
-
-        for option_name, option_value in self._startup_options.items():
-            _add_attribute(span, f'sglang.startup.{option_name}', option_value)
 
         graphsignal._ticker.signal_uploader().upload_span(span)
 

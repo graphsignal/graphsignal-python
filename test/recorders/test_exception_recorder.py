@@ -21,7 +21,7 @@ class ExceptionRecorderTest(unittest.IsolatedAsyncioTestCase):
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._ticker.auto_tick = False
+        graphsignal._ticker._auto_tick = False
         graphsignal._ticker.auto_instrument = True
 
     async def asyncTearDown(self):

@@ -160,6 +160,8 @@ class NVMLRecorder(BaseRecorder):
         self._event_sets: Dict[int, Any] = {}  # device_idx -> event_set
         self._error_counters: Dict[int, Dict[str, Any]] = {}  # device_idx -> error counters
 
+        self._gpu_first_seen_ts: Optional[int] = None
+
         self._hostname: Optional[str] = None
         try:
             self._hostname = socket.gethostname()
@@ -179,6 +181,7 @@ class NVMLRecorder(BaseRecorder):
             return
 
         self._setup_us = int(time.time() * 1e6)
+        self._gpu_first_seen_ts = time.time_ns()
 
         device_count = nvmlDeviceGetCount()
         if device_count == 0:
@@ -317,200 +320,213 @@ class NVMLRecorder(BaseRecorder):
 
         for idx, device_usage in enumerate(device_usages):
             ticker = graphsignal._ticker
-            metric_tags = {}
+            device_tags = {}
             if device_usage.bus_id:
-                metric_tags['device.bus_id'] = device_usage.bus_id
+                device_tags['device.bus_id'] = device_usage.bus_id
             if device_usage.device_uuid:
-                metric_tags['device.uuid'] = device_usage.device_uuid
+                device_tags['device.uuid'] = device_usage.device_uuid
             if self._hostname and device_usage.bus_id:
-                metric_tags['device.address'] = f'{self._hostname}:{device_usage.bus_id}'
+                device_tags['device.address'] = f'{self._hostname}:{device_usage.bus_id}'
             if device_usage.device_name:
-                metric_tags['device.name'] = device_usage.device_name
+                device_tags['device.name'] = device_usage.device_name
 
             if device_usage.gpu_utilization_percent > 0:
                 ticker.set_gauge(
-                    name='gpu.utilization', tags=metric_tags, 
+                    name='gpu.utilization', tags=device_tags, 
                     value=device_usage.gpu_utilization_percent, measurement_ts=now_ns, unit='percent')
             if device_usage.mxu_utilization_percent > 0:
                 ticker.set_gauge(
-                    name='gpu.mxu.utilization', tags=metric_tags, 
+                    name='gpu.mxu.utilization', tags=device_tags, 
                     value=device_usage.mxu_utilization_percent, measurement_ts=now_ns, unit='percent')
             if device_usage.mem_access_percent > 0:
                 ticker.set_gauge(
-                    name='gpu.memory.access', tags=metric_tags, 
+                    name='gpu.memory.access', tags=device_tags, 
                     value=device_usage.mem_access_percent, measurement_ts=now_ns, unit='percent')
             if device_usage.mem_used > 0:
                 ticker.set_gauge(
-                    name='gpu.memory.usage', tags=metric_tags, 
+                    name='gpu.memory.usage', tags=device_tags, 
                     value=device_usage.mem_used, measurement_ts=now_ns)
             if device_usage.mem_free > 0:
                 ticker.set_gauge(
-                    name='gpu.memory.free', tags=metric_tags, 
+                    name='gpu.memory.free', tags=device_tags, 
                     value=device_usage.mem_free, measurement_ts=now_ns)
             if device_usage.mem_total > 0:
                 ticker.set_gauge(
-                    name='gpu.memory.total', tags=metric_tags, 
+                    name='gpu.memory.total', tags=device_tags, 
                     value=device_usage.mem_total, measurement_ts=now_ns)
             if device_usage.mem_reserved > 0:
                 ticker.set_gauge(
-                    name='gpu.memory.reserved', tags=metric_tags, 
+                    name='gpu.memory.reserved', tags=device_tags, 
                     value=device_usage.mem_reserved, measurement_ts=now_ns)
             if device_usage.gpu_temp_c > 0:
                 ticker.set_gauge(
-                    name='gpu.temperature', tags=metric_tags, 
+                    name='gpu.temperature', tags=device_tags, 
                     value=device_usage.gpu_temp_c, measurement_ts=now_ns, unit='celsius')
             if device_usage.power_usage_w > 0:
                 ticker.set_gauge(
-                    name='gpu.power.usage', tags=metric_tags, 
+                    name='gpu.power.usage', tags=device_tags, 
                     value=device_usage.power_usage_w, measurement_ts=now_ns, unit='watts')
             
             # PCIe metrics
             if device_usage.pcie_throughput_tx > 0:
                 ticker.set_gauge(
-                    name='gpu.pcie.throughput.tx', tags=metric_tags, 
+                    name='gpu.pcie.throughput.tx', tags=device_tags, 
                     value=device_usage.pcie_throughput_tx, measurement_ts=now_ns, unit='bytes_per_second')
             if device_usage.pcie_throughput_rx > 0:
                 ticker.set_gauge(
-                    name='gpu.pcie.throughput.rx', tags=metric_tags, 
+                    name='gpu.pcie.throughput.rx', tags=device_tags, 
                     value=device_usage.pcie_throughput_rx, measurement_ts=now_ns, unit='bytes_per_second')
             if device_usage.pcie_utilization_tx_percent > 0:
                 ticker.set_gauge(
-                    name='gpu.pcie.utilization.tx', tags=metric_tags, 
+                    name='gpu.pcie.utilization.tx', tags=device_tags, 
                     value=device_usage.pcie_utilization_tx_percent, measurement_ts=now_ns, unit='percent')
             if device_usage.pcie_utilization_rx_percent > 0:
                 ticker.set_gauge(
-                    name='gpu.pcie.utilization.rx', tags=metric_tags, 
+                    name='gpu.pcie.utilization.rx', tags=device_tags, 
                     value=device_usage.pcie_utilization_rx_percent, measurement_ts=now_ns, unit='percent')
             if device_usage.pcie_bandwidth_tx_mbps > 0:
                 ticker.set_gauge(
-                    name='gpu.pcie.bandwidth.tx', tags=metric_tags, 
+                    name='gpu.pcie.bandwidth.tx', tags=device_tags, 
                     value=device_usage.pcie_bandwidth_tx_mbps, measurement_ts=now_ns, unit='megabits_per_second')
             if device_usage.pcie_bandwidth_rx_mbps > 0:
                 ticker.set_gauge(
-                    name='gpu.pcie.bandwidth.rx', tags=metric_tags, 
+                    name='gpu.pcie.bandwidth.rx', tags=device_tags, 
                     value=device_usage.pcie_bandwidth_rx_mbps, measurement_ts=now_ns, unit='megabits_per_second')
             if device_usage.pcie_max_bandwidth_gbps > 0:
                 ticker.set_gauge(
-                    name='gpu.pcie.max_bandwidth', tags=metric_tags, 
+                    name='gpu.pcie.max_bandwidth', tags=device_tags, 
                     value=device_usage.pcie_max_bandwidth_gbps, measurement_ts=now_ns, unit='gigabits_per_second')
             
             # NVLINK metrics
             if device_usage.nvlink_throughput_data_tx_kibs > 0:
                 ticker.set_gauge(
-                    name='gpu.nvlink.throughput.data.tx', tags=metric_tags, 
+                    name='gpu.nvlink.throughput.data.tx', tags=device_tags, 
                     value=device_usage.nvlink_throughput_data_tx_kibs, measurement_ts=now_ns, unit='kibibytes_per_second')
             if device_usage.nvlink_throughput_data_rx_kibs > 0:
                 ticker.set_gauge(
-                    name='gpu.nvlink.throughput.data.rx', tags=metric_tags, 
+                    name='gpu.nvlink.throughput.data.rx', tags=device_tags, 
                     value=device_usage.nvlink_throughput_data_rx_kibs, measurement_ts=now_ns, unit='kibibytes_per_second')
             if device_usage.nvlink_throughput_raw_tx_kibs > 0:
                 ticker.set_gauge(
-                    name='gpu.nvlink.throughput.raw.tx', tags=metric_tags, 
+                    name='gpu.nvlink.throughput.raw.tx', tags=device_tags, 
                     value=device_usage.nvlink_throughput_raw_tx_kibs, measurement_ts=now_ns, unit='kibibytes_per_second')
             if device_usage.nvlink_throughput_raw_rx_kibs > 0:
                 ticker.set_gauge(
-                    name='gpu.nvlink.throughput.raw.rx', tags=metric_tags, 
+                    name='gpu.nvlink.throughput.raw.rx', tags=device_tags, 
                     value=device_usage.nvlink_throughput_raw_rx_kibs, measurement_ts=now_ns, unit='kibibytes_per_second')
             if device_usage.nvlink_bandwidth_tx_gbps > 0:
                 ticker.set_gauge(
-                    name='gpu.nvlink.bandwidth.tx', tags=metric_tags, 
+                    name='gpu.nvlink.bandwidth.tx', tags=device_tags, 
                     value=device_usage.nvlink_bandwidth_tx_gbps, measurement_ts=now_ns, unit='gigabits_per_second')
             if device_usage.nvlink_bandwidth_rx_gbps > 0:
                 ticker.set_gauge(
-                    name='gpu.nvlink.bandwidth.rx', tags=metric_tags, 
+                    name='gpu.nvlink.bandwidth.rx', tags=device_tags, 
                     value=device_usage.nvlink_bandwidth_rx_gbps, measurement_ts=now_ns, unit='gigabits_per_second')
             if device_usage.nvlink_utilization_tx_percent > 0:
                 ticker.set_gauge(
-                    name='gpu.nvlink.utilization.tx', tags=metric_tags, 
+                    name='gpu.nvlink.utilization.tx', tags=device_tags, 
                     value=device_usage.nvlink_utilization_tx_percent, measurement_ts=now_ns, unit='percent')
             if device_usage.nvlink_utilization_rx_percent > 0:
                 ticker.set_gauge(
-                    name='gpu.nvlink.utilization.rx', tags=metric_tags, 
+                    name='gpu.nvlink.utilization.rx', tags=device_tags, 
                     value=device_usage.nvlink_utilization_rx_percent, measurement_ts=now_ns, unit='percent')
             if device_usage.nvlink_link_count > 0:
                 ticker.set_gauge(
-                    name='gpu.nvlink.link_count', tags=metric_tags, 
+                    name='gpu.nvlink.link_count', tags=device_tags, 
                     value=device_usage.nvlink_link_count, measurement_ts=now_ns)
             if device_usage.nvlink_active_links > 0:
                 ticker.set_gauge(
-                    name='gpu.nvlink.active_links', tags=metric_tags, 
+                    name='gpu.nvlink.active_links', tags=device_tags, 
                     value=device_usage.nvlink_active_links, measurement_ts=now_ns)
             if device_usage.nvlink_link_speed_gbps > 0:
                 ticker.set_gauge(
-                    name='gpu.nvlink.link_speed', tags=metric_tags, 
+                    name='gpu.nvlink.link_speed', tags=device_tags, 
                     value=device_usage.nvlink_link_speed_gbps, measurement_ts=now_ns, unit='gigabits_per_second')
             if device_usage.nvlink_link_width > 0:
                 ticker.set_gauge(
-                    name='gpu.nvlink.link_width', tags=metric_tags, 
+                    name='gpu.nvlink.link_width', tags=device_tags, 
                     value=device_usage.nvlink_link_width, measurement_ts=now_ns)
             
             # Error metrics
             if device_usage.ecc_sbe_volatile_total > 0:
                 ticker.set_gauge(
-                    name='gpu.errors.ecc.sbe.volatile', tags=metric_tags,
+                    name='gpu.errors.ecc.sbe.volatile', tags=device_tags,
                     value=device_usage.ecc_sbe_volatile_total, measurement_ts=now_ns)
             if device_usage.ecc_dbe_volatile_total > 0:
                 ticker.set_gauge(
-                    name='gpu.errors.ecc.dbe.volatile', tags=metric_tags,
+                    name='gpu.errors.ecc.dbe.volatile', tags=device_tags,
                     value=device_usage.ecc_dbe_volatile_total, measurement_ts=now_ns)
             if device_usage.ecc_sbe_aggregate_total > 0:
                 ticker.set_gauge(
-                    name='gpu.errors.ecc.sbe.aggregate', tags=metric_tags,
+                    name='gpu.errors.ecc.sbe.aggregate', tags=device_tags,
                     value=device_usage.ecc_sbe_aggregate_total, measurement_ts=now_ns)
             if device_usage.ecc_dbe_aggregate_total > 0:
                 ticker.set_gauge(
-                    name='gpu.errors.ecc.dbe.aggregate', tags=metric_tags,
+                    name='gpu.errors.ecc.dbe.aggregate', tags=device_tags,
                     value=device_usage.ecc_dbe_aggregate_total, measurement_ts=now_ns)
             if device_usage.pcie_replay_counter > 0:
                 ticker.set_gauge(
-                    name='gpu.errors.pcie.replay', tags=metric_tags,
+                    name='gpu.errors.pcie.replay', tags=device_tags,
                     value=device_usage.pcie_replay_counter, measurement_ts=now_ns)
             if device_usage.nvlink_replay_errors > 0:
                 ticker.set_gauge(
-                    name='gpu.errors.nvlink.replay', tags=metric_tags,
+                    name='gpu.errors.nvlink.replay', tags=device_tags,
                     value=device_usage.nvlink_replay_errors, measurement_ts=now_ns)
             if device_usage.nvlink_recovery_errors > 0:
                 ticker.set_gauge(
-                    name='gpu.errors.nvlink.recovery', tags=metric_tags,
+                    name='gpu.errors.nvlink.recovery', tags=device_tags,
                     value=device_usage.nvlink_recovery_errors, measurement_ts=now_ns)
             if device_usage.nvlink_crc_errors > 0:
                 ticker.set_gauge(
-                    name='gpu.errors.nvlink.crc', tags=metric_tags,
+                    name='gpu.errors.nvlink.crc', tags=device_tags,
                     value=device_usage.nvlink_crc_errors, measurement_ts=now_ns)
             if device_usage.nvlink_minor_errors > 0:
                 ticker.set_gauge(
-                    name='gpu.errors.nvlink.minor', tags=metric_tags,
+                    name='gpu.errors.nvlink.minor', tags=device_tags,
                     value=device_usage.nvlink_minor_errors, measurement_ts=now_ns)
             if device_usage.nvlink_major_errors > 0:
                 ticker.set_gauge(
-                    name='gpu.errors.nvlink.major', tags=metric_tags,
+                    name='gpu.errors.nvlink.major', tags=device_tags,
                     value=device_usage.nvlink_major_errors, measurement_ts=now_ns)
             if device_usage.nvlink_fatal_errors > 0:
                 ticker.set_gauge(
-                    name='gpu.errors.nvlink.fatal', tags=metric_tags,
+                    name='gpu.errors.nvlink.fatal', tags=device_tags,
                     value=device_usage.nvlink_fatal_errors, measurement_ts=now_ns)
             if device_usage.retired_pages_sbe > 0:
                 ticker.set_gauge(
-                    name='gpu.errors.retired_pages.sbe', tags=metric_tags,
+                    name='gpu.errors.retired_pages.sbe', tags=device_tags,
                     value=device_usage.retired_pages_sbe, measurement_ts=now_ns)
             if device_usage.retired_pages_dbe > 0:
                 ticker.set_gauge(
-                    name='gpu.errors.retired_pages.dbe', tags=metric_tags,
+                    name='gpu.errors.retired_pages.dbe', tags=device_tags,
                     value=device_usage.retired_pages_dbe, measurement_ts=now_ns)
 
             # XID errors
             num_xid_errors = len(device_usage.last_xid_error_codes)
             if num_xid_errors > 0:
                 ticker.inc_counter(
-                    name='gpu.errors.xid', tags=metric_tags, 
+                    name='gpu.errors.xid', tags=device_tags, 
                     value=num_xid_errors, measurement_ts=now_ns)
                 for xid_error_code in device_usage.last_xid_error_codes:
                     graphsignal._ticker.log_message(
                         message=f'XID error {xid_error_code}',
-                        tags=metric_tags,
+                        tags=device_tags,
                         level='error'
                     )
                 device_usage.last_xid_error_codes = []
+
+            resource_attrs = {}
+            if device_usage.architecture:
+                resource_attrs['architecture'] = device_usage.architecture
+            if device_usage.compute_capability:
+                resource_attrs['compute_capability'] = f'{device_usage.compute_capability.major}.{device_usage.compute_capability.minor}'
+            if device_usage.mem_total > 0:
+                resource_attrs['mem_total'] = str(device_usage.mem_total)
+            ticker.update_resource(
+                'device',
+                tags=device_tags,
+                attributes=resource_attrs,
+                first_seen_ts=self._gpu_first_seen_ts)
 
     def take_snapshot(self) -> List[DeviceUsage]:
         if not self._is_initialized:

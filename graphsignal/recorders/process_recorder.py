@@ -78,6 +78,7 @@ class ProcessRecorder(BaseRecorder):
         self._last_read_sec = None
         self._last_cpu_time_us = None
         self._last_snapshot = None
+        self._process_start_ts = time.time_ns()
 
     def setup(self):
         process_usage, node_usage = self.take_snapshot()
@@ -120,23 +121,63 @@ class ProcessRecorder(BaseRecorder):
 
         ticker = graphsignal._ticker
 
-        metric_tags = {}
         if process_usage.cpu_usage_percent > 0:
             ticker.set_gauge(
-                name='process.cpu.usage', tags=metric_tags, 
+                name='process.cpu.usage', 
                 value=process_usage.cpu_usage_percent, measurement_ts=now_ns, unit='%')
         if process_usage.current_rss > 0:
             ticker.set_gauge(
-                name='process.memory.usage', tags=metric_tags, 
+                name='process.memory.usage', 
                 value=process_usage.current_rss, measurement_ts=now_ns)
         if process_usage.vm_size > 0:
             ticker.set_gauge(
-                name='process.memory.virtual', tags=metric_tags, 
+                name='process.memory.virtual', 
                 value=process_usage.vm_size, measurement_ts=now_ns)
         if node_usage.mem_used > 0:
             ticker.set_gauge(
-                name='host.memory.usage', tags=metric_tags, 
+                name='host.memory.usage', 
                 value=node_usage.mem_used, measurement_ts=now_ns)
+
+        process_tags = ticker.process_tags()
+
+        process_attrs = {}
+        try:
+            if sys.argv:
+                process_attrs['process.command_line'] = ' '.join(sys.argv)
+        except Exception:
+            pass
+
+        ticker.update_resource(
+            'process',
+            tags=process_tags,
+            attributes=process_attrs,
+            first_seen_ts=self._process_start_ts)
+
+        # "node" = OS/compute view from this process (often a container), not necessarily a K8s worker node.
+        node_tags = {}
+        if node_usage.hostname:
+            node_tags['host.name'] = node_usage.hostname
+        if node_usage.pod_uid:
+            node_tags['pod.uid'] = node_usage.pod_uid
+        if node_usage.container_id:
+            node_tags['container.id'] = node_usage.container_id
+        node_attrs = {}
+        if node_usage.platform:
+            node_attrs['platform'] = node_usage.platform
+        if node_usage.machine:
+            node_attrs['machine'] = node_usage.machine
+        if node_usage.os_name:
+            node_attrs['os'] = f'{node_usage.os_name} {node_usage.os_version or ""}'.strip()
+        if node_usage.mem_total > 0:
+            node_attrs['mem_total'] = str(node_usage.mem_total)
+        if node_usage.ip_address:
+            node_attrs['ip_address'] = node_usage.ip_address
+
+        ticker.update_resource(
+            'node',
+            tags=node_tags,
+            attributes=node_attrs,
+            first_seen_ts=self._process_start_ts)
 
     def take_snapshot(self):
         if not OS_WIN:

@@ -36,6 +36,9 @@ class SignalUploader:
     def upload_log_batch(self, log_batch):
         self.upload_signal(log_batch)
 
+    def upload_resource(self, resource):
+        self.upload_signal(resource)
+
     def upload_signal(self, signal):
         with self._buffer_lock:
             self._buffer.append(signal)
@@ -63,13 +66,13 @@ class SignalUploader:
                     self._buffer[:0] = outgoing
 
     def _post(self, endpoint, data):
-        logger.debug('Posting data to %s/%s', graphsignal._ticker.api_url, endpoint)
+        logger.debug('Posting data to %s/%s', graphsignal._ticker.api_url(), endpoint)
 
-        url = f"{graphsignal._ticker.api_url}/{endpoint}"
+        url = f"{graphsignal._ticker.api_url()}/{endpoint}"
         data_gzip = self._gzip_data(data)
 
         headers = {
-            'X-API-Key': graphsignal._ticker.api_key,
+            'X-API-Key': graphsignal._ticker.api_key(),
             'Content-Type': 'application/octet-stream',
             'Content-Encoding': 'gzip'
         }
@@ -101,6 +104,8 @@ class SignalUploader:
                 upload_request.metrics.append(signal)
             elif isinstance(signal, signals_pb2.LogBatch):
                 upload_request.log_batches.append(signal)
+            elif isinstance(signal, signals_pb2.Resource):
+                upload_request.resources.append(signal)
 
         upload_request.upload_ts = time.time_ns()
         return upload_request.SerializeToString()

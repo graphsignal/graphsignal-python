@@ -22,7 +22,7 @@ class SpansTest(unittest.TestCase):
             tags={'deployment': 'd1', 'k1': 'v1'},
             debug_mode=True)
         graphsignal._ticker.hostname = 'h1'
-        graphsignal._ticker.auto_tick = False
+        graphsignal._ticker._auto_tick = False
 
     def tearDown(self):
         graphsignal.shutdown()
@@ -70,7 +70,7 @@ class SpansTest(unittest.TestCase):
         self.assertEqual(find_counter(span, 'c3'), 3)
         
         store = graphsignal._ticker.metric_store()
-        metric_tags =  graphsignal._ticker.tags.copy()
+        metric_tags = graphsignal._ticker.process_tags()
         metric_tags['span.name'] = 'op1'
         key = store.metric_key('span.call.count', metric_tags)
         self.assertEqual(find_last_datapoint(store, key).total, 10)
@@ -131,7 +131,7 @@ class SpansTest(unittest.TestCase):
             self.assertIsNotNone(event_attrs.get('exception.stacktrace'))
 
         store = graphsignal._ticker.metric_store()
-        metric_tags = graphsignal._ticker.tags.copy()
+        metric_tags = graphsignal._ticker.process_tags()
         metric_tags['span.name'] = 'op1'
         key = store.metric_key('span.error.count', metric_tags)
         self.assertEqual(find_last_datapoint(store, key).total, 2)

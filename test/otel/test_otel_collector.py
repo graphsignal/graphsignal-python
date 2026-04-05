@@ -19,7 +19,7 @@ class OTELCollectorTest(unittest.TestCase):
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._ticker.auto_tick = False
+        graphsignal._ticker._auto_tick = False
 
     def tearDown(self):
         graphsignal.shutdown()

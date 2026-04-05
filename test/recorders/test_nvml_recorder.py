@@ -31,7 +31,7 @@ class NVMLRecorderTest(unittest.TestCase):
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._ticker.auto_tick = False
+        graphsignal._ticker._auto_tick = False
 
     def tearDown(self):
         graphsignal.shutdown()
@@ -67,7 +67,7 @@ class NVMLRecorderTest(unittest.TestCase):
 
         store = ticker.metric_store()
         self.assertTrue(len(store._metrics) > 0)
-        metric_tags =  graphsignal._ticker.tags.copy()
+        metric_tags = graphsignal._ticker.process_tags()
         key = store.metric_key('gpu.utilization', metric_tags)
         
         has_gpu_metrics = False
@@ -76,6 +76,17 @@ class NVMLRecorderTest(unittest.TestCase):
                 has_gpu_metrics = True
                 break
         self.assertTrue(has_gpu_metrics)
+
+        resource_store = ticker.resource_store()
+        self.assertTrue(resource_store.has_unexported())
+        resources = resource_store.export()
+        gpu_resources = [r for r in resources if r.kind == 'device']
+        self.assertGreaterEqual(len(gpu_resources), 1)
+        gpu_resource = gpu_resources[0]
+        attr_names = [a.name for a in gpu_resource.attributes]
+        self.assertIn('architecture', attr_names)
+        self.assertIn('compute_capability', attr_names)
+        self.assertIn('mem_total', attr_names)
 
         self.assertTrue(store._metrics is not None)
         if key in store._metrics:
@@ -191,7 +202,7 @@ class NVMLRecorderTest(unittest.TestCase):
 
         store = ticker.metric_store()
         self.assertTrue(len(store._metrics) > 0)
-        metric_tags =  graphsignal._ticker.tags.copy()
+        metric_tags = graphsignal._ticker.process_tags()
         key = store.metric_key('gpu.errors.xid', metric_tags)
         if key in store._metrics:
             self.assertEqual(find_last_datapoint(store, key).total, 3)

@@ -14,7 +14,7 @@ logger = logging.getLogger("graphsignal")
 class CuptiProfilerTest(unittest.TestCase):
     def setUp(self):
         graphsignal.configure(api_key="k1", debug_mode=True)
-        graphsignal._ticker.auto_tick = False
+        graphsignal._ticker._auto_tick = False
 
     def tearDown(self):
         graphsignal.shutdown()
@@ -134,7 +134,7 @@ class CuptiProfilerTest(unittest.TestCase):
 
         # enable graphsignal
         graphsignal.configure(api_key="k1", debug_mode=False)
-        graphsignal._ticker.auto_tick = False
+        graphsignal._ticker._auto_tick = False
 
         # Enable CUPTI profiler.
         profiler = CuptiProfiler(profile_name="profile.cuda", debug_mode=False)

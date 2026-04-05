@@ -26,7 +26,7 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         graphsignal.configure(
             api_key='k1',
             debug_mode=True)
-        graphsignal._ticker.auto_tick = False
+        graphsignal._ticker._auto_tick = False
 
     async def asyncTearDown(self):
         graphsignal.shutdown()
@@ -111,9 +111,9 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(find_counter(span, 'vllm.latency.e2e'), 225258588)
         self.assertEqual(find_counter(span, 'vllm.latency.time_in_scheduler'), 1391906)
 
-        self.assertEqual(find_attribute(span, 'vllm.startup.tensor_parallel_size'), '2')
-        self.assertEqual(find_attribute(span, 'vllm.startup.dtype'), 'bfloat16')
-        self.assertEqual(find_attribute(span, 'vllm.startup.enforce_eager'), 'False')
+        self.assertIsNone(find_attribute(span, 'vllm.startup.tensor_parallel_size'))
+        self.assertIsNone(find_attribute(span, 'vllm.startup.dtype'))
+        self.assertIsNone(find_attribute(span, 'vllm.startup.enforce_eager'))
 
     @patch.object(SignalUploader, 'upload_span')
     @patch.object(Ticker, 'should_trace', return_value=True)

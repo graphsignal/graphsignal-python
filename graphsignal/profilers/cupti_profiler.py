@@ -339,7 +339,8 @@ class CuptiProfiler:
                         profile[fields.bytes_field_id] = bytes_val
 
             if len(profile) > 0:
-                graphsignal._ticker.update_profile(name=self._profile_name, profile=profile, measurement_ts=bucket_ts)
+                process_tags = graphsignal._ticker.process_tags()
+                graphsignal._ticker.update_profile(name=self._profile_name, profile=profile, measurement_ts=bucket_ts, tags=process_tags)
 
     def _drain_native_debug_logs(self) -> None:
         if not self.lib:
