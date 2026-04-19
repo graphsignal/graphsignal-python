@@ -20,6 +20,7 @@ from graphsignal.signals.spans import Span
 from graphsignal.core.sampler import TimeCoordinatedSampler
 from graphsignal.profilers.function_profiler import FunctionProfiler
 from graphsignal.profilers.cupti_profiler import CuptiProfiler
+from graphsignal.profilers.event_profiler import EventProfiler
 from graphsignal.proto import signals_pb2
 from graphsignal.utils import uuid_sha1
 
@@ -160,6 +161,7 @@ class Ticker:
         self._resource_store = None
         self._function_profiler = None
         self._cupti_profiler = None
+        self._event_profiler = None
         self._recorders = None
 
         self._process_start_ms = int(time.time() * 1e3)
@@ -209,6 +211,10 @@ class Ticker:
         # initialize CUPTI activity profiler
         self._cupti_profiler = CuptiProfiler(profile_name='profile.cuda', debug_mode=self.debug_mode)
         self._cupti_profiler.setup()
+
+        # initialize custom event profiler
+        self._event_profiler = EventProfiler(profile_name='profile.events')
+        self._event_profiler.setup()
 
         # initialize module wrappers
         self._module_finder = SupportedModuleFinder(self)
@@ -267,6 +273,13 @@ class Ticker:
                 try:
                     self._function_profiler._stop_rollover_timer()
                     self._function_profiler._start_rollover_timer()
+                except Exception:
+                    pass
+
+            if self._event_profiler:
+                try:
+                    self._event_profiler._stop_rollover_timer()
+                    self._event_profiler._start_rollover_timer()
                 except Exception:
                     pass
 
@@ -340,6 +353,10 @@ class Ticker:
         if self._cupti_profiler:
             self._cupti_profiler.shutdown()
             self._cupti_profiler = None
+
+        if self._event_profiler:
+            self._event_profiler.shutdown()
+            self._event_profiler = None
 
         self._recorders = None
         self._metric_store = None
@@ -419,6 +436,9 @@ class Ticker:
 
     def function_profiler(self):
         return self._function_profiler
+
+    def event_profiler(self):
+        return self._event_profiler
 
     def metric_store(self):
         return self._metric_store

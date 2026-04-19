@@ -261,8 +261,8 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         span = mocked_upload_span.call_args[0][0]
 
         self.assertTrue(span.name.startswith('vllm.'))
-        self.assertEqual(find_tag(span, 'inference.engine.name'), 'vllm')
-        self.assertEqual(find_tag(span, 'inference.engine.version'), vllm.__version__)
+        self.assertEqual(find_tag(span, 'engine.name'), 'vllm')
+        self.assertEqual(find_tag(span, 'engine.version'), vllm.__version__)
         self.assertEqual(find_tag(span, 'sampling.reason'), 'vllm.otel')
 
 
@@ -318,6 +318,6 @@ class VLLMRecorderTest(unittest.IsolatedAsyncioTestCase):
         span = mocked_upload_span.call_args[0][0]
 
         self.assertTrue(span.name.startswith('vllm.'))
-        self.assertEqual(find_tag(span, 'inference.engine.name'), 'vllm')
-        self.assertEqual(find_tag(span, 'inference.engine.version'), vllm.__version__)
+        self.assertEqual(find_tag(span, 'engine.name'), 'vllm')
+        self.assertEqual(find_tag(span, 'engine.version'), vllm.__version__)
         self.assertEqual(find_tag(span, 'sampling.reason'), 'vllm.otel')

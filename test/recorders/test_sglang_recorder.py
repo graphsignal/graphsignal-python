@@ -300,8 +300,8 @@ class SGLangRecorderTest(unittest.TestCase):
             self.assertTrue(mocked_upload_span.called)
             span = mocked_upload_span.call_args[0][0]
             self.assertTrue(span.name.startswith('sglang.'))
-            self.assertEqual(find_tag(span, 'inference.engine.name'), 'sglang')
-            self.assertEqual(find_tag(span, 'inference.engine.version'), sglang.__version__)
+            self.assertEqual(find_tag(span, 'engine.name'), 'sglang')
+            self.assertEqual(find_tag(span, 'engine.version'), sglang.__version__)
             self.assertEqual(find_tag(span, 'sampling.reason'), 'sglang.otel')
         finally:
             engine.shutdown()
@@ -364,8 +364,8 @@ class SGLangRecorderTest(unittest.TestCase):
             self.assertTrue(mocked_upload_span.called)
             span = mocked_upload_span.call_args[0][0]
             self.assertTrue(span.name.startswith('sglang.'))
-            self.assertEqual(find_tag(span, 'inference.engine.name'), 'sglang')
-            self.assertEqual(find_tag(span, 'inference.engine.version'), sglang.__version__)
+            self.assertEqual(find_tag(span, 'engine.name'), 'sglang')
+            self.assertEqual(find_tag(span, 'engine.version'), sglang.__version__)
             self.assertEqual(find_tag(span, 'sampling.reason'), 'sglang.otel')
         finally:
             engine.shutdown()

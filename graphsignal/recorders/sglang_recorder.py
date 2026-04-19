@@ -14,6 +14,9 @@ from graphsignal.recorders.instrumentation import patch_method
 
 logger = logging.getLogger('graphsignal')
 
+# SGLang ServerArgs defaults otlp_traces_endpoint to this; only override when unchanged.
+_SGLANG_DEFAULT_OTLP_TRACES_ENDPOINT = 'localhost:4317'
+
 
 class SGLangRecorder(BaseRecorder):
     MAX_TRACE_SAMPLING_DECISIONS = 10000
@@ -35,8 +38,8 @@ class SGLangRecorder(BaseRecorder):
         self._library_version = sglang.__version__
         self._engine_start_ts = time.time_ns()
         ticker = graphsignal._ticker
-        ticker.set_tag('inference.engine.name', 'sglang')
-        ticker.set_tag('inference.engine.version', self._library_version)
+        ticker.set_tag('engine.name', 'sglang')
+        ticker.set_tag('engine.version', self._library_version)
 
         self._setup_otel_collector()
         self._patch_sglang_args()
@@ -101,7 +104,15 @@ class SGLangRecorder(BaseRecorder):
             if hasattr(server_args, 'enable_trace') and not server_args.enable_trace:
                 server_args.enable_trace = True
             if self._otel_endpoint and hasattr(server_args, 'otlp_traces_endpoint'):
-                server_args.otlp_traces_endpoint = self._otel_endpoint
+                existing = getattr(server_args, 'otlp_traces_endpoint', None)
+                existing_norm = (existing or '').strip()
+                if existing_norm and existing_norm != _SGLANG_DEFAULT_OTLP_TRACES_ENDPOINT:
+                    logger.debug(
+                        'SGLang OTEL traces endpoint already set to %s, not overwriting',
+                        existing,
+                    )
+                else:
+                    server_args.otlp_traces_endpoint = self._otel_endpoint
             self._capture_startup_options(server_args)
 
         def after_prepare_server_args(args, kwargs, ret, exc, context):

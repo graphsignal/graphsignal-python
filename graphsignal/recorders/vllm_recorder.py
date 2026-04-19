@@ -34,8 +34,8 @@ class VLLMRecorder(BaseRecorder):
         self._library_version = vllm.__version__
         self._engine_start_ts = time.time_ns()
         ticker = graphsignal._ticker
-        ticker.set_tag('inference.engine.name', 'vllm')
-        ticker.set_tag('inference.engine.version', self._library_version)
+        ticker.set_tag('engine.name', 'vllm')
+        ticker.set_tag('engine.version', self._library_version)
 
         self._setup_otel_collector()
         self._patch_vllm_args()
@@ -92,7 +92,14 @@ class VLLMRecorder(BaseRecorder):
             if hasattr(engine_args, 'disable_log_stats'):
                 engine_args.disable_log_stats = False
             if self._otel_endpoint and hasattr(engine_args, 'otlp_traces_endpoint'):
-                engine_args.otlp_traces_endpoint = self._otel_endpoint
+                existing = getattr(engine_args, 'otlp_traces_endpoint', None)
+                if existing:
+                    logger.debug(
+                        'vLLM OTEL traces endpoint already set to %s, not overwriting',
+                        existing,
+                    )
+                else:
+                    engine_args.otlp_traces_endpoint = self._otel_endpoint
             self._capture_startup_options(engine_args)
 
         def _apply_vllm_config(vllm_config):
@@ -101,7 +108,14 @@ class VLLMRecorder(BaseRecorder):
             if self._otel_endpoint and hasattr(vllm_config, 'observability_config'):
                 obs = vllm_config.observability_config
                 if hasattr(obs, 'otlp_traces_endpoint'):
-                    obs.otlp_traces_endpoint = self._otel_endpoint
+                    existing = getattr(obs, 'otlp_traces_endpoint', None)
+                    if existing:
+                        logger.debug(
+                            'vLLM OTEL traces endpoint already set to %s, not overwriting',
+                            existing,
+                        )
+                    else:
+                        obs.otlp_traces_endpoint = self._otel_endpoint
             self._capture_startup_options_from_config(vllm_config)
 
         try:
@@ -124,7 +138,14 @@ class VLLMRecorder(BaseRecorder):
             def before_llm_init(args, kwargs):
                 kwargs['disable_log_stats'] = False
                 if self._otel_endpoint:
-                    kwargs['otlp_traces_endpoint'] = self._otel_endpoint
+                    existing = kwargs.get('otlp_traces_endpoint')
+                    if existing:
+                        logger.debug(
+                            'vLLM OTEL traces endpoint already set to %s, not overwriting',
+                            existing,
+                        )
+                    else:
+                        kwargs['otlp_traces_endpoint'] = self._otel_endpoint
 
             patch_method(vllm.LLM, '__init__', before_func=before_llm_init)
         except Exception:
