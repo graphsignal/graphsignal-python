@@ -11,6 +11,7 @@ import graphsignal
 import torch
 from graphsignal.core.signal_uploader import SignalUploader
 from graphsignal.core.ticker import Ticker
+from graphsignal.profilers.event_profiler import EventProfiler
 from graphsignal.utils import sha1
 from test.test_utils import find_attribute, find_counter, find_tag
 
@@ -246,6 +247,65 @@ class SGLangRecorderTest(unittest.TestCase):
 
         mocked_upload_span.assert_not_called()
         mocked_should_trace.assert_not_called()
+
+    @patch.object(EventProfiler, 'record_event')
+    @patch.object(SignalUploader, 'upload_span')
+    @patch.object(Ticker, 'should_trace', return_value=True)
+    def test_convert_otel_span_calls_record_event(self, mocked_should_trace, mocked_upload_span, mocked_record_event):
+        try:
+            import sglang
+        except ImportError:
+            self.skipTest('sglang is not installed')
+            return
+
+        from graphsignal.recorders.sglang_recorder import SGLangRecorder
+
+        recorder = SGLangRecorder()
+
+        mock_otel_span = Mock()
+        mock_otel_span.name = 'req_root'
+        mock_otel_span.start_time = 1000000000
+        mock_otel_span.end_time = 2000000000
+        mock_otel_span.trace_id = 'trace_sg_re1'
+        mock_otel_span.span_id = 'span_sg_re1'
+        mock_otel_span.parent_span_id = ''
+        mock_otel_span.attributes = {}
+
+        recorder._convert_otel_span(mock_otel_span)
+
+        mocked_record_event.assert_called_once()
+        kw = mocked_record_event.call_args.kwargs
+        self.assertEqual(kw['op_name'], 'sglang.req_root')
+        self.assertEqual(kw['category'], 'sglang.otel')
+        self.assertEqual(kw['start_ns'], 1000000000)
+        self.assertEqual(kw['end_ns'], 2000000000)
+
+    @patch.object(EventProfiler, 'record_event')
+    @patch.object(SignalUploader, 'upload_span')
+    @patch.object(Ticker, 'should_trace', return_value=False)
+    def test_convert_otel_span_no_record_event_when_not_sampled(self, mocked_should_trace, mocked_upload_span, mocked_record_event):
+        try:
+            import sglang
+        except ImportError:
+            self.skipTest('sglang is not installed')
+            return
+
+        from graphsignal.recorders.sglang_recorder import SGLangRecorder
+
+        recorder = SGLangRecorder()
+
+        mock_otel_span = Mock()
+        mock_otel_span.name = 'req_root'
+        mock_otel_span.start_time = 1000000000
+        mock_otel_span.end_time = 2000000000
+        mock_otel_span.trace_id = 'trace_sg_re2'
+        mock_otel_span.span_id = 'span_sg_re2'
+        mock_otel_span.parent_span_id = ''
+        mock_otel_span.attributes = {}
+
+        recorder._convert_otel_span(mock_otel_span)
+
+        mocked_record_event.assert_not_called()
 
     @unittest.skipIf(os.getenv('RUN_SGLANG_TESTS') != '1', 'skipped unless forced')
     @patch.object(SignalUploader, 'upload_span')

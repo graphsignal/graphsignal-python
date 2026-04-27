@@ -118,7 +118,7 @@ class Ticker:
     def __init__(
             self, 
             api_key=None, 
-            api_url=None, 
+            api_base=None, 
             tags=None, 
             auto_instrument=True, 
             debug_mode=False):
@@ -131,10 +131,10 @@ class Ticker:
             raise ValueError('api_key is required')
 
         self._api_key = api_key
-        if api_url:
-            self._api_url = api_url
+        if api_base:
+            self._api_base = api_base
         else:
-            self._api_url = 'https://api.graphsignal.com'
+            self._api_base = 'https://api.graphsignal.com'
         self._process_tags = {}
         if tags:
             self._process_tags.update(tags)
@@ -457,8 +457,8 @@ class Ticker:
     def api_key(self) -> str:
         return self._api_key
 
-    def api_url(self) -> str:
-        return self._api_url
+    def api_base(self) -> str:
+        return self._api_base
 
     def sampler(self, sampler_key):
         if sampler_key not in self._samplers:
@@ -491,9 +491,9 @@ class Ticker:
         if last_exc:
             raise last_exc
 
-    def set_tag(self, key: str, value: str, append_uuid: Optional[bool] = False) -> None:
+    def set_process_tag(self, key: str, value: str, append_uuid: Optional[bool] = False) -> None:
         if not key:
-            logger.error('set_tag: key must be provided')
+            logger.error('set_process_tag: key must be provided')
             return
 
         if value is None:
@@ -501,7 +501,7 @@ class Ticker:
             return
 
         if len(self._process_tags) > Ticker.MAX_PROCESS_TAGS:
-            logger.error('set_tag: too many tags (>{0})'.format(Ticker.MAX_PROCESS_TAGS))
+            logger.error('set_process_tag: too many tags (>{0})'.format(Ticker.MAX_PROCESS_TAGS))
             return
 
         if append_uuid:
@@ -512,7 +512,7 @@ class Ticker:
 
         self._process_tags[key] = value
 
-    def get_tag(self, key: str) -> Optional[str]:
+    def get_process_tag(self, key: str) -> Optional[str]:
         return self._process_tags.get(key, None)
 
     def remove_tag(self, key: str) -> None:

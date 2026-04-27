@@ -66,7 +66,7 @@ class ConfigLoader:
         try:
             tags_str = self._format_tags(graphsignal._ticker.process_tags())
             
-            url = f"{graphsignal._ticker.api_url()}/api/v1/sdk_config/"
+            url = f"{graphsignal._ticker.api_base()}/api/v1/sdk_config/"
             headers = {
                 'X-API-Key': graphsignal._ticker.api_key()
             }

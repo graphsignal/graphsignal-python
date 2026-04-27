@@ -41,7 +41,7 @@ All `configure()` args can be set via env vars: `GRAPHSIGNAL_API_KEY`, `GRAPHSIG
 | Arg | Env var | Purpose |
 |-----|---------|---------|
 | `api_key` | `GRAPHSIGNAL_API_KEY` | API key (required) |
-| `api_url` | `GRAPHSIGNAL_API_URL` | On-premise server URL |
+| `api_base` | `GRAPHSIGNAL_API_BASE` | On-premise server URL |
 | `tags` | `GRAPHSIGNAL_TAG_{KEY}` | Process-level tags |
 | `auto_instrument` | `GRAPHSIGNAL_AUTO_INSTRUMENT` | Auto-instrument libraries (default `True`) |
 | `debug_mode` | `GRAPHSIGNAL_DEBUG_MODE` | Enable debug logging |

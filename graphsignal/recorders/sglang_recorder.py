@@ -38,8 +38,8 @@ class SGLangRecorder(BaseRecorder):
         self._library_version = sglang.__version__
         self._engine_start_ts = time.time_ns()
         ticker = graphsignal._ticker
-        ticker.set_tag('engine.name', 'sglang')
-        ticker.set_tag('engine.version', self._library_version)
+        ticker.set_process_tag('engine.name', 'sglang')
+        ticker.set_process_tag('engine.version', self._library_version)
 
         self._setup_otel_collector()
         self._patch_sglang_args()
@@ -243,6 +243,14 @@ class SGLangRecorder(BaseRecorder):
             _add_counter(span, 'sglang.latency.time_in_model_decode', attributes['gen_ai.latency.time_in_model_decode'], sec_to_ns=True)
         if 'gen_ai.latency.time_in_model_inference' in attributes:
             _add_counter(span, 'sglang.latency.time_in_model_inference', attributes['gen_ai.latency.time_in_model_inference'], sec_to_ns=True)
+
+        event_profiler = graphsignal._ticker.event_profiler()
+        if event_profiler:
+            event_profiler.record_event(
+                op_name=span.name,
+                category='sglang.otel',
+                start_ns=span.start_ts,
+                end_ns=span.end_ts)
 
         graphsignal._ticker.signal_uploader().upload_span(span)
 

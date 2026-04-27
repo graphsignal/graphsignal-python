@@ -283,6 +283,15 @@ class Span:
                 _ticker().inc_counter(
                     name=metric.name, tags=metric_tags, value=metric.value, measurement_ts=end_ns, aggregate=True)
 
+        event_profiler = _ticker().event_profiler()
+        if event_profiler:
+            event_profiler.record_event(
+                op_name=self._name,
+                category='span',
+                has_error=bool(self._exc_infos),
+                start_ns=self._start_ts,
+                end_ns=end_ns)
+
         # add exception events
         if self._exc_infos:
             for exc_info in self._exc_infos:

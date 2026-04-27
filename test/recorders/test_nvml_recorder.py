@@ -60,10 +60,10 @@ class NVMLRecorderTest(unittest.TestCase):
 
         ticker = graphsignal._ticker
         if torch.cuda.is_available():
-            self.assertTrue(ticker.get_tag('device.bus_id') is not None)
-            self.assertTrue(ticker.get_tag('device.uuid') is not None)
-            self.assertTrue(ticker.get_tag('device.address') is not None)
-            self.assertTrue(ticker.get_tag('device.name') is not None)
+            self.assertTrue(ticker.get_process_tag('device.bus_id') is not None)
+            self.assertTrue(ticker.get_process_tag('device.uuid') is not None)
+            self.assertTrue(ticker.get_process_tag('device.address') is not None)
+            self.assertTrue(ticker.get_process_tag('device.name') is not None)
 
         store = ticker.metric_store()
         self.assertTrue(len(store._metrics) > 0)

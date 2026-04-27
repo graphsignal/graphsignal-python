@@ -85,34 +85,34 @@ class ProcessRecorder(BaseRecorder):
 
         ticker = graphsignal._ticker
         if platform.system() and platform.release():
-            ticker.set_tag('platform.name', platform.system())
-            ticker.set_tag('platform.version', platform.release())
+            ticker.set_process_tag('platform.name', platform.system())
+            ticker.set_process_tag('platform.version', platform.release())
         if sys.version_info and len(sys.version_info) >= 3:
-            ticker.set_tag('runtime.name', 'python')
-            ticker.set_tag('runtime.version', f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')
+            ticker.set_process_tag('runtime.name', 'python')
+            ticker.set_process_tag('runtime.version', f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')
         if node_usage.hostname:
-            ticker.set_tag('host.name', node_usage.hostname)
+            ticker.set_process_tag('host.name', node_usage.hostname)
         if process_usage.pid:
-            ticker.set_tag('process.pid', str(process_usage.pid))
+            ticker.set_process_tag('process.pid', str(process_usage.pid))
         if node_usage.hostname and process_usage.pid:
-            ticker.set_tag('process.address', f'{node_usage.hostname}:{process_usage.pid}')
+            ticker.set_process_tag('process.address', f'{node_usage.hostname}:{process_usage.pid}')
         if node_usage.pod_uid:
-            ticker.set_tag('pod.uid', node_usage.pod_uid)
+            ticker.set_process_tag('pod.uid', node_usage.pod_uid)
         if node_usage.container_id:
-            ticker.set_tag('container.id', node_usage.container_id)
+            ticker.set_process_tag('container.id', node_usage.container_id)
 
         for env_var in ["RANK", "NCCL_RANK", "SLURM_PROCID", "OMPI_COMM_WORLD_RANK"]:
             if env_var in os.environ:
-                ticker.set_tag('process.rank', os.environ[env_var])
+                ticker.set_process_tag('process.rank', os.environ[env_var])
                 break
 
         for env_var in ["LOCAL_RANK", "NCCL_LOCAL_RANK", "SLURM_LOCALID", "OMPI_COMM_WORLD_LOCAL_RANK"]:
             if env_var in os.environ:
-                ticker.set_tag('process.local_rank', os.environ[env_var])
+                ticker.set_process_tag('process.local_rank', os.environ[env_var])
                 break
 
-        ticker.set_tag('sdk.name', f'graphsignal-python')
-        ticker.set_tag('sdk.version', version.__version__)
+        ticker.set_process_tag('sdk.name', f'graphsignal-python')
+        ticker.set_process_tag('sdk.version', version.__version__)
 
     def on_tick(self):
         now_ns = time.time_ns()

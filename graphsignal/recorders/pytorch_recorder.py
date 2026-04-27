@@ -17,8 +17,8 @@ class PyTorchRecorder(BaseRecorder):
 
     def setup(self):
         ticker = graphsignal._ticker
-        ticker.set_tag('framework.name', 'pytorch')
-        ticker.set_tag('framework.version', torch.__version__)
+        ticker.set_process_tag('framework.name', 'pytorch')
+        ticker.set_process_tag('framework.version', torch.__version__)
 
         for category, function_path in PROFILED_PATHS:
             ticker.profile_function_path(function_path, category=category)

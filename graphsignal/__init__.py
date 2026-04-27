@@ -21,7 +21,7 @@ def _check_configured():
 
 def configure(
     api_key: Optional[str] = None,
-    api_url: Optional[str] = None,
+    api_base: Optional[str] = None,
     deployment: Optional[str] = None,
     tags: Optional[Dict[str, str]] = None,
     auto_instrument: Optional[bool] = None,
@@ -34,7 +34,7 @@ def configure(
         return
 
     api_key = read_config_param("api_key", str, api_key, required=True)
-    api_url = read_config_param("api_url", str, api_url)
+    api_base = read_config_param("api_base", str, api_base)
     tags = read_config_tags(tags)
     auto_instrument = read_config_param("auto_instrument", bool, auto_instrument, default_value=True)
     debug_mode = read_config_param("debug_mode", bool, debug_mode, default_value=False)
@@ -45,7 +45,7 @@ def configure(
 
     _ticker = Ticker(
         api_key=api_key,
-        api_url=api_url,
+        api_base=api_base,
         tags=tags,
         auto_instrument=auto_instrument,
         debug_mode=debug_mode)
@@ -60,12 +60,12 @@ def configure(
 
 def set_tag(key: str, value: str) -> None:
     _check_configured()
-    _ticker.set_tag(key, value)
+    _ticker.set_process_tag(key, value)
 
 
 def get_tag(key: str) -> Optional[str]:
     _check_configured()
-    return _ticker.get_tag(key)
+    return _ticker.get_process_tag(key)
 
 
 def remove_tag(key: str):

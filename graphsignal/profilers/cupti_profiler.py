@@ -197,10 +197,10 @@ class CuptiProfiler:
             return self._current_event_id
 
     def add_kernel_pattern(self, pattern: str, op_name: str) -> None:
-        descriptor = dict(category="gpu.compute", op_name=op_name, statistic="cumtime", unit="ns")
+        descriptor = dict(category="gpu.compute", op_name=op_name, kernel_pattern=pattern, statistic="cumtime", unit="ns")
         cumtime_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
 
-        descriptor = dict(category="gpu.compute", op_name=op_name, statistic="ncalls")
+        descriptor = dict(category="gpu.compute", op_name=op_name, kernel_pattern=pattern, statistic="ncalls")
         ncalls_field_id = graphsignal._ticker.add_counter_profile_field(descriptor=descriptor)
 
         event_id = self._next_event_id()

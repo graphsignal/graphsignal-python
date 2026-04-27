@@ -7,6 +7,7 @@ from unittest.mock import patch, Mock
 import graphsignal
 from graphsignal.signals.spans import Span, SpanContext
 from graphsignal.core.signal_uploader import SignalUploader
+from graphsignal.profilers.event_profiler import EventProfiler
 from test.test_utils import find_tag, find_attribute, find_counter, find_last_datapoint
 
 
@@ -162,6 +163,32 @@ class SpansTest(unittest.TestCase):
 
         self.assertEqual(t4.trace_id, t1.trace_id)
         self.assertEqual(t4.parent_span_id, t1.span_id)
+
+    @patch.object(EventProfiler, 'record_event')
+    @patch.object(SignalUploader, 'upload_span')
+    def test_record_event_called_on_stop(self, mocked_upload_span, mocked_record_event):
+        span = Span(name='op1')
+        span.stop()
+
+        mocked_record_event.assert_called_once()
+        kw = mocked_record_event.call_args.kwargs
+        self.assertEqual(kw['op_name'], 'op1')
+        self.assertEqual(kw['category'], 'span')
+        self.assertEqual(kw['has_error'], False)
+        self.assertGreater(kw['start_ns'], 0)
+        self.assertGreater(kw['end_ns'], kw['start_ns'])
+
+    @patch.object(EventProfiler, 'record_event')
+    @patch.object(SignalUploader, 'upload_span')
+    def test_record_event_called_for_every_span(self, mocked_upload_span, mocked_record_event):
+        for _ in range(3):
+            Span(name='op1').stop()
+
+        self.assertEqual(mocked_record_event.call_count, 3)
+        for call in mocked_record_event.call_args_list:
+            kw = call.kwargs
+            self.assertEqual(kw['op_name'], 'op1')
+            self.assertEqual(kw['category'], 'span')
 
     @unittest.skip('for now')
     @patch.object(SignalUploader, 'upload_span')

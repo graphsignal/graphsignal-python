@@ -222,13 +222,13 @@ class NVMLRecorder(BaseRecorder):
         if len(device_usages) > 0:
             device_usage = device_usages[0]
             if device_usage.bus_id:
-                ticker.set_tag('device.bus_id', device_usage.bus_id)
+                ticker.set_process_tag('device.bus_id', device_usage.bus_id)
             if device_usage.device_uuid:
-                ticker.set_tag('device.uuid', device_usage.device_uuid)
+                ticker.set_process_tag('device.uuid', device_usage.device_uuid)
             if self._hostname and device_usage.bus_id:
-                ticker.set_tag('device.address', f'{self._hostname}:{device_usage.bus_id}')
+                ticker.set_process_tag('device.address', f'{self._hostname}:{device_usage.bus_id}')
             if device_usage.device_name:
-                ticker.set_tag('device.name', device_usage.device_name)
+                ticker.set_process_tag('device.name', device_usage.device_name)
 
         # Setup error monitoring for current devices
         self._setup_error_monitoring()
@@ -321,6 +321,13 @@ class NVMLRecorder(BaseRecorder):
         for idx, device_usage in enumerate(device_usages):
             ticker = graphsignal._ticker
             device_tags = {}
+            # from procdess tags get host id and container id if exists
+            host_name = ticker.get_process_tag('host.name')
+            if host_name:
+                device_tags['host.name'] = host_name
+            container_id = ticker.get_process_tag('container.id')
+            if container_id:
+                device_tags['container.id'] = container_id
             if device_usage.bus_id:
                 device_tags['device.bus_id'] = device_usage.bus_id
             if device_usage.device_uuid:

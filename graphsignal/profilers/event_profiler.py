@@ -15,16 +15,18 @@ DescriptorKey = Tuple[Tuple[str, str], ...]
 class EventBucket:
     __slots__ = (
         'num_running',
+        'num_exited',
+        'num_errors',
         'enter_offset_ns',
         'exit_offset_ns',
-        'extra',
     )
 
     def __init__(self):
         self.num_running = 0
+        self.num_exited = 0
+        self.num_errors = 0
         self.enter_offset_ns = 0
         self.exit_offset_ns = 0
-        self.extra: Dict[str, int] = {}
 
 
 def _descriptor_field_key(descriptor: Dict[str, Any]) -> DescriptorKey:
@@ -34,9 +36,10 @@ def _descriptor_field_key(descriptor: Dict[str, Any]) -> DescriptorKey:
 class EventProfiler:
     """
     Aggregates custom timed events into resolution-aligned buckets and exports
-    profile counters per descriptor. ``cumtime`` is computed from timing and
-    distributed across all buckets the interval spans (start_ns to end_ns).
-    All other stats are assigned to the terminal bucket (where end_ns falls).
+    profile counters per descriptor. Bucket structure mirrors the C++ EventBucket:
+    enter/exit offsets and running/exited/error counts. Cumtime is derived at
+    rollover from ``num_running * resolution + exit_offset_ns - enter_offset_ns``.
+    ``ncalls`` and ``nerrors`` are assigned to the terminal bucket only.
     The field map for a descriptor is created once on the first ``record_event``
     call and never updated.
     """
@@ -91,56 +94,52 @@ class EventProfiler:
 
     def _ensure_descriptor_field_map(
             self,
-            descriptor: Dict[str, Any],
-            stats: Dict[str, Any]) -> Optional[Dict[str, int]]:
+            descriptor: Dict[str, Any]) -> Optional[Dict[str, int]]:
         key = _descriptor_field_key(descriptor)
         existing = self._fields.get(key)
         if existing is not None:
             return existing
-        if self._field_count + 1 + len(stats) > MAX_EVENT_PROFILER_FIELDS:
+        if self._field_count + 3 > MAX_EVENT_PROFILER_FIELDS:
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(
                     'Event profiler field limit reached (%s), skipping descriptor',
                     MAX_EVENT_PROFILER_FIELDS)
             return None
         field_map: Dict[str, int] = {}
-        cum_id = graphsignal._ticker.add_counter_profile_field(
+        field_map['cumtime'] = graphsignal._ticker.add_counter_profile_field(
             descriptor=self._build_field_descriptor(descriptor, 'cumtime', unit='ns'))
-        field_map['cumtime'] = cum_id
-        self._field_count += 1
-        for stat_name in stats:
-            field_id = graphsignal._ticker.add_counter_profile_field(
-                descriptor=self._build_field_descriptor(descriptor, stat_name))
-            field_map[stat_name] = field_id
-            self._field_count += 1
+        field_map['ncalls'] = graphsignal._ticker.add_counter_profile_field(
+            descriptor=self._build_field_descriptor(descriptor, 'ncalls'))
+        field_map['nerrors'] = graphsignal._ticker.add_counter_profile_field(
+            descriptor=self._build_field_descriptor(descriptor, 'nerrors'))
+        self._field_count += 3
         self._fields[key] = field_map
         return field_map
 
     def record_event(
             self,
-            descriptor: Dict[str, Any],
-            stats: Dict[str, Any],
+            *,
+            op_name: str,
+            category: str,
+            meta_info: Optional[Dict[str, Any]] = None,
+            has_error: bool = False,
             start_ns: int,
-            end_ns: int) -> None:
+            end_ns: Optional[int] = None) -> None:
         if self._disabled:
             return
-        if descriptor.get('op_name') is None or descriptor.get('category') is None:
-            logger.error('record_event: descriptor must include op_name and category')
-            return
-        if not stats:
-            logger.error('record_event: stats must include at least one stat')
+        if not op_name or not category:
+            logger.error('record_event: op_name and category are required')
             return
 
-        if self._ensure_descriptor_field_map(descriptor, stats) is None:
-            return
+        if end_ns is None:
+            end_ns = start_ns + 1
 
-        values: Dict[str, int] = {}
-        for stat_name, raw in stats.items():
-            try:
-                values[stat_name] = int(raw)
-            except (TypeError, ValueError):
-                logger.error('record_event: stat %s must be an integer', stat_name)
-                return
+        descriptor: Dict[str, Any] = {'op_name': op_name, 'category': category}
+        if meta_info:
+            descriptor.update(meta_info)
+
+        if self._ensure_descriptor_field_map(descriptor) is None:
+            return
 
         key = _descriptor_field_key(descriptor)
         with self._bucket_lock:
@@ -148,7 +147,7 @@ class EventProfiler:
                 event_key=key,
                 start_ts=start_ns,
                 end_ts=end_ns,
-                values=values,
+                has_error=has_error,
             )
 
     def _align_down(self, ts_ns: int) -> int:
@@ -160,7 +159,7 @@ class EventProfiler:
             event_key: DescriptorKey,
             start_ts: int,
             end_ts: int,
-            values: Dict[str, int]) -> None:
+            has_error: bool) -> None:
         if end_ts <= start_ts or self._resolution_ns == 0:
             return
 
@@ -183,10 +182,13 @@ class EventProfiler:
 
             if end_ts <= bucket_end:
                 eb.exit_offset_ns += end_ts - bucket_ts
-                for name, value in values.items():
-                    eb.extra[name] = eb.extra.get(name, 0) + value
+                eb.num_exited += 1
+                if has_error:
+                    eb.num_errors += 1
                 break
-            eb.num_running += 1
+            else:
+                eb.num_running += 1
+
             bucket_ts = bucket_end
 
     def _start_rollover_timer(self) -> None:
@@ -240,19 +242,18 @@ class EventProfiler:
                     field_map = self._fields.get(event_key)
                     if not field_map:
                         continue
-                    if bucket.num_running > 0 or bucket.exit_offset_ns > 0:
-                        cumtime = (
-                            res * bucket.num_running
-                            - bucket.enter_offset_ns
-                            + bucket.exit_offset_ns)
-                        cumtime = max(0, int(cumtime))
+                    active_ns = bucket.num_running * res - bucket.enter_offset_ns + bucket.exit_offset_ns
+                    ncalls = bucket.num_running + bucket.num_exited
+                    if active_ns > 0:
                         fid = field_map.get('cumtime')
-                        if fid and cumtime > 0:
-                            profile[fid] = cumtime
-                    for stat_name, total in bucket.extra.items():
-                        fid = field_map.get(stat_name)
-                        if fid and total > 0:
-                            profile[fid] = total
+                        if fid:
+                            profile[fid] = active_ns
+                        fid = field_map.get('ncalls')
+                        if fid and ncalls > 0:
+                            profile[fid] = ncalls
+                        fid = field_map.get('nerrors')
+                        if fid and bucket.num_errors > 0:
+                            profile[fid] = bucket.num_errors
 
                 if profile:
                     profiles_by_ts[bucket_ts] = profile

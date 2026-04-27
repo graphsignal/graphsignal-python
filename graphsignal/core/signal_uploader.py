@@ -66,9 +66,9 @@ class SignalUploader:
                     self._buffer[:0] = outgoing
 
     def _post(self, endpoint, data):
-        logger.debug('Posting data to %s/%s', graphsignal._ticker.api_url(), endpoint)
+        logger.debug('Posting data to %s/%s', graphsignal._ticker.api_base(), endpoint)
 
-        url = f"{graphsignal._ticker.api_url()}/{endpoint}"
+        url = f"{graphsignal._ticker.api_base()}/{endpoint}"
         data_gzip = self._gzip_data(data)
 
         headers = {

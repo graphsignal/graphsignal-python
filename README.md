@@ -10,7 +10,7 @@ Graphsignal is an inference observability platform that helps developers acceler
 * LLM generation tracing with per-step timing, token throughput, and latency breakdowns for major inference frameworks.
 * System-level metrics for inference engines and hardware (CPU, GPU, accelerators).
 * Error monitoring for device-level failures, runtime exceptions, and inference errors.
-* AI debugging to explain performance data and errors, identify bottlenecks, and recommend optimizations across the inference stack.
+* Inference telemetry for AI agents to identify bottlenecks and drive targeted improvements across the inference stack.
 
 [![Dashboards](https://graphsignal.com/external/screenshot-dashboard.png)](https://graphsignal.com/)
 
@@ -75,9 +75,9 @@ See the [API reference](https://graphsignal.com/docs/reference/python-api/) for 
 [Log in](https://app.graphsignal.com/) to Graphsignal to monitor and analyze your application.
 
 
-## Debug with AI
+## Optimize with AI
 
-Install the Graphsignal skill to let your AI coding agent (Cursor, Claude Code, Codex, or Gemini) fetch and analyze debug context directly from your IDE. See [AI Debugging](https://graphsignal.com/docs/guides/ai-debugging/) for setup instructions.
+Install the Graphsignal skill to let your AI coding agent (Cursor, Claude Code, Codex, or Gemini) fetch and analyze signal context directly from your IDE. See [AI Optimization](https://graphsignal.com/docs/guides/ai-optimization/) for setup instructions.
 
 
 ## Overhead
