@@ -33,7 +33,7 @@ jobs:
         run: poetry update
 
       - name: Run unit tests
-        run: poetry run test
+        run: poetry run python -m tools.run_tests
 
       - name: Publish package to PyPI
         env:

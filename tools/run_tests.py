@@ -9,3 +9,7 @@ def main():
         pytest.main(base_args + test_args)
     else:
         pytest.main(base_args + ['test'])
+
+
+if __name__ == "__main__":
+    main()

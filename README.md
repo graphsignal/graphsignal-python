@@ -4,12 +4,12 @@
 [![Version](https://img.shields.io/github/v/tag/graphsignal/graphsignal-profiler?label=version)](https://github.com/graphsignal/graphsignal-profiler)
 
 
-Graphsignal is an inference profiling platform that helps developers accelerate and troubleshoot AI systems. It provides essential visibility across the inference stack, including:
+Graphsignal is a production-scale inference profiling platform that helps engineers optimize AI performance across models, engines, GPUs, and other accelerators. It provides essential visibility across the inference stack, including:
 
 * Continuous, high-resolution profiling timelines exposing operation durations and resource utilization across inference workloads.
 * LLM generation tracing with per-step timing, token throughput, and latency breakdowns for major inference frameworks.
 * System-level metrics for inference engines and hardware (CPU, GPU, accelerators).
-* Error monitoring for device-level failures, runtime exceptions, and inference errors.
+* Error monitoring for device-level failures and inference errors.
 * Inference telemetry for AI agents to identify bottlenecks and drive targeted improvements across the inference stack.
 
 [![Dashboards](https://graphsignal.com/external/screenshot-dashboard.png)](https://graphsignal.com/)

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "graphsignal"
-version = "0.20.0"
+version = "0.20.1"
 description = "Graphsignal Profiler"
 authors = ["Graphsignal, Inc. <devops@graphsignal.com>"]
 license = "Apache-2.0"
@@ -47,8 +47,6 @@ pytest = "*"
 pytest-forked = "*"
 
 [tool.poetry.scripts]
-build-protobuf = "tools.build_protobuf:main"
-test = "tools.run_tests:main"
 graphsignal-run = "graphsignal.commands.graphsignal_run:main"
 
 [build-system]
