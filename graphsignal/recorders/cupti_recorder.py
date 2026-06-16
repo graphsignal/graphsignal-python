@@ -314,7 +314,10 @@ class CuptiRecorder(BaseRecorder):
                 computed.append((event_id_str, event_name, cumtime, eb))
 
             for event_id_str, event_name, cumtime, _ in computed:
-                if not event_name.startswith('memcpy_') and not event_name.startswith('sync_') and not event_name.startswith('memset_'):
+                if (not event_name.startswith('memcpy_')
+                        and not event_name.startswith('sync_')
+                        and not event_name.startswith('memset_')
+                        and not event_name.startswith('cuda_graph')):
                     eid = int(event_id_str)
                     self._kernel_cumtime_totals[eid] = (
                         self._kernel_cumtime_totals.get(eid, 0) + cumtime)
@@ -323,7 +326,7 @@ class CuptiRecorder(BaseRecorder):
 
             selected = [
                 row for row in computed
-                if row[1].startswith('memcpy_') or row[1].startswith('sync_') or row[1].startswith('memset_') or int(row[0]) in self._top_kernel_ids
+                if row[1].startswith('memcpy_') or row[1].startswith('sync_') or row[1].startswith('memset_') or row[1].startswith('cuda_graph') or int(row[0]) in self._top_kernel_ids
             ]
 
             profile = {}
@@ -337,6 +340,8 @@ class CuptiRecorder(BaseRecorder):
                         category, display_name, kernel_name_attr = 'cuda.sync', event_name, None
                     elif event_name.startswith('memset_'):
                         category, display_name, kernel_name_attr = 'cuda.memset', event_name, None
+                    elif event_name.startswith('cuda_graph'):
+                        category, display_name, kernel_name_attr = 'cuda.graph', event_name, None
                     else:
                         # All kernels carry the flat `cuda.kernel` category; the
                         # platform refines it to `cuda.kernel.<sub>` from the raw

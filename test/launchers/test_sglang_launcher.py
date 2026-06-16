@@ -91,11 +91,28 @@ class SglangLaunchTest(unittest.TestCase):
             launcher.launch()
 
         fx.find_port_m.assert_not_called()
-        fx.start_watcher_m.assert_called_once_with(os.getpid(), otel_collector_port=None)
+        # No --port in argv → falls back to SGLang's default serving port (30000).
+        fx.start_watcher_m.assert_called_once_with(
+            os.getpid(), otel_collector_port=None, metrics_port=30000)
         called_argv = fx.execv_m.call_args[0][1]
         self.assertIn('--enable-metrics', called_argv)
         self.assertNotIn('--enable-trace', called_argv)
         self.assertNotIn('--otlp-traces-endpoint', called_argv)
+
+    def test_launch_metrics_port_from_engine_args(self):
+        launcher = SglangLauncher(['sglang', 'serve', '--port', '30001'])
+        with LaunchFixture(sglang_mod) as fx:
+            launcher.launch()
+        fx.start_watcher_m.assert_called_once_with(
+            os.getpid(), otel_collector_port=None, metrics_port=30001)
+
+    def test_launch_explicit_metrics_port_overrides_engine_args(self):
+        launcher = SglangLauncher(
+            ['sglang', 'serve', '--port', '30001'], metrics_port=9999)
+        with LaunchFixture(sglang_mod) as fx:
+            launcher.launch()
+        fx.start_watcher_m.assert_called_once_with(
+            os.getpid(), otel_collector_port=None, metrics_port=9999)
 
     def test_launch_skips_collector_when_user_endpoint_present(self):
         # enable_otel + user-supplied --otlp-traces-endpoint → no find_port,
@@ -107,7 +124,8 @@ class SglangLaunchTest(unittest.TestCase):
             launcher.launch()
 
         fx.find_port_m.assert_not_called()
-        fx.start_watcher_m.assert_called_once_with(os.getpid(), otel_collector_port=None)
+        fx.start_watcher_m.assert_called_once_with(
+            os.getpid(), otel_collector_port=None, metrics_port=30000)
         called_argv = fx.execv_m.call_args[0][1]
         self.assertIn('--otlp-traces-endpoint', called_argv)
         idx = called_argv.index('--otlp-traces-endpoint')

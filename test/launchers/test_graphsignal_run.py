@@ -81,19 +81,52 @@ class ExtractFlagsTest(unittest.TestCase):
     def test_extracts_leading_enable_otel(self):
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(['--enable-otel', 'vllm', 'serve']),
-            (True, ['vllm', 'serve']))
+            (True, None, ['vllm', 'serve']))
 
     def test_absent_flag_defaults_off(self):
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(['vllm', 'serve']),
-            (False, ['vllm', 'serve']))
+            (False, None, ['vllm', 'serve']))
 
     def test_flag_after_command_left_for_workload(self):
         # Only leading flags are parsed; an identically named workload flag
         # later in argv is forwarded untouched.
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(['vllm', '--enable-otel']),
-            (False, ['vllm', '--enable-otel']))
+            (False, None, ['vllm', '--enable-otel']))
+
+    def test_extracts_metrics_port_space_form(self):
+        self.assertEqual(
+            graphsignal_run._extract_graphsignal_flags(
+                ['--metrics-port', '8000', 'trtllm-serve', 'm']),
+            (False, 8000, ['trtllm-serve', 'm']))
+
+    def test_extracts_metrics_port_equals_form(self):
+        self.assertEqual(
+            graphsignal_run._extract_graphsignal_flags(
+                ['--metrics-port=8000', 'trtllm-serve', 'm']),
+            (False, 8000, ['trtllm-serve', 'm']))
+
+    def test_extracts_both_leading_flags(self):
+        self.assertEqual(
+            graphsignal_run._extract_graphsignal_flags(
+                ['--enable-otel', '--metrics-port', '9001', 'vllm', 'serve']),
+            (True, 9001, ['vllm', 'serve']))
+
+    def test_metrics_port_after_command_left_for_workload(self):
+        self.assertEqual(
+            graphsignal_run._extract_graphsignal_flags(
+                ['vllm', 'serve', '--metrics-port', '8000']),
+            (False, None, ['vllm', 'serve', '--metrics-port', '8000']))
+
+    def test_invalid_metrics_port_exits(self):
+        with self.assertRaises(SystemExit):
+            graphsignal_run._extract_graphsignal_flags(
+                ['--metrics-port', 'abc', 'vllm', 'serve'])
+
+    def test_metrics_port_missing_value_exits(self):
+        with self.assertRaises(SystemExit):
+            graphsignal_run._extract_graphsignal_flags(['--metrics-port'])
 
 
 if __name__ == '__main__':

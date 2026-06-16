@@ -119,7 +119,8 @@ class WatchTest(unittest.TestCase):
             result = graphsignal.watch(otel_collector_port=4317)
 
         mock_setup_env.assert_called_once_with()
-        mock_start.assert_called_once_with(os.getpid(), otel_collector_port=4317)
+        mock_start.assert_called_once_with(
+            os.getpid(), otel_collector_port=4317, metrics_port=None)
         self.assertIs(result, sentinel_popen)
 
     def test_watch_without_otel_port(self):
@@ -129,5 +130,16 @@ class WatchTest(unittest.TestCase):
                           return_value=True):
             result = graphsignal.watch()
 
-        mock_start.assert_called_once_with(os.getpid(), otel_collector_port=None)
+        mock_start.assert_called_once_with(
+            os.getpid(), otel_collector_port=None, metrics_port=None)
         self.assertIsNone(result)
+
+    def test_watch_forwards_metrics_port(self):
+        with patch('graphsignal._start_watcher',
+                   return_value=None) as mock_start, \
+             patch.object(graphsignal._CuptiProfiler, 'setup_env_vars',
+                          return_value=True):
+            graphsignal.watch(metrics_port=8000)
+
+        mock_start.assert_called_once_with(
+            os.getpid(), otel_collector_port=None, metrics_port=8000)

@@ -29,6 +29,7 @@ def configure(
     debug_mode: Optional[bool] = None,
     target_pid: Optional[int] = None,
     otel_collector_port: Optional[int] = None,
+    metrics_port: Optional[int] = None,
 ) -> None:
     global _sdk
 
@@ -53,7 +54,8 @@ def configure(
         tags=tags,
         debug_mode=debug_mode,
         target_pid=target_pid,
-        otel_collector_port=otel_collector_port)
+        otel_collector_port=otel_collector_port,
+        metrics_port=metrics_port)
     _sdk.setup()
 
     atexit.register(shutdown)

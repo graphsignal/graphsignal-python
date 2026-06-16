@@ -3,11 +3,14 @@ import os
 import shutil
 
 from graphsignal.launchers.base_launcher import BaseLauncher
-from graphsignal.launchers.command_utils import start_watcher
+from graphsignal.launchers.command_utils import resolve_metrics_port, start_watcher
 from graphsignal.otel.otel_collector import OTELCollector
 from graphsignal.profilers.cupti_profiler import CuptiProfiler
 
 logger = logging.getLogger('graphsignal')
+
+# vLLM serves Prometheus /metrics on its HTTP server (--port, default 8000).
+DEFAULT_SERVE_PORT = 8000
 
 
 class VllmLauncher(BaseLauncher):
@@ -32,7 +35,11 @@ class VllmLauncher(BaseLauncher):
 
         new_args = _inject_vllm_args(self.args, otel_port)
 
-        start_watcher(os.getpid(), otel_collector_port=otel_port)
+        metrics_port = resolve_metrics_port(
+            self.metrics_port, self.args, default=DEFAULT_SERVE_PORT)
+
+        start_watcher(os.getpid(), otel_collector_port=otel_port,
+                      metrics_port=metrics_port)
 
         executable = _resolve(new_args[0])
         if not executable:

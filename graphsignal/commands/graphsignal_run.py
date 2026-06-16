@@ -33,10 +33,14 @@ Options (must precede the command):
                   (injects the engine's trace flags and starts a local OTLP
                   collector). Requires OpenTelemetry installed in the engine's
                   environment. Off by default.
+  --metrics-port PORT
+                  Port to scrape the engine's Prometheus /metrics endpoint on.
+                  Overrides the port derived from the engine's --port/default.
 
 Example:
   graphsignal-run vllm serve facebook/opt-125m --port 8001
   graphsignal-run --enable-otel sglang serve --model-path <model>
+  graphsignal-run --metrics-port 8000 trtllm-serve <model> --port 8000
   graphsignal-run python myapp.py
   graphsignal-run app.py
 """
@@ -46,19 +50,41 @@ def _extract_graphsignal_flags(argv):
     """Pull graphsignal-run's own flags out of argv before the workload command.
 
     `--enable-otel` opts into OTEL trace injection (engine trace flags + local
-    collector). It is consumed here and never forwarded to the workload. Only
-    leading flags (before the workload command) are parsed, so an identically
-    named workload flag later in argv is left untouched.
+    collector). `--metrics-port` overrides the Prometheus scrape port. Both are
+    consumed here and never forwarded to the workload. Only leading flags
+    (before the workload command) are parsed, so identically named workload
+    flags later in argv are left untouched.
     """
     enable_otel = False
+    metrics_port = None
     i = 0
     while i < len(argv):
-        if argv[i] == '--enable-otel':
+        arg = argv[i]
+        if arg == '--enable-otel':
             enable_otel = True
             i += 1
             continue
+        if arg == '--metrics-port':
+            if i + 1 >= len(argv):
+                print("graphsignal-run: --metrics-port requires a value\n")
+                sys.exit(1)
+            metrics_port = _parse_port(argv[i + 1])
+            i += 2
+            continue
+        if arg.startswith('--metrics-port='):
+            metrics_port = _parse_port(arg.split('=', 1)[1])
+            i += 1
+            continue
         break
-    return enable_otel, argv[i:]
+    return enable_otel, metrics_port, argv[i:]
+
+
+def _parse_port(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        print("graphsignal-run: invalid --metrics-port value: %s\n" % value)
+        sys.exit(1)
 
 
 def main():
@@ -69,14 +95,15 @@ def main():
 
     _setup_logging()
 
-    enable_otel, target_args = _extract_graphsignal_flags(sys.argv[1:])
-    log.debug('graphsignal-run target args: %s (enable_otel=%s)', target_args, enable_otel)
+    enable_otel, metrics_port, target_args = _extract_graphsignal_flags(sys.argv[1:])
+    log.debug('graphsignal-run target args: %s (enable_otel=%s, metrics_port=%s)',
+              target_args, enable_otel, metrics_port)
 
     launchers = [
-        VllmLauncher(target_args, enable_otel=enable_otel),
-        SglangLauncher(target_args, enable_otel=enable_otel),
-        TrtllmLauncher(target_args, enable_otel=enable_otel),
-        FallbackLauncher(target_args, enable_otel=enable_otel),
+        VllmLauncher(target_args, enable_otel=enable_otel, metrics_port=metrics_port),
+        SglangLauncher(target_args, enable_otel=enable_otel, metrics_port=metrics_port),
+        TrtllmLauncher(target_args, enable_otel=enable_otel, metrics_port=metrics_port),
+        FallbackLauncher(target_args, enable_otel=enable_otel, metrics_port=metrics_port),
     ]
 
     for launcher in launchers:

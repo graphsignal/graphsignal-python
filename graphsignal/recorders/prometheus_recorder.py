@@ -1,8 +1,7 @@
 import logging
 import time
-from typing import Optional, Tuple
+from typing import Optional
 
-import psutil
 try:
     from prometheus_client.parser import text_string_to_metric_families
     PROMETHEUS_AVAILABLE = True
@@ -27,83 +26,60 @@ MAX_DETECT_DELAY_SEC = 60.0
 
 
 class PrometheusRecorder(BaseRecorder):
-    def __init__(self, pid=None, args=None):
+    """Scrapes a single, known Prometheus `/metrics` endpoint.
+
+    The scrape port is resolved by the launcher (from `--metrics-port` or the
+    engine's serving port) and passed in explicitly. We never enumerate or
+    probe a process's other listening sockets — blindly connecting to them can
+    corrupt internal IPC channels (e.g. TensorRT-LLM's ZeroMQ queues).
+    """
+
+    def __init__(self, pid=None, args=None, metrics_port=None):
         super().__init__(pid=pid, args=args)
-        self._endpoint: Optional[str] = None
+        self._endpoint: Optional[str] = (
+            f'http://127.0.0.1:{int(metrics_port)}/metrics'
+            if metrics_port is not None else None)
+        self._verified: bool = False
         self._last_values: dict = {}
         self._next_detect_ts: float = 0.0
         self._detect_delay_sec: float = INITIAL_DETECT_DELAY_SEC
 
     def setup(self):
-        # Detection is lazy; first on_tick tries after the initial delay.
+        # Scraping is lazy; the first on_tick waits the initial delay since the
+        # server may not be listening yet right after launch.
         self._next_detect_ts = time.time() + INITIAL_DETECT_DELAY_SEC
 
     def on_tick(self):
         if not PROMETHEUS_AVAILABLE or not HTTP_AVAILABLE:
             return
-
         if self._endpoint is None:
-            if time.time() < self._next_detect_ts:
-                return
-            self._endpoint = self._detect_endpoint()
-            if self._endpoint is None:
-                # back off with cap
-                self._detect_delay_sec = min(self._detect_delay_sec * 2, MAX_DETECT_DELAY_SEC)
-                self._next_detect_ts = time.time() + self._detect_delay_sec
-                return
-            logger.debug('Prometheus /metrics endpoint discovered: %s', self._endpoint)
+            return
+
+        if not self._verified and time.time() < self._next_detect_ts:
+            return
 
         try:
             body = self._fetch_metrics(self._endpoint)
         except Exception as exc:
             logger.debug('Failed to fetch %s: %s', self._endpoint, exc)
-            self._endpoint = None
-            self._detect_delay_sec = INITIAL_DETECT_DELAY_SEC
+            # Server may still be starting up; back off and retry the same port.
+            self._verified = False
+            self._detect_delay_sec = min(self._detect_delay_sec * 2, MAX_DETECT_DELAY_SEC)
             self._next_detect_ts = time.time() + self._detect_delay_sec
             return
+
+        if not self._verified:
+            if not _looks_like_prometheus(body):
+                self._detect_delay_sec = min(self._detect_delay_sec * 2, MAX_DETECT_DELAY_SEC)
+                self._next_detect_ts = time.time() + self._detect_delay_sec
+                return
+            self._verified = True
+            logger.debug('Prometheus /metrics endpoint confirmed: %s', self._endpoint)
 
         try:
             self._parse_and_emit(body)
         except Exception as exc:
             logger.error('Failed to parse Prometheus metrics: %s', exc, exc_info=True)
-
-    def _candidate_pids(self):
-        if self.pid is None:
-            return []
-        pids = [self.pid]
-        try:
-            for child in psutil.Process(self.pid).children(recursive=True):
-                pids.append(child.pid)
-        except psutil.Error:
-            pass
-        return pids
-
-    def _candidate_ports(self):
-        seen = set()
-        for pid in self._candidate_pids():
-            try:
-                proc = psutil.Process(pid)
-                conns = proc.net_connections(kind='inet')
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.Error):
-                continue
-            for c in conns:
-                if c.status != psutil.CONN_LISTEN:
-                    continue
-                port = getattr(c.laddr, 'port', None)
-                if port and port not in seen:
-                    seen.add(port)
-                    yield port
-
-    def _detect_endpoint(self) -> Optional[str]:
-        for port in self._candidate_ports():
-            url = f'http://127.0.0.1:{port}/metrics'
-            try:
-                body = self._fetch_metrics(url, timeout=1.0)
-            except Exception:
-                continue
-            if _looks_like_prometheus(body):
-                return url
-        return None
 
     @staticmethod
     def _fetch_metrics(url: str, timeout: float = 2.0) -> str:

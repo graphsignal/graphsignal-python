@@ -539,6 +539,75 @@ class CuptiRecorderTest(unittest.TestCase):
 
         self.assertNotIn(94000, recorder._kernel_cumtime_totals)
 
+    def test_cuda_graph_descriptor_has_no_fingerprint_or_kernel_name(self):
+        recorder = CuptiRecorder()
+
+        events = {'70001': _kernel_event('cuda_graph_7', cumtime=5_000_000)}
+
+        with patch.object(graphsignal.sdk.sdk(), 'add_counter_profile_field',
+                          wraps=graphsignal.sdk.sdk().add_counter_profile_field) as mock_cf, \
+             patch.object(graphsignal.sdk.sdk(), 'update_profile'):
+            recorder._convert_to_profile([{'bucket_ts': 9400, 'events': events}])
+
+        descriptors = [c.kwargs['descriptor'] for c in mock_cf.call_args_list]
+        graph_descs = [d for d in descriptors if d['category'] == 'cuda.graph']
+        self.assertTrue(graph_descs, 'expected at least one cuda.graph descriptor')
+        for d in graph_descs:
+            # Raw "cuda_graph_<graphId>" name kept verbatim: no make_op_name
+            # "<family>@<4 hex>" fingerprint and no kernel_name attribute.
+            self.assertEqual(d['op_name'], 'cuda_graph_7')
+            self.assertNotIn('@', d['op_name'])
+            self.assertNotIn('kernel_name', d)
+
+    def test_cuda_graph_no_bytes_no_occupancy_has_host_sync_wait(self):
+        recorder = CuptiRecorder()
+
+        buckets = [{
+            'bucket_ts': 9500,
+            'events': {'70002': _kernel_event('cuda_graph_3', cumtime=4_000_000,
+                                              host_sync_wait=1_000_000)},
+        }]
+
+        with patch.object(graphsignal.sdk.sdk(), 'update_profile') as mock_update:
+            recorder._convert_to_profile(buckets)
+
+        fields = recorder._fields[70002]
+        self.assertIsNone(fields.bytes_field_id)
+        self.assertIsNone(fields.cumtime_occupancy_field_id)
+        self.assertIsNotNone(fields.host_sync_wait_field_id)
+        profile = mock_update.call_args[1]['profile']
+        self.assertEqual(profile[fields.host_sync_wait_field_id], 1_000_000)
+
+    def test_cuda_graph_always_kept_outside_top_n(self):
+        recorder = CuptiRecorder()
+
+        events = {str(60000 + i): _kernel_event(f'kernel_{i:02d}',
+                                                cumtime=(i + 1) * 1000)
+                  for i in range(35)}
+        # Tiny cumtime so it would be evicted if ranked as a kernel; it must be
+        # kept anyway (selected like memcpy/sync/memset).
+        events['95001'] = _kernel_event('cuda_graph_1', cumtime=1)
+
+        with patch.object(graphsignal.sdk.sdk(), 'update_profile'):
+            recorder._convert_to_profile([{'bucket_ts': 7200, 'events': events}])
+
+        self.assertIn(95001, recorder._fields)
+
+    def test_cuda_graph_excluded_from_top_n_accumulation(self):
+        recorder = CuptiRecorder()
+
+        buckets = [{
+            'bucket_ts': 7300,
+            'events': {'95002': _kernel_event('cuda_graph_2', cumtime=9_000_000)},
+        }]
+
+        with patch.object(graphsignal.sdk.sdk(), 'update_profile'):
+            recorder._convert_to_profile(buckets)
+
+        # cuda_graph events are not kernels — they must not pollute the kernel
+        # cumtime ranking.
+        self.assertNotIn(95002, recorder._kernel_cumtime_totals)
+
     def test_occupancy_emitted(self):
         recorder = CuptiRecorder()
 

@@ -11,7 +11,7 @@ USAGE = """
 Watch a target process (and its descendants) and report profiling data.
 
 Usage:
-  graphsignal-watch --pid PID [--otel-collector-port PORT]
+  graphsignal-watch --pid PID [--otel-collector-port PORT] [--metrics-port PORT]
 """
 
 
@@ -25,12 +25,15 @@ def main():
                         help='Target process PID to watch')
     parser.add_argument('--otel-collector-port', type=int, default=None,
                         help='Port for the local OTLP/gRPC collector')
+    parser.add_argument('--metrics-port', type=int, default=None,
+                        help='Port to scrape the Prometheus /metrics endpoint on')
     args = parser.parse_args()
 
     try:
         gsdk.configure(
             target_pid=args.pid,
             otel_collector_port=args.otel_collector_port,
+            metrics_port=args.metrics_port,
         )
     except Exception as exc:
         log.error('graphsignal-watch: profiler failed to configure: %s', exc, exc_info=True)

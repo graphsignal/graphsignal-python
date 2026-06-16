@@ -31,7 +31,8 @@ class TrtllmLaunchTest(unittest.TestCase):
             ['trtllm-serve', '--model', 'm', '--port', '8000'])
         start_watcher_m, execv_m = self._launch(launcher)
 
-        start_watcher_m.assert_called_once_with(os.getpid(), otel_collector_port=None)
+        start_watcher_m.assert_called_once_with(
+            os.getpid(), otel_collector_port=None, metrics_port=8000)
         called_argv = execv_m.call_args[0][1]
         self.assertEqual(
             called_argv, ['trtllm-serve', '--model', 'm', '--port', '8000'])
@@ -41,9 +42,24 @@ class TrtllmLaunchTest(unittest.TestCase):
             ['trtllm-serve', '--model', 'm'], enable_otel=True)
         start_watcher_m, execv_m = self._launch(launcher)
 
-        start_watcher_m.assert_called_once_with(os.getpid(), otel_collector_port=None)
+        # No --port in argv → falls back to trtllm-serve's default port (8000).
+        start_watcher_m.assert_called_once_with(
+            os.getpid(), otel_collector_port=None, metrics_port=8000)
         called_argv = execv_m.call_args[0][1]
         self.assertEqual(called_argv, ['trtllm-serve', '--model', 'm'])
+
+    def test_metrics_port_from_engine_args(self):
+        launcher = TrtllmLauncher(['trtllm-serve', 'm', '--port', '8001'])
+        start_watcher_m, _ = self._launch(launcher)
+        start_watcher_m.assert_called_once_with(
+            os.getpid(), otel_collector_port=None, metrics_port=8001)
+
+    def test_explicit_metrics_port_overrides_engine_args(self):
+        launcher = TrtllmLauncher(
+            ['trtllm-serve', 'm', '--port', '8001'], metrics_port=9999)
+        start_watcher_m, _ = self._launch(launcher)
+        start_watcher_m.assert_called_once_with(
+            os.getpid(), otel_collector_port=None, metrics_port=9999)
 
 
 if __name__ == '__main__':

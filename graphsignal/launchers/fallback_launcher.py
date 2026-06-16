@@ -4,7 +4,7 @@ import shutil
 import sys
 
 from graphsignal.launchers.base_launcher import BaseLauncher
-from graphsignal.launchers.command_utils import start_watcher
+from graphsignal.launchers.command_utils import resolve_metrics_port, start_watcher
 from graphsignal.profilers.cupti_profiler import CuptiProfiler
 
 logger = logging.getLogger('graphsignal')
@@ -21,7 +21,12 @@ class FallbackLauncher(BaseLauncher):
 
         CuptiProfiler.setup_env_vars()
 
-        start_watcher(os.getpid())
+        # Generic workloads have no known metrics port; only scrape when the
+        # user passed --metrics-port (or the workload itself takes a --port).
+        metrics_port = resolve_metrics_port(
+            self.metrics_port, self.args, default=None)
+
+        start_watcher(os.getpid(), metrics_port=metrics_port)
 
         command = self.args[0]
         rest = list(self.args[1:])
