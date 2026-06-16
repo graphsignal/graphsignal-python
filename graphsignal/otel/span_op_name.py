@@ -1,4 +1,4 @@
-"""Derive stable EventProfiler op_name from OTLP span name + attributes.
+"""Derive stable SpanProfiler op_name from OTLP span name + attributes.
 
 Full span names are preserved in SpanStore for trace drill-down; only the
 profile.events op_name is normalized so per-request / per-process suffixes

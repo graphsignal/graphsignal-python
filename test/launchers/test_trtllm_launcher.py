@@ -1,10 +1,8 @@
 import os
 import unittest
+from unittest.mock import MagicMock, patch
 
-from graphsignal.launchers import trtllm_launcher as trtllm_mod
-from graphsignal.launchers.trtllm_launcher import TrtllmLauncher, _inject_trtllm_args
-
-from test.launchers._helpers import LaunchFixture
+from graphsignal.launchers.trtllm_launcher import TrtllmLauncher
 
 
 class TrtllmMatchTest(unittest.TestCase):
@@ -19,76 +17,33 @@ class TrtllmMatchTest(unittest.TestCase):
         self.assertFalse(TrtllmLauncher(['trtllm-other']).match())
 
 
-class TrtllmArgInjectionTest(unittest.TestCase):
-    def test_appends_otlp_endpoint_when_missing(self):
-        out = _inject_trtllm_args(['trtllm-serve', 'model'], otel_port=4317)
-        self.assertEqual(
-            out, ['trtllm-serve', 'model', '--otlp_traces_endpoint', '127.0.0.1:4317'])
-
-    def test_preserves_user_otlp_endpoint(self):
-        out = _inject_trtllm_args(
-            ['trtllm-serve', '--otlp_traces_endpoint', 'them:4317'],
-            otel_port=4317)
-        self.assertEqual(out.count('--otlp_traces_endpoint'), 1)
-        idx = out.index('--otlp_traces_endpoint')
-        self.assertEqual(out[idx + 1], 'them:4317')
-
-    def test_no_otel_port_means_no_endpoint_injection(self):
-        out = _inject_trtllm_args(
-            ['trtllm-serve', '--otlp_traces_endpoint', 'them:4317'],
-            otel_port=None)
-        self.assertEqual(out.count('--otlp_traces_endpoint'), 1)
-
-
 class TrtllmLaunchTest(unittest.TestCase):
-    def test_serve_command_injects_otel_endpoint_when_otel_enabled(self):
-        launcher = TrtllmLauncher(['trtllm-serve', '--model', 'm'], enable_otel=True)
-        with LaunchFixture(trtllm_mod) as fx:
+    def _launch(self, launcher):
+        with patch('graphsignal.launchers.trtllm_launcher.CuptiProfiler.setup_env_vars', return_value=True), \
+             patch('graphsignal.launchers.trtllm_launcher.start_watcher', return_value=MagicMock()) as start_watcher_m, \
+             patch('graphsignal.launchers.trtllm_launcher._resolve', return_value='/abs/trtllm-serve'), \
+             patch('os.execv') as execv_m:
             launcher.launch()
+        return start_watcher_m, execv_m
 
-        fx.find_port_m.assert_called_once()
-        fx.start_watcher_m.assert_called_once_with(os.getpid(), otel_collector_port=4242)
-        called_argv = fx.execv_m.call_args[0][1]
-        self.assertIn('--otlp_traces_endpoint', called_argv)
-        idx = called_argv.index('--otlp_traces_endpoint')
-        self.assertEqual(called_argv[idx + 1], '127.0.0.1:4242')
-
-    def test_serve_command_no_otel_by_default(self):
-        # Default (no --enable-otel): no collector port, no endpoint injection.
-        launcher = TrtllmLauncher(['trtllm-serve', '--model', 'm'])
-        with LaunchFixture(trtllm_mod) as fx:
-            launcher.launch()
-
-        fx.find_port_m.assert_not_called()
-        fx.start_watcher_m.assert_called_once_with(os.getpid(), otel_collector_port=None)
-        called_argv = fx.execv_m.call_args[0][1]
-        self.assertNotIn('--otlp_traces_endpoint', called_argv)
-
-    def test_serve_command_skips_collector_when_user_endpoint_present(self):
+    def test_argv_unchanged(self):
         launcher = TrtllmLauncher(
-            ['trtllm-serve', '--model', 'm', '--otlp_traces_endpoint', 'them:4317'],
-            enable_otel=True)
-        with LaunchFixture(trtllm_mod) as fx:
-            launcher.launch()
+            ['trtllm-serve', '--model', 'm', '--port', '8000'])
+        start_watcher_m, execv_m = self._launch(launcher)
 
-        fx.find_port_m.assert_not_called()
-        fx.start_watcher_m.assert_called_once_with(os.getpid(), otel_collector_port=None)
-        called_argv = fx.execv_m.call_args[0][1]
-        idx = called_argv.index('--otlp_traces_endpoint')
-        self.assertEqual(called_argv[idx + 1], 'them:4317')
+        start_watcher_m.assert_called_once_with(os.getpid(), otel_collector_port=None)
+        called_argv = execv_m.call_args[0][1]
+        self.assertEqual(
+            called_argv, ['trtllm-serve', '--model', 'm', '--port', '8000'])
 
-    def test_non_serve_command_skips_all_injection(self):
-        # `trtllm-llmapi-launch` runs a user script — argv is forwarded
-        # unchanged and no OTEL collector is spawned.
-        launcher = TrtllmLauncher(['trtllm-llmapi-launch', 'user_script.py'])
-        with LaunchFixture(trtllm_mod) as fx:
-            launcher.launch()
+    def test_enable_otel_flag_ignored(self):
+        launcher = TrtllmLauncher(
+            ['trtllm-serve', '--model', 'm'], enable_otel=True)
+        start_watcher_m, execv_m = self._launch(launcher)
 
-        fx.find_port_m.assert_not_called()
-        fx.start_watcher_m.assert_called_once_with(os.getpid(), otel_collector_port=None)
-        called_argv = fx.execv_m.call_args[0][1]
-        self.assertEqual(called_argv, ['trtllm-llmapi-launch', 'user_script.py'])
-        self.assertNotIn('--otlp_traces_endpoint', called_argv)
+        start_watcher_m.assert_called_once_with(os.getpid(), otel_collector_port=None)
+        called_argv = execv_m.call_args[0][1]
+        self.assertEqual(called_argv, ['trtllm-serve', '--model', 'm'])
 
 
 if __name__ == '__main__':

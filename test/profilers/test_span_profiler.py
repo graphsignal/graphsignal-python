@@ -6,16 +6,17 @@ from unittest.mock import patch
 
 import graphsignal
 import graphsignal.sdk
-from graphsignal.profilers.event_profiler import (
-    EventProfiler,
-    MAX_EVENT_PROFILER_FIELDS,
+from graphsignal.otel.span_token_stats import SpanTokenStats
+from graphsignal.profilers.span_profiler import (
+    SpanProfiler,
+    MAX_SPAN_PROFILER_FIELDS,
     _descriptor_field_key,
 )
 
 logger = logging.getLogger('graphsignal')
 
 
-class EventProfilerTest(unittest.TestCase):
+class SpanProfilerTest(unittest.TestCase):
     def setUp(self):
         if len(logger.handlers) == 0:
             logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -28,16 +29,16 @@ class EventProfilerTest(unittest.TestCase):
         graphsignal.sdk.shutdown()
 
     @patch('graphsignal.sdk._sdk.update_profile')
-    def test_record_event_single_bucket(self, mock_update_profile):
+    def test_record_span_single_bucket(self, mock_update_profile):
         res = 100_000_000
-        profiler = EventProfiler('test_profile.events')
+        profiler = SpanProfiler('test_profile.events')
         profiler.set_resolution_ns(res)
         profiler.setup()
 
         base = (time.time_ns() // res) * res + 10 * res
 
         # 5ms wall-clock interval inside one bucket
-        profiler.record_event(
+        profiler.record_span(
             op_name='op_a',
             category='custom',
             meta_info={'source': 'test'},
@@ -63,16 +64,16 @@ class EventProfilerTest(unittest.TestCase):
         profiler.shutdown()
 
     @patch('graphsignal.sdk._sdk.update_profile')
-    def test_record_event_wall_clock_derived(self, mock_update_profile):
+    def test_record_span_wall_clock_derived(self, mock_update_profile):
         res = 100_000_000
-        profiler = EventProfiler('test_profile.events')
+        profiler = SpanProfiler('test_profile.events')
         profiler.set_resolution_ns(res)
         profiler.setup()
 
         base = (time.time_ns() // res) * res + 10 * res
 
         # 1ms wall-clock interval; cumtime is now wall clock only
-        profiler.record_event(
+        profiler.record_span(
             op_name='op_wallclock',
             category='custom',
             start_ns=base + 10_000_000,
@@ -97,15 +98,15 @@ class EventProfilerTest(unittest.TestCase):
         profiler.shutdown()
 
     @patch('graphsignal.sdk._sdk.update_profile')
-    def test_record_event_end_ns_none_places_in_start_bucket(self, mock_update_profile):
+    def test_record_span_end_ns_none_places_in_start_bucket(self, mock_update_profile):
         res = 100_000_000
-        profiler = EventProfiler('test_profile.events')
+        profiler = SpanProfiler('test_profile.events')
         profiler.set_resolution_ns(res)
         profiler.setup()
 
         base = (time.time_ns() // res) * res + 10 * res
 
-        profiler.record_event(
+        profiler.record_span(
             op_name='op_no_end',
             category='custom',
             start_ns=base + 5_000_000,
@@ -129,16 +130,16 @@ class EventProfilerTest(unittest.TestCase):
         profiler.shutdown()
 
     @patch('graphsignal.sdk._sdk.update_profile')
-    def test_record_event_spans_two_buckets(self, mock_update_profile):
+    def test_record_span_spans_two_buckets(self, mock_update_profile):
         res = 10_000_000
-        profiler = EventProfiler('test_profile.events')
+        profiler = SpanProfiler('test_profile.events')
         profiler.set_resolution_ns(res)
         profiler.setup()
 
         base = (time.time_ns() // res) * res + 100 * res
 
         # starts at base (bucket boundary), ends 15ms later → spans two buckets
-        profiler.record_event(
+        profiler.record_span(
             op_name='spanning',
             category='custom',
             meta_info={'source': 'test'},
@@ -167,7 +168,7 @@ class EventProfilerTest(unittest.TestCase):
         profiler.shutdown()
 
     def test_fields_cached_per_descriptor(self):
-        profiler = EventProfiler('test_profile.events')
+        profiler = SpanProfiler('test_profile.events')
         profiler.set_resolution_ns(100_000_000)
         profiler.setup()
 
@@ -176,18 +177,20 @@ class EventProfilerTest(unittest.TestCase):
         m2 = profiler._ensure_descriptor_field_map(desc)
         self.assertIs(m1, m2)
         self.assertEqual(len(profiler._fields), 1)
-        self.assertEqual(profiler._field_count, 3)
-        self.assertEqual(set(m1.keys()), {'cumtime', 'ncalls', 'nerrors'})
+        self.assertEqual(profiler._field_count, 6)
+        self.assertEqual(set(m1.keys()), {
+            'cumtime', 'ncalls', 'nerrors', 'input_tokens', 'output_tokens', 'cached_tokens',
+        })
 
         profiler.shutdown()
 
     def test_meta_info_included_in_descriptor(self):
-        profiler = EventProfiler('test_profile.events')
+        profiler = SpanProfiler('test_profile.events')
         profiler.set_resolution_ns(100_000_000)
         profiler.setup()
 
         base = (time.time_ns() // 100_000_000) * 100_000_000 + 10 * 100_000_000
-        profiler.record_event(
+        profiler.record_span(
             op_name='op',
             category='cat',
             meta_info={'model': 'gpt4', 'region': 'us'},
@@ -206,22 +209,22 @@ class EventProfilerTest(unittest.TestCase):
         b = {'op_name': 'o', 'category': 'c'}
         self.assertEqual(_descriptor_field_key(a), _descriptor_field_key(b))
 
-    def test_record_event_requires_op_name(self):
-        profiler = EventProfiler('test_profile.events')
+    def test_record_span_requires_op_name(self):
+        profiler = SpanProfiler('test_profile.events')
         profiler.setup()
         with self.assertLogs(logger, level='ERROR'):
-            profiler.record_event(
+            profiler.record_span(
                 op_name='',
                 category='c',
                 start_ns=0,
             )
         profiler.shutdown()
 
-    def test_record_event_requires_category(self):
-        profiler = EventProfiler('test_profile.events')
+    def test_record_span_requires_category(self):
+        profiler = SpanProfiler('test_profile.events')
         profiler.setup()
         with self.assertLogs(logger, level='ERROR'):
-            profiler.record_event(
+            profiler.record_span(
                 op_name='op',
                 category='',
                 start_ns=0,
@@ -231,13 +234,13 @@ class EventProfilerTest(unittest.TestCase):
     @patch('graphsignal.sdk._sdk.update_profile')
     def test_nerrors_emitted(self, mock_update_profile):
         res = 50_000_000
-        profiler = EventProfiler('test_profile.events')
+        profiler = SpanProfiler('test_profile.events')
         profiler.set_resolution_ns(res)
         profiler.setup()
 
         base = (time.time_ns() // res) * res + 50 * res
 
-        profiler.record_event(
+        profiler.record_span(
             op_name='err_op',
             category='custom',
             has_error=True,
@@ -263,13 +266,13 @@ class EventProfilerTest(unittest.TestCase):
     @patch('graphsignal.sdk._sdk.update_profile')
     def test_nerrors_zero_not_emitted(self, mock_update_profile):
         res = 50_000_000
-        profiler = EventProfiler('test_profile.events')
+        profiler = SpanProfiler('test_profile.events')
         profiler.set_resolution_ns(res)
         profiler.setup()
 
         base = (time.time_ns() // res) * res + 50 * res
 
-        profiler.record_event(
+        profiler.record_span(
             op_name='ok_op',
             category='custom',
             start_ns=base + 1_000_000,
@@ -290,7 +293,7 @@ class EventProfilerTest(unittest.TestCase):
     @patch('graphsignal.sdk._sdk.update_profile')
     def test_late_event_resent_for_old_bucket(self, mock_update_profile):
         res = 10_000_000
-        profiler = EventProfiler('test_profile.events')
+        profiler = SpanProfiler('test_profile.events')
         profiler.set_resolution_ns(res)
         profiler.setup()
 
@@ -300,7 +303,7 @@ class EventProfilerTest(unittest.TestCase):
         mock_update_profile.reset_mock()
 
         # full-bucket event: enter=0, exit=res → active = res
-        profiler.record_event(
+        profiler.record_span(
             op_name='late_op',
             category='custom',
             start_ns=base,
@@ -323,11 +326,11 @@ class EventProfilerTest(unittest.TestCase):
         profiler.shutdown()
 
     def test_field_limit_blocks_new_descriptors(self):
-        profiler = EventProfiler('test_profile.events')
+        profiler = SpanProfiler('test_profile.events')
         profiler.set_resolution_ns(100_000_000)
         profiler.setup()
-        profiler._field_count = MAX_EVENT_PROFILER_FIELDS - 2
-        profiler.record_event(
+        profiler._field_count = MAX_SPAN_PROFILER_FIELDS - 5
+        profiler.record_span(
             op_name='new',
             category='c',
             start_ns=100,
@@ -339,14 +342,14 @@ class EventProfilerTest(unittest.TestCase):
     @patch('graphsignal.sdk._sdk.update_profile')
     def test_ncalls_equals_num_running_plus_num_exited(self, mock_update_profile):
         res = 10_000_000
-        profiler = EventProfiler('test_profile.events')
+        profiler = SpanProfiler('test_profile.events')
         profiler.set_resolution_ns(res)
         profiler.setup()
 
         base = (time.time_ns() // res) * res + 100 * res
 
         # spans two buckets: start bucket gets num_running=1, terminal gets num_exited=1
-        profiler.record_event(
+        profiler.record_span(
             op_name='op_span',
             category='custom',
             start_ns=base,
@@ -368,5 +371,88 @@ class EventProfilerTest(unittest.TestCase):
 
         self.assertTrue(all(v == 1 for v in ncalls_found))
         self.assertEqual(len(ncalls_found), 2)
+
+        profiler.shutdown()
+
+    @patch('graphsignal.sdk._sdk.update_profile')
+    def test_token_distribution_with_ttft(self, mock_update_profile):
+        res = 10_000_000
+        profiler = SpanProfiler('test_profile.events')
+        profiler.set_resolution_ns(res)
+        profiler.setup()
+
+        base = (time.time_ns() // res) * res + 100 * res
+        token_stats = SpanTokenStats(
+            input_tokens=100,
+            output_tokens=60,
+            cached_tokens=40,
+            phase_latency_ns=40_000_000,
+        )
+        profiler.record_span(
+            op_name='llm_request',
+            category='engine.otel',
+            start_ns=base,
+            end_ns=base + 100_000_000,
+            token_stats=token_stats,
+        )
+        profiler._rollover_buckets(base + 110 * res)
+
+        key = _descriptor_field_key({'op_name': 'llm_request', 'category': 'engine.otel'})
+        field_map = profiler._fields.get(key, {})
+        input_fid = field_map.get('input_tokens')
+        output_fid = field_map.get('output_tokens')
+        cached_fid = field_map.get('cached_tokens')
+
+        input_by_bucket = {}
+        output_by_bucket = {}
+        cached_by_bucket = {}
+        for call in mock_update_profile.call_args_list:
+            _, kwargs = call
+            if kwargs.get('name') != 'test_profile.events':
+                continue
+            profile = kwargs.get('profile', {})
+            bucket_ts = kwargs.get('measurement_ts', 0) - res
+            if input_fid in profile:
+                input_by_bucket[bucket_ts] = profile[input_fid]
+            if output_fid in profile:
+                output_by_bucket[bucket_ts] = profile[output_fid]
+            if cached_fid in profile:
+                cached_by_bucket[bucket_ts] = profile[cached_fid]
+
+        self.assertEqual(sum(input_by_bucket.values()), 100)
+        self.assertEqual(sum(output_by_bucket.values()), 60)
+        self.assertEqual(sum(cached_by_bucket.values()), 40)
+        self.assertEqual(len(input_by_bucket), 4)
+        self.assertEqual(len(output_by_bucket), 6)
+        self.assertEqual(len(cached_by_bucket), 4)
+        for bucket_ts in output_by_bucket:
+            self.assertGreaterEqual(bucket_ts, base + 40_000_000)
+
+        profiler.shutdown()
+
+    @patch('graphsignal.sdk._sdk.update_profile')
+    def test_no_token_stats_without_phase_latency(self, mock_update_profile):
+        res = 10_000_000
+        profiler = SpanProfiler('test_profile.events')
+        profiler.set_resolution_ns(res)
+        profiler.setup()
+
+        base = (time.time_ns() // res) * res + 100 * res
+        profiler.record_span(
+            op_name='llm_request',
+            category='engine.otel',
+            start_ns=base,
+            end_ns=base + 50_000_000,
+        )
+        profiler._rollover_buckets(base + 60 * res)
+
+        key = _descriptor_field_key({'op_name': 'llm_request', 'category': 'engine.otel'})
+        field_map = profiler._fields.get(key, {})
+        for stat in ('input_tokens', 'output_tokens', 'cached_tokens'):
+            fid = field_map.get(stat)
+            for call in mock_update_profile.call_args_list:
+                _, kwargs = call
+                profile = kwargs.get('profile', {})
+                self.assertNotIn(fid, profile)
 
         profiler.shutdown()

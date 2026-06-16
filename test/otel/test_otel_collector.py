@@ -20,6 +20,22 @@ def _make_span_id_bytes(seed: int) -> bytes:
     return seed.to_bytes(8, 'big')
 
 
+def _make_otlp_attr(key, *, int_value=None, double_value=None):
+    attr = MagicMock()
+    attr.key = key
+    value = MagicMock()
+    if int_value is not None:
+        value.WhichOneof.return_value = 'int_value'
+        value.int_value = int_value
+    elif double_value is not None:
+        value.WhichOneof.return_value = 'double_value'
+        value.double_value = double_value
+    else:
+        value.WhichOneof.return_value = None
+    attr.value = value
+    return attr
+
+
 class OTELCollectorTest(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
@@ -158,12 +174,12 @@ class OTELCollectorTest(unittest.TestCase):
         sdk.span_store()._initial_trace_exports_remaining = 0
         sdk.config_loader()._options['traces_per_sec'] = '0'
 
-        profiler = sdk._event_profiler
+        profiler = sdk._span_profiler
         if profiler is not None:
             profiler.shutdown()
 
         mock_profiler = MagicMock()
-        sdk._event_profiler = mock_profiler
+        sdk._span_profiler = mock_profiler
 
         span = MagicMock()
         span.trace_id = _make_trace_id_bytes(0xA2)
@@ -179,13 +195,55 @@ class OTELCollectorTest(unittest.TestCase):
             sdk, span, {'service.name': 'sglang'})
 
         self.assertFalse(recorded)
-        mock_profiler.record_event.assert_called_once_with(
+        mock_profiler.record_span.assert_called_once_with(
             op_name='sglang.decode_forward',
             category='engine.otel',
             start_ns=1_000,
             end_ns=2_000,
+            token_stats=None,
         )
         self.assertFalse(sdk.span_store().has_unexported())
+
+    def test_servicer_passes_token_stats_to_profiler(self):
+        sdk = graphsignal.sdk.sdk()
+        sdk.span_store()._initial_trace_exports_remaining = 0
+        sdk.config_loader()._options['traces_per_sec'] = '0'
+
+        profiler = sdk._span_profiler
+        if profiler is not None:
+            profiler.shutdown()
+
+        mock_profiler = MagicMock()
+        sdk._span_profiler = mock_profiler
+
+        span = MagicMock()
+        span.trace_id = _make_trace_id_bytes(0xA3)
+        span.span_id = _make_span_id_bytes(0xB3)
+        span.parent_span_id = b''
+        span.name = 'llm_request'
+        span.start_time_unix_nano = 1_000_000_000
+        span.end_time_unix_nano = 1_100_000_000
+        span.attributes = [
+            _make_otlp_attr('gen_ai.usage.prompt_tokens', int_value=100),
+            _make_otlp_attr('gen_ai.usage.completion_tokens', int_value=60),
+            _make_otlp_attr('gen_ai.latency.time_to_first_token', double_value=0.04),
+        ]
+        span.events = []
+
+        OTELCollectorServicer._record(
+            sdk, span, {'service.name': 'trtllm-server'})
+
+        mock_profiler.record_span.assert_called_once()
+        _, kwargs = mock_profiler.record_span.call_args
+        self.assertEqual(kwargs['op_name'], 'trtllm-server.llm_request')
+        self.assertEqual(kwargs['category'], 'engine.otel')
+        self.assertEqual(kwargs['start_ns'], 1_000_000_000)
+        self.assertEqual(kwargs['end_ns'], 1_100_000_000)
+        token_stats = kwargs['token_stats']
+        self.assertIsNotNone(token_stats)
+        self.assertEqual(token_stats.input_tokens, 100)
+        self.assertEqual(token_stats.output_tokens, 60)
+        self.assertEqual(token_stats.phase_latency_ns, 40_000_000)
 
 
 if __name__ == '__main__':

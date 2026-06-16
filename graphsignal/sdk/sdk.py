@@ -13,7 +13,7 @@ from graphsignal.signals.metrics import MetricStore
 from graphsignal.signals.logs import LogStore
 from graphsignal.signals.resources import ResourceStore
 from graphsignal.signals.spans import SpanStore
-from graphsignal.profilers.event_profiler import EventProfiler
+from graphsignal.profilers.span_profiler import SpanProfiler
 from graphsignal.otel.otel_collector import OTELCollector
 
 logger = logging.getLogger('graphsignal')
@@ -90,7 +90,7 @@ class Sdk:
         self._log_store = None
         self._resource_store = None
         self._span_store = None
-        self._event_profiler = None
+        self._span_profiler = None
 
         self._otel_collector = None
         self._pid_watcher = None
@@ -130,8 +130,8 @@ class Sdk:
         self._resource_store = ResourceStore()
         self._span_store = SpanStore(config_loader=self._config_loader)
 
-        self._event_profiler = EventProfiler(profile_name='profile.events')
-        self._event_profiler.setup()
+        self._span_profiler = SpanProfiler(profile_name='profile.events')
+        self._span_profiler.setup()
 
         if self._otel_collector_port is not None:
             logger.info('Starting OTEL collector on port %s', self._otel_collector_port)
@@ -309,12 +309,12 @@ class Sdk:
                 pass
             self._otel_collector = None
 
-        if self._event_profiler:
+        if self._span_profiler:
             try:
-                self._event_profiler.shutdown()
+                self._span_profiler.shutdown()
             except Exception:
                 pass
-            self._event_profiler = None
+            self._span_profiler = None
 
         self._metric_store = None
         self._log_store = None
@@ -350,8 +350,8 @@ class Sdk:
     def signal_uploader(self):
         return self._signal_uploader
 
-    def event_profiler(self):
-        return self._event_profiler
+    def span_profiler(self):
+        return self._span_profiler
 
     def metric_store(self):
         return self._metric_store

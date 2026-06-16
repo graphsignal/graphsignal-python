@@ -4,6 +4,7 @@ import threading
 from typing import Any, Dict, Optional
 
 from graphsignal.otel.span_op_name import stable_otel_op_name
+from graphsignal.otel.span_token_stats import extract_span_token_stats
 
 try:
     from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
@@ -135,14 +136,16 @@ class OTELCollectorServicer(TraceServiceServicer):
         start_ts = otlp_span.start_time_unix_nano
         end_ts = otlp_span.end_time_unix_nano
 
-        event_profiler = sdk.event_profiler()
-        if event_profiler is not None and start_ts > 0 and end_ts > 0:
+        span_profiler = sdk.span_profiler()
+        if span_profiler is not None and start_ts > 0 and end_ts > 0:
             try:
-                event_profiler.record_event(
+                token_stats = extract_span_token_stats(attributes)
+                span_profiler.record_span(
                     op_name=stable_otel_op_name(name, attributes),
                     category='engine.otel',
                     start_ns=start_ts,
-                    end_ns=end_ts)
+                    end_ns=end_ts,
+                    token_stats=token_stats)
             except Exception:
                 pass
 

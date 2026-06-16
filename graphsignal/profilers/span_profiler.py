@@ -1,13 +1,16 @@
 import logging
 import threading
 import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import graphsignal
 import graphsignal.sdk
+from graphsignal.otel.span_token_stats import SpanTokenStats
+
 logger = logging.getLogger('graphsignal')
 
-MAX_EVENT_PROFILER_FIELDS = 250
+MAX_SPAN_PROFILER_FIELDS = 250
+_FIELDS_PER_DESCRIPTOR = 6
 
 DescriptorKey = Tuple[Tuple[str, str], ...]
 
@@ -19,6 +22,9 @@ class EventBucket:
         'num_errors',
         'enter_offset_ns',
         'exit_offset_ns',
+        'input_tokens',
+        'output_tokens',
+        'cached_tokens',
     )
 
     def __init__(self):
@@ -27,19 +33,42 @@ class EventBucket:
         self.num_errors = 0
         self.enter_offset_ns = 0
         self.exit_offset_ns = 0
+        self.input_tokens = 0.0
+        self.output_tokens = 0.0
+        self.cached_tokens = 0.0
 
 
 def _descriptor_field_key(descriptor: Dict[str, Any]) -> DescriptorKey:
     return tuple(sorted((str(k), str(descriptor[k])) for k in descriptor))
 
 
-class EventProfiler:
+def _allocate_integer_by_weight(weights: List[int], total: int) -> List[int]:
+    if total <= 0 or not weights:
+        return [0] * len(weights)
+    weight_sum = sum(weights)
+    if weight_sum <= 0:
+        return [0] * len(weights)
+    raw = [total * w / weight_sum for w in weights]
+    floors = [int(r) for r in raw]
+    remainder = total - sum(floors)
+    if remainder > 0:
+        frac_indices = sorted(
+            range(len(raw)),
+            key=lambda i: raw[i] - floors[i],
+            reverse=True,
+        )
+        for i in frac_indices[:remainder]:
+            floors[i] += 1
+    return floors
+
+
+class SpanProfiler:
     """
     Aggregates custom timed events into resolution-aligned buckets and exports
-    profile counters (cumtime, ncalls, nerrors) per descriptor. ``ncalls`` and
-    ``nerrors`` are assigned to the terminal bucket only. The field map for a
-    descriptor is created once on the first ``record_event`` call and never
-    updated.
+    profile counters (cumtime, ncalls, nerrors, input_tokens, output_tokens,
+    cached_tokens) per descriptor. ``ncalls`` and ``nerrors`` are assigned to
+    the terminal bucket only. The field map for a descriptor is created once on
+    the first ``record_span`` call and never updated.
     """
 
     def __init__(self, profile_name: str):
@@ -97,11 +126,11 @@ class EventProfiler:
         existing = self._fields.get(key)
         if existing is not None:
             return existing
-        if self._field_count + 3 > MAX_EVENT_PROFILER_FIELDS:
+        if self._field_count + _FIELDS_PER_DESCRIPTOR > MAX_SPAN_PROFILER_FIELDS:
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(
-                    'Event profiler field limit reached (%s), skipping descriptor',
-                    MAX_EVENT_PROFILER_FIELDS)
+                    'Span profiler field limit reached (%s), skipping descriptor',
+                    MAX_SPAN_PROFILER_FIELDS)
             return None
         field_map: Dict[str, int] = {}
         field_map['cumtime'] = graphsignal.sdk.sdk().add_counter_profile_field(
@@ -110,11 +139,17 @@ class EventProfiler:
             descriptor=self._build_field_descriptor(descriptor, 'ncalls'))
         field_map['nerrors'] = graphsignal.sdk.sdk().add_counter_profile_field(
             descriptor=self._build_field_descriptor(descriptor, 'nerrors'))
-        self._field_count += 3
+        field_map['input_tokens'] = graphsignal.sdk.sdk().add_counter_profile_field(
+            descriptor=self._build_field_descriptor(descriptor, 'input_tokens'))
+        field_map['output_tokens'] = graphsignal.sdk.sdk().add_counter_profile_field(
+            descriptor=self._build_field_descriptor(descriptor, 'output_tokens'))
+        field_map['cached_tokens'] = graphsignal.sdk.sdk().add_counter_profile_field(
+            descriptor=self._build_field_descriptor(descriptor, 'cached_tokens'))
+        self._field_count += _FIELDS_PER_DESCRIPTOR
         self._fields[key] = field_map
         return field_map
 
-    def record_event(
+    def record_span(
             self,
             *,
             op_name: str,
@@ -122,11 +157,12 @@ class EventProfiler:
             meta_info: Optional[Dict[str, Any]] = None,
             has_error: bool = False,
             start_ns: int,
-            end_ns: Optional[int] = None) -> None:
+            end_ns: Optional[int] = None,
+            token_stats: Optional[SpanTokenStats] = None) -> None:
         if self._disabled:
             return
         if not op_name or not category:
-            logger.error('record_event: op_name and category are required')
+            logger.error('record_span: op_name and category are required')
             return
 
         if end_ns is None:
@@ -147,10 +183,92 @@ class EventProfiler:
                 end_ts=end_ns,
                 has_error=has_error,
             )
+            if token_stats is not None:
+                split_ns = min(start_ns + token_stats.phase_latency_ns, end_ns)
+                self._distribute_tokens(
+                    event_key=key,
+                    start_ns=start_ns,
+                    split_ns=split_ns,
+                    end_ns=end_ns,
+                    token_stats=token_stats,
+                )
 
     def _align_down(self, ts_ns: int) -> int:
         res = self._resolution_ns
         return (ts_ns // res) * res
+
+    def _bucket_overlaps(
+            self,
+            start_ts: int,
+            end_ts: int) -> List[Tuple[int, int]]:
+        if end_ts <= start_ts or self._resolution_ns == 0:
+            return []
+
+        res = self._resolution_ns
+        start_bucket = self._align_down(start_ts)
+        end_bucket = self._align_down(end_ts - 1)
+
+        overlaps: List[Tuple[int, int]] = []
+        bucket_ts = start_bucket
+        while bucket_ts <= end_bucket:
+            bucket_end = bucket_ts + res
+            overlap_start = max(start_ts, bucket_ts)
+            overlap_end = min(end_ts, bucket_end)
+            overlap_ns = overlap_end - overlap_start
+            if overlap_ns > 0:
+                overlaps.append((bucket_ts, overlap_ns))
+            bucket_ts = bucket_end
+        return overlaps
+
+    def _get_or_create_bucket(
+            self,
+            bucket_ts: int,
+            event_key: DescriptorKey) -> EventBucket:
+        if bucket_ts not in self._buckets:
+            self._buckets[bucket_ts] = {}
+        events = self._buckets[bucket_ts]
+        if event_key not in events:
+            events[event_key] = EventBucket()
+        return events[event_key]
+
+    def _distribute_token_stat(
+            self,
+            event_key: DescriptorKey,
+            start_ts: int,
+            end_ts: int,
+            total_tokens: int,
+            stat_name: str) -> None:
+        if total_tokens <= 0:
+            return
+        overlaps = self._bucket_overlaps(start_ts, end_ts)
+        if not overlaps:
+            return
+        weights = [overlap_ns for _, overlap_ns in overlaps]
+        allocated = _allocate_integer_by_weight(weights, total_tokens)
+        for (bucket_ts, _), count in zip(overlaps, allocated):
+            if count <= 0:
+                continue
+            eb = self._get_or_create_bucket(bucket_ts, event_key)
+            if stat_name == 'input_tokens':
+                eb.input_tokens += count
+            elif stat_name == 'output_tokens':
+                eb.output_tokens += count
+            elif stat_name == 'cached_tokens':
+                eb.cached_tokens += count
+
+    def _distribute_tokens(
+            self,
+            event_key: DescriptorKey,
+            start_ns: int,
+            split_ns: int,
+            end_ns: int,
+            token_stats: SpanTokenStats) -> None:
+        self._distribute_token_stat(
+            event_key, start_ns, split_ns, token_stats.input_tokens, 'input_tokens')
+        self._distribute_token_stat(
+            event_key, start_ns, split_ns, token_stats.cached_tokens, 'cached_tokens')
+        self._distribute_token_stat(
+            event_key, split_ns, end_ns, token_stats.output_tokens, 'output_tokens')
 
     def _add_event_interval(
             self,
@@ -168,12 +286,7 @@ class EventProfiler:
         bucket_ts = start_bucket
         while bucket_ts <= end_bucket:
             bucket_end = bucket_ts + res
-            if bucket_ts not in self._buckets:
-                self._buckets[bucket_ts] = {}
-            events = self._buckets[bucket_ts]
-            if event_key not in events:
-                events[event_key] = EventBucket()
-            eb = events[event_key]
+            eb = self._get_or_create_bucket(bucket_ts, event_key)
 
             if bucket_ts == start_bucket:
                 eb.enter_offset_ns += start_ts - bucket_ts
@@ -205,7 +318,7 @@ class EventProfiler:
                     if round_to_rollup(now_ns) > round_to_rollup(current_ts):
                         self._rollover_buckets(now_ns)
                 except Exception as exc:
-                    logger.error('Error in event profiler rollover timer: %s', exc, exc_info=True)
+                    logger.error('Error in span profiler rollover timer: %s', exc, exc_info=True)
 
         self._rollover_timer_thread = threading.Thread(target=_rollover_loop, daemon=True)
         self._rollover_timer_thread.start()
@@ -254,6 +367,15 @@ class EventProfiler:
                         fid = field_map.get('nerrors')
                         if fid and bucket.num_errors > 0:
                             profile[fid] = bucket.num_errors
+                    for stat_name, value in (
+                            ('input_tokens', bucket.input_tokens),
+                            ('output_tokens', bucket.output_tokens),
+                            ('cached_tokens', bucket.cached_tokens),
+                    ):
+                        if value > 0:
+                            fid = field_map.get(stat_name)
+                            if fid:
+                                profile[fid] = int(value)
 
                 if profile:
                     profiles_by_ts[bucket_ts] = profile

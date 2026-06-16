@@ -163,7 +163,7 @@ class SpanStore:
 
         Returns the proto on success, or None if dropped (invalid input or not
         sampled). The caller can use the return value to feed downstream
-        consumers (e.g. the event profiler).
+        consumers (e.g. the span profiler).
         """
         if not name or not trace_id or not span_id:
             if logger.isEnabledFor(logging.DEBUG):
