@@ -314,10 +314,10 @@ class CuptiRecorder(BaseRecorder):
                 computed.append((event_id_str, event_name, cumtime, eb))
 
             for event_id_str, event_name, cumtime, _ in computed:
-                if (not event_name.startswith('memcpy_')
-                        and not event_name.startswith('sync_')
-                        and not event_name.startswith('memset_')
-                        and not event_name.startswith('cuda_graph')):
+                # Kernels and CUDA graphs compete for the top-N slots; memcpy/
+                # memset/sync events are always kept (below) so they never crowd
+                # these out.
+                if event_name.startswith('kernel:') or event_name.startswith('graph:'):
                     eid = int(event_id_str)
                     self._kernel_cumtime_totals[eid] = (
                         self._kernel_cumtime_totals.get(eid, 0) + cumtime)
@@ -326,7 +326,7 @@ class CuptiRecorder(BaseRecorder):
 
             selected = [
                 row for row in computed
-                if row[1].startswith('memcpy_') or row[1].startswith('sync_') or row[1].startswith('memset_') or row[1].startswith('cuda_graph') or int(row[0]) in self._top_kernel_ids
+                if row[1].startswith('memcpy_') or row[1].startswith('sync_') or row[1].startswith('memset_') or int(row[0]) in self._top_kernel_ids
             ]
 
             profile = {}
@@ -334,27 +334,45 @@ class CuptiRecorder(BaseRecorder):
                 event_id = int(event_id_str)
                 fields = self._fields.get(event_id)
                 if not fields:
+                    # Extra descriptor properties that ride on every field
+                    # descriptor for this event (e.g. graph_signature).
+                    descriptor_extra = {}
                     if event_name.startswith('memcpy_'):
-                        category, display_name, kernel_name_attr = 'cuda.memcpy', event_name, None
+                        category, display_name = 'cuda.memcpy', event_name
                     elif event_name.startswith('sync_'):
-                        category, display_name, kernel_name_attr = 'cuda.sync', event_name, None
+                        category, display_name = 'cuda.sync', event_name
                     elif event_name.startswith('memset_'):
-                        category, display_name, kernel_name_attr = 'cuda.memset', event_name, None
-                    elif event_name.startswith('cuda_graph'):
-                        category, display_name, kernel_name_attr = 'cuda.graph', event_name, None
-                    else:
+                        category, display_name = 'cuda.memset', event_name
+                    elif event_name.startswith('graph:'):
+                        # The native lib names graph events `graph:<signature>`
+                        # where the signature is a cross-process-stable
+                        # structural fingerprint of the graph's nodes. Collapse
+                        # to a single `cuda_graph@<hash>` op_name and surface the
+                        # raw signature as a descriptor property.
+                        signature = event_name[len('graph:'):]
+                        category = 'cuda.graph'
+                        display_name = (
+                            f'cuda_graph{_OP_NAME_FINGERPRINT_SEP}'
+                            f'{_short_fingerprint(signature)}')
+                        descriptor_extra['graph_signature'] = signature
+                    elif event_name.startswith('kernel:'):
                         # All kernels carry the flat `cuda.kernel` category; the
                         # platform refines it to `cuda.kernel.<sub>` from the raw
                         # kernel_name at query time.
-                        category, display_name, kernel_name_attr = (
-                            'cuda.kernel', make_op_name(event_name), event_name)
+                        raw = event_name[len('kernel:'):]
+                        category, display_name = 'cuda.kernel', make_op_name(raw)
+                        descriptor_extra['kernel_name'] = raw
+                    else:
+                        # The native lib always prefixes event names; an
+                        # unrecognized name is unexpected, so skip it rather than
+                        # guessing a category.
+                        continue
 
                     def _descriptor(statistic, unit=None):
                         d = dict(category=category, op_name=display_name, statistic=statistic)
                         if unit is not None:
                             d['unit'] = unit
-                        if kernel_name_attr is not None:
-                            d['kernel_name'] = kernel_name_attr
+                        d.update(descriptor_extra)
                         return d
 
                     cumtime_field_id = graphsignal.sdk.sdk().add_counter_profile_field(
