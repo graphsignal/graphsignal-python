@@ -118,7 +118,7 @@ class WatchTest(unittest.TestCase):
                           return_value=True) as mock_setup_env:
             result = graphsignal.watch(otel_collector_port=4317)
 
-        mock_setup_env.assert_called_once_with()
+        mock_setup_env.assert_called_once_with(cuda_graph_trace=None)
         mock_start.assert_called_once_with(
             os.getpid(), otel_collector_port=4317, metrics_port=None)
         self.assertIs(result, sentinel_popen)
@@ -143,3 +143,15 @@ class WatchTest(unittest.TestCase):
 
         mock_start.assert_called_once_with(
             os.getpid(), otel_collector_port=None, metrics_port=8000)
+
+    def test_watch_passes_cuda_graph_trace_to_setup_env_vars(self):
+        with patch('graphsignal._start_watcher', return_value=None), \
+             patch.object(graphsignal._CuptiProfiler, 'setup_env_vars',
+                          return_value=True) as mock_setup_env:
+            graphsignal.watch(cuda_graph_trace='node')
+        mock_setup_env.assert_called_once_with(cuda_graph_trace='node')
+
+    def test_watch_rejects_invalid_cuda_graph_trace(self):
+        with patch('graphsignal._start_watcher', return_value=None):
+            with self.assertRaises(ValueError):
+                graphsignal.watch(cuda_graph_trace='both')

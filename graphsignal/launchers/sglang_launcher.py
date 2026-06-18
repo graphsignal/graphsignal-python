@@ -47,7 +47,7 @@ class SglangLauncher(BaseLauncher):
                         'injecting --enable-trace + --otlp-traces-endpoint 127.0.0.1:%s',
                         otel_port, otel_port)
 
-        CuptiProfiler.setup_env_vars()
+        CuptiProfiler.setup_env_vars(cuda_graph_trace=self.cuda_graph_trace)
 
         new_args = _inject_sglang_args(self.args, otel_port, self.enable_otel)
 

@@ -36,6 +36,11 @@ Options (must precede the command):
   --metrics-port PORT
                   Port to scrape the engine's Prometheus /metrics endpoint on.
                   Overrides the port derived from the engine's --port/default.
+  --cuda-graph-trace graph|node
+                  CUDA graph tracing granularity. graph (default): one
+                  aggregated cuda.graph event per graph launch, lower overhead.
+                  node: per-node kernel/memcpy activity inside graphs, higher
+                  overhead.
 
 Example:
   graphsignal-run vllm serve facebook/opt-125m --port 8001
@@ -46,17 +51,28 @@ Example:
 """
 
 
+def _parse_cuda_graph_trace(value):
+    mode = (value or '').strip().lower()
+    if mode in ('graph', 'node'):
+        return mode
+    print("graphsignal-run: invalid --cuda-graph-trace value: %s (expected graph or node)\n" % value)
+    sys.exit(1)
+
+
 def _extract_graphsignal_flags(argv):
     """Pull graphsignal-run's own flags out of argv before the workload command.
 
     `--enable-otel` opts into OTEL trace injection (engine trace flags + local
-    collector). `--metrics-port` overrides the Prometheus scrape port. Both are
-    consumed here and never forwarded to the workload. Only leading flags
+    collector). 
+    `--metrics-port` specifies the Prometheus scrape port.
+    `--cuda-graph-trace` sets CUDA graph tracing granularity (graph or node).
+    All are consumed here and never forwarded to the workload. Only leading flags
     (before the workload command) are parsed, so identically named workload
     flags later in argv are left untouched.
     """
     enable_otel = False
     metrics_port = None
+    cuda_graph_trace = None
     i = 0
     while i < len(argv):
         arg = argv[i]
@@ -75,8 +91,19 @@ def _extract_graphsignal_flags(argv):
             metrics_port = _parse_port(arg.split('=', 1)[1])
             i += 1
             continue
+        if arg == '--cuda-graph-trace':
+            if i + 1 >= len(argv):
+                print("graphsignal-run: --cuda-graph-trace requires a value\n")
+                sys.exit(1)
+            cuda_graph_trace = _parse_cuda_graph_trace(argv[i + 1])
+            i += 2
+            continue
+        if arg.startswith('--cuda-graph-trace='):
+            cuda_graph_trace = _parse_cuda_graph_trace(arg.split('=', 1)[1])
+            i += 1
+            continue
         break
-    return enable_otel, metrics_port, argv[i:]
+    return enable_otel, metrics_port, cuda_graph_trace, argv[i:]
 
 
 def _parse_port(value):
@@ -95,15 +122,19 @@ def main():
 
     _setup_logging()
 
-    enable_otel, metrics_port, target_args = _extract_graphsignal_flags(sys.argv[1:])
-    log.debug('graphsignal-run target args: %s (enable_otel=%s, metrics_port=%s)',
-              target_args, enable_otel, metrics_port)
+    enable_otel, metrics_port, cuda_graph_trace, target_args = _extract_graphsignal_flags(sys.argv[1:])
+    log.debug('graphsignal-run target args: %s (enable_otel=%s, metrics_port=%s, cuda_graph_trace=%s)',
+              target_args, enable_otel, metrics_port, cuda_graph_trace)
 
     launchers = [
-        VllmLauncher(target_args, enable_otel=enable_otel, metrics_port=metrics_port),
-        SglangLauncher(target_args, enable_otel=enable_otel, metrics_port=metrics_port),
-        TrtllmLauncher(target_args, enable_otel=enable_otel, metrics_port=metrics_port),
-        FallbackLauncher(target_args, enable_otel=enable_otel, metrics_port=metrics_port),
+        VllmLauncher(target_args, enable_otel=enable_otel, metrics_port=metrics_port,
+                     cuda_graph_trace=cuda_graph_trace),
+        SglangLauncher(target_args, enable_otel=enable_otel, metrics_port=metrics_port,
+                       cuda_graph_trace=cuda_graph_trace),
+        TrtllmLauncher(target_args, enable_otel=enable_otel, metrics_port=metrics_port,
+                       cuda_graph_trace=cuda_graph_trace),
+        FallbackLauncher(target_args, enable_otel=enable_otel, metrics_port=metrics_port,
+                         cuda_graph_trace=cuda_graph_trace),
     ]
 
     for launcher in launchers:

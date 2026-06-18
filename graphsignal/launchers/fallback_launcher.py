@@ -19,7 +19,7 @@ class FallbackLauncher(BaseLauncher):
             print('graphsignal-run: no command specified')
             sys.exit(1)
 
-        CuptiProfiler.setup_env_vars()
+        CuptiProfiler.setup_env_vars(cuda_graph_trace=self.cuda_graph_trace)
 
         # Generic workloads have no known metrics port; only scrape when the
         # user passed --metrics-port (or the workload itself takes a --port).

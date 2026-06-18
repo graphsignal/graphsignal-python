@@ -22,7 +22,7 @@ class TrtllmLauncher(BaseLauncher):
         # TRT-LLM: CUPTI + watcher only — no argv mutation. The TensorRT
         # backend's `/metrics` is on by default; `PrometheusRecorder` scrapes
         # it on the serving port (--port, default 8000).
-        CuptiProfiler.setup_env_vars()
+        CuptiProfiler.setup_env_vars(cuda_graph_trace=self.cuda_graph_trace)
 
         metrics_port = resolve_metrics_port(
             self.metrics_port, self.args, default=DEFAULT_SERVE_PORT)

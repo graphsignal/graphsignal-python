@@ -31,7 +31,7 @@ class VllmLauncher(BaseLauncher):
         else:
             otel_port = OTELCollector.find_port()
 
-        CuptiProfiler.setup_env_vars()
+        CuptiProfiler.setup_env_vars(cuda_graph_trace=self.cuda_graph_trace)
 
         new_args = _inject_vllm_args(self.args, otel_port)
 

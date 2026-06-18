@@ -1,4 +1,5 @@
 import sys
+import os
 import unittest
 from unittest.mock import patch
 
@@ -81,43 +82,70 @@ class ExtractFlagsTest(unittest.TestCase):
     def test_extracts_leading_enable_otel(self):
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(['--enable-otel', 'vllm', 'serve']),
-            (True, None, ['vllm', 'serve']))
+            (True, None, None, ['vllm', 'serve']))
 
     def test_absent_flag_defaults_off(self):
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(['vllm', 'serve']),
-            (False, None, ['vllm', 'serve']))
+            (False, None, None, ['vllm', 'serve']))
 
     def test_flag_after_command_left_for_workload(self):
         # Only leading flags are parsed; an identically named workload flag
         # later in argv is forwarded untouched.
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(['vllm', '--enable-otel']),
-            (False, None, ['vllm', '--enable-otel']))
+            (False, None, None, ['vllm', '--enable-otel']))
 
     def test_extracts_metrics_port_space_form(self):
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(
                 ['--metrics-port', '8000', 'trtllm-serve', 'm']),
-            (False, 8000, ['trtllm-serve', 'm']))
+            (False, 8000, None, ['trtllm-serve', 'm']))
 
     def test_extracts_metrics_port_equals_form(self):
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(
                 ['--metrics-port=8000', 'trtllm-serve', 'm']),
-            (False, 8000, ['trtllm-serve', 'm']))
+            (False, 8000, None, ['trtllm-serve', 'm']))
 
     def test_extracts_both_leading_flags(self):
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(
                 ['--enable-otel', '--metrics-port', '9001', 'vllm', 'serve']),
-            (True, 9001, ['vllm', 'serve']))
+            (True, 9001, None, ['vllm', 'serve']))
+
+    def test_extracts_cuda_graph_trace_space_form(self):
+        self.assertEqual(
+            graphsignal_run._extract_graphsignal_flags(
+                ['--cuda-graph-trace', 'node', 'vllm', 'serve']),
+            (False, None, 'node', ['vllm', 'serve']))
+
+    def test_extracts_cuda_graph_trace_equals_form(self):
+        self.assertEqual(
+            graphsignal_run._extract_graphsignal_flags(
+                ['--cuda-graph-trace=graph', 'python', 'app.py']),
+            (False, None, 'graph', ['python', 'app.py']))
+
+    def test_cuda_graph_trace_after_command_left_for_workload(self):
+        self.assertEqual(
+            graphsignal_run._extract_graphsignal_flags(
+                ['vllm', 'serve', '--cuda-graph-trace', 'node']),
+            (False, None, None, ['vllm', 'serve', '--cuda-graph-trace', 'node']))
+
+    def test_invalid_cuda_graph_trace_exits(self):
+        with self.assertRaises(SystemExit):
+            graphsignal_run._extract_graphsignal_flags(
+                ['--cuda-graph-trace', 'both', 'vllm', 'serve'])
+
+    def test_cuda_graph_trace_missing_value_exits(self):
+        with self.assertRaises(SystemExit):
+            graphsignal_run._extract_graphsignal_flags(['--cuda-graph-trace'])
 
     def test_metrics_port_after_command_left_for_workload(self):
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(
                 ['vllm', 'serve', '--metrics-port', '8000']),
-            (False, None, ['vllm', 'serve', '--metrics-port', '8000']))
+            (False, None, None, ['vllm', 'serve', '--metrics-port', '8000']))
 
     def test_invalid_metrics_port_exits(self):
         with self.assertRaises(SystemExit):
@@ -127,6 +155,51 @@ class ExtractFlagsTest(unittest.TestCase):
     def test_metrics_port_missing_value_exits(self):
         with self.assertRaises(SystemExit):
             graphsignal_run._extract_graphsignal_flags(['--metrics-port'])
+
+
+class MainEnvTest(unittest.TestCase):
+    def test_main_passes_cuda_graph_trace_to_launcher(self):
+        created = []
+        orig_init = VllmLauncher.__init__
+
+        def capture_init(self, args, enable_otel=False, metrics_port=None,
+                         cuda_graph_trace=None):
+            created.append(cuda_graph_trace)
+            return orig_init(self, args, enable_otel=enable_otel,
+                             metrics_port=metrics_port,
+                             cuda_graph_trace=cuda_graph_trace)
+
+        with patch.object(VllmLauncher, '__init__', capture_init), \
+             patch.object(VllmLauncher, 'match', return_value=True), \
+             patch.object(VllmLauncher, 'launch'), \
+             patch.object(SglangLauncher, 'match', return_value=False), \
+             patch.object(TrtllmLauncher, 'match', return_value=False), \
+             patch.object(FallbackLauncher, 'match', return_value=False), \
+             patch.object(sys, 'argv',
+                          ['graphsignal-run', '--cuda-graph-trace', 'node', 'vllm', 'serve']):
+            graphsignal_run.main()
+            self.assertEqual(created, ['node'])
+
+    def test_main_passes_none_cuda_graph_trace_when_flag_absent(self):
+        created = []
+        orig_init = VllmLauncher.__init__
+
+        def capture_init(self, args, enable_otel=False, metrics_port=None,
+                         cuda_graph_trace=None):
+            created.append(cuda_graph_trace)
+            return orig_init(self, args, enable_otel=enable_otel,
+                             metrics_port=metrics_port,
+                             cuda_graph_trace=cuda_graph_trace)
+
+        with patch.object(VllmLauncher, '__init__', capture_init), \
+             patch.object(VllmLauncher, 'match', return_value=True), \
+             patch.object(VllmLauncher, 'launch'), \
+             patch.object(SglangLauncher, 'match', return_value=False), \
+             patch.object(TrtllmLauncher, 'match', return_value=False), \
+             patch.object(FallbackLauncher, 'match', return_value=False), \
+             patch.object(sys, 'argv', ['graphsignal-run', 'vllm', 'serve']):
+            graphsignal_run.main()
+            self.assertEqual(created, [None])
 
 
 if __name__ == '__main__':

@@ -19,7 +19,8 @@ logger = logging.getLogger('graphsignal')
 
 
 def watch(otel_collector_port: Optional[int] = None,
-          metrics_port: Optional[int] = None) -> Optional[subprocess.Popen]:
+          metrics_port: Optional[int] = None,
+          cuda_graph_trace: Optional[str] = None) -> Optional[subprocess.Popen]:
     """Spawn the `graphsignal-watch` sidecar to observe the current process.
 
     1. Sets up the CUPTI env vars (`CUDA_INJECTION64_PATH`, `LD_LIBRARY_PATH`)
@@ -29,10 +30,12 @@ def watch(otel_collector_port: Optional[int] = None,
        [--metrics-port ...]`. The watcher reads its `api_key` / `api_base` /
        tags / etc. from the `GRAPHSIGNAL_*` environment variables. Pass
        `metrics_port` to scrape a Prometheus `/metrics` endpoint on that port.
+       Pass `cuda_graph_trace` (`'graph'` or `'node'`) to control CUDA graph
+       tracing granularity (default: graph-level, lower overhead).
 
     Returns the watcher `Popen` so the caller can `wait()` or `terminate()`.
     """
-    _CuptiProfiler.setup_env_vars()
+    _CuptiProfiler.setup_env_vars(cuda_graph_trace=cuda_graph_trace)
     return _start_watcher(os.getpid(), otel_collector_port=otel_collector_port,
                           metrics_port=metrics_port)
 

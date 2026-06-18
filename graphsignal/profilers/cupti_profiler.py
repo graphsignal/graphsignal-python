@@ -15,7 +15,14 @@ class CuptiProfiler:
     """
 
     @staticmethod
-    def setup_env_vars() -> bool:
+    def setup_env_vars(cuda_graph_trace: Optional[str] = None) -> bool:
+        if cuda_graph_trace is not None:
+            mode = cuda_graph_trace.strip().lower()
+            if mode not in ('graph', 'node'):
+                raise ValueError(
+                    "cuda_graph_trace must be 'graph' or 'node', got %r" % cuda_graph_trace)
+            os.environ['GRAPHSIGNAL_CUDA_GRAPH_TRACE'] = mode
+
         if not sys.platform.startswith("linux"):
             logger.debug("CUPTI not supported on this platform")
             return False
