@@ -120,7 +120,8 @@ class WatchTest(unittest.TestCase):
 
         mock_setup_env.assert_called_once_with(cuda_graph_trace=None)
         mock_start.assert_called_once_with(
-            os.getpid(), otel_collector_port=4317, metrics_port=None)
+            os.getpid(), otel_collector_port=4317, metrics_port=None,
+            metrics_path=None, metrics_host=None)
         self.assertIs(result, sentinel_popen)
 
     def test_watch_without_otel_port(self):
@@ -131,7 +132,8 @@ class WatchTest(unittest.TestCase):
             result = graphsignal.watch()
 
         mock_start.assert_called_once_with(
-            os.getpid(), otel_collector_port=None, metrics_port=None)
+            os.getpid(), otel_collector_port=None, metrics_port=None,
+            metrics_path=None, metrics_host=None)
         self.assertIsNone(result)
 
     def test_watch_forwards_metrics_port(self):
@@ -142,7 +144,20 @@ class WatchTest(unittest.TestCase):
             graphsignal.watch(metrics_port=8000)
 
         mock_start.assert_called_once_with(
-            os.getpid(), otel_collector_port=None, metrics_port=8000)
+            os.getpid(), otel_collector_port=None, metrics_port=8000,
+            metrics_path=None, metrics_host=None)
+
+    def test_watch_forwards_metrics_path(self):
+        with patch('graphsignal._start_watcher',
+                   return_value=None) as mock_start, \
+             patch.object(graphsignal._CuptiProfiler, 'setup_env_vars',
+                          return_value=True):
+            graphsignal.watch(metrics_port=8000,
+                              metrics_path='/prometheus/metrics')
+
+        mock_start.assert_called_once_with(
+            os.getpid(), otel_collector_port=None, metrics_port=8000,
+            metrics_path='/prometheus/metrics', metrics_host=None)
 
     def test_watch_passes_cuda_graph_trace_to_setup_env_vars(self):
         with patch('graphsignal._start_watcher', return_value=None), \

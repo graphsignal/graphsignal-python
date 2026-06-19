@@ -1,7 +1,9 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from graphsignal.recorders.prometheus_recorder import PrometheusRecorder
+from graphsignal.recorders.prometheus_recorder import (
+    PrometheusRecorder, build_metrics_endpoint, format_metrics_host,
+    normalize_metrics_path)
 
 _PROM_BODY = """# HELP vllm_num_requests_running Number of running requests.
 # TYPE vllm_num_requests_running gauge
@@ -10,6 +12,22 @@ vllm_num_requests_running 3.0
 
 
 class PrometheusRecorderTest(unittest.TestCase):
+    def test_normalize_metrics_path(self):
+        self.assertEqual(normalize_metrics_path(None), '/metrics')
+        self.assertEqual(normalize_metrics_path('/prometheus/metrics'),
+                         '/prometheus/metrics')
+        self.assertEqual(normalize_metrics_path('prometheus/metrics'),
+                         '/prometheus/metrics')
+
+    def test_build_metrics_endpoint_localhost(self):
+        self.assertEqual(
+            build_metrics_endpoint(8000, metrics_path='/prometheus/metrics',
+                                   metrics_host='localhost'),
+            'http://localhost:8000/prometheus/metrics')
+
+    def test_format_metrics_host_ipv6(self):
+        self.assertEqual(format_metrics_host('::1'), '[::1]')
+
     def test_no_metrics_port_never_fetches(self):
         # Without a configured port the recorder is inert: no endpoint, no HTTP.
         recorder = PrometheusRecorder(pid=123, metrics_port=None)
@@ -27,6 +45,17 @@ class PrometheusRecorderTest(unittest.TestCase):
              patch('graphsignal.sdk.sdk', return_value=MagicMock()):
             recorder.on_tick()
         fetch_m.assert_called_once_with('http://127.0.0.1:8000/metrics')
+
+    def test_fetches_configured_path(self):
+        recorder = PrometheusRecorder(
+            pid=123, metrics_port=8000, metrics_path='/prometheus/metrics')
+        self.assertEqual(
+            recorder._endpoint, 'http://127.0.0.1:8000/prometheus/metrics')
+        with patch.object(recorder, '_fetch_metrics', return_value=_PROM_BODY) as fetch_m, \
+             patch('graphsignal.sdk.sdk', return_value=MagicMock()):
+            recorder.on_tick()
+        fetch_m.assert_called_once_with(
+            'http://127.0.0.1:8000/prometheus/metrics')
 
     def test_emits_parsed_gauge(self):
         recorder = PrometheusRecorder(pid=123, metrics_port=8000)

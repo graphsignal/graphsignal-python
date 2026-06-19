@@ -6,6 +6,18 @@ from typing import List, Optional
 logger = logging.getLogger('graphsignal')
 
 
+def extract_host(args: List[str], default: Optional[str] = None) -> Optional[str]:
+    """Extract the HTTP bind host from engine CLI args (`--host H` / `--host=H`)."""
+    for i, arg in enumerate(args):
+        if arg == '--host':
+            if i + 1 < len(args):
+                return args[i + 1]
+            return default
+        if arg.startswith('--host='):
+            return arg.split('=', 1)[1] or default
+    return default
+
+
 def extract_port(args: List[str], default: Optional[int] = None) -> Optional[int]:
     """Extract the serving port from engine CLI args (`--port N` / `--port=N`).
 
@@ -38,8 +50,22 @@ def resolve_metrics_port(metrics_port: Optional[int], args: List[str],
     return extract_port(args, default=default)
 
 
+def resolve_metrics_host(metrics_host: Optional[str], args: List[str],
+                         default: Optional[str] = None) -> Optional[str]:
+    """Pick the Prometheus scrape host for a launcher.
+
+    An explicit scrape host always wins; otherwise use the engine's ``--host``
+    or its default.
+    """
+    if metrics_host is not None:
+        return metrics_host
+    return extract_host(args, default=default)
+
+
 def start_watcher(pid: int, otel_collector_port: Optional[int] = None,
-                  metrics_port: Optional[int] = None) -> Optional[subprocess.Popen]:
+                  metrics_port: Optional[int] = None,
+                  metrics_path: Optional[str] = None,
+                  metrics_host: Optional[str] = None) -> Optional[subprocess.Popen]:
     """Spawn the graphsignal-watch subprocess to observe the given pid.
 
     Used by `graphsignal.watch()` (pid = self) and by the per-engine launchers,
@@ -55,6 +81,10 @@ def start_watcher(pid: int, otel_collector_port: Optional[int] = None,
         cmd.extend(['--otel-collector-port', str(int(otel_collector_port))])
     if metrics_port is not None:
         cmd.extend(['--metrics-port', str(int(metrics_port))])
+    if metrics_path is not None:
+        cmd.extend(['--metrics-path', str(metrics_path)])
+    if metrics_host is not None:
+        cmd.extend(['--metrics-host', str(metrics_host)])
 
     logger.debug('Starting graphsignal-watch: %s', ' '.join(cmd))
     try:

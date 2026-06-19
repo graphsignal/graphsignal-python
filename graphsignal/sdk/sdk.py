@@ -57,7 +57,9 @@ class Sdk:
             debug_mode=False,
             target_pid=None,
             otel_collector_port=None,
-            metrics_port=None):
+            metrics_port=None,
+            metrics_path=None,
+            metrics_host=None):
         if debug_mode:
             logger.setLevel(logging.DEBUG)
         else:
@@ -80,6 +82,8 @@ class Sdk:
         self._target_pid = int(target_pid) if target_pid is not None else os.getpid()
         self._otel_collector_port = int(otel_collector_port) if otel_collector_port is not None else None
         self._metrics_port = int(metrics_port) if metrics_port is not None else None
+        self._metrics_path = metrics_path
+        self._metrics_host = metrics_host
 
         self._tick_timer_thread = None
         self._tick_stop_event = threading.Event()
@@ -167,7 +171,8 @@ class Sdk:
         recorders.append(NVMLRecorder(pid=self._target_pid, args=args))
         if self._metrics_port is not None:
             recorders.append(PrometheusRecorder(
-                pid=self._target_pid, args=args, metrics_port=self._metrics_port))
+                pid=self._target_pid, args=args, metrics_port=self._metrics_port,
+                metrics_path=self._metrics_path, metrics_host=self._metrics_host))
         recorders.append(ProcessRecorder(pid=self._target_pid, args=args))
         recorders.append(CuptiRecorder(pid=self._target_pid, args=args))
 

@@ -11,7 +11,9 @@ USAGE = """
 Watch a target process (and its descendants) and report profiling data.
 
 Usage:
-  graphsignal-watch --pid PID [--otel-collector-port PORT] [--metrics-port PORT]
+  graphsignal-watch --pid PID [--otel-collector-port PORT]
+                    [--metrics-port PORT] [--metrics-path PATH]
+                    [--metrics-host HOST]
 """
 
 
@@ -26,7 +28,13 @@ def main():
     parser.add_argument('--otel-collector-port', type=int, default=None,
                         help='Port for the local OTLP/gRPC collector')
     parser.add_argument('--metrics-port', type=int, default=None,
-                        help='Port to scrape the Prometheus /metrics endpoint on')
+                        help='Port to scrape the Prometheus metrics endpoint on')
+    parser.add_argument('--metrics-path', type=str, default=None,
+                        help='HTTP path for the Prometheus metrics endpoint '
+                             '(default: /metrics)')
+    parser.add_argument('--metrics-host', type=str, default=None,
+                        help='HTTP host for the Prometheus metrics endpoint '
+                             '(default: 127.0.0.1)')
     args = parser.parse_args()
 
     try:
@@ -34,6 +42,8 @@ def main():
             target_pid=args.pid,
             otel_collector_port=args.otel_collector_port,
             metrics_port=args.metrics_port,
+            metrics_path=args.metrics_path,
+            metrics_host=args.metrics_host,
         )
     except Exception as exc:
         log.error('graphsignal-watch: profiler failed to configure: %s', exc, exc_info=True)

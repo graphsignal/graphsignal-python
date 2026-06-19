@@ -23,22 +23,50 @@ logger = logging.getLogger('graphsignal')
 
 INITIAL_DETECT_DELAY_SEC = 2.0
 MAX_DETECT_DELAY_SEC = 60.0
+DEFAULT_METRICS_PATH = '/metrics'
+DEFAULT_METRICS_HOST = '127.0.0.1'
+
+
+def normalize_metrics_path(path: Optional[str]) -> str:
+    normalized = (path or DEFAULT_METRICS_PATH).strip()
+    if not normalized.startswith('/'):
+        normalized = '/' + normalized
+    return normalized
+
+
+def format_metrics_host(host: Optional[str]) -> str:
+    host = (host or DEFAULT_METRICS_HOST).strip()
+    if ':' in host and not host.startswith('['):
+        return f'[{host}]'
+    return host
+
+
+def build_metrics_endpoint(metrics_port: int, metrics_path: Optional[str] = None,
+                           metrics_host: Optional[str] = None) -> str:
+    path = normalize_metrics_path(metrics_path)
+    host = format_metrics_host(metrics_host)
+    return f'http://{host}:{int(metrics_port)}{path}'
 
 
 class PrometheusRecorder(BaseRecorder):
-    """Scrapes a single, known Prometheus `/metrics` endpoint.
+    """Scrapes a single, known Prometheus metrics HTTP endpoint.
 
     The scrape port is resolved by the launcher (from `--metrics-port` or the
-    engine's serving port) and passed in explicitly. We never enumerate or
-    probe a process's other listening sockets — blindly connecting to them can
-    corrupt internal IPC channels (e.g. TensorRT-LLM's ZeroMQ queues).
+    engine's serving port) and passed in explicitly. The path defaults to
+    `/metrics` (vLLM, SGLang); TensorRT-LLM uses `/prometheus/metrics`.
+    We never enumerate or probe a process's other listening sockets —
+    blindly connecting to them can corrupt internal IPC channels (e.g.
+    TensorRT-LLM's ZeroMQ queues).
     """
 
-    def __init__(self, pid=None, args=None, metrics_port=None):
+    def __init__(self, pid=None, args=None, metrics_port=None,
+                 metrics_path: Optional[str] = None,
+                 metrics_host: Optional[str] = None):
         super().__init__(pid=pid, args=args)
-        self._endpoint: Optional[str] = (
-            f'http://127.0.0.1:{int(metrics_port)}/metrics'
-            if metrics_port is not None else None)
+        self._endpoint: Optional[str] = None
+        if metrics_port is not None:
+            self._endpoint = build_metrics_endpoint(
+                metrics_port, metrics_path=metrics_path, metrics_host=metrics_host)
         self._verified: bool = False
         self._last_values: dict = {}
         self._next_detect_ts: float = 0.0

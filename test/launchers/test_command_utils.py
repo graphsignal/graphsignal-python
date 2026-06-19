@@ -4,7 +4,42 @@ import unittest
 from unittest.mock import patch, MagicMock
 
 from graphsignal.launchers.command_utils import (
-    extract_port, resolve_metrics_port, start_watcher)
+    extract_host, extract_port, resolve_metrics_host, resolve_metrics_port,
+    start_watcher)
+
+
+class ExtractHostTest(unittest.TestCase):
+    def test_space_form(self):
+        self.assertEqual(extract_host(['trtllm-serve', '--host', '0.0.0.0']),
+                         '0.0.0.0')
+
+    def test_equals_form(self):
+        self.assertEqual(extract_host(['trtllm-serve', '--host=localhost']),
+                         'localhost')
+
+    def test_absent_returns_default(self):
+        self.assertIsNone(extract_host(['trtllm-serve']))
+        self.assertEqual(extract_host(['trtllm-serve'], default='localhost'),
+                         'localhost')
+
+
+class ResolveMetricsHostTest(unittest.TestCase):
+    def test_explicit_host_wins(self):
+        self.assertEqual(
+            resolve_metrics_host('10.0.0.1', ['trtllm-serve', '--host', '0.0.0.0'],
+                                 default='localhost'),
+            '10.0.0.1')
+
+    def test_falls_back_to_engine_host(self):
+        self.assertEqual(
+            resolve_metrics_host(None, ['trtllm-serve', '--host', '0.0.0.0'],
+                                 default='localhost'),
+            '0.0.0.0')
+
+    def test_falls_back_to_default(self):
+        self.assertEqual(
+            resolve_metrics_host(None, ['trtllm-serve'], default='localhost'),
+            'localhost')
 
 
 class ExtractPortTest(unittest.TestCase):
@@ -74,6 +109,22 @@ class StartWatcherTest(unittest.TestCase):
             start_watcher(54321, metrics_port=8000)
         cmd = popen_m.call_args[0][0]
         self.assertEqual(cmd[5:], ['--metrics-port', '8000'])
+
+    def test_spawn_args_with_metrics_path(self):
+        with patch.object(subprocess, 'Popen', return_value=MagicMock()) as popen_m:
+            start_watcher(54321, metrics_port=8000,
+                          metrics_path='/prometheus/metrics')
+        cmd = popen_m.call_args[0][0]
+        self.assertEqual(
+            cmd[5:],
+            ['--metrics-port', '8000', '--metrics-path', '/prometheus/metrics'])
+
+    def test_spawn_args_with_metrics_host(self):
+        with patch.object(subprocess, 'Popen', return_value=MagicMock()) as popen_m:
+            start_watcher(54321, metrics_port=8000, metrics_host='localhost')
+        cmd = popen_m.call_args[0][0]
+        self.assertEqual(
+            cmd[5:], ['--metrics-port', '8000', '--metrics-host', 'localhost'])
 
     def test_spawn_args_with_both_ports(self):
         with patch.object(subprocess, 'Popen', return_value=MagicMock()) as popen_m:
