@@ -552,7 +552,7 @@ class CuptiRecorderTest(unittest.TestCase):
     def test_cuda_graph_op_name_is_hashed_signature_with_graph_signature_property(self):
         recorder = CuptiRecorder()
 
-        signature = 'kernel[grid=64,block=128,shmem=0,calls=3];memcpy[grid=0,block=0,shmem=0,calls=1];'
+        signature = 'kernel[name=_Z11test_kernelPfi,calls=3];memcpy[calls=1];'
         events = {'70001': _kernel_event('graph:' + signature, cumtime=5_000_000)}
 
         with patch.object(graphsignal.sdk.sdk(), 'add_counter_profile_field',
@@ -577,7 +577,7 @@ class CuptiRecorderTest(unittest.TestCase):
 
         buckets = [{
             'bucket_ts': 9500,
-            'events': {'70002': _kernel_event('graph:kernel[grid=32,block=64,shmem=0,calls=2];',
+            'events': {'70002': _kernel_event('graph:kernel[name=_Z6mykernelv,calls=2];',
                                               cumtime=4_000_000,
                                               host_sync_wait=1_000_000)},
         }]
@@ -600,7 +600,7 @@ class CuptiRecorderTest(unittest.TestCase):
         events = {str(60000 + i): _kernel_event(f'kernel_{i:02d}',
                                                 cumtime=(i + 1) * 1000)
                   for i in range(35)}
-        events['95001'] = _kernel_event('graph:kernel[grid=8,block=16,shmem=0,calls=1];', cumtime=10_000_000)
+        events['95001'] = _kernel_event('graph:kernel[name=_Z6mykernelv,calls=1];', cumtime=10_000_000)
 
         with patch.object(graphsignal.sdk.sdk(), 'update_profile'):
             recorder._convert_to_profile([{'bucket_ts': 7200, 'events': events}])
@@ -617,7 +617,7 @@ class CuptiRecorderTest(unittest.TestCase):
         events = {str(60000 + i): _kernel_event(f'kernel_{i:02d}',
                                                 cumtime=(i + 1) * 1_000_000)
                   for i in range(35)}
-        events['95001'] = _kernel_event('graph:kernel[grid=8,block=16,shmem=0,calls=1];', cumtime=1)
+        events['95001'] = _kernel_event('graph:kernel[name=_Z6mykernelv,calls=1];', cumtime=1)
 
         with patch.object(graphsignal.sdk.sdk(), 'update_profile'):
             recorder._convert_to_profile([{'bucket_ts': 7200, 'events': events}])
@@ -630,7 +630,7 @@ class CuptiRecorderTest(unittest.TestCase):
 
         buckets = [{
             'bucket_ts': 7300,
-            'events': {'95002': _kernel_event('graph:kernel[grid=8,block=16,shmem=0,calls=1];',
+            'events': {'95002': _kernel_event('graph:kernel[name=_Z6mykernelv,calls=1];',
                                               cumtime=9_000_000)},
         }]
 
