@@ -68,6 +68,23 @@ class PrometheusRecorderTest(unittest.TestCase):
             fake_sdk.set_gauge.call_args.kwargs['name'], 'vllm_num_requests_running')
         self.assertEqual(fake_sdk.set_gauge.call_args.kwargs['value'], 3.0)
 
+    def test_skips_non_finite_gauge_values(self):
+        body = """# HELP sglang:fwd_occupancy Forward pass GPU occupancy percentage.
+# TYPE sglang:fwd_occupancy gauge
+sglang:fwd_occupancy NaN
+# HELP sglang:gen_throughput The generation throughput (token/s).
+# TYPE sglang:gen_throughput gauge
+sglang:gen_throughput 12.5
+"""
+        recorder = PrometheusRecorder(pid=123, metrics_port=8000)
+        fake_sdk = MagicMock()
+        with patch.object(recorder, '_fetch_metrics', return_value=body), \
+             patch('graphsignal.sdk.sdk', return_value=fake_sdk):
+            recorder.on_tick()
+        fake_sdk.set_gauge.assert_called_once()
+        self.assertEqual(fake_sdk.set_gauge.call_args.kwargs['name'], 'sglang:gen_throughput')
+        self.assertEqual(fake_sdk.set_gauge.call_args.kwargs['value'], 12.5)
+
     def test_non_prometheus_body_is_not_emitted(self):
         # A wrong port that answers HTTP with non-Prometheus content must not be
         # treated as metrics (stays unverified, nothing parsed).

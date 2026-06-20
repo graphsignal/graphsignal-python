@@ -1,4 +1,5 @@
 import logging
+import math
 import time
 from typing import Optional
 
@@ -25,6 +26,10 @@ INITIAL_DETECT_DELAY_SEC = 2.0
 MAX_DETECT_DELAY_SEC = 60.0
 DEFAULT_METRICS_PATH = '/metrics'
 DEFAULT_METRICS_HOST = '127.0.0.1'
+
+
+def _is_finite_number(value) -> bool:
+    return isinstance(value, (int, float)) and math.isfinite(value)
 
 
 def normalize_metrics_path(path: Optional[str]) -> str:
@@ -136,12 +141,12 @@ class PrometheusRecorder(BaseRecorder):
 
                 if mtype == 'gauge':
                     s = sample_map.get(name)
-                    if s is not None:
+                    if s is not None and _is_finite_number(s.value):
                         sdk.set_gauge(name=name, tags=tags, value=s.value, measurement_ts=now_ns)
 
                 elif mtype == 'counter':
                     s = sample_map.get(f'{name}_total') or sample_map.get(name)
-                    if s is not None:
+                    if s is not None and _is_finite_number(s.value):
                         last_key = (name, group_key)
                         current = s.value
                         prev = self._last_values.get(last_key)
@@ -154,13 +159,13 @@ class PrometheusRecorder(BaseRecorder):
                 elif mtype in ('histogram', 'summary'):
                     c = sample_map.get(f'{name}_count')
                     su = sample_map.get(f'{name}_sum')
-                    if c is not None and su is not None:
+                    if c is not None and su is not None and _is_finite_number(c.value) and _is_finite_number(su.value):
                         last_key = (name, group_key)
                         cur_c, cur_s = c.value, su.value
                         prev = self._last_values.get(last_key)
                         if prev is not None:
                             dc, ds = cur_c - prev[0], cur_s - prev[1]
-                            if dc > 0:
+                            if dc > 0 and _is_finite_number(ds):
                                 sdk.update_summary(name=name, tags=tags,
                                                    count=int(dc), sum_val=ds, measurement_ts=now_ns)
                         self._last_values[last_key] = (cur_c, cur_s)
