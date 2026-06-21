@@ -12,7 +12,7 @@ Graphsignal is a production-scale inference profiling platform that helps engine
 * Error monitoring for device-level failures and inference errors.
 * Inference telemetry for AI agents to identify bottlenecks and drive targeted improvements across the inference stack.
 
-[![Dashboards](https://graphsignal.com/external/screenshot-dashboard.png)](https://graphsignal.com/)
+[![Dashboards](https://graphsignal.com/external/screenshot-dashboard.png?v=2)](https://graphsignal.com/)
 
 Learn more at [graphsignal.com](https://graphsignal.com).
 
