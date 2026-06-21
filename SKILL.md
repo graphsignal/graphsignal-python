@@ -9,7 +9,7 @@ description: >-
 
 # Graphsignal Profiler
 
-Graphsignal observes inference workloads from a **sidecar process** — the profiler. It never shares a process with CUDA: the profiler watches the workload externally via `/dev/shm`, OTLP/gRPC, Prometheus scraping, and NVML. Auto-instrumentation covers vLLM, SGLang, and PyTorch out of the box.
+Graphsignal observes inference workloads from a **sidecar process** — the profiler. It never shares a process with CUDA: the profiler watches the workload externally via CUPTI, OTLP/gRPC, Prometheus scraping, and NVML. Auto-instrumentation covers vLLM, SGLang, and PyTorch out of the box.
 
 ## Install
 
@@ -56,7 +56,7 @@ export GRAPHSIGNAL_API_KEY="..."
 graphsignal-run vllm serve Qwen/Qwen1.5-7B-Chat --port 8000
 ```
 
-The CLI sets up CUPTI env vars, spawns a profiler sidecar subprocess, and `execv`'s into the workload.
+The CLI enables GPU profiling, starts the profiler sidecar, and launches the workload.
 
 ### Option B — `graphsignal.watch()` from Python
 
@@ -69,7 +69,7 @@ graphsignal.watch()
 # ... your application code (PyTorch, vLLM, SGLang, etc.) ...
 ```
 
-It sets up the CUPTI env vars in this process and spawns the profiler sidecar subprocess targeting `os.getpid()`. Returns the `subprocess.Popen` so the caller can `wait()` or `terminate()` it.
+It enables GPU profiling in this process and starts the profiler sidecar to observe it. Returns the `subprocess.Popen` so the caller can `wait()` or `terminate()` it.
 
 ### OpenTelemetry tracing (opt-in)
 
@@ -79,7 +79,7 @@ Distributed traces (engine / scheduler / attention spans over OTLP/gRPC) are **o
 graphsignal-run --enable-otel sglang serve --model-path Qwen/Qwen1.5-7B-Chat --port 8000
 ```
 
-This injects the engine's trace flags and starts a local OTLP collector in the profiler. It requires OpenTelemetry installed in the **engine's** environment (e.g. `pip install opentelemetry-sdk opentelemetry-exporter-otlp`) — graphsignal can't provide it when installed in a separate env (e.g. `uv tool`), and SGLang ≥ 0.5.10 errors at startup if tracing is enabled without it. Prometheus metrics and CUPTI GPU profiling are captured regardless of this flag; OTEL injection applies only to `graphsignal-run` (not `graphsignal.watch()`).
+This captures the engine's request traces via a local OTLP collector. It requires OpenTelemetry installed in the **engine's** environment (e.g. `pip install opentelemetry-sdk opentelemetry-exporter-otlp`) — graphsignal can't provide it when installed in a separate env (e.g. `uv tool`), and SGLang ≥ 0.5.10 errors at startup if tracing is enabled without it. Prometheus metrics and GPU profiling are captured regardless of this flag; OTEL tracing applies only to `graphsignal-run` (not `graphsignal.watch()`).
 
 ## Engine-specific notes
 

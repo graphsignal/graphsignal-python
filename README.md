@@ -25,6 +25,16 @@ UV_TOOL_BIN_DIR=/usr/local/bin uv tool install 'graphsignal[cu12]'   # CUDA 12.x
 UV_TOOL_BIN_DIR=/usr/local/bin uv tool install 'graphsignal[cu13]'   # CUDA 13.x
 ```
 
+### Alternative: install into your workload environment
+
+If you prefer a single environment, or you use the `graphsignal.watch()` Python API (which requires `graphsignal` importable by your application), install it directly into your workload's environment instead:
+
+```bash
+pip install 'graphsignal[cu12]'   # CUDA 12.x
+# or
+pip install 'graphsignal[cu13]'   # CUDA 13.x
+```
+
 
 ## Profile
 
@@ -66,7 +76,7 @@ Install the Graphsignal skill to let your AI coding agent (Claude Code, Codex, o
 
 ## Overhead
 
-The profiler has minimal impact on production performance. CUPTI activity is collected with low-overhead APIs in a sidecar process, and the in-process injection only writes raw activity records — analysis and upload happen in the sidecar.
+The profiler has minimal impact on production performance. CUDA kernel activity is collected via CUPTI with low-overhead APIs, and analysis and upload happen in the sidecar process.
 
 
 ## Security and Privacy
