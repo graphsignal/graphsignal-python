@@ -20,9 +20,9 @@ Learn more at [graphsignal.com](https://graphsignal.com).
 ## Install
 
 ```bash
-uv tool install 'graphsignal[cu12]'   # CUDA 12.x
+UV_TOOL_BIN_DIR=/usr/local/bin uv tool install 'graphsignal[cu12]'   # CUDA 12.x
 # or
-uv tool install 'graphsignal[cu13]'   # CUDA 13.x
+UV_TOOL_BIN_DIR=/usr/local/bin uv tool install 'graphsignal[cu13]'   # CUDA 13.x
 ```
 
 

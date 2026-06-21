@@ -18,12 +18,12 @@ Two install patterns depending on how you'll launch the profiler.
 **For `graphsignal-run` (CLI, recommended):** install as a uv tool, isolated from your workload env.
 
 ```bash
-uv tool install 'graphsignal[cu12]'   # CUDA 12.x
+UV_TOOL_BIN_DIR=/usr/local/bin uv tool install 'graphsignal[cu12]'   # CUDA 12.x
 # or
-uv tool install 'graphsignal[cu13]'   # CUDA 13.x
+UV_TOOL_BIN_DIR=/usr/local/bin uv tool install 'graphsignal[cu13]'   # CUDA 13.x
 ```
 
-This puts `graphsignal-run` on `PATH`. The CUPTI injection library ships inside the wheel and the launcher references it by absolute path, so the workload doesn't need the package in its own environment.
+`UV_TOOL_BIN_DIR=/usr/local/bin` puts `graphsignal-run` in a directory that is already on `PATH` for every shell, including non-interactive scripts and containers.
 
 **For `graphsignal.watch()` (in-process Python entry point):** install into the app's own env.
 
