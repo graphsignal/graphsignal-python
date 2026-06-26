@@ -65,6 +65,8 @@ class SignalUploader:
                 logger.debug('Failed uploading signals, will retry', exc_info=True)
                 with self._buffer_lock:
                     self._buffer[:0] = outgoing
+                    if len(self._buffer) > self.MAX_BUFFER_SIZE:
+                        self._buffer = self._buffer[-self.MAX_BUFFER_SIZE:]
 
     def _post(self, endpoint, data):
         logger.debug('Posting data to %s/%s', graphsignal.sdk.sdk().api_base(), endpoint)

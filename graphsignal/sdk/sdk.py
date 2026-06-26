@@ -478,50 +478,54 @@ class Sdk:
         if not self._tick_lock.acquire(blocking=False):
             return
 
-        try:
-            def _run_tick():
+        self._last_tick_ts = now
+
+        def _run_tick():
+            try:
                 try:
-                    try:
-                        if self._config_loader:
-                            self.config_loader().update_config()
-                    except Exception as exc:
-                        logger.error('Error in config loader update: %s', exc, exc_info=True)
-
-                    try:
-                        self.emit_tick()
-                    except Exception:
-                        logger.error('Error in tick recorder loop', exc_info=True)
-
-                    if self._span_store and self._span_store.has_unexported():
-                        spans = self._span_store.export()
-                        for span in spans:
-                            self.signal_uploader().upload_span(span)
-
-                    if self._metric_store and self._metric_store.has_unexported():
-                        metrics = self._metric_store.export()
-                        for metric in metrics:
-                            self.signal_uploader().upload_metric(metric)
-
-                    if self._log_store and self._log_store.has_unexported():
-                        batches = self._log_store.export()
-                        for batch in batches:
-                            self.signal_uploader().upload_log_batch(batch)
-
-                    if self._resource_store and self._resource_store.has_unexported():
-                        resources = self._resource_store.export()
-                        for resource in resources:
-                            self.signal_uploader().upload_resource(resource)
-
-                    if self._signal_uploader:
-                        self._signal_uploader.flush()
+                    if self._config_loader:
+                        self.config_loader().update_config()
                 except Exception as exc:
-                    logger.error('Error in tick execution: %s', exc, exc_info=True)
+                    logger.error('Error in config loader update: %s', exc, exc_info=True)
 
-            self._last_tick_ts = now
+                try:
+                    self.emit_tick()
+                except Exception:
+                    logger.error('Error in tick recorder loop', exc_info=True)
 
+                if self._span_store and self._span_store.has_unexported():
+                    spans = self._span_store.export()
+                    for span in spans:
+                        self.signal_uploader().upload_span(span)
+
+                if self._metric_store and self._metric_store.has_unexported():
+                    metrics = self._metric_store.export()
+                    for metric in metrics:
+                        self.signal_uploader().upload_metric(metric)
+
+                if self._log_store and self._log_store.has_unexported():
+                    batches = self._log_store.export()
+                    for batch in batches:
+                        self.signal_uploader().upload_log_batch(batch)
+
+                if self._resource_store and self._resource_store.has_unexported():
+                    resources = self._resource_store.export()
+                    for resource in resources:
+                        self.signal_uploader().upload_resource(resource)
+
+                if self._signal_uploader:
+                    self._signal_uploader.flush()
+            except Exception as exc:
+                logger.error('Error in tick execution: %s', exc, exc_info=True)
+            finally:
+                self._tick_lock.release()
+
+        try:
             self._tick_run_thread = threading.Thread(target=_run_tick, daemon=True)
             self._tick_run_thread.start()
-            if block:
-                self._tick_run_thread.join()
-        finally:
+        except Exception:
             self._tick_lock.release()
+            raise
+
+        if block:
+            self._tick_run_thread.join()
