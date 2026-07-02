@@ -68,6 +68,38 @@ class PrometheusRecorderTest(unittest.TestCase):
             fake_sdk.set_gauge.call_args.kwargs['name'], 'vllm_num_requests_running')
         self.assertEqual(fake_sdk.set_gauge.call_args.kwargs['value'], 3.0)
 
+    def test_skips_gauge_histogram_bucket_labels(self):
+        body = """# HELP sglang:routing_key_running_req_count Distribution of routing keys.
+# TYPE sglang:routing_key_running_req_count gauge
+sglang:routing_key_running_req_count{gt="0",le="1",model_name="m"} 2.0
+sglang:routing_key_running_req_count{gt="1",le="2",model_name="m"} 1.0
+# HELP sglang:gen_throughput The generation throughput (token/s).
+# TYPE sglang:gen_throughput gauge
+sglang:gen_throughput{model_name="m"} 12.5
+"""
+        recorder = PrometheusRecorder(pid=123, metrics_port=8000)
+        fake_sdk = MagicMock()
+        with patch.object(recorder, '_fetch_metrics', return_value=body), \
+             patch('graphsignal.sdk.sdk', return_value=fake_sdk):
+            recorder.on_tick()
+        fake_sdk.set_gauge.assert_called_once()
+        self.assertEqual(fake_sdk.set_gauge.call_args.kwargs['name'], 'sglang:gen_throughput')
+        self.assertNotIn('gt', fake_sdk.set_gauge.call_args.kwargs.get('tags', {}))
+
+    def test_strips_pid_label(self):
+        body = """# HELP sglang:num_running_reqs The number of running requests.
+# TYPE sglang:num_running_reqs gauge
+sglang:num_running_reqs{pid="1973",model_name="m"} 4.0
+"""
+        recorder = PrometheusRecorder(pid=123, metrics_port=8000)
+        fake_sdk = MagicMock()
+        with patch.object(recorder, '_fetch_metrics', return_value=body), \
+             patch('graphsignal.sdk.sdk', return_value=fake_sdk):
+            recorder.on_tick()
+        tags = fake_sdk.set_gauge.call_args.kwargs['tags']
+        self.assertNotIn('pid', tags)
+        self.assertEqual(tags.get('model_name'), 'm')
+
     def test_skips_non_finite_gauge_values(self):
         body = """# HELP sglang:fwd_occupancy Forward pass GPU occupancy percentage.
 # TYPE sglang:fwd_occupancy gauge

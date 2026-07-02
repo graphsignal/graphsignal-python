@@ -27,6 +27,10 @@ MAX_DETECT_DELAY_SEC = 60.0
 DEFAULT_METRICS_PATH = '/metrics'
 DEFAULT_METRICS_HOST = '127.0.0.1'
 
+# Prometheus labels used only for exposition (buckets, multiprocess); not useful
+# as Graphsignal metric tags and they explode cardinality if kept.
+_STRIP_LABELS = frozenset({'le', 'quantile', 'gt', 'pid'})
+
 
 def _is_finite_number(value) -> bool:
     return isinstance(value, (int, float)) and math.isfinite(value)
@@ -132,7 +136,11 @@ class PrometheusRecorder(BaseRecorder):
 
             sample_groups = {}
             for sample in family.samples:
-                labels = {k: v for k, v in sample.labels.items() if k not in ('le', 'quantile')}
+                # SGLang GaugeHistogram emits one gauge per bucket (gt/le labels).
+                # These are heatmap buckets, not scalar gauges — skip them.
+                if 'gt' in sample.labels:
+                    continue
+                labels = {k: v for k, v in sample.labels.items() if k not in _STRIP_LABELS}
                 group_key = frozenset(labels.items())
                 sample_groups.setdefault(group_key, {})[sample.name] = sample
 
