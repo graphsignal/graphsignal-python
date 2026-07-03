@@ -6,6 +6,21 @@ from typing import List, Optional
 logger = logging.getLogger('graphsignal')
 
 
+def engine_version(distribution: str) -> Optional[str]:
+    """Best-effort engine package version via installed distribution metadata.
+
+    Only resolvable when the engine is importable in the `graphsignal-run`
+    environment (e.g. an all-in-one install). Returns None otherwise so callers
+    can simply omit the value.
+    """
+    try:
+        from importlib.metadata import version
+        return version(distribution)
+    except Exception:
+        logger.debug('Could not resolve version for %s', distribution, exc_info=True)
+        return None
+
+
 def extract_host(args: List[str], default: Optional[str] = None) -> Optional[str]:
     """Extract the HTTP bind host from engine CLI args (`--host H` / `--host=H`)."""
     for i, arg in enumerate(args):

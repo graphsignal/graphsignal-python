@@ -2,8 +2,10 @@ import logging
 import os
 import shutil
 
+from graphsignal.launchers import auto_flags
 from graphsignal.launchers.base_launcher import BaseLauncher
-from graphsignal.launchers.command_utils import resolve_metrics_port, start_watcher
+from graphsignal.launchers.command_utils import (
+    engine_version, resolve_metrics_port, start_watcher)
 from graphsignal.otel.otel_collector import OTELCollector
 from graphsignal.profilers.cupti_profiler import CuptiProfiler
 
@@ -48,6 +50,11 @@ class SglangLauncher(BaseLauncher):
                         otel_port, otel_port)
 
         CuptiProfiler.setup_env_vars(cuda_graph_trace=self.cuda_graph_trace)
+
+        if self.auto_flags:
+            self.args = auto_flags.inject_auto_flags(
+                self.args, engine_name='sglang',
+                engine_version=engine_version('sglang'))
 
         new_args = _inject_sglang_args(self.args, otel_port, self.enable_otel)
 

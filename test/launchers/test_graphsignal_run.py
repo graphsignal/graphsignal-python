@@ -77,60 +77,85 @@ class GraphsignalRunDispatchTest(unittest.TestCase):
         t.assert_not_called()
         f.assert_not_called()
 
+    def test_auto_flags_flag_stripped_and_command_still_matches(self):
+        v, s, t, f = self._run_with_argv(
+            ['graphsignal-run', '--auto-flags', 'vllm', 'serve', 'm'])
+        v.assert_called_once()
+        s.assert_not_called()
+        t.assert_not_called()
+        f.assert_not_called()
+
 
 class ExtractFlagsTest(unittest.TestCase):
     def test_extracts_leading_enable_otel(self):
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(['--enable-otel', 'vllm', 'serve']),
-            (True, None, None, ['vllm', 'serve']))
+            (True, None, None, False, ['vllm', 'serve']))
 
     def test_absent_flag_defaults_off(self):
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(['vllm', 'serve']),
-            (False, None, None, ['vllm', 'serve']))
+            (False, None, None, False, ['vllm', 'serve']))
 
     def test_flag_after_command_left_for_workload(self):
         # Only leading flags are parsed; an identically named workload flag
         # later in argv is forwarded untouched.
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(['vllm', '--enable-otel']),
-            (False, None, None, ['vllm', '--enable-otel']))
+            (False, None, None, False, ['vllm', '--enable-otel']))
 
     def test_extracts_metrics_port_space_form(self):
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(
                 ['--metrics-port', '8000', 'trtllm-serve', 'm']),
-            (False, 8000, None, ['trtllm-serve', 'm']))
+            (False, 8000, None, False, ['trtllm-serve', 'm']))
 
     def test_extracts_metrics_port_equals_form(self):
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(
                 ['--metrics-port=8000', 'trtllm-serve', 'm']),
-            (False, 8000, None, ['trtllm-serve', 'm']))
+            (False, 8000, None, False, ['trtllm-serve', 'm']))
 
     def test_extracts_both_leading_flags(self):
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(
                 ['--enable-otel', '--metrics-port', '9001', 'vllm', 'serve']),
-            (True, 9001, None, ['vllm', 'serve']))
+            (True, 9001, None, False, ['vllm', 'serve']))
 
     def test_extracts_cuda_graph_trace_space_form(self):
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(
                 ['--cuda-graph-trace', 'node', 'vllm', 'serve']),
-            (False, None, 'node', ['vllm', 'serve']))
+            (False, None, 'node', False, ['vllm', 'serve']))
 
     def test_extracts_cuda_graph_trace_equals_form(self):
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(
                 ['--cuda-graph-trace=graph', 'python', 'app.py']),
-            (False, None, 'graph', ['python', 'app.py']))
+            (False, None, 'graph', False, ['python', 'app.py']))
 
     def test_cuda_graph_trace_after_command_left_for_workload(self):
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(
                 ['vllm', 'serve', '--cuda-graph-trace', 'node']),
-            (False, None, None, ['vllm', 'serve', '--cuda-graph-trace', 'node']))
+            (False, None, None, False, ['vllm', 'serve', '--cuda-graph-trace', 'node']))
+
+    def test_extracts_leading_auto_flags(self):
+        self.assertEqual(
+            graphsignal_run._extract_graphsignal_flags(['--auto-flags', 'vllm', 'serve']),
+            (False, None, None, True, ['vllm', 'serve']))
+
+    def test_auto_flags_after_command_left_for_workload(self):
+        self.assertEqual(
+            graphsignal_run._extract_graphsignal_flags(['vllm', '--auto-flags']),
+            (False, None, None, False, ['vllm', '--auto-flags']))
+
+    def test_extracts_all_leading_flags(self):
+        self.assertEqual(
+            graphsignal_run._extract_graphsignal_flags(
+                ['--enable-otel', '--metrics-port', '9001', '--cuda-graph-trace',
+                 'node', '--auto-flags', 'vllm', 'serve']),
+            (True, 9001, 'node', True, ['vllm', 'serve']))
 
     def test_invalid_cuda_graph_trace_exits(self):
         with self.assertRaises(SystemExit):
@@ -145,7 +170,7 @@ class ExtractFlagsTest(unittest.TestCase):
         self.assertEqual(
             graphsignal_run._extract_graphsignal_flags(
                 ['vllm', 'serve', '--metrics-port', '8000']),
-            (False, None, None, ['vllm', 'serve', '--metrics-port', '8000']))
+            (False, None, None, False, ['vllm', 'serve', '--metrics-port', '8000']))
 
     def test_invalid_metrics_port_exits(self):
         with self.assertRaises(SystemExit):
@@ -163,11 +188,12 @@ class MainEnvTest(unittest.TestCase):
         orig_init = VllmLauncher.__init__
 
         def capture_init(self, args, enable_otel=False, metrics_port=None,
-                         cuda_graph_trace=None):
+                         cuda_graph_trace=None, auto_flags=False):
             created.append(cuda_graph_trace)
             return orig_init(self, args, enable_otel=enable_otel,
                              metrics_port=metrics_port,
-                             cuda_graph_trace=cuda_graph_trace)
+                             cuda_graph_trace=cuda_graph_trace,
+                             auto_flags=auto_flags)
 
         with patch.object(VllmLauncher, '__init__', capture_init), \
              patch.object(VllmLauncher, 'match', return_value=True), \
@@ -185,11 +211,12 @@ class MainEnvTest(unittest.TestCase):
         orig_init = VllmLauncher.__init__
 
         def capture_init(self, args, enable_otel=False, metrics_port=None,
-                         cuda_graph_trace=None):
+                         cuda_graph_trace=None, auto_flags=False):
             created.append(cuda_graph_trace)
             return orig_init(self, args, enable_otel=enable_otel,
                              metrics_port=metrics_port,
-                             cuda_graph_trace=cuda_graph_trace)
+                             cuda_graph_trace=cuda_graph_trace,
+                             auto_flags=auto_flags)
 
         with patch.object(VllmLauncher, '__init__', capture_init), \
              patch.object(VllmLauncher, 'match', return_value=True), \
@@ -200,6 +227,29 @@ class MainEnvTest(unittest.TestCase):
              patch.object(sys, 'argv', ['graphsignal-run', 'vllm', 'serve']):
             graphsignal_run.main()
             self.assertEqual(created, [None])
+
+    def test_main_passes_auto_flags_to_launcher(self):
+        created = []
+        orig_init = VllmLauncher.__init__
+
+        def capture_init(self, args, enable_otel=False, metrics_port=None,
+                         cuda_graph_trace=None, auto_flags=False):
+            created.append(auto_flags)
+            return orig_init(self, args, enable_otel=enable_otel,
+                             metrics_port=metrics_port,
+                             cuda_graph_trace=cuda_graph_trace,
+                             auto_flags=auto_flags)
+
+        with patch.object(VllmLauncher, '__init__', capture_init), \
+             patch.object(VllmLauncher, 'match', return_value=True), \
+             patch.object(VllmLauncher, 'launch'), \
+             patch.object(SglangLauncher, 'match', return_value=False), \
+             patch.object(TrtllmLauncher, 'match', return_value=False), \
+             patch.object(FallbackLauncher, 'match', return_value=False), \
+             patch.object(sys, 'argv',
+                          ['graphsignal-run', '--auto-flags', 'vllm', 'serve']):
+            graphsignal_run.main()
+            self.assertEqual(created, [True])
 
 
 if __name__ == '__main__':

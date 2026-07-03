@@ -3,6 +3,7 @@ import os
 import shutil
 import sys
 
+from graphsignal.launchers import auto_flags
 from graphsignal.launchers.base_launcher import BaseLauncher
 from graphsignal.launchers.command_utils import resolve_metrics_port, start_watcher
 from graphsignal.profilers.cupti_profiler import CuptiProfiler
@@ -20,6 +21,9 @@ class FallbackLauncher(BaseLauncher):
             sys.exit(1)
 
         CuptiProfiler.setup_env_vars(cuda_graph_trace=self.cuda_graph_trace)
+
+        if self.auto_flags:
+            self.args = auto_flags.inject_auto_flags(self.args)
 
         # Generic workloads have no known metrics port; only scrape when the
         # user passed --metrics-port (or the workload itself takes a --port).

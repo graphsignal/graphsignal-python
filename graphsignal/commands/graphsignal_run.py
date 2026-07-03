@@ -41,6 +41,9 @@ Options (must precede the command):
                   aggregated cuda.graph event per graph launch, lower overhead.
                   node: per-node kernel/memcpy activity inside graphs, higher
                   overhead.
+  --auto-flags    Fetch recommended engine flags from Graphsignal and apply
+                  them to the command before launch. Requires
+                  GRAPHSIGNAL_API_KEY. Off by default.
 
 Example:
   graphsignal-run vllm serve facebook/opt-125m --port 8001
@@ -66,6 +69,7 @@ def _extract_graphsignal_flags(argv):
     collector). 
     `--metrics-port` specifies the Prometheus scrape port.
     `--cuda-graph-trace` sets CUDA graph tracing granularity (graph or node).
+    `--auto-flags` opts into fetching recommended engine flags from Graphsignal.
     All are consumed here and never forwarded to the workload. Only leading flags
     (before the workload command) are parsed, so identically named workload
     flags later in argv are left untouched.
@@ -73,11 +77,16 @@ def _extract_graphsignal_flags(argv):
     enable_otel = False
     metrics_port = None
     cuda_graph_trace = None
+    auto_flags = False
     i = 0
     while i < len(argv):
         arg = argv[i]
         if arg == '--enable-otel':
             enable_otel = True
+            i += 1
+            continue
+        if arg == '--auto-flags':
+            auto_flags = True
             i += 1
             continue
         if arg == '--metrics-port':
@@ -103,7 +112,7 @@ def _extract_graphsignal_flags(argv):
             i += 1
             continue
         break
-    return enable_otel, metrics_port, cuda_graph_trace, argv[i:]
+    return enable_otel, metrics_port, cuda_graph_trace, auto_flags, argv[i:]
 
 
 def _parse_port(value):
@@ -122,19 +131,19 @@ def main():
 
     _setup_logging()
 
-    enable_otel, metrics_port, cuda_graph_trace, target_args = _extract_graphsignal_flags(sys.argv[1:])
-    log.debug('graphsignal-run target args: %s (enable_otel=%s, metrics_port=%s, cuda_graph_trace=%s)',
-              target_args, enable_otel, metrics_port, cuda_graph_trace)
+    enable_otel, metrics_port, cuda_graph_trace, auto_flags, target_args = _extract_graphsignal_flags(sys.argv[1:])
+    log.debug('graphsignal-run target args: %s (enable_otel=%s, metrics_port=%s, cuda_graph_trace=%s, auto_flags=%s)',
+              target_args, enable_otel, metrics_port, cuda_graph_trace, auto_flags)
 
     launchers = [
         VllmLauncher(target_args, enable_otel=enable_otel, metrics_port=metrics_port,
-                     cuda_graph_trace=cuda_graph_trace),
+                     cuda_graph_trace=cuda_graph_trace, auto_flags=auto_flags),
         SglangLauncher(target_args, enable_otel=enable_otel, metrics_port=metrics_port,
-                       cuda_graph_trace=cuda_graph_trace),
+                       cuda_graph_trace=cuda_graph_trace, auto_flags=auto_flags),
         TrtllmLauncher(target_args, enable_otel=enable_otel, metrics_port=metrics_port,
-                       cuda_graph_trace=cuda_graph_trace),
+                       cuda_graph_trace=cuda_graph_trace, auto_flags=auto_flags),
         FallbackLauncher(target_args, enable_otel=enable_otel, metrics_port=metrics_port,
-                         cuda_graph_trace=cuda_graph_trace),
+                         cuda_graph_trace=cuda_graph_trace, auto_flags=auto_flags),
     ]
 
     for launcher in launchers:

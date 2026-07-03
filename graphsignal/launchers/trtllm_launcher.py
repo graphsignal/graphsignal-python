@@ -2,9 +2,10 @@ import logging
 import os
 import shutil
 
+from graphsignal.launchers import auto_flags
 from graphsignal.launchers.base_launcher import BaseLauncher
 from graphsignal.launchers.command_utils import (
-    resolve_metrics_host, resolve_metrics_port, start_watcher)
+    engine_version, resolve_metrics_host, resolve_metrics_port, start_watcher)
 from graphsignal.profilers.cupti_profiler import CuptiProfiler
 
 logger = logging.getLogger('graphsignal')
@@ -29,6 +30,11 @@ class TrtllmLauncher(BaseLauncher):
                 'engine Prometheus metrics will not be scraped')
 
         CuptiProfiler.setup_env_vars(cuda_graph_trace=self.cuda_graph_trace)
+
+        if self.auto_flags:
+            self.args = auto_flags.inject_auto_flags(
+                self.args, engine_name='tensorrt-llm',
+                engine_version=engine_version('tensorrt_llm'))
 
         metrics_port = resolve_metrics_port(
             self.metrics_port, self.args, default=DEFAULT_SERVE_PORT)
