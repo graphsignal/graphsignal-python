@@ -9,6 +9,7 @@ network error, malformed response) leaves the caller's args unchanged so the
 workload always launches.
 """
 
+import json
 import logging
 import os
 import platform
@@ -193,6 +194,7 @@ def _fetch_options(api_base: str, api_key: str,
     headers = {'X-API-Key': api_key}
 
     logger.debug('auto-flags: requesting %s', url)
+    logger.debug('auto-flags: payload %s', json.dumps(body, indent=2))
     resp = requests.post(url, json=body, headers=headers, timeout=_REQUEST_TIMEOUT)
     resp.raise_for_status()
 
