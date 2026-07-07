@@ -164,6 +164,7 @@ class Sdk:
         from graphsignal.recorders.process_recorder import ProcessRecorder
         from graphsignal.recorders.nvml_recorder import NVMLRecorder
         from graphsignal.recorders.cupti_recorder import CuptiRecorder
+        from graphsignal.recorders.rocm_recorder import RocmRecorder
         from graphsignal.recorders.prometheus_recorder import PrometheusRecorder
 
         recorders = []
@@ -175,6 +176,7 @@ class Sdk:
                 metrics_path=self._metrics_path, metrics_host=self._metrics_host))
         recorders.append(ProcessRecorder(pid=self._target_pid, args=args))
         recorders.append(CuptiRecorder(pid=self._target_pid, args=args))
+        recorders.append(RocmRecorder(pid=self._target_pid, args=args))
 
         with self._recorders_lock:
             self._global_recorders = recorders
@@ -189,10 +191,12 @@ class Sdk:
     def on_child_created(self, pid, args):
         from graphsignal.recorders.process_recorder import ProcessRecorder
         from graphsignal.recorders.cupti_recorder import CuptiRecorder
+        from graphsignal.recorders.rocm_recorder import RocmRecorder
 
         recorders = [
             ProcessRecorder(pid=pid, args=args),
             CuptiRecorder(pid=pid, args=args),
+            RocmRecorder(pid=pid, args=args),
         ]
         with self._recorders_lock:
             self._child_recorders[pid] = recorders

@@ -187,7 +187,7 @@ class NVMLRecorder(BaseRecorder):
             self._is_initialized = True
             logger.debug('Initialized NVML')
         except BaseException:
-            logger.error('Error initializing NVML, skipping GPU usage')
+            logger.debug('Error initializing NVML, skipping GPU usage')
             return
 
         self._setup_us = int(time.time() * 1e6)

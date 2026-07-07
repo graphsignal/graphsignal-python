@@ -8,6 +8,7 @@ from graphsignal.launchers.command_utils import (
     engine_version, resolve_metrics_port, start_watcher)
 from graphsignal.otel.otel_collector import OTELCollector
 from graphsignal.profilers.cupti_profiler import CuptiProfiler
+from graphsignal.profilers.rocm_profiler import RocmProfiler
 
 logger = logging.getLogger('graphsignal')
 
@@ -34,6 +35,7 @@ class VllmLauncher(BaseLauncher):
             otel_port = OTELCollector.find_port()
 
         CuptiProfiler.setup_env_vars(cuda_graph_trace=self.cuda_graph_trace)
+        RocmProfiler.setup_env_vars()
 
         if self.auto_flags:
             self.args = auto_flags.inject_auto_flags(

@@ -14,6 +14,7 @@ from typing import Optional
 from graphsignal.version import __version__
 from graphsignal.launchers.command_utils import start_watcher as _start_watcher
 from graphsignal.profilers.cupti_profiler import CuptiProfiler as _CuptiProfiler
+from graphsignal.profilers.rocm_profiler import RocmProfiler as _RocmProfiler
 
 logger = logging.getLogger('graphsignal')
 
@@ -39,6 +40,7 @@ def watch(otel_collector_port: Optional[int] = None,
     Returns the watcher `Popen` so the caller can `wait()` or `terminate()`.
     """
     _CuptiProfiler.setup_env_vars(cuda_graph_trace=cuda_graph_trace)
+    _RocmProfiler.setup_env_vars()
     return _start_watcher(os.getpid(), otel_collector_port=otel_collector_port,
                           metrics_port=metrics_port, metrics_path=metrics_path,
                           metrics_host=metrics_host)
