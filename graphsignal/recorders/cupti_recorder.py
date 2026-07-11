@@ -226,7 +226,7 @@ class CuptiRecorder(BaseRecorder):
         return self._activity_window_ns
 
     def _shm_dir(self) -> str:
-        return f"/dev/shm/graphsignal_{self.pid}"
+        return f"/dev/shm/graphsignal_cupti_{self.pid}"
 
     def _start_drain_timer(self):
         self._last_drain_bucket_ts = 0
@@ -453,11 +453,14 @@ class CuptiRecorder(BaseRecorder):
 
 
 def _sweep_stale_shm_dirs():
-    """Remove `/dev/shm/graphsignal_<pid>` directories whose pid is no longer
-    running. The native injection lib creates one per workload pid and removes
-    it on clean teardown, but crashes / SIGKILL / OOM leave them behind. Called
-    at recorder setup so each profiler run starts by reaping prior leaks."""
+    """Remove `/dev/shm/graphsignal_cupti_<pid>` directories whose pid is no
+    longer running. The native injection lib creates one per workload pid and
+    removes it on clean teardown, but crashes / SIGKILL / OOM leave them behind.
+    Called at recorder setup so each profiler run starts by reaping prior leaks.
+    Also reaps the legacy `graphsignal_<pid>` prefix written by older lib
+    versions (the numeric-pid parse keeps `graphsignal_rocm_*` out of reach)."""
     base = '/dev/shm'
+    prefixes = ('graphsignal_cupti_', 'graphsignal_')
     if not os.path.isdir(base):
         return
     try:
@@ -465,10 +468,11 @@ def _sweep_stale_shm_dirs():
     except OSError:
         return
     for name in entries:
-        if not name.startswith('graphsignal_'):
+        prefix = next((p for p in prefixes if name.startswith(p)), None)
+        if prefix is None:
             continue
         try:
-            pid = int(name[len('graphsignal_'):])
+            pid = int(name[len(prefix):])
         except ValueError:
             continue
         if pid <= 0:

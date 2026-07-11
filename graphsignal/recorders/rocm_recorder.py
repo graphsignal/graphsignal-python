@@ -244,8 +244,8 @@ class RocmRecorder(BaseRecorder):
 
     def _shm_dir(self) -> str:
         # Own dir (graphsignal_rocm_<pid>) so it never collides with the CUPTI
-        # backend's graphsignal_<pid>; this is what lets cupti_recorder.py stay
-        # untouched (its whole-dir rmtree/sweep can never reach ROCm files).
+        # backend's graphsignal_cupti_<pid>; this is what lets cupti_recorder.py
+        # stay untouched (its whole-dir rmtree/sweep can never reach ROCm files).
         return f"/dev/shm/graphsignal_rocm_{self.pid}"
 
     def _start_drain_timer(self):
@@ -455,7 +455,7 @@ class RocmRecorder(BaseRecorder):
 def _sweep_stale_shm_dirs():
     """Remove `/dev/shm/graphsignal_rocm_<pid>` directories whose pid is no
     longer running. Scoped to the ROCm prefix so it never touches the CUPTI
-    backend's `graphsignal_<pid>` dirs."""
+    backend's `graphsignal_cupti_<pid>` dirs."""
     base = '/dev/shm'
     prefix = 'graphsignal_rocm_'
     if not os.path.isdir(base):

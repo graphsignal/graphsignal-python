@@ -6,7 +6,7 @@ workload script that does one CUDA op. Verifies that:
   * The launcher dispatches successfully (subprocess exits 0).
   * The workload actually runs (it writes its pid to a file we own).
   * The CUPTI injection library is loaded into the workload (its presence
-    creates `/dev/shm/graphsignal_<workload_pid>/`).
+    creates `/dev/shm/graphsignal_cupti_<workload_pid>/`).
 
 The test does not require network access; `GRAPHSIGNAL_API_BASE` is pointed at
 a local port that's expected to be unreachable, so upload attempts fail
@@ -34,7 +34,7 @@ def _torch_cuda_available_in_subprocess() -> bool:
 
 
 def _shm_dir(pid: int) -> str:
-    return f"/dev/shm/graphsignal_{pid}"
+    return f"/dev/shm/graphsignal_cupti_{pid}"
 
 
 # The workload appends a progress trail to the env-supplied output file from
@@ -147,7 +147,7 @@ class GraphsignalRunE2ETest(unittest.TestCase):
             self.assertNotIn('<unset>', inj_line,
                              msg=f"launcher did not set CUDA_INJECTION64_PATH; trail=\n{trail}")
 
-            # The CUPTI injection library creates /dev/shm/graphsignal_<pid>
+            # The CUPTI injection library creates /dev/shm/graphsignal_cupti_<pid>
             # at CUDA init. It may have been cleaned up by the lib's atexit
             # hook by now, so we don't strictly require it to exist post-exit
             # — but if it does, that's a useful signal that the injection

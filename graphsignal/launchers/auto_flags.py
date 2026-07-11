@@ -182,7 +182,10 @@ def _collect_single_device_attrs(add, pynvml, handle, i: int) -> None:
         logger.debug('auto-flags: error reading compute capability', exc_info=True)
 
     try:
-        mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+        try:
+            mem_info = pynvml.nvmlDeviceGetMemoryInfo_v2(handle)
+        except Exception:
+            mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
         add(f'{prefix}.mem_total', mem_info.total)
     except Exception:
         logger.debug('auto-flags: error reading device memory', exc_info=True)

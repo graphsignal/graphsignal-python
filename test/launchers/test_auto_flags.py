@@ -80,7 +80,70 @@ class CollectSystemTest(unittest.TestCase):
             # Every visible device contributes its indexed attributes.
             for i in range(device_count):
                 self.assertIn(f'device.{i}.device_name', attrs)
-                self.assertIn(f'device.{i}.mem_total', attrs)
+                # mem_total requires discrete VRAM; unified-memory GPUs omit it.
+                mem_total_key = f'device.{i}.mem_total'
+                if mem_total_key in attrs:
+                    self.assertGreater(attrs[mem_total_key], 0)
+
+
+class CollectSingleDeviceAttrsTest(unittest.TestCase):
+    def _mock_pynvml(self):
+        mock_pynvml = MagicMock()
+        mock_pynvml.nvmlDeviceGetName.return_value = 'Test GPU'
+        mock_pynvml.nvmlDeviceGetArchitecture.return_value = 7
+        mock_pynvml.nvmlDeviceGetCudaComputeCapability.return_value = (8, 0)
+        return mock_pynvml
+
+    def test_uses_nvml_memory_v2(self):
+        attrs = {}
+
+        def add(name, value):
+            attrs[name] = value
+
+        mock_pynvml = self._mock_pynvml()
+        mock_handle = MagicMock()
+        mock_mem = MagicMock()
+        mock_mem.total = 128_000_000_000
+        mock_pynvml.nvmlDeviceGetMemoryInfo_v2.return_value = mock_mem
+
+        auto_flags._collect_single_device_attrs(add, mock_pynvml, mock_handle, 0)
+
+        self.assertEqual(attrs.get('device.0.mem_total'), 128_000_000_000)
+        mock_pynvml.nvmlDeviceGetMemoryInfo_v2.assert_called_once_with(mock_handle)
+        mock_pynvml.nvmlDeviceGetMemoryInfo.assert_not_called()
+
+    def test_falls_back_to_memory_info_v1(self):
+        attrs = {}
+
+        def add(name, value):
+            attrs[name] = value
+
+        mock_pynvml = self._mock_pynvml()
+        mock_handle = MagicMock()
+        mock_mem = MagicMock()
+        mock_mem.total = 64_000_000_000
+        mock_pynvml.nvmlDeviceGetMemoryInfo_v2.side_effect = Exception('Not Supported')
+        mock_pynvml.nvmlDeviceGetMemoryInfo.return_value = mock_mem
+
+        auto_flags._collect_single_device_attrs(add, mock_pynvml, mock_handle, 0)
+
+        self.assertEqual(attrs.get('device.0.mem_total'), 64_000_000_000)
+        mock_pynvml.nvmlDeviceGetMemoryInfo.assert_called_once_with(mock_handle)
+
+    def test_omits_mem_total_when_nvml_unavailable(self):
+        attrs = {}
+
+        def add(name, value):
+            attrs[name] = value
+
+        mock_pynvml = self._mock_pynvml()
+        mock_handle = MagicMock()
+        mock_pynvml.nvmlDeviceGetMemoryInfo_v2.side_effect = Exception('Not Supported')
+        mock_pynvml.nvmlDeviceGetMemoryInfo.side_effect = Exception('Not Supported')
+
+        auto_flags._collect_single_device_attrs(add, mock_pynvml, mock_handle, 0)
+
+        self.assertNotIn('device.0.mem_total', attrs)
 
 
 class InjectAutoFlagsTest(unittest.TestCase):
