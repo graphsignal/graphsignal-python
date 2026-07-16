@@ -154,8 +154,8 @@ class SemVer:
 class NVMLRecorder(BaseRecorder):
     MIN_SAMPLE_READ_INTERVAL_US = int(10 * 1e6)
 
-    def __init__(self, pid=None, args=None):
-        super().__init__(pid=pid, args=args)
+    def __init__(self, root_pid=None, pid=None, args=None):
+        super().__init__(root_pid=root_pid, pid=pid, args=args)
         self._is_initialized: bool = False
         self._setup_us: Optional[int] = None
         self._last_nvlink_throughput_data_tx: Dict[int, Any] = {}

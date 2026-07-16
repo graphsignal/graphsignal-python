@@ -29,7 +29,8 @@ class ProcessRecorderTest(unittest.TestCase):
 
     def test_record(self):
         pid = os.getpid()
-        recorder = ProcessRecorder(pid=pid, args='python -m unittest')
+        recorder = ProcessRecorder(root_pid=pid, pid=pid,
+                                   args='python -m unittest')
         recorder.setup()
 
         time.sleep(0.2)
@@ -58,6 +59,8 @@ class ProcessRecorderTest(unittest.TestCase):
         process_resource = process_resources[0]
         process_tag_dict = {t.key: t.value for t in process_resource.tags}
         self.assertEqual(process_tag_dict.get('process.pid'), str(pid))
+        # The root's own resource links to itself.
+        self.assertEqual(process_tag_dict.get('process.root_pid'), str(pid))
 
         process_attr_names = [a.name for a in process_resource.attributes]
         self.assertIn('process.command_line', process_attr_names)

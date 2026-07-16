@@ -14,7 +14,6 @@ import logging
 import os
 import platform
 import shlex
-import socket
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -25,11 +24,12 @@ logger = logging.getLogger('graphsignal')
 
 DEFAULT_API_BASE = 'https://api.graphsignal.com'
 
-_REQUEST_TIMEOUT = (5, 10)
+_REQUEST_TIMEOUT = (5, 120)
 
 
 def inject_auto_flags(args: List[str], engine_name: Optional[str] = None,
-                      engine_version: Optional[str] = None) -> List[str]:
+                      engine_version: Optional[str] = None,
+                      workload_id: Optional[str] = None) -> List[str]:
     """Best-effort. On any failure, returns args unchanged."""
     try:
         api_key = os.getenv('GRAPHSIGNAL_API_KEY')
@@ -39,7 +39,7 @@ def inject_auto_flags(args: List[str], engine_name: Optional[str] = None,
 
         api_base = os.getenv('GRAPHSIGNAL_API_BASE') or DEFAULT_API_BASE
 
-        body = _build_request_body(args, engine_name, engine_version)
+        body = _build_request_body(args, engine_name, engine_version, workload_id)
 
         options = _fetch_options(api_base, api_key, body)
         if not options:
@@ -52,19 +52,19 @@ def inject_auto_flags(args: List[str], engine_name: Optional[str] = None,
 
 
 def _build_request_body(args: List[str], engine_name: Optional[str],
-                        engine_version: Optional[str]) -> Dict[str, Any]:
+                        engine_version: Optional[str],
+                        workload_id: Optional[str] = None) -> Dict[str, Any]:
     tags = read_config_tags()
-    try:
-        hostname = socket.gethostname()
-        if hostname:
-            tags['host.name'] = hostname
-    except Exception:
-        logger.debug('auto-flags: error reading hostname', exc_info=True)
+    if workload_id:
+        tags['workload.id'] = workload_id
 
     return {
-        'tags': tags,
-        'command_line': shlex.join(args),
-        'system': _collect_system(engine_name, engine_version),
+        'env': {
+            'tags': tags,
+            'command_line': shlex.join(args),
+            'system': _collect_system(engine_name, engine_version),
+        },
+        'timeout_ms': 60000,
     }
 
 
@@ -201,9 +201,23 @@ def _fetch_options(api_base: str, api_key: str,
     resp = requests.post(url, json=body, headers=headers, timeout=_REQUEST_TIMEOUT)
     resp.raise_for_status()
 
-    options = resp.json()
+    payload = resp.json()
+    if isinstance(payload, list):
+        return payload
+    if not isinstance(payload, dict):
+        logger.debug('auto-flags: unexpected response type: %s', type(payload))
+        return []
+
+    error = payload.get('error')
+    if error:
+        logger.debug('auto-flags: API error: %s', error)
+        return []
+
+    options = payload.get('args')
+    if options is None:
+        return []
     if not isinstance(options, list):
-        logger.debug('auto-flags: unexpected response type: %s', type(options))
+        logger.debug('auto-flags: unexpected args type: %s', type(options))
         return []
     return options
 

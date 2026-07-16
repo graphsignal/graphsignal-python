@@ -32,6 +32,7 @@ def configure(
     metrics_port: Optional[int] = None,
     metrics_path: Optional[str] = None,
     metrics_host: Optional[str] = None,
+    workload_id: Optional[str] = None,
 ) -> None:
     global _sdk
 
@@ -43,6 +44,10 @@ def configure(
     api_base = read_config_param("api_base", str, api_base)
     tags = read_config_tags(tags)
     debug_mode = read_config_param("debug", bool, debug_mode, default_value=False)
+    run_uid = read_config_param("run_uid", str, None)
+    if run_uid:
+        tags.setdefault('run.uid', run_uid)
+    workload_id = read_config_param("workload_id", str, workload_id)
 
     if deployment and isinstance(deployment, str):
         tags['deployment'] = deployment
@@ -59,7 +64,8 @@ def configure(
         otel_collector_port=otel_collector_port,
         metrics_port=metrics_port,
         metrics_path=metrics_path,
-        metrics_host=metrics_host)
+        metrics_host=metrics_host,
+        workload_id=workload_id)
     _sdk.setup()
 
     atexit.register(shutdown)

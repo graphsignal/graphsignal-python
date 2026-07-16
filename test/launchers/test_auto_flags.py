@@ -155,24 +155,28 @@ class InjectAutoFlagsTest(unittest.TestCase):
     def test_applies_returned_flags(self):
         resp = MagicMock()
         resp.raise_for_status.return_value = None
-        resp.json.return_value = [{'args': ['--no-cache']}]
+        resp.json.return_value = {
+            'error': None,
+            'args': [{'args': ['--no-cache'], 'reason': 'Disable cache.'}],
+        }
         with patch.dict('os.environ', {'GRAPHSIGNAL_API_KEY': 'k'}, clear=True), \
              patch.object(auto_flags, '_collect_system', return_value=[]), \
              patch.object(auto_flags.requests, 'post', return_value=resp) as post_m:
-            out = auto_flags.inject_auto_flags(['vllm', 'serve', 'm'])
+            out = auto_flags.inject_auto_flags(
+                ['vllm', 'serve', 'm'], workload_id='wl-abc123')
 
         self.assertEqual(out, ['vllm', 'serve', 'm', '--no-cache'])
         called = post_m.call_args
         self.assertEqual(called.args[0], 'https://api.graphsignal.com/api/v1/auto_flags')
         self.assertEqual(called.kwargs['headers'], {'X-API-Key': 'k'})
         body = called.kwargs['json']
-        self.assertEqual(body['command_line'], 'vllm serve m')
-        self.assertIn('host.name', body['tags'])
+        self.assertEqual(body['env']['command_line'], 'vllm serve m')
+        self.assertEqual(body['env']['tags']['workload.id'], 'wl-abc123')
 
     def test_uses_api_base_override(self):
         resp = MagicMock()
         resp.raise_for_status.return_value = None
-        resp.json.return_value = []
+        resp.json.return_value = {'error': None, 'args': []}
         with patch.dict('os.environ',
                         {'GRAPHSIGNAL_API_KEY': 'k',
                          'GRAPHSIGNAL_API_BASE': 'http://localhost:8080'}, clear=True), \
@@ -194,7 +198,7 @@ class InjectAutoFlagsTest(unittest.TestCase):
         captured = {}
         resp = MagicMock()
         resp.raise_for_status.return_value = None
-        resp.json.return_value = []
+        resp.json.return_value = {'error': None, 'args': []}
 
         def fake_post(url, json=None, headers=None, timeout=None):
             captured['body'] = json
@@ -206,9 +210,20 @@ class InjectAutoFlagsTest(unittest.TestCase):
             auto_flags.inject_auto_flags(
                 ['vllm'], engine_name='vllm', engine_version='1.2.3')
 
-        system = {attr['name']: attr['value'] for attr in captured['body']['system']}
+        system = {attr['name']: attr['value']
+                  for attr in captured['body']['env']['system']}
         self.assertEqual(system.get('engine.name'), 'vllm')
         self.assertEqual(system.get('engine.version'), '1.2.3')
+
+    def test_returns_args_unchanged_on_api_error(self):
+        resp = MagicMock()
+        resp.raise_for_status.return_value = None
+        resp.json.return_value = {'error': 'Workload ID is required', 'args': None}
+        with patch.dict('os.environ', {'GRAPHSIGNAL_API_KEY': 'k'}, clear=True), \
+             patch.object(auto_flags, '_collect_system', return_value=[]), \
+             patch.object(auto_flags.requests, 'post', return_value=resp):
+            out = auto_flags.inject_auto_flags(['vllm', 'serve', 'm'])
+        self.assertEqual(out, ['vllm', 'serve', 'm'])
 
 
 if __name__ == '__main__':

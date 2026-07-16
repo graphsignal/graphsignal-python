@@ -5,7 +5,7 @@ import shutil
 from graphsignal.launchers import auto_flags
 from graphsignal.launchers.base_launcher import BaseLauncher
 from graphsignal.launchers.command_utils import (
-    engine_version, resolve_metrics_port, start_watcher)
+    engine_version, hash_workload_id, resolve_metrics_port, start_watcher)
 from graphsignal.otel.otel_collector import OTELCollector
 from graphsignal.profilers.cupti_profiler import CuptiProfiler
 from graphsignal.profilers.rocm_profiler import RocmProfiler
@@ -30,6 +30,9 @@ class SglangLauncher(BaseLauncher):
         return False
 
     def launch(self) -> None:
+        workload_args = list(self.args)
+        workload_id = hash_workload_id(workload_args)
+
         # OTEL trace injection is opt-in via `graphsignal-run --enable-otel`.
         # It requires OpenTelemetry installed in the SGLang environment
         # (SGLang >=0.5.10 raises at startup with --enable-trace if it's
@@ -56,14 +59,16 @@ class SglangLauncher(BaseLauncher):
         if self.auto_flags:
             self.args = auto_flags.inject_auto_flags(
                 self.args, engine_name='sglang',
-                engine_version=engine_version('sglang'))
+                engine_version=engine_version('sglang'),
+                workload_id=workload_id)
 
         new_args = _inject_sglang_args(self.args, otel_port, self.enable_otel)
 
         metrics_port = resolve_metrics_port(
             self.metrics_port, self.args, default=DEFAULT_SERVE_PORT)
 
-        start_watcher(os.getpid(), otel_collector_port=otel_port,
+        start_watcher(os.getpid(), workload_id=workload_id,
+                      otel_collector_port=otel_port,
                       metrics_port=metrics_port)
 
         executable = _resolve(new_args[0])

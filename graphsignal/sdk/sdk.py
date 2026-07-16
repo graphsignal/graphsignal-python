@@ -59,7 +59,8 @@ class Sdk:
             otel_collector_port=None,
             metrics_port=None,
             metrics_path=None,
-            metrics_host=None):
+            metrics_host=None,
+            workload_id=None):
         if debug_mode:
             logger.setLevel(logging.DEBUG)
         else:
@@ -84,6 +85,7 @@ class Sdk:
         self._metrics_port = int(metrics_port) if metrics_port is not None else None
         self._metrics_path = metrics_path
         self._metrics_host = metrics_host
+        self._workload_id = workload_id
 
         self._tick_timer_thread = None
         self._tick_stop_event = threading.Event()
@@ -120,6 +122,12 @@ class Sdk:
 
         logger.info('SDK started: pid=%s', os.getpid())
         logger.debug('SDK setup started')
+
+        if 'run.uid' not in self._tags:
+            self.set_tag('run.uid', uuid_sha1(size=12))
+
+        if self._workload_id and 'workload.id' not in self._tags:
+            self.set_tag('workload.id', self._workload_id)
 
         self._config_loader = ConfigLoader()
         self._config_loader.setup()
@@ -168,15 +176,21 @@ class Sdk:
         from graphsignal.recorders.prometheus_recorder import PrometheusRecorder
 
         recorders = []
-        recorders.append(HostRecorder(pid=self._target_pid, args=args))
-        recorders.append(NVMLRecorder(pid=self._target_pid, args=args))
+        recorders.append(HostRecorder(
+            root_pid=self._target_pid, pid=self._target_pid, args=args))
+        recorders.append(NVMLRecorder(
+            root_pid=self._target_pid, pid=self._target_pid, args=args))
         if self._metrics_port is not None:
             recorders.append(PrometheusRecorder(
-                pid=self._target_pid, args=args, metrics_port=self._metrics_port,
+                root_pid=self._target_pid, pid=self._target_pid, args=args,
+                metrics_port=self._metrics_port,
                 metrics_path=self._metrics_path, metrics_host=self._metrics_host))
-        recorders.append(ProcessRecorder(pid=self._target_pid, args=args))
-        recorders.append(CuptiRecorder(pid=self._target_pid, args=args))
-        recorders.append(RocmRecorder(pid=self._target_pid, args=args))
+        recorders.append(ProcessRecorder(
+            root_pid=self._target_pid, pid=self._target_pid, args=args))
+        recorders.append(CuptiRecorder(
+            root_pid=self._target_pid, pid=self._target_pid, args=args))
+        recorders.append(RocmRecorder(
+            root_pid=self._target_pid, pid=self._target_pid, args=args))
 
         with self._recorders_lock:
             self._global_recorders = recorders
@@ -194,9 +208,9 @@ class Sdk:
         from graphsignal.recorders.rocm_recorder import RocmRecorder
 
         recorders = [
-            ProcessRecorder(pid=pid, args=args),
-            CuptiRecorder(pid=pid, args=args),
-            RocmRecorder(pid=pid, args=args),
+            ProcessRecorder(root_pid=self._target_pid, pid=pid, args=args),
+            CuptiRecorder(root_pid=self._target_pid, pid=pid, args=args),
+            RocmRecorder(root_pid=self._target_pid, pid=pid, args=args),
         ]
         with self._recorders_lock:
             self._child_recorders[pid] = recorders

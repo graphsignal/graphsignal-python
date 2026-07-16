@@ -11,7 +11,8 @@ USAGE = """
 Watch a target process (and its descendants) and report profiling data.
 
 Usage:
-  graphsignal-watch --pid PID [--otel-collector-port PORT]
+  graphsignal-watch --pid PID [--workload-id ID]
+                    [--otel-collector-port PORT]
                     [--metrics-port PORT] [--metrics-path PATH]
                     [--metrics-host HOST]
 """
@@ -25,6 +26,8 @@ def main():
     )
     parser.add_argument('--pid', type=int, required=True,
                         help='Target process PID to watch')
+    parser.add_argument('--workload-id', type=str, default=None,
+                        help='Stable workload identifier (hash of the original command)')
     parser.add_argument('--otel-collector-port', type=int, default=None,
                         help='Port for the local OTLP/gRPC collector')
     parser.add_argument('--metrics-port', type=int, default=None,
@@ -40,6 +43,7 @@ def main():
     try:
         gsdk.configure(
             target_pid=args.pid,
+            workload_id=args.workload_id,
             otel_collector_port=args.otel_collector_port,
             metrics_port=args.metrics_port,
             metrics_path=args.metrics_path,

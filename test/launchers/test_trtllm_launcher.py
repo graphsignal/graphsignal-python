@@ -2,6 +2,7 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 
+from graphsignal.launchers.command_utils import hash_workload_id
 from graphsignal.launchers.trtllm_launcher import TrtllmLauncher
 
 
@@ -32,7 +33,9 @@ class TrtllmLaunchTest(unittest.TestCase):
         start_watcher_m, execv_m = self._launch(launcher)
 
         start_watcher_m.assert_called_once_with(
-            os.getpid(), otel_collector_port=None, metrics_port=8000,
+            os.getpid(), workload_id=hash_workload_id(
+                ['trtllm-serve', '--model', 'm', '--port', '8000']),
+            otel_collector_port=None, metrics_port=8000,
             metrics_path='/prometheus/metrics', metrics_host='localhost')
         called_argv = execv_m.call_args[0][1]
         self.assertEqual(
@@ -44,7 +47,8 @@ class TrtllmLaunchTest(unittest.TestCase):
         start_watcher_m, execv_m = self._launch(launcher)
 
         start_watcher_m.assert_called_once_with(
-            os.getpid(), otel_collector_port=None, metrics_port=8000,
+            os.getpid(), workload_id=hash_workload_id(['trtllm-serve', '--model', 'm']),
+            otel_collector_port=None, metrics_port=8000,
             metrics_path='/prometheus/metrics', metrics_host='localhost')
         called_argv = execv_m.call_args[0][1]
         self.assertEqual(called_argv, ['trtllm-serve', '--model', 'm'])
@@ -53,7 +57,8 @@ class TrtllmLaunchTest(unittest.TestCase):
         launcher = TrtllmLauncher(['trtllm-serve', 'm', '--port', '8001'])
         start_watcher_m, _ = self._launch(launcher)
         start_watcher_m.assert_called_once_with(
-            os.getpid(), otel_collector_port=None, metrics_port=8001,
+            os.getpid(), workload_id=hash_workload_id(['trtllm-serve', 'm', '--port', '8001']),
+            otel_collector_port=None, metrics_port=8001,
             metrics_path='/prometheus/metrics', metrics_host='localhost')
 
     def test_metrics_host_from_engine_args(self):
@@ -61,7 +66,10 @@ class TrtllmLaunchTest(unittest.TestCase):
             ['trtllm-serve', 'm', '--host', '0.0.0.0', '--port', '8001'])
         start_watcher_m, _ = self._launch(launcher)
         start_watcher_m.assert_called_once_with(
-            os.getpid(), otel_collector_port=None, metrics_port=8001,
+            os.getpid(),
+            workload_id=hash_workload_id(
+                ['trtllm-serve', 'm', '--host', '0.0.0.0', '--port', '8001']),
+            otel_collector_port=None, metrics_port=8001,
             metrics_path='/prometheus/metrics', metrics_host='0.0.0.0')
 
     def test_explicit_metrics_port_overrides_engine_args(self):
@@ -69,7 +77,8 @@ class TrtllmLaunchTest(unittest.TestCase):
             ['trtllm-serve', 'm', '--port', '8001'], metrics_port=9999)
         start_watcher_m, _ = self._launch(launcher)
         start_watcher_m.assert_called_once_with(
-            os.getpid(), otel_collector_port=None, metrics_port=9999,
+            os.getpid(), workload_id=hash_workload_id(['trtllm-serve', 'm', '--port', '8001']),
+            otel_collector_port=None, metrics_port=9999,
             metrics_path='/prometheus/metrics', metrics_host='localhost')
 
 

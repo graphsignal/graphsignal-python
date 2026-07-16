@@ -187,8 +187,8 @@ def make_op_name(kernel_name: str) -> str:
 
 
 class RocmRecorder(BaseRecorder):
-    def __init__(self, pid=None, args=None):
-        super().__init__(pid=pid, args=args)
+    def __init__(self, root_pid=None, pid=None, args=None):
+        super().__init__(root_pid=root_pid, pid=pid, args=args)
         self._disabled = True
 
         self._resolution_ns: int = DEFAULT_RESOLUTION_NS

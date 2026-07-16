@@ -68,10 +68,10 @@ class PrometheusRecorder(BaseRecorder):
     TensorRT-LLM's ZeroMQ queues).
     """
 
-    def __init__(self, pid=None, args=None, metrics_port=None,
+    def __init__(self, root_pid=None, pid=None, args=None, metrics_port=None,
                  metrics_path: Optional[str] = None,
                  metrics_host: Optional[str] = None):
-        super().__init__(pid=pid, args=args)
+        super().__init__(root_pid=root_pid, pid=pid, args=args)
         self._endpoint: Optional[str] = None
         if metrics_port is not None:
             self._endpoint = build_metrics_endpoint(

@@ -2,6 +2,7 @@ import os
 import unittest
 
 from graphsignal.launchers import vllm_launcher as vllm_mod
+from graphsignal.launchers.command_utils import hash_workload_id
 from graphsignal.launchers.vllm_launcher import VllmLauncher, _inject_vllm_args
 
 from test.launchers._helpers import LaunchFixture
@@ -60,7 +61,8 @@ class VllmLaunchTest(unittest.TestCase):
         fx.find_port_m.assert_called_once()
         # No --port in argv → falls back to vLLM's default serving port (8000).
         fx.start_watcher_m.assert_called_once_with(
-            os.getpid(), otel_collector_port=4242, metrics_port=8000)
+            os.getpid(), workload_id=hash_workload_id(['vllm', 'serve', 'm']),
+            otel_collector_port=4242, metrics_port=8000)
         fx.execv_m.assert_called_once()
         called_argv = fx.execv_m.call_args[0][1]
         self.assertIn('--otlp-traces-endpoint', called_argv)
@@ -74,7 +76,8 @@ class VllmLaunchTest(unittest.TestCase):
 
         fx.find_port_m.assert_not_called()
         fx.start_watcher_m.assert_called_once_with(
-            os.getpid(), otel_collector_port=None, metrics_port=8000)
+            os.getpid(), workload_id=hash_workload_id(['vllm', 'serve', 'm']),
+            otel_collector_port=None, metrics_port=8000)
         called_argv = fx.execv_m.call_args[0][1]
         self.assertNotIn('--otlp-traces-endpoint', called_argv)
 
@@ -83,7 +86,8 @@ class VllmLaunchTest(unittest.TestCase):
         with LaunchFixture(vllm_mod) as fx:
             launcher.launch()
         fx.start_watcher_m.assert_called_once_with(
-            os.getpid(), otel_collector_port=None, metrics_port=8001)
+            os.getpid(), workload_id=hash_workload_id(['vllm', 'serve', 'm', '--port', '8001']),
+            otel_collector_port=None, metrics_port=8001)
 
     def test_launch_explicit_metrics_port_overrides_engine_args(self):
         launcher = VllmLauncher(
@@ -91,7 +95,8 @@ class VllmLaunchTest(unittest.TestCase):
         with LaunchFixture(vllm_mod) as fx:
             launcher.launch()
         fx.start_watcher_m.assert_called_once_with(
-            os.getpid(), otel_collector_port=None, metrics_port=9999)
+            os.getpid(), workload_id=hash_workload_id(['vllm', 'serve', 'm', '--port', '8001']),
+            otel_collector_port=None, metrics_port=9999)
 
     def test_launch_skips_collector_when_user_endpoint_present(self):
         # enable_otel + user-supplied --otlp-traces-endpoint → no find_port,
@@ -104,7 +109,10 @@ class VllmLaunchTest(unittest.TestCase):
 
         fx.find_port_m.assert_not_called()
         fx.start_watcher_m.assert_called_once_with(
-            os.getpid(), otel_collector_port=None, metrics_port=8000)
+            os.getpid(),
+            workload_id=hash_workload_id(
+                ['vllm', 'serve', 'm', '--otlp-traces-endpoint', 'http://them:4317']),
+            otel_collector_port=None, metrics_port=8000)
         called_argv = fx.execv_m.call_args[0][1]
         self.assertEqual(
             called_argv,

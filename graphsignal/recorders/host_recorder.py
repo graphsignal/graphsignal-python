@@ -15,8 +15,8 @@ logger = logging.getLogger('graphsignal')
 
 
 class HostRecorder(BaseRecorder):
-    def __init__(self, pid=None, args=None):
-        super().__init__(pid=pid, args=args)
+    def __init__(self, root_pid=None, pid=None, args=None):
+        super().__init__(root_pid=root_pid, pid=pid, args=args)
         try:
             self._host_start_ts = int(psutil.boot_time() * 1e9)
         except Exception:

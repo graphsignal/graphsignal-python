@@ -4,8 +4,25 @@ import unittest
 from unittest.mock import patch, MagicMock
 
 from graphsignal.launchers.command_utils import (
-    extract_host, extract_port, resolve_metrics_host, resolve_metrics_port,
-    start_watcher)
+    extract_host, extract_port, hash_workload_id, resolve_metrics_host,
+    resolve_metrics_port, start_watcher)
+
+
+class HashWorkloadIdTest(unittest.TestCase):
+    def test_returns_12_char_hash(self):
+        h = hash_workload_id(['vllm', 'serve', 'meta-llama/Llama-3-70B',
+                              '--tensor-parallel-size', '2'])
+        self.assertEqual(len(h), 12)
+
+    def test_same_command_same_hash(self):
+        args = ['sglang.launch_server', '--model-path', 'm', '--tp', '2']
+        self.assertEqual(hash_workload_id(args),
+                         hash_workload_id(list(args)))
+
+    def test_flag_change_changes_hash(self):
+        h1 = hash_workload_id(['vllm', 'serve', 'm', '--max-num-seqs', '256'])
+        h2 = hash_workload_id(['vllm', 'serve', 'm', '--max-num-seqs', '512'])
+        self.assertNotEqual(h1, h2)
 
 
 class ExtractHostTest(unittest.TestCase):
@@ -92,11 +109,16 @@ class StartWatcherTest(unittest.TestCase):
         self.assertEqual(cmd[0], sys.executable)
         self.assertEqual(cmd[1:5], ['-m', 'graphsignal.commands.graphsignal_watch',
                                     '--pid', '12345'])
-        # `--otel-collector-port` / `--metrics-port` are omitted when not provided.
+        self.assertNotIn('--workload-id', cmd)
         self.assertNotIn('--otel-collector-port', cmd)
         self.assertNotIn('--metrics-port', cmd)
-        # Watcher must be its own session so it survives `os.execv` in the parent.
         self.assertTrue(kwargs.get('start_new_session'))
+
+    def test_spawn_args_with_workload_id(self):
+        with patch.object(subprocess, 'Popen', return_value=MagicMock()) as popen_m:
+            start_watcher(12345, workload_id='wl-abc123')
+        cmd = popen_m.call_args[0][0]
+        self.assertEqual(cmd[5:7], ['--workload-id', 'wl-abc123'])
 
     def test_spawn_args_with_otel_port(self):
         with patch.object(subprocess, 'Popen', return_value=MagicMock()) as popen_m:
@@ -132,6 +154,16 @@ class StartWatcherTest(unittest.TestCase):
         cmd = popen_m.call_args[0][0]
         self.assertEqual(
             cmd[5:], ['--otel-collector-port', '4317', '--metrics-port', '8000'])
+
+    def test_spawn_args_with_workload_and_ports(self):
+        with patch.object(subprocess, 'Popen', return_value=MagicMock()) as popen_m:
+            start_watcher(54321, workload_id='wl-abc123',
+                          otel_collector_port=4317, metrics_port=8000)
+        cmd = popen_m.call_args[0][0]
+        self.assertEqual(
+            cmd[5:],
+            ['--workload-id', 'wl-abc123',
+             '--otel-collector-port', '4317', '--metrics-port', '8000'])
 
     def test_returns_none_on_failure(self):
         with patch.object(subprocess, 'Popen', side_effect=OSError('boom')):

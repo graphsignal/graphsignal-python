@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from graphsignal.launchers import fallback_launcher as fallback_mod
+from graphsignal.launchers.command_utils import hash_workload_id
 from graphsignal.launchers.fallback_launcher import FallbackLauncher
 
 
@@ -44,7 +45,9 @@ class FallbackLaunchTest(unittest.TestCase):
              patch('os.execv') as execv_m:
             FallbackLauncher(['/abs/my_script.py', '--flag']).launch()
         # Generic workload without --port → no Prometheus scrape port.
-        self.start_watcher_m.assert_called_once_with(os.getpid(), metrics_port=None)
+        self.start_watcher_m.assert_called_once_with(
+            os.getpid(), workload_id=hash_workload_id(['/abs/my_script.py', '--flag']),
+            metrics_port=None)
         execv_m.assert_called_once_with(
             '/abs/my_script.py', ['/abs/my_script.py', '--flag'])
 
@@ -63,20 +66,26 @@ class FallbackLaunchTest(unittest.TestCase):
         with patch.object(fallback_mod, '_resolve', return_value='/usr/bin/myapp'), \
              patch('os.execv') as execv_m:
             FallbackLauncher(['myapp', '--flag']).launch()
-        self.start_watcher_m.assert_called_once_with(os.getpid(), metrics_port=None)
+        self.start_watcher_m.assert_called_once_with(
+            os.getpid(), workload_id=hash_workload_id(['myapp', '--flag']),
+            metrics_port=None)
         execv_m.assert_called_once_with('/usr/bin/myapp', ['/usr/bin/myapp', '--flag'])
 
     def test_explicit_metrics_port_forwarded(self):
         with patch.object(fallback_mod, '_resolve', return_value='/usr/bin/myapp'), \
              patch('os.execv'):
             FallbackLauncher(['myapp'], metrics_port=9999).launch()
-        self.start_watcher_m.assert_called_once_with(os.getpid(), metrics_port=9999)
+        self.start_watcher_m.assert_called_once_with(
+            os.getpid(), workload_id=hash_workload_id(['myapp']),
+            metrics_port=9999)
 
     def test_metrics_port_from_workload_port_flag(self):
         with patch.object(fallback_mod, '_resolve', return_value='/usr/bin/myapp'), \
              patch('os.execv'):
             FallbackLauncher(['myapp', '--port', '8080']).launch()
-        self.start_watcher_m.assert_called_once_with(os.getpid(), metrics_port=8080)
+        self.start_watcher_m.assert_called_once_with(
+            os.getpid(), workload_id=hash_workload_id(['myapp', '--port', '8080']),
+            metrics_port=8080)
 
     def test_unresolved_runs_python_dash_m(self):
         with patch.object(fallback_mod, '_resolve', return_value=None), \

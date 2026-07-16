@@ -1,9 +1,21 @@
+import hashlib
 import logging
 import subprocess
 import sys
 from typing import List, Optional
 
 logger = logging.getLogger('graphsignal')
+
+
+def hash_workload_id(args: List[str]) -> str:
+    """Hash the original, unmodified workload command.
+
+    Called with the user's command exactly as passed to `graphsignal-run`,
+    before any launcher injection (OTEL endpoint, auto-flags). The hash is
+    stable across restarts of the same command, so it groups runs (`run.uid`)
+    of one configuration; any flag change produces a new hash.
+    """
+    return hashlib.sha1(' '.join(args).encode('utf-8')).hexdigest()[:12]
 
 
 def engine_version(distribution: str) -> Optional[str]:
@@ -77,7 +89,8 @@ def resolve_metrics_host(metrics_host: Optional[str], args: List[str],
     return extract_host(args, default=default)
 
 
-def start_watcher(pid: int, otel_collector_port: Optional[int] = None,
+def start_watcher(pid: int, workload_id: Optional[str] = None,
+                  otel_collector_port: Optional[int] = None,
                   metrics_port: Optional[int] = None,
                   metrics_path: Optional[str] = None,
                   metrics_host: Optional[str] = None) -> Optional[subprocess.Popen]:
@@ -92,6 +105,8 @@ def start_watcher(pid: int, otel_collector_port: Optional[int] = None,
         '-m', 'graphsignal.commands.graphsignal_watch',
         '--pid', str(int(pid)),
     ]
+    if workload_id is not None:
+        cmd.extend(['--workload-id', workload_id])
     if otel_collector_port is not None:
         cmd.extend(['--otel-collector-port', str(int(otel_collector_port))])
     if metrics_port is not None:

@@ -5,7 +5,8 @@ import sys
 
 from graphsignal.launchers import auto_flags
 from graphsignal.launchers.base_launcher import BaseLauncher
-from graphsignal.launchers.command_utils import resolve_metrics_port, start_watcher
+from graphsignal.launchers.command_utils import (
+    hash_workload_id, resolve_metrics_port, start_watcher)
 from graphsignal.profilers.cupti_profiler import CuptiProfiler
 from graphsignal.profilers.rocm_profiler import RocmProfiler
 
@@ -21,18 +22,23 @@ class FallbackLauncher(BaseLauncher):
             print('graphsignal-run: no command specified')
             sys.exit(1)
 
+        workload_args = list(self.args)
+        workload_id = hash_workload_id(workload_args)
+
         CuptiProfiler.setup_env_vars(cuda_graph_trace=self.cuda_graph_trace)
         RocmProfiler.setup_env_vars()
 
         if self.auto_flags:
-            self.args = auto_flags.inject_auto_flags(self.args)
+            self.args = auto_flags.inject_auto_flags(
+                self.args, workload_id=workload_id)
 
         # Generic workloads have no known metrics port; only scrape when the
         # user passed --metrics-port (or the workload itself takes a --port).
         metrics_port = resolve_metrics_port(
             self.metrics_port, self.args, default=None)
 
-        start_watcher(os.getpid(), metrics_port=metrics_port)
+        start_watcher(os.getpid(), workload_id=workload_id,
+                      metrics_port=metrics_port)
 
         command = self.args[0]
         rest = list(self.args[1:])

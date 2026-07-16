@@ -5,7 +5,8 @@ import shutil
 from graphsignal.launchers import auto_flags
 from graphsignal.launchers.base_launcher import BaseLauncher
 from graphsignal.launchers.command_utils import (
-    engine_version, resolve_metrics_host, resolve_metrics_port, start_watcher)
+    engine_version, hash_workload_id, resolve_metrics_host, resolve_metrics_port,
+    start_watcher)
 from graphsignal.profilers.cupti_profiler import CuptiProfiler
 from graphsignal.profilers.rocm_profiler import RocmProfiler
 
@@ -25,6 +26,9 @@ class TrtllmLauncher(BaseLauncher):
         return self.executable_name() in _TRTLLM_NAMES
 
     def launch(self) -> None:
+        workload_args = list(self.args)
+        workload_id = hash_workload_id(workload_args)
+
         if _has_flag(self.args, '--grpc'):
             logger.warning(
                 'TRT-LLM gRPC mode has no HTTP /prometheus/metrics endpoint; '
@@ -36,14 +40,16 @@ class TrtllmLauncher(BaseLauncher):
         if self.auto_flags:
             self.args = auto_flags.inject_auto_flags(
                 self.args, engine_name='tensorrt-llm',
-                engine_version=engine_version('tensorrt_llm'))
+                engine_version=engine_version('tensorrt_llm'),
+                workload_id=workload_id)
 
         metrics_port = resolve_metrics_port(
             self.metrics_port, self.args, default=DEFAULT_SERVE_PORT)
         metrics_host = resolve_metrics_host(
             None, self.args, default=DEFAULT_SERVE_HOST)
 
-        start_watcher(os.getpid(), otel_collector_port=None,
+        start_watcher(os.getpid(), workload_id=workload_id,
+                      otel_collector_port=None,
                       metrics_port=metrics_port,
                       metrics_path=DEFAULT_METRICS_PATH,
                       metrics_host=metrics_host)

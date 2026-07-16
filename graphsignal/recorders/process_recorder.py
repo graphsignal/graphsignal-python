@@ -13,8 +13,8 @@ logger = logging.getLogger('graphsignal')
 
 
 class ProcessRecorder(BaseRecorder):
-    def __init__(self, pid=None, args=None):
-        super().__init__(pid=pid, args=args)
+    def __init__(self, root_pid=None, pid=None, args=None):
+        super().__init__(root_pid=root_pid, pid=pid, args=args)
         self._process_start_ts = time.time_ns()
         self._psutil_proc = None
         self._cpu_percent_initialized = False
@@ -96,8 +96,17 @@ class ProcessRecorder(BaseRecorder):
             except Exception:
                 pass
 
+        resource_tags = None
+        if self.pid is not None:
+            resource_tags = {'process.pid': str(self.pid)}
+            # Links every process resource to the watcher's target (root)
+            # process — the main server process. The root's own resource has
+            # process.pid == process.root_pid, which is how consumers pick
+            # the authoritative command line over worker command lines.
+            if self.root_pid is not None:
+                resource_tags['process.root_pid'] = str(self.root_pid)
         sdk.update_resource(
             'process',
-            tags={'process.pid': str(self.pid)} if self.pid is not None else None,
+            tags=resource_tags,
             attributes=process_attrs,
             first_seen_ts=self._process_start_ts)
