@@ -27,6 +27,13 @@ class PidWatcher:
 
     def setup(self):
         self._stop_event = threading.Event()
+        # Fire on_target_known before polling starts: some observations (e.g.
+        # the supervisor's console-log dir) are pid-derived artifacts that must
+        # be picked up even when the target dies before it is ever seen alive.
+        try:
+            self._emit('on_target_known', self._target_pid)
+        except Exception as exc:
+            logger.error('Error emitting on_target_known: %s', exc, exc_info=True)
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
 

@@ -1,5 +1,7 @@
 import hashlib
 import logging
+import os
+import shutil
 import subprocess
 import sys
 from typing import List, Optional
@@ -16,6 +18,14 @@ def hash_workload_id(args: List[str]) -> str:
     of one configuration; any flag change produces a new hash.
     """
     return hashlib.sha1(' '.join(args).encode('utf-8')).hexdigest()[:12]
+
+
+def resolve_executable(name: str) -> Optional[str]:
+    """Resolve a command name to an executable path (absolute path as-is,
+    otherwise PATH lookup). Returns None when unresolvable."""
+    if os.path.isabs(name) and os.path.isfile(name):
+        return name
+    return shutil.which(name)
 
 
 def engine_version(distribution: str) -> Optional[str]:

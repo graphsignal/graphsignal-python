@@ -1,4 +1,3 @@
-import os
 import unittest
 
 from graphsignal.launchers import sglang_launcher as sglang_mod
@@ -78,7 +77,7 @@ class SglangLaunchTest(unittest.TestCase):
         launcher = SglangLauncher(['sglang', 'serve'], enable_otel=True)
         with LaunchFixture(sglang_mod) as fx:
             launcher.launch()
-        called_argv = fx.execv_m.call_args[0][1]
+        called_argv = fx.launched_argv
         self.assertIn('--enable-metrics', called_argv)
         self.assertIn('--enable-trace', called_argv)
         self.assertIn('--otlp-traces-endpoint', called_argv)
@@ -93,10 +92,11 @@ class SglangLaunchTest(unittest.TestCase):
 
         fx.find_port_m.assert_not_called()
         # No --port in argv → falls back to SGLang's default serving port (30000).
-        fx.start_watcher_m.assert_called_once_with(
-            os.getpid(), workload_id=hash_workload_id(['sglang', 'serve']),
+        fx.launch_supervised_m.assert_called_once_with(
+            ['/abs/exec', 'serve', '--enable-metrics'],
+            workload_id=hash_workload_id(['sglang', 'serve']),
             otel_collector_port=None, metrics_port=30000)
-        called_argv = fx.execv_m.call_args[0][1]
+        called_argv = fx.launched_argv
         self.assertIn('--enable-metrics', called_argv)
         self.assertNotIn('--enable-trace', called_argv)
         self.assertNotIn('--otlp-traces-endpoint', called_argv)
@@ -105,8 +105,9 @@ class SglangLaunchTest(unittest.TestCase):
         launcher = SglangLauncher(['sglang', 'serve', '--port', '30001'])
         with LaunchFixture(sglang_mod) as fx:
             launcher.launch()
-        fx.start_watcher_m.assert_called_once_with(
-            os.getpid(), workload_id=hash_workload_id(['sglang', 'serve', '--port', '30001']),
+        fx.launch_supervised_m.assert_called_once_with(
+            ['/abs/exec', 'serve', '--port', '30001', '--enable-metrics'],
+            workload_id=hash_workload_id(['sglang', 'serve', '--port', '30001']),
             otel_collector_port=None, metrics_port=30001)
 
     def test_launch_explicit_metrics_port_overrides_engine_args(self):
@@ -114,8 +115,9 @@ class SglangLaunchTest(unittest.TestCase):
             ['sglang', 'serve', '--port', '30001'], metrics_port=9999)
         with LaunchFixture(sglang_mod) as fx:
             launcher.launch()
-        fx.start_watcher_m.assert_called_once_with(
-            os.getpid(), workload_id=hash_workload_id(['sglang', 'serve', '--port', '30001']),
+        fx.launch_supervised_m.assert_called_once_with(
+            ['/abs/exec', 'serve', '--port', '30001', '--enable-metrics'],
+            workload_id=hash_workload_id(['sglang', 'serve', '--port', '30001']),
             otel_collector_port=None, metrics_port=9999)
 
     def test_launch_skips_collector_when_user_endpoint_present(self):
@@ -128,12 +130,12 @@ class SglangLaunchTest(unittest.TestCase):
             launcher.launch()
 
         fx.find_port_m.assert_not_called()
-        fx.start_watcher_m.assert_called_once_with(
-            os.getpid(),
-            workload_id=hash_workload_id(
+        self.assertEqual(
+            fx.launch_supervised_m.call_args.kwargs,
+            {'workload_id': hash_workload_id(
                 ['sglang', 'serve', '--otlp-traces-endpoint', '127.0.0.1:9999']),
-            otel_collector_port=None, metrics_port=30000)
-        called_argv = fx.execv_m.call_args[0][1]
+             'otel_collector_port': None, 'metrics_port': 30000})
+        called_argv = fx.launched_argv
         self.assertIn('--otlp-traces-endpoint', called_argv)
         idx = called_argv.index('--otlp-traces-endpoint')
         self.assertEqual(called_argv[idx + 1], '127.0.0.1:9999')

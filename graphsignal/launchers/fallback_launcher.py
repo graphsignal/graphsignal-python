@@ -1,12 +1,11 @@
 import logging
-import os
-import shutil
 import sys
 
 from graphsignal.launchers import auto_flags
 from graphsignal.launchers.base_launcher import BaseLauncher
 from graphsignal.launchers.command_utils import (
-    hash_workload_id, resolve_metrics_port, start_watcher)
+    hash_workload_id, resolve_executable as _resolve, resolve_metrics_port)
+from graphsignal.launchers.supervisor import launch_supervised
 from graphsignal.profilers.cupti_profiler import CuptiProfiler
 from graphsignal.profilers.rocm_profiler import RocmProfiler
 
@@ -37,34 +36,20 @@ class FallbackLauncher(BaseLauncher):
         metrics_port = resolve_metrics_port(
             self.metrics_port, self.args, default=None)
 
-        start_watcher(os.getpid(), workload_id=workload_id,
-                      metrics_port=metrics_port)
-
         command = self.args[0]
         rest = list(self.args[1:])
 
         executable = _resolve(command)
         if executable:
-            logger.debug('FallbackLauncher exec: %s %s', executable, rest)
-            try:
-                os.execv(executable, [executable] + rest)
-            except PermissionError:
-                print("graphsignal-run: permission error while launching '%s'" % executable)
-                print("Did you mean `graphsignal-run python %s`?" % executable)
-                sys.exit(1)
-            except Exception as e:
-                print("graphsignal-run: error launching '%s': %s" % (executable, e))
-                logger.error('error launching executable', exc_info=True)
-                raise
+            logger.debug('FallbackLauncher launch: %s %s', executable, rest)
+            launch_supervised([executable] + rest,
+                              workload_id=workload_id,
+                              metrics_port=metrics_port)
             return
 
         # Fall back to `python -m <command>` for module-name targets
         # (e.g. `graphsignal-run mypkg.cli`).
-        logger.debug('FallbackLauncher exec python -m: %s', command)
-        os.execv(sys.executable, [sys.executable, '-m', command] + rest)
-
-
-def _resolve(name):
-    if os.path.isabs(name) and os.path.isfile(name):
-        return name
-    return shutil.which(name)
+        logger.debug('FallbackLauncher launch python -m: %s', command)
+        launch_supervised([sys.executable, '-m', command] + rest,
+                          workload_id=workload_id,
+                          metrics_port=metrics_port)

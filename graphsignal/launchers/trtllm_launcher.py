@@ -1,12 +1,11 @@
 import logging
-import os
-import shutil
 
 from graphsignal.launchers import auto_flags
 from graphsignal.launchers.base_launcher import BaseLauncher
 from graphsignal.launchers.command_utils import (
-    engine_version, hash_workload_id, resolve_metrics_host, resolve_metrics_port,
-    start_watcher)
+    engine_version, hash_workload_id, resolve_executable as _resolve,
+    resolve_metrics_host, resolve_metrics_port)
+from graphsignal.launchers.supervisor import launch_supervised
 from graphsignal.profilers.cupti_profiler import CuptiProfiler
 from graphsignal.profilers.rocm_profiler import RocmProfiler
 
@@ -48,18 +47,17 @@ class TrtllmLauncher(BaseLauncher):
         metrics_host = resolve_metrics_host(
             None, self.args, default=DEFAULT_SERVE_HOST)
 
-        start_watcher(os.getpid(), workload_id=workload_id,
-                      otel_collector_port=None,
-                      metrics_port=metrics_port,
-                      metrics_path=DEFAULT_METRICS_PATH,
-                      metrics_host=metrics_host)
-
         executable = _resolve(self.args[0])
         if not executable:
             raise FileNotFoundError(f'executable not found: {self.args[0]}')
 
-        logger.debug('TrtllmLauncher exec: %s %s', executable, self.args)
-        os.execv(executable, self.args)
+        logger.debug('TrtllmLauncher launch: %s %s', executable, self.args)
+        launch_supervised([executable] + list(self.args[1:]),
+                          workload_id=workload_id,
+                          otel_collector_port=None,
+                          metrics_port=metrics_port,
+                          metrics_path=DEFAULT_METRICS_PATH,
+                          metrics_host=metrics_host)
 
 
 def _has_flag(args, flag) -> bool:
@@ -67,9 +65,3 @@ def _has_flag(args, flag) -> bool:
         if a == flag or a.startswith(flag + '='):
             return True
     return False
-
-
-def _resolve(name):
-    if os.path.isabs(name) and os.path.isfile(name):
-        return name
-    return shutil.which(name)

@@ -1,7 +1,6 @@
-import os
 import sys
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from graphsignal.launchers import fallback_launcher as fallback_mod
 from graphsignal.launchers.command_utils import hash_workload_id
@@ -16,84 +15,71 @@ class FallbackMatchTest(unittest.TestCase):
 
 
 class FallbackLaunchTest(unittest.TestCase):
-    """FallbackLauncher always exec's into a fresh process:
-       * resolvable executable → `os.execv(resolved, [resolved, ...])`
-       * otherwise → `os.execv(sys.executable, [py, '-m', name, ...])`
+    """FallbackLauncher hands the workload to the supervisor:
+       * resolvable executable → `launch_supervised([resolved, ...])`
+       * otherwise → `launch_supervised([py, '-m', name, ...])`
     """
 
     def setUp(self):
-        self.setup_env = patch.object(fallback_mod.CuptiProfiler, 'setup_env_vars', return_value=True)
-        self.start_watcher = patch.object(fallback_mod, 'start_watcher', return_value=MagicMock())
+        self.setup_env = patch.object(
+            fallback_mod.CuptiProfiler, 'setup_env_vars', return_value=True)
+        self.launch = patch.object(fallback_mod, 'launch_supervised')
         self.setup_env_m = self.setup_env.start()
-        self.start_watcher_m = self.start_watcher.start()
+        self.launch_m = self.launch.start()
 
     def tearDown(self):
-        self.start_watcher.stop()
+        self.launch.stop()
         self.setup_env.stop()
 
     def test_no_args_exits(self):
         with self.assertRaises(SystemExit) as cm:
             FallbackLauncher([]).launch()
         self.assertEqual(cm.exception.code, 1)
-        self.start_watcher_m.assert_not_called()
+        self.launch_m.assert_not_called()
 
-    def test_absolute_py_path_execs_directly(self):
-        # Absolute path to an existing file resolves and execs directly;
+    def test_absolute_py_path_launches_directly(self):
+        # Absolute path to an existing file resolves and launches directly;
         # whether it actually runs depends on the file's executable bit
         # and shebang (the launcher no longer wraps it in `python ...`).
-        with patch.object(fallback_mod, '_resolve', return_value='/abs/my_script.py'), \
-             patch('os.execv') as execv_m:
+        with patch.object(fallback_mod, '_resolve', return_value='/abs/my_script.py'):
             FallbackLauncher(['/abs/my_script.py', '--flag']).launch()
         # Generic workload without --port → no Prometheus scrape port.
-        self.start_watcher_m.assert_called_once_with(
-            os.getpid(), workload_id=hash_workload_id(['/abs/my_script.py', '--flag']),
+        self.launch_m.assert_called_once_with(
+            ['/abs/my_script.py', '--flag'],
+            workload_id=hash_workload_id(['/abs/my_script.py', '--flag']),
             metrics_port=None)
-        execv_m.assert_called_once_with(
-            '/abs/my_script.py', ['/abs/my_script.py', '--flag'])
 
-    def test_execv_permission_error_suggests_python_prefix(self):
-        # Non-executable script (or missing shebang) → execv raises
-        # PermissionError; launcher prints a friendly hint and exits 1.
-        with patch.object(fallback_mod, '_resolve', return_value='/abs/my_script.py'), \
-             patch('os.execv', side_effect=PermissionError), \
-             patch('builtins.print') as print_m:
-            with self.assertRaises(SystemExit) as cm:
-                FallbackLauncher(['/abs/my_script.py']).launch()
-        self.assertEqual(cm.exception.code, 1)
-        self.assertEqual(print_m.call_count, 2)
-
-    def test_executable_on_path_uses_execv(self):
-        with patch.object(fallback_mod, '_resolve', return_value='/usr/bin/myapp'), \
-             patch('os.execv') as execv_m:
+    def test_executable_on_path_launches(self):
+        with patch.object(fallback_mod, '_resolve', return_value='/usr/bin/myapp'):
             FallbackLauncher(['myapp', '--flag']).launch()
-        self.start_watcher_m.assert_called_once_with(
-            os.getpid(), workload_id=hash_workload_id(['myapp', '--flag']),
+        self.launch_m.assert_called_once_with(
+            ['/usr/bin/myapp', '--flag'],
+            workload_id=hash_workload_id(['myapp', '--flag']),
             metrics_port=None)
-        execv_m.assert_called_once_with('/usr/bin/myapp', ['/usr/bin/myapp', '--flag'])
 
     def test_explicit_metrics_port_forwarded(self):
-        with patch.object(fallback_mod, '_resolve', return_value='/usr/bin/myapp'), \
-             patch('os.execv'):
+        with patch.object(fallback_mod, '_resolve', return_value='/usr/bin/myapp'):
             FallbackLauncher(['myapp'], metrics_port=9999).launch()
-        self.start_watcher_m.assert_called_once_with(
-            os.getpid(), workload_id=hash_workload_id(['myapp']),
+        self.launch_m.assert_called_once_with(
+            ['/usr/bin/myapp'],
+            workload_id=hash_workload_id(['myapp']),
             metrics_port=9999)
 
     def test_metrics_port_from_workload_port_flag(self):
-        with patch.object(fallback_mod, '_resolve', return_value='/usr/bin/myapp'), \
-             patch('os.execv'):
+        with patch.object(fallback_mod, '_resolve', return_value='/usr/bin/myapp'):
             FallbackLauncher(['myapp', '--port', '8080']).launch()
-        self.start_watcher_m.assert_called_once_with(
-            os.getpid(), workload_id=hash_workload_id(['myapp', '--port', '8080']),
+        self.launch_m.assert_called_once_with(
+            ['/usr/bin/myapp', '--port', '8080'],
+            workload_id=hash_workload_id(['myapp', '--port', '8080']),
             metrics_port=8080)
 
     def test_unresolved_runs_python_dash_m(self):
-        with patch.object(fallback_mod, '_resolve', return_value=None), \
-             patch('os.execv') as execv_m:
+        with patch.object(fallback_mod, '_resolve', return_value=None):
             FallbackLauncher(['my.module', '--flag']).launch()
-        execv_m.assert_called_once_with(
-            sys.executable,
-            [sys.executable, '-m', 'my.module', '--flag'])
+        self.launch_m.assert_called_once_with(
+            [sys.executable, '-m', 'my.module', '--flag'],
+            workload_id=hash_workload_id(['my.module', '--flag']),
+            metrics_port=None)
 
 
 if __name__ == '__main__':

@@ -1,6 +1,5 @@
-import os
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from graphsignal.launchers.command_utils import hash_workload_id
 from graphsignal.launchers.trtllm_launcher import TrtllmLauncher
@@ -21,52 +20,49 @@ class TrtllmMatchTest(unittest.TestCase):
 class TrtllmLaunchTest(unittest.TestCase):
     def _launch(self, launcher):
         with patch('graphsignal.launchers.trtllm_launcher.CuptiProfiler.setup_env_vars', return_value=True), \
-             patch('graphsignal.launchers.trtllm_launcher.start_watcher', return_value=MagicMock()) as start_watcher_m, \
              patch('graphsignal.launchers.trtllm_launcher._resolve', return_value='/abs/trtllm-serve'), \
-             patch('os.execv') as execv_m:
+             patch('graphsignal.launchers.trtllm_launcher.launch_supervised') as launch_m:
             launcher.launch()
-        return start_watcher_m, execv_m
+        return launch_m
 
     def test_argv_unchanged(self):
         launcher = TrtllmLauncher(
             ['trtllm-serve', '--model', 'm', '--port', '8000'])
-        start_watcher_m, execv_m = self._launch(launcher)
+        launch_m = self._launch(launcher)
 
-        start_watcher_m.assert_called_once_with(
-            os.getpid(), workload_id=hash_workload_id(
+        launch_m.assert_called_once_with(
+            ['/abs/trtllm-serve', '--model', 'm', '--port', '8000'],
+            workload_id=hash_workload_id(
                 ['trtllm-serve', '--model', 'm', '--port', '8000']),
             otel_collector_port=None, metrics_port=8000,
             metrics_path='/prometheus/metrics', metrics_host='localhost')
-        called_argv = execv_m.call_args[0][1]
-        self.assertEqual(
-            called_argv, ['trtllm-serve', '--model', 'm', '--port', '8000'])
 
     def test_enable_otel_flag_ignored(self):
         launcher = TrtllmLauncher(
             ['trtllm-serve', '--model', 'm'], enable_otel=True)
-        start_watcher_m, execv_m = self._launch(launcher)
+        launch_m = self._launch(launcher)
 
-        start_watcher_m.assert_called_once_with(
-            os.getpid(), workload_id=hash_workload_id(['trtllm-serve', '--model', 'm']),
+        launch_m.assert_called_once_with(
+            ['/abs/trtllm-serve', '--model', 'm'],
+            workload_id=hash_workload_id(['trtllm-serve', '--model', 'm']),
             otel_collector_port=None, metrics_port=8000,
             metrics_path='/prometheus/metrics', metrics_host='localhost')
-        called_argv = execv_m.call_args[0][1]
-        self.assertEqual(called_argv, ['trtllm-serve', '--model', 'm'])
 
     def test_metrics_port_from_engine_args(self):
         launcher = TrtllmLauncher(['trtllm-serve', 'm', '--port', '8001'])
-        start_watcher_m, _ = self._launch(launcher)
-        start_watcher_m.assert_called_once_with(
-            os.getpid(), workload_id=hash_workload_id(['trtllm-serve', 'm', '--port', '8001']),
+        launch_m = self._launch(launcher)
+        launch_m.assert_called_once_with(
+            ['/abs/trtllm-serve', 'm', '--port', '8001'],
+            workload_id=hash_workload_id(['trtllm-serve', 'm', '--port', '8001']),
             otel_collector_port=None, metrics_port=8001,
             metrics_path='/prometheus/metrics', metrics_host='localhost')
 
     def test_metrics_host_from_engine_args(self):
         launcher = TrtllmLauncher(
             ['trtllm-serve', 'm', '--host', '0.0.0.0', '--port', '8001'])
-        start_watcher_m, _ = self._launch(launcher)
-        start_watcher_m.assert_called_once_with(
-            os.getpid(),
+        launch_m = self._launch(launcher)
+        launch_m.assert_called_once_with(
+            ['/abs/trtllm-serve', 'm', '--host', '0.0.0.0', '--port', '8001'],
             workload_id=hash_workload_id(
                 ['trtllm-serve', 'm', '--host', '0.0.0.0', '--port', '8001']),
             otel_collector_port=None, metrics_port=8001,
@@ -75,9 +71,10 @@ class TrtllmLaunchTest(unittest.TestCase):
     def test_explicit_metrics_port_overrides_engine_args(self):
         launcher = TrtllmLauncher(
             ['trtllm-serve', 'm', '--port', '8001'], metrics_port=9999)
-        start_watcher_m, _ = self._launch(launcher)
-        start_watcher_m.assert_called_once_with(
-            os.getpid(), workload_id=hash_workload_id(['trtllm-serve', 'm', '--port', '8001']),
+        launch_m = self._launch(launcher)
+        launch_m.assert_called_once_with(
+            ['/abs/trtllm-serve', 'm', '--port', '8001'],
+            workload_id=hash_workload_id(['trtllm-serve', 'm', '--port', '8001']),
             otel_collector_port=None, metrics_port=9999,
             metrics_path='/prometheus/metrics', metrics_host='localhost')
 

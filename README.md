@@ -10,7 +10,7 @@ Graphsignal is a production-scale inference profiling platform that helps engine
 * LLM generation tracing with per-step timing, token throughput, and latency breakdowns for major inference frameworks.
 * System-level metrics for inference engines and hardware (CPU, GPU, accelerators).
 * Error monitoring for device-level failures and inference errors.
-* Inference telemetry for AI agents to identify bottlenecks and drive targeted improvements across the inference stack.
+* Automatic engine flag optimization, AI chat for bottleneck investigation, and profiling context for AI coding agents.
 
 [![Dashboards](https://graphsignal.com/external/screenshot-dashboard.png?v=2)](https://graphsignal.com/)
 
@@ -60,9 +60,11 @@ Applications that bootstrap themselves can call `graphsignal.watch()` from Pytho
 
 See integration documentation for libraries and inference engines:
 
-* [PyTorch](https://graphsignal.com/docs/integrations/pytorch/)
 * [vLLM](https://graphsignal.com/docs/integrations/vllm/)
 * [SGLang](https://graphsignal.com/docs/integrations/sglang/)
+* [TensorRT-LLM](https://graphsignal.com/docs/integrations/trtllm/)
+* [PyTorch](https://graphsignal.com/docs/docs/integrations/pytorch/)
+* [CUDA](https://graphsignal.com/docs/integrations/cuda/)
 
 
 ## Optimize
@@ -71,7 +73,13 @@ See integration documentation for libraries and inference engines:
 
 ### Optimize with AI
 
-Install the Graphsignal skill to let your AI coding agent (Claude Code, Codex, or Gemini) fetch and analyze signal context directly from your agent. See [AI Optimization](https://graphsignal.com/docs/guides/ai-optimization/) for setup instructions.
+Three ways to optimize with AI:
+
+* **Auto-flags** — `graphsignal-run --auto-flags` sets engine flags at launch
+* **Optimize chat** — ask questions about a time window in the Graphsignal app
+* **graphsignal-context** — let an AI coding agent (Claude Code, Codex, or Gemini) fetch and analyze profiling data in your IDE
+
+See [AI Optimization](https://graphsignal.com/docs/guides/ai-optimization/) for details.
 
 
 ## Overhead

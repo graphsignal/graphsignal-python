@@ -1,11 +1,12 @@
 import logging
 import os
-import shutil
 
 from graphsignal.launchers import auto_flags
 from graphsignal.launchers.base_launcher import BaseLauncher
 from graphsignal.launchers.command_utils import (
-    engine_version, hash_workload_id, resolve_metrics_port, start_watcher)
+    engine_version, hash_workload_id, resolve_executable as _resolve,
+    resolve_metrics_port)
+from graphsignal.launchers.supervisor import launch_supervised
 from graphsignal.otel.otel_collector import OTELCollector
 from graphsignal.profilers.cupti_profiler import CuptiProfiler
 from graphsignal.profilers.rocm_profiler import RocmProfiler
@@ -67,16 +68,15 @@ class SglangLauncher(BaseLauncher):
         metrics_port = resolve_metrics_port(
             self.metrics_port, self.args, default=DEFAULT_SERVE_PORT)
 
-        start_watcher(os.getpid(), workload_id=workload_id,
-                      otel_collector_port=otel_port,
-                      metrics_port=metrics_port)
-
         executable = _resolve(new_args[0])
         if not executable:
             raise FileNotFoundError(f'executable not found: {new_args[0]}')
 
-        logger.debug('SglangLauncher exec: %s %s', executable, new_args)
-        os.execv(executable, new_args)
+        logger.debug('SglangLauncher launch: %s %s', executable, new_args)
+        launch_supervised([executable] + new_args[1:],
+                          workload_id=workload_id,
+                          otel_collector_port=otel_port,
+                          metrics_port=metrics_port)
 
 
 def _inject_sglang_args(args, otel_port, enable_otel):
@@ -103,9 +103,3 @@ def _has_flag(args, flag) -> bool:
         if a == flag or a.startswith(flag + '='):
             return True
     return False
-
-
-def _resolve(name):
-    if os.path.isabs(name) and os.path.isfile(name):
-        return name
-    return shutil.which(name)

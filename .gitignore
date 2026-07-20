@@ -35,3 +35,5 @@ GEMINI.md
 .cursor/
 .windsurf/
 .github/copilot-instructions.md
+
+uv.lock

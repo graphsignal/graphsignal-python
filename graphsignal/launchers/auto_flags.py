@@ -1,14 +1,3 @@
-"""`graphsignal-run --auto-flags` support.
-
-`inject_auto_flags()` runs inside the launcher process (before `execv` and
-before the SDK exists), POSTs the run context (tags, engine command line,
-system attributes) to the Graphsignal `/api/v1/auto_flags` endpoint, and
-merges the recommended engine flags returned by the server into the engine
-command line. It is strictly best-effort: any failure (missing API key,
-network error, malformed response) leaves the caller's args unchanged so the
-workload always launches.
-"""
-
 import json
 import logging
 import os
@@ -24,7 +13,7 @@ logger = logging.getLogger('graphsignal')
 
 DEFAULT_API_BASE = 'https://api.graphsignal.com'
 
-_REQUEST_TIMEOUT = (5, 120)
+_REQUEST_TIMEOUT = (5, 300)
 
 
 def inject_auto_flags(args: List[str], engine_name: Optional[str] = None,
@@ -41,11 +30,16 @@ def inject_auto_flags(args: List[str], engine_name: Optional[str] = None,
 
         body = _build_request_body(args, engine_name, engine_version, workload_id)
 
-        options = _fetch_options(api_base, api_key, body)
-        if not options:
+        proposed_changes = _fetch_proposed_changes(api_base, api_key, body)
+        if not proposed_changes:
+            logger.debug('auto-flags: no changes recommended')
             return args
+        logger.debug('auto-flags: changes recommended: %s', proposed_changes)
 
-        return _merge_options(args, options)
+        merged_args = _merge_args(args, proposed_changes)
+        logger.debug('auto-flags: merged args: %s', merged_args)
+
+        return merged_args
     except Exception:
         logger.debug('auto-flags: error injecting auto flags', exc_info=True)
         return args
@@ -191,9 +185,9 @@ def _collect_single_device_attrs(add, pynvml, handle, i: int) -> None:
         logger.debug('auto-flags: error reading device memory', exc_info=True)
 
 
-def _fetch_options(api_base: str, api_key: str,
-                   body: Dict[str, Any]) -> List[Dict[str, Any]]:
-    url = f"{api_base}/api/v1/auto_flags"
+def _fetch_proposed_changes(api_base: str, api_key: str,
+                            body: Dict[str, Any]) -> List[Dict[str, Any]]:
+    url = f"{api_base.rstrip('/')}/api/v1/auto_flags/"
     headers = {'X-API-Key': api_key}
 
     logger.debug('auto-flags: requesting %s', url)
@@ -202,8 +196,6 @@ def _fetch_options(api_base: str, api_key: str,
     resp.raise_for_status()
 
     payload = resp.json()
-    if isinstance(payload, list):
-        return payload
     if not isinstance(payload, dict):
         logger.debug('auto-flags: unexpected response type: %s', type(payload))
         return []
@@ -213,27 +205,41 @@ def _fetch_options(api_base: str, api_key: str,
         logger.debug('auto-flags: API error: %s', error)
         return []
 
-    options = payload.get('args')
-    if options is None:
+    result = payload.get('result')
+    if not isinstance(result, dict):
         return []
-    if not isinstance(options, list):
-        logger.debug('auto-flags: unexpected args type: %s', type(options))
+
+    proposed_changes = result.get('proposed_changes')
+    if proposed_changes is None:
         return []
-    return options
+    if not isinstance(proposed_changes, list):
+        logger.debug('auto-flags: unexpected proposed_changes type: %s',
+                     type(proposed_changes))
+        return []
+    return proposed_changes
 
 
-def _merge_options(args: List[str],
-                   options: List[Dict[str, Any]]) -> List[str]:
+def _merge_args(args: List[str],
+                proposed_changes: List[Dict[str, Any]]) -> List[str]:
+    """Apply EngineProposedChange entries (type=arg only) to launch argv."""
     merged = list(args)
-    for option in options:
-        if not isinstance(option, dict):
+    for change in proposed_changes:
+        if not isinstance(change, dict):
             continue
-        for flag_str in option.get('args', []) or []:
-            tokens = shlex.split(flag_str)
-            if not tokens:
-                continue
-            flag = tokens[0]
-            merged = _apply_flag(merged, flag, tokens)
+        # Only launch-flag edits; ignore infrastructure hints (type=infra).
+        if change.get('type') != 'arg':
+            continue
+        name = change.get('name')
+        if not isinstance(name, str) or not name:
+            continue
+
+        action = change.get('action') or 'set'
+        if action == 'remove':
+            merged = _remove_flag(merged, name)
+        elif action == 'set':
+            value = change.get('value')
+            tokens = [name] if value is None else [name, str(value)]
+            merged = _apply_flag(merged, name, tokens)
     return merged
 
 
@@ -256,6 +262,25 @@ def _apply_flag(args: List[str], flag: str, tokens: List[str]) -> List[str]:
         if end < len(new_args) and not new_args[end].startswith('-'):
             end += 1
         new_args[idx:end] = tokens
+    return new_args
+
+
+def _remove_flag(args: List[str], flag: str) -> List[str]:
+    """Drop `flag` (and its value, if any) from argv when present."""
+    idx = _find_flag(args, flag)
+    if idx is None:
+        return args
+
+    logger.info('auto-flags: removing %s', flag)
+    new_args = list(args)
+    existing = new_args[idx]
+    if '=' in existing and existing.startswith(flag + '='):
+        del new_args[idx]
+    else:
+        end = idx + 1
+        if end < len(new_args) and not new_args[end].startswith('-'):
+            end += 1
+        del new_args[idx:end]
     return new_args
 
 

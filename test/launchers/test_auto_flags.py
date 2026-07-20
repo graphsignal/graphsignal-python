@@ -17,6 +17,29 @@ def has_nvidia_gpu() -> bool:
         return False
 
 
+def _change(name, value=None, action='set', change_type='arg', reason='r'):
+    return {
+        'type': change_type,
+        'action': action,
+        'name': name,
+        'value': value,
+        'reason': reason,
+        'bottleneck_ref': None,
+    }
+
+
+def _ok_response(proposed_changes):
+    return {
+        'error': None,
+        'result': {
+            'bottlenecks': [],
+            'proposed_changes': proposed_changes,
+            'status': 'ok',
+            'status_reason': None,
+        },
+    }
+
+
 class ApplyFlagTest(unittest.TestCase):
     def test_appends_bare_flag_when_absent(self):
         out = auto_flags._apply_flag(['vllm', 'serve'], '--no-cache', ['--no-cache'])
@@ -40,17 +63,71 @@ class ApplyFlagTest(unittest.TestCase):
         self.assertEqual(out, ['vllm', 'serve', '--max-output-tokens', '123'])
 
 
-class MergeOptionsTest(unittest.TestCase):
-    def test_merges_multiple_options(self):
-        out = auto_flags._merge_options(
+class RemoveFlagTest(unittest.TestCase):
+    def test_removes_bare_flag(self):
+        out = auto_flags._remove_flag(
+            ['vllm', 'serve', '--no-cache', '--port', '8000'], '--no-cache')
+        self.assertEqual(out, ['vllm', 'serve', '--port', '8000'])
+
+    def test_removes_space_form_flag_and_value(self):
+        out = auto_flags._remove_flag(
+            ['vllm', 'serve', '--max-output-tokens', '10', '--port', '8000'],
+            '--max-output-tokens')
+        self.assertEqual(out, ['vllm', 'serve', '--port', '8000'])
+
+    def test_removes_equals_form_flag(self):
+        out = auto_flags._remove_flag(
+            ['vllm', 'serve', '--max-output-tokens=10', '--port', '8000'],
+            '--max-output-tokens')
+        self.assertEqual(out, ['vllm', 'serve', '--port', '8000'])
+
+    def test_noop_when_flag_absent(self):
+        args = ['vllm', 'serve', '--port', '8000']
+        self.assertEqual(auto_flags._remove_flag(args, '--no-cache'), args)
+
+
+class MergeArgsTest(unittest.TestCase):
+    def test_merges_set_changes(self):
+        out = auto_flags._merge_args(
             ['vllm', 'serve', 'm'],
-            [{'args': ['--max-output-tokens 123']}, {'args': ['--no-cache']}])
+            [
+                _change('--max-output-tokens', '123'),
+                _change('--no-cache'),
+            ])
         self.assertEqual(
             out, ['vllm', 'serve', 'm', '--max-output-tokens', '123', '--no-cache'])
 
-    def test_ignores_non_dict_and_empty(self):
-        out = auto_flags._merge_options(
-            ['vllm'], ['not-a-dict', {}, {'args': []}, {'args': ['']}])
+    def test_modifies_existing_flag(self):
+        out = auto_flags._merge_args(
+            ['vllm', 'serve', '--max-num-seqs', '64'],
+            [_change('--max-num-seqs', '48')])
+        self.assertEqual(out, ['vllm', 'serve', '--max-num-seqs', '48'])
+
+    def test_removes_flag(self):
+        out = auto_flags._merge_args(
+            ['vllm', 'serve', '--aefasdfasd', '--port', '8000'],
+            [_change('--aefasdfasd', action='remove')])
+        self.assertEqual(out, ['vllm', 'serve', '--port', '8000'])
+
+    def test_defaults_missing_action_to_set(self):
+        out = auto_flags._merge_args(
+            ['vllm'],
+            [{'type': 'arg', 'name': '--no-cache', 'value': None, 'reason': 'r'}])
+        self.assertEqual(out, ['vllm', '--no-cache'])
+
+    def test_skips_non_arg_changes(self):
+        out = auto_flags._merge_args(
+            ['vllm', 'serve'],
+            [
+                _change('gpu_count', '2', change_type='infra'),
+                _change('--no-cache'),
+            ])
+        self.assertEqual(out, ['vllm', 'serve', '--no-cache'])
+
+    def test_ignores_non_dict_and_invalid(self):
+        out = auto_flags._merge_args(
+            ['vllm'],
+            ['not-a-dict', {}, {'type': 'arg'}, {'type': 'arg', 'name': ''}])
         self.assertEqual(out, ['vllm'])
 
 
@@ -155,28 +232,59 @@ class InjectAutoFlagsTest(unittest.TestCase):
     def test_applies_returned_flags(self):
         resp = MagicMock()
         resp.raise_for_status.return_value = None
-        resp.json.return_value = {
-            'error': None,
-            'args': [{'args': ['--no-cache'], 'reason': 'Disable cache.'}],
-        }
+        resp.json.return_value = _ok_response([
+            _change('--no-cache', reason='Disable cache.'),
+            _change('--max-num-seqs', '48', reason='Lower concurrency.'),
+        ])
         with patch.dict('os.environ', {'GRAPHSIGNAL_API_KEY': 'k'}, clear=True), \
              patch.object(auto_flags, '_collect_system', return_value=[]), \
              patch.object(auto_flags.requests, 'post', return_value=resp) as post_m:
             out = auto_flags.inject_auto_flags(
-                ['vllm', 'serve', 'm'], workload_id='wl-abc123')
+                ['vllm', 'serve', 'm', '--bad-flag'], workload_id='wl-abc123')
 
-        self.assertEqual(out, ['vllm', 'serve', 'm', '--no-cache'])
+        self.assertEqual(
+            out, ['vllm', 'serve', 'm', '--bad-flag', '--no-cache', '--max-num-seqs', '48'])
         called = post_m.call_args
-        self.assertEqual(called.args[0], 'https://api.graphsignal.com/api/v1/auto_flags')
+        self.assertEqual(called.args[0], 'https://api.graphsignal.com/api/v1/auto_flags/')
         self.assertEqual(called.kwargs['headers'], {'X-API-Key': 'k'})
         body = called.kwargs['json']
-        self.assertEqual(body['env']['command_line'], 'vllm serve m')
+        self.assertEqual(body['env']['command_line'], 'vllm serve m --bad-flag')
         self.assertEqual(body['env']['tags']['workload.id'], 'wl-abc123')
+
+    def test_applies_remove_changes(self):
+        resp = MagicMock()
+        resp.raise_for_status.return_value = None
+        resp.json.return_value = _ok_response([
+            _change('--bad-flag', action='remove', reason='Unknown flag.'),
+            _change('--enable-chunked-prefill', reason='Smooth prefill.'),
+        ])
+        with patch.dict('os.environ', {'GRAPHSIGNAL_API_KEY': 'k'}, clear=True), \
+             patch.object(auto_flags, '_collect_system', return_value=[]), \
+             patch.object(auto_flags.requests, 'post', return_value=resp):
+            out = auto_flags.inject_auto_flags(
+                ['vllm', 'serve', 'm', '--bad-flag', '--port', '8000'])
+
+        self.assertEqual(
+            out, ['vllm', 'serve', 'm', '--port', '8000', '--enable-chunked-prefill'])
+
+    def test_ignores_infra_changes(self):
+        resp = MagicMock()
+        resp.raise_for_status.return_value = None
+        resp.json.return_value = _ok_response([
+            _change('gpu_count', '2', change_type='infra', reason='Need more GPUs.'),
+            _change('--no-cache', reason='Disable cache.'),
+        ])
+        with patch.dict('os.environ', {'GRAPHSIGNAL_API_KEY': 'k'}, clear=True), \
+             patch.object(auto_flags, '_collect_system', return_value=[]), \
+             patch.object(auto_flags.requests, 'post', return_value=resp):
+            out = auto_flags.inject_auto_flags(['vllm', 'serve', 'm'])
+
+        self.assertEqual(out, ['vllm', 'serve', 'm', '--no-cache'])
 
     def test_uses_api_base_override(self):
         resp = MagicMock()
         resp.raise_for_status.return_value = None
-        resp.json.return_value = {'error': None, 'args': []}
+        resp.json.return_value = _ok_response([])
         with patch.dict('os.environ',
                         {'GRAPHSIGNAL_API_KEY': 'k',
                          'GRAPHSIGNAL_API_BASE': 'http://localhost:8080'}, clear=True), \
@@ -184,7 +292,7 @@ class InjectAutoFlagsTest(unittest.TestCase):
              patch.object(auto_flags.requests, 'post', return_value=resp) as post_m:
             auto_flags.inject_auto_flags(['vllm'])
         self.assertEqual(
-            post_m.call_args.args[0], 'http://localhost:8080/api/v1/auto_flags')
+            post_m.call_args.args[0], 'http://localhost:8080/api/v1/auto_flags/')
 
     def test_returns_args_unchanged_on_network_error(self):
         with patch.dict('os.environ', {'GRAPHSIGNAL_API_KEY': 'k'}, clear=True), \
@@ -198,7 +306,7 @@ class InjectAutoFlagsTest(unittest.TestCase):
         captured = {}
         resp = MagicMock()
         resp.raise_for_status.return_value = None
-        resp.json.return_value = {'error': None, 'args': []}
+        resp.json.return_value = _ok_response([])
 
         def fake_post(url, json=None, headers=None, timeout=None):
             captured['body'] = json
@@ -218,7 +326,7 @@ class InjectAutoFlagsTest(unittest.TestCase):
     def test_returns_args_unchanged_on_api_error(self):
         resp = MagicMock()
         resp.raise_for_status.return_value = None
-        resp.json.return_value = {'error': 'Workload ID is required', 'args': None}
+        resp.json.return_value = {'error': 'Workload ID is required', 'result': None}
         with patch.dict('os.environ', {'GRAPHSIGNAL_API_KEY': 'k'}, clear=True), \
              patch.object(auto_flags, '_collect_system', return_value=[]), \
              patch.object(auto_flags.requests, 'post', return_value=resp):

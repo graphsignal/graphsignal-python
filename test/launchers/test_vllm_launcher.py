@@ -1,4 +1,3 @@
-import os
 import unittest
 
 from graphsignal.launchers import vllm_launcher as vllm_mod
@@ -60,13 +59,10 @@ class VllmLaunchTest(unittest.TestCase):
         fx.setup_env_m.assert_called_once()
         fx.find_port_m.assert_called_once()
         # No --port in argv → falls back to vLLM's default serving port (8000).
-        fx.start_watcher_m.assert_called_once_with(
-            os.getpid(), workload_id=hash_workload_id(['vllm', 'serve', 'm']),
+        fx.launch_supervised_m.assert_called_once_with(
+            ['/abs/exec', 'serve', 'm', '--otlp-traces-endpoint', '127.0.0.1:4242'],
+            workload_id=hash_workload_id(['vllm', 'serve', 'm']),
             otel_collector_port=4242, metrics_port=8000)
-        fx.execv_m.assert_called_once()
-        called_argv = fx.execv_m.call_args[0][1]
-        self.assertIn('--otlp-traces-endpoint', called_argv)
-        self.assertIn('127.0.0.1:4242', called_argv)
 
     def test_launch_no_otel_by_default(self):
         # Default (no --enable-otel): no collector port, no endpoint injection.
@@ -75,18 +71,19 @@ class VllmLaunchTest(unittest.TestCase):
             launcher.launch()
 
         fx.find_port_m.assert_not_called()
-        fx.start_watcher_m.assert_called_once_with(
-            os.getpid(), workload_id=hash_workload_id(['vllm', 'serve', 'm']),
+        fx.launch_supervised_m.assert_called_once_with(
+            ['/abs/exec', 'serve', 'm'],
+            workload_id=hash_workload_id(['vllm', 'serve', 'm']),
             otel_collector_port=None, metrics_port=8000)
-        called_argv = fx.execv_m.call_args[0][1]
-        self.assertNotIn('--otlp-traces-endpoint', called_argv)
+        self.assertNotIn('--otlp-traces-endpoint', fx.launched_argv)
 
     def test_launch_metrics_port_from_engine_args(self):
         launcher = VllmLauncher(['vllm', 'serve', 'm', '--port', '8001'])
         with LaunchFixture(vllm_mod) as fx:
             launcher.launch()
-        fx.start_watcher_m.assert_called_once_with(
-            os.getpid(), workload_id=hash_workload_id(['vllm', 'serve', 'm', '--port', '8001']),
+        fx.launch_supervised_m.assert_called_once_with(
+            ['/abs/exec', 'serve', 'm', '--port', '8001'],
+            workload_id=hash_workload_id(['vllm', 'serve', 'm', '--port', '8001']),
             otel_collector_port=None, metrics_port=8001)
 
     def test_launch_explicit_metrics_port_overrides_engine_args(self):
@@ -94,8 +91,9 @@ class VllmLaunchTest(unittest.TestCase):
             ['vllm', 'serve', 'm', '--port', '8001'], metrics_port=9999)
         with LaunchFixture(vllm_mod) as fx:
             launcher.launch()
-        fx.start_watcher_m.assert_called_once_with(
-            os.getpid(), workload_id=hash_workload_id(['vllm', 'serve', 'm', '--port', '8001']),
+        fx.launch_supervised_m.assert_called_once_with(
+            ['/abs/exec', 'serve', 'm', '--port', '8001'],
+            workload_id=hash_workload_id(['vllm', 'serve', 'm', '--port', '8001']),
             otel_collector_port=None, metrics_port=9999)
 
     def test_launch_skips_collector_when_user_endpoint_present(self):
@@ -108,15 +106,11 @@ class VllmLaunchTest(unittest.TestCase):
             launcher.launch()
 
         fx.find_port_m.assert_not_called()
-        fx.start_watcher_m.assert_called_once_with(
-            os.getpid(),
+        fx.launch_supervised_m.assert_called_once_with(
+            ['/abs/exec', 'serve', 'm', '--otlp-traces-endpoint', 'http://them:4317'],
             workload_id=hash_workload_id(
                 ['vllm', 'serve', 'm', '--otlp-traces-endpoint', 'http://them:4317']),
             otel_collector_port=None, metrics_port=8000)
-        called_argv = fx.execv_m.call_args[0][1]
-        self.assertEqual(
-            called_argv,
-            ['vllm', 'serve', 'm', '--otlp-traces-endpoint', 'http://them:4317'])
 
     def test_launch_raises_when_executable_missing(self):
         launcher = VllmLauncher(['vllm-typo'])
@@ -124,7 +118,7 @@ class VllmLaunchTest(unittest.TestCase):
             fx.resolve_m.return_value = None
             with self.assertRaises(FileNotFoundError):
                 launcher.launch()
-        fx.execv_m.assert_not_called()
+        fx.launch_supervised_m.assert_not_called()
 
 
 if __name__ == '__main__':

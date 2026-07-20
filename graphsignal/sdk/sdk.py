@@ -167,6 +167,26 @@ class Sdk:
 
         logger.debug('SDK setup complete')
 
+    def on_target_known(self, pid):
+        # Fired from PidWatcher.setup(), before the target is observed alive.
+        # The console-log dir is a pid-derived artifact written by the
+        # graphsignal-run supervisor; it exists (and must be drained) even if
+        # the target dies before on_target_created — so the LogRecorder is
+        # created from the pid alone, kept out of the on_target_created set.
+        from graphsignal.recorders.log_recorder import LogRecorder
+
+        recorder = LogRecorder(root_pid=self._target_pid, pid=pid, args=None)
+        # Registered before on_target_created runs; that handler extends this
+        # list rather than replacing it, so this recorder is preserved.
+        with self._recorders_lock:
+            self._global_recorders.append(recorder)
+
+        try:
+            recorder.setup()
+        except Exception:
+            logger.error('Failed to set up recorder %s for target pid %s',
+                         type(recorder).__name__, pid, exc_info=True)
+
     def on_target_created(self, args):
         from graphsignal.recorders.host_recorder import HostRecorder
         from graphsignal.recorders.process_recorder import ProcessRecorder
@@ -192,8 +212,10 @@ class Sdk:
         recorders.append(RocmRecorder(
             root_pid=self._target_pid, pid=self._target_pid, args=args))
 
+        # Extend (not replace): a LogRecorder registered earlier by
+        # on_target_known already lives in this list.
         with self._recorders_lock:
-            self._global_recorders = recorders
+            self._global_recorders.extend(recorders)
 
         for recorder in recorders:
             try:
@@ -238,6 +260,16 @@ class Sdk:
         def _finalize():
             try:
                 self._auto_tick = False
+                # Let recorders push any buffered final data into the stores
+                # first, then flush — so a target's dying words (incl. a
+                # trailing error line or the supervisor's exit-status record)
+                # are drained before the upload, in the right order.
+                for recorder in self.recorders():
+                    try:
+                        recorder.finalize()
+                    except Exception:
+                        logger.error('Error finalizing recorder %s',
+                                     type(recorder).__name__, exc_info=True)
                 self.tick(block=True, force=True)
             except Exception:
                 logger.error('Error during target_terminated final flush', exc_info=True)
@@ -420,6 +452,28 @@ class Sdk:
         if last_exc:
             raise last_exc
 
+    def _flush_stores(self):
+        """Drain the signal stores and upload. Shared by the periodic tick and
+        the final shutdown flush; safe to call when a store/uploader is None."""
+        if self._span_store and self._span_store.has_unexported():
+            for span in self._span_store.export():
+                self.signal_uploader().upload_span(span)
+
+        if self._metric_store and self._metric_store.has_unexported():
+            for metric in self._metric_store.export():
+                self.signal_uploader().upload_metric(metric)
+
+        if self._log_store and self._log_store.has_unexported():
+            for batch in self._log_store.export():
+                self.signal_uploader().upload_log_batch(batch)
+
+        if self._resource_store and self._resource_store.has_unexported():
+            for resource in self._resource_store.export():
+                self.signal_uploader().upload_resource(resource)
+
+        if self._signal_uploader:
+            self._signal_uploader.flush()
+
     def set_tag(self, key: str, value: str, append_uuid: Optional[bool] = False) -> None:
         if not key:
             logger.error('set_tag: key must be provided')
@@ -511,28 +565,7 @@ class Sdk:
                 except Exception:
                     logger.error('Error in tick recorder loop', exc_info=True)
 
-                if self._span_store and self._span_store.has_unexported():
-                    spans = self._span_store.export()
-                    for span in spans:
-                        self.signal_uploader().upload_span(span)
-
-                if self._metric_store and self._metric_store.has_unexported():
-                    metrics = self._metric_store.export()
-                    for metric in metrics:
-                        self.signal_uploader().upload_metric(metric)
-
-                if self._log_store and self._log_store.has_unexported():
-                    batches = self._log_store.export()
-                    for batch in batches:
-                        self.signal_uploader().upload_log_batch(batch)
-
-                if self._resource_store and self._resource_store.has_unexported():
-                    resources = self._resource_store.export()
-                    for resource in resources:
-                        self.signal_uploader().upload_resource(resource)
-
-                if self._signal_uploader:
-                    self._signal_uploader.flush()
+                self._flush_stores()
             except Exception as exc:
                 logger.error('Error in tick execution: %s', exc, exc_info=True)
             finally:
