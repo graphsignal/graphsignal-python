@@ -115,6 +115,20 @@ class MergeArgsTest(unittest.TestCase):
             [{'type': 'arg', 'name': '--no-cache', 'value': None, 'reason': 'r'}])
         self.assertEqual(out, ['vllm', '--no-cache'])
 
+    def test_empty_string_value_is_bare_flag(self):
+        # API returns value='' for store_true flags; must not append ''.
+        out = auto_flags._merge_args(
+            ['sglang', 'serve', '--model-path', 'm'],
+            [_change('--disable-radix-cache', '')])
+        self.assertEqual(
+            out, ['sglang', 'serve', '--model-path', 'm', '--disable-radix-cache'])
+
+    def test_whitespace_value_is_bare_flag(self):
+        out = auto_flags._merge_args(
+            ['sglang', 'serve'],
+            [_change('--disable-radix-cache', '  \t')])
+        self.assertEqual(out, ['sglang', 'serve', '--disable-radix-cache'])
+
     def test_skips_non_arg_changes(self):
         out = auto_flags._merge_args(
             ['vllm', 'serve'],

@@ -38,6 +38,8 @@ def inject_auto_flags(args: List[str], engine_name: Optional[str] = None,
 
         merged_args = _merge_args(args, proposed_changes)
         logger.debug('auto-flags: merged args: %s', merged_args)
+        logger.debug('auto-flags: merged command line: %s',
+                     shlex.join(merged_args))
 
         return merged_args
     except Exception:
@@ -238,30 +240,33 @@ def _merge_args(args: List[str],
             merged = _remove_flag(merged, name)
         elif action == 'set':
             value = change.get('value')
-            tokens = [name] if value is None else [name, str(value)]
-            merged = _apply_flag(merged, name, tokens)
+            if value is None or (isinstance(value, str) and value.strip() == ''):
+                flag_args = [name]
+            else:
+                flag_args = [name, str(value)]
+            merged = _apply_flag(merged, name, flag_args)
     return merged
 
 
-def _apply_flag(args: List[str], flag: str, tokens: List[str]) -> List[str]:
-    """Append tokens, or, when `flag` already exists, replace its occurrence."""
+def _apply_flag(args: List[str], flag: str, flag_args: List[str]) -> List[str]:
+    """Append `flag_args`, or replace an existing occurrence of `flag`."""
     idx = _find_flag(args, flag)
     if idx is None:
-        logger.info('auto-flags: adding %s', ' '.join(tokens))
-        return args + tokens
+        logger.info('auto-flags: adding %s', ' '.join(flag_args))
+        return args + flag_args
 
-    logger.info('auto-flags: modifying %s', ' '.join(tokens))
+    logger.info('auto-flags: modifying %s', ' '.join(flag_args))
     new_args = list(args)
     existing = new_args[idx]
     if '=' in existing and existing.startswith(flag + '='):
         # `--flag=value` form occupies a single argv entry.
-        new_args[idx:idx + 1] = tokens
+        new_args[idx:idx + 1] = flag_args
     else:
         # `--flag value` form: drop the flag and, if present, its value.
         end = idx + 1
         if end < len(new_args) and not new_args[end].startswith('-'):
             end += 1
-        new_args[idx:end] = tokens
+        new_args[idx:end] = flag_args
     return new_args
 
 
